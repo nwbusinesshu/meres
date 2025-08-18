@@ -1,0 +1,67 @@
+.assessment-running{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1em;
+}
+.assessment-running div{
+  flex: 1 400px;
+  font-size: 1.2em;
+  text-align: center;
+}
+.assessment-running div span{
+  font-weight: bold;
+  font-size: 1.2em;
+}
+.person-list{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1em;
+}
+.person{
+  width: calc(50% - .5em);
+  gap: 0;
+  cursor: pointer;
+  padding: .5em;
+}
+.person:hover{
+  background-color: var(--dim);
+}
+.person p:nth-child(1){
+  text-align: left;
+  align-self: flex-start;
+  color: var(--silver_chalice);
+  font-style: italic;
+  font-weight: bold;
+}
+.person p:nth-child(2){
+  text-align: center;
+  align-self: center;
+  font-family: 'Kanit', sans-serif;
+  font-size: 1.5em;
+  font-weight: 600;
+  margin-top: .5em;
+  margin-bottom: .5em;
+}
+.person p:nth-child(3){
+  text-align: right;
+  align-self: flex-end;
+  color: var(--silver_chalice);
+  font-style: italic;
+  font-weight: bold;
+}
+
+.no-more,
+.rank-done{
+  width: 100%;
+  font-weight: bold;
+}
+
+.tile.tile-info > p:first-child{
+ font-weight: bold;
+}
+
+@media all and (max-width: 680px){
+  .person{
+    width: 100%;
+  }
+}

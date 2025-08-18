@@ -1,0 +1,12 @@
+/vendor/
+/storage/*
+!/storage/app/
+/storage/app/public/
+/storage/framework/
+/storage/logs/
+.env
+/public/storage
+/node_modules/
+/.idea/
+/.vscode/
+composer.lock

@@ -1,0 +1,26 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Ha a fájl vagy könyvtár létezik → közvetlenül kiszolgáljuk
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Egyébként menjen az index.php-ra
+    RewriteRule ^ index.php [L]
+</IfModule>
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Ha a fájl létezik → szolgáld ki közvetlenül
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Egyébként irány az index.php
+    RewriteRule ^ index.php [L]
+</IfModu
+
+[200~ls -la ~/nwbusiness.hu/sub/meres/public/.htaccess~
+
+
+nano ~/nwbusiness.hu/sub/meres/public/.htaccess
+</IfModule>

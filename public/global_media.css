@@ -1,0 +1,7 @@
+@media all and (max-width: 960px){
+  .navbar .userinfo img,
+  .navbar .userinfo span,
+  .navbar .menuitem span{
+    display: none;
+  }
+}

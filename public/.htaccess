@@ -1,0 +1,12 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Létező fájl vagy könyvtár? Szolgáld ki közvetlenül.
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Egyébként menjen az indexre
+    RewriteRule ^ index.php [L]
+</IfModule>

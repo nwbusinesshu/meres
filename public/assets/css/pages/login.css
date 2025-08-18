@@ -1,0 +1,20 @@
+.main-content{
+  margin-top: calc(5em + 1rem);
+  align-items: center;
+}
+.tile{
+  width: 100%;
+  max-width: 600px;
+}
+.chaos-360{
+  max-height: 6em;
+  margin-bottom: 1rem;
+}
+.mewocont-logo{
+  margin-top: 2rem;
+  max-height: 2em;
+}
+h1{
+  margin-top: 2rem;
+  font-size: min(11vw, 2.5em);
+}

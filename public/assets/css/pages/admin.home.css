@@ -1,0 +1,117 @@
+.main-content{
+  padding-top: 1em;
+}
+.main-content > .double-tiles{
+  display: flex;
+  justify-content: center;
+  gap: 1em;
+  flex-wrap: wrap;
+}
+
+.main-content > .double-tiles > .tile{
+  flex: 1 400px;
+  padding-top: .5em;
+  padding-bottom: .5em;
+  gap: 0;
+}
+
+.main-content > div > .tile p{
+  font-weight: bold;
+}
+
+.close-assessment{
+  margin-top: 1em;
+}
+
+#assessment-modal .modal-body{
+  display: flex;
+  flex-direction: column;
+}
+
+#assessment-modal .form-group{
+  width: 100%;
+}
+
+#assessment-modal .form-group label{
+  font-size: 1.1em;
+  font-weight: bold;
+}
+#assessment-modal .tile-warning{
+  margin-bottom: 1em;
+}
+#assessment-modal .tile-warning span{
+  font-weight: bold;
+}
+#assessment-modal .tile-warning.hidden{
+  display: none;
+}
+
+.stats div > p:nth-child(1){
+  text-align: center;
+  font-family: 'Kanit', sans-serif;
+  font-size: 1.2em;
+}
+.stats div > p:nth-child(2){
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 4em;
+}
+.stats div span{
+  font-size: 2em;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.stats div span:nth-child(2){
+  justify-content: flex-end;
+}
+.person-stats{
+  display: flex;
+  gap: 1em;
+  flex-wrap: wrap;
+}
+.person-stat{
+  width: calc(50% - .5em);
+}
+.person-stat > p{
+  font-style: italic;
+  font-weight: 1.1em;
+}
+.person-stat.tile-success > p{
+  color: var(--success);
+}
+
+.person-stat.tile-danger > p{
+  color: var(--danger);
+}
+.person-stat > div{
+  display: flex;
+}
+.person-stat > div > div{
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+.person-stat > div > div span:nth-child(2){
+  font-weight: bold;
+  font-size: 1.2em;
+}
+.person-stat > div > div span i{
+  font-size: 1.5em;
+}
+.person-stat > div > div span i.fa-square-xmark{
+  color: var(--secondary);
+}
+.person-stat > div > div span i.fa-square-check{
+  color: var(--success);
+}
+
+@media all and (max-width: 760px) {
+  .person-stat{
+    width: 100%;
+  }
+}
