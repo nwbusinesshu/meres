@@ -39,28 +39,26 @@ class OrganizationController extends Controller
         ]);
     }
 
-    public function switch(Request $request)
-    {
-        $request->validate(['org_id' => 'required|integer']);
-
-        $orgId = (int) $request->input('org_id');
-        $isSuperAdmin = (session('utype') === UserType::SUPERADMIN);
-
-        if ($isSuperAdmin) {
-            // superadmin bármely org-ot választhat
-            session(['org_id' => $orgId]);
-            return redirect('home-redirect')->with('info', 'Szervezet kiválasztva.');
-        }
-
-        // nem superadmin → ellenőrizzük a tagságot
-        $user = User::find(session('uid'));
-        $allowed = $user->organizations()->where('organization.id', $orgId)->exists();
-
-        if (!$allowed) {
-            return redirect()->route('org.select')->with('error', 'Nincs jogosultságod ehhez a szervezethez.');
-        }
-
-        session(['org_id' => $orgId]);
-        return redirect('home-redirect')->with('info', 'Szervezet kiválasztva.');
+public function switch(Request $request)
+{
+    $user = auth()->user();
+    
+    if (!$user) {
+        return redirect()->route('login')->with('error', 'Nincs bejelentkezve.');
     }
+
+    $orgId = (int) $request->input('id');
+
+    $isAuthorized = $user->type === \App\Models\Enums\UserType::SUPERADMIN
+        || $user->organizations()->where('organization_id', $orgId)->exists();
+
+    if (!$isAuthorized) {
+        abort(403, 'Nincs jogosultságod ehhez a szervezethez.');
+    }
+
+    session(['org_id' => $orgId]);
+
+    return redirect()->route('home-redirect');
+}
+
 }

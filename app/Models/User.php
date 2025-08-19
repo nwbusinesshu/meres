@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Models;
 
 use App\Models\Enums\UserRelationType;
@@ -7,9 +6,12 @@ use App\Services\AssessmentService;
 use App\Services\UserService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 
-class User extends Model
+class User extends Authenticatable
 {
+    use Notifiable;
     protected $table = 'user';
 	public $timestamps = false;
 	protected $guarded = [];
@@ -23,7 +25,6 @@ class User extends Model
     return $this->belongsToMany(\App\Models\Organization::class, 'organization_user', 'user_id', 'organization_id')
         ->withPivot('role');
     }
-
 
     public function getLastLogin(){
         return $this->logins()->first();
@@ -87,12 +88,12 @@ class User extends Model
     public function bonusMalus(){
         return $this->hasMany(UserBonusMalus::class,'user_id', 'id')->orderByDesc('month');
     }
-
     public function getBonusMalusInMonth($month){
-        return $this->bonusMalus()->where('month', $month)->first() ?? new UserBonusMalus([
-            "user_id" => $this->id,
-            "level" => $this->bonusMalus->last()->level,
-            "month" => $month
-        ]);
+    $last = $this->bonusMalus->last();
+    return $this->bonusMalus()->where('month', $month)->first() ?? new UserBonusMalus([
+        "user_id" => $this->id,
+        "level" => $last ? $last->level : 0,
+        "month" => $month
+    ]);
     }
 }

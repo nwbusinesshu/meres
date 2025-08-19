@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\Assessment;
@@ -17,7 +16,11 @@ class ResultsController extends Controller
         $user = User::find(session('uid'));
         if(!is_null($assessment)){
             $user['stats'] = UserService::calculateUserPoints($user, $assessment);
-            $user['bonusMalus'] = $user->getBonusMalusInMonth(date('Y-m-01',strtotime($assessment->closed_at)))->level;
+            if (!in_array($user->type, [UserType::ADMIN, UserType::SUPERADMIN])) {
+                $user['bonusMalus'] = $user->getBonusMalusInMonth(date('Y-m-01',strtotime($assessment->closed_at)))->level;
+            } else {
+                $user['bonusMalus'] = null;
+            }    
             $user['change'] = 'none';
             if(!is_null($user->stats)){
                 if($user->has_auto_level_up == 1){

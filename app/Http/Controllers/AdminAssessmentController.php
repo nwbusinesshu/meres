@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\Assessment;
@@ -58,7 +57,9 @@ class AdminAssessmentController extends Controller
             $assessment->save();
 
             // CALCULATE NEW BONUS MALUS LEVELS
-            $users = User::whereNull('removed_at')->whereNot('type', UserType::ADMIN)->get();
+            $users = User::whereNull('removed_at')
+             ->whereNotIn('type', [UserType::ADMIN, UserType::SUPERADMIN])
+             ->get();
             $users->each(function($user) use ($assessment){
                 $stat = UserService::calculateUserPoints($user,$assessment);
                 // skipping users that werent participating
