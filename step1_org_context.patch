@@ -1,0 +1,248 @@
+
+*** Begin Patch
+*** Add File: meres-staging/app/Models/Organization.php
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Model;
++
++class Organization extends Model
++{
++    protected $table = 'organization';
++    public $timestamps = false;
++    protected $guarded = [];
++    protected $hidden = [];
++
++    public function users(){
++        return $this->belongsToMany(User::class, 'organization_user', 'organization_id', 'user_id')
++            ->withPivot('role');
++    }
++}
++
+*** End Patch
+
+*** Begin Patch
+*** Update File: meres-staging/app/Models/User.php
+@@
+ class User extends Model
+ {
+     protected $table = 'user';
+ 	public $timestamps = false;
+ 	protected $guarded = [];
+ 	protected $hidden = [];
++
++    /**
++     * Organizations the user belongs to (multi-tenant membership).
++     */
++    public function organizations(){
++        return $this->belongsToMany(Organization::class, 'organization_user', 'user_id', 'organization_id')
++            ->withPivot('role');
++    }
+@@
+     public function allRelations(){
+         return $this->hasMany(UserRelation::class, 'user_id', 'id');
+     }
+*** End Patch
+
+*** Begin Patch
+*** Add File: meres-staging/app/Http/Middleware/SetOrganization.php
++<?php
++
++namespace App\Http\Middleware;
++
++use Closure;
++use Illuminate\Http\Request;
++use App\Models\Enums\UserType;
++use App\Models\Organization;
++use App\Models\User;
++
++class SetOrganization
++{
++    /**
++     * Ensure there is an active organization in session and the user is a member.
++     */
++    public function handle(Request $request, Closure $next)
++    {
++        $uid = session('uid');
++        /** @var User $user */
++        $user = $uid ? User::find($uid) : null;
++
++        if (!$user) {
++            return redirect()->route('login');
++        }
++
++        // Superadmin (global) can pick any org; we still require an org for scoped pages
++        $isSuperAdmin = session('utype') === UserType::ADMIN;
++
++        $orgId = session('org_id');
++        $userOrgIds = $user->organizations()->pluck('organization.id')->toArray();
++
++        if (!$orgId) {
++            if ($isSuperAdmin) {
++                return redirect()->route('org.select');
++            }
++            if (count($userOrgIds) === 1) {
++                session(['org_id' => $userOrgIds[0]]);
++            } elseif (count($userOrgIds) > 1) {
++                return redirect()->route('org.select');
++            } else {
++                abort(403, __('auth.no-organization'));
++            }
++        } else {
++            if (!$isSuperAdmin && !in_array($orgId, $userOrgIds)) {
++                // lost membership or tampered session -> force reselection
++                session()->forget('org_id');
++                return redirect()->route('org.select');
++            }
++        }
++
++        return $next($request);
++    }
++}
++
+*** End Patch
+
+*** Begin Patch
+*** Update File: meres-staging/app/Http/Kernel.php
+@@
+         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
++        'org' => \App\Http\Middleware\SetOrganization::class,
+     ];
+ }
+*** End Patch
+
+*** Begin Patch
+*** Add File: meres-staging/app/Http/Controllers/OrganizationController.php
++<?php
++
++namespace App\Http\Controllers;
++
++use App\Models\Enums\UserType;
++use App\Models\Organization;
++use App\Models\User;
++use Illuminate\Http\Request;
++
++class OrganizationController extends Controller
++{
++    public function select(Request $request){
++        /** @var User $user */
++        $user = User::find(session('uid'));
++
++        $isSuperAdmin = session('utype') === UserType::ADMIN;
++        $orgs = $isSuperAdmin
++            ? Organization::whereNull('removed_at')->orderBy('name')->get()
++            : $user->organizations()->whereNull('removed_at')->orderBy('name')->get();
++
++        return view('org.select', ['orgs' => $orgs, 'isSuperAdmin' => $isSuperAdmin]);
++    }
++
++    public function switch(Request $request){
++        $request->validate(['org_id' => ['required','integer']]);
++        $orgId = (int) $request->get('org_id');
++
++        $isSuperAdmin = session('utype') === UserType::ADMIN;
++
++        /** @var User $user */
++        $user = User::find(session('uid'));
++        $allowed = $isSuperAdmin
++            ? Organization::where('id',$orgId)->whereNull('removed_at')->exists()
++            : $user->organizations()->where('organization.id', $orgId)->whereNull('organization.removed_at')->exists();
++
++        if(!$allowed){
++            abort(403);
++        }
++
++        session(['org_id' => $orgId]);
++        session()->flash('success', __('Organization selected.'));
++        return redirect()->route('home-redirect');
++    }
++}
++
+*** End Patch
+
+*** Begin Patch
+*** Update File: meres-staging/routes/web.php
+@@
+ use App\Http\Controllers\LoginController;
++use App\Http\Controllers\OrganizationController;
+@@
+-Route::get('/home-redirect', function(Request $request){
++Route::get('/home-redirect', function(Request $request){
+   $target = Auth::isAuthorized(UserType::ADMIN) ? 'admin.home' : 'home';
+   session()->reflash();
+   return redirect()->route($target);
+ })->name('home-redirect')->middleware('auth:'.UserType::NORMAL);
+ 
++// organization selection / switching (after auth, before org-scoped pages)
++Route::controller(OrganizationController::class)->prefix('/org')->middleware('auth:'.UserType::NORMAL)->name('org.')->group(function(){
++  Route::get('/select', 'select')->name('select');
++  Route::post('/switch', 'switch')->name('switch');
++});
++
+ // admin
+-Route::prefix('/admin')->name('admin.')->middleware('auth:'.UserType::ADMIN)->group(function(){
++Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'org'])->group(function(){
+   Route::get('/home', [HomeController::class, 'admin'])->name('home');
+@@
+-Route::controller(NormalController::class)->middleware('auth:'.UserType::NORMAL)->group(function () {
++Route::controller(NormalController::class)->middleware(['auth:'.UserType::NORMAL, 'org'])->group(function () {
+   Route::get('/home', [HomeController::class,'normal'])->name('home');
+*** End Patch
+
+*** Begin Patch
+*** Update File: meres-staging/app/Http/Controllers/LoginController.php
+@@
+ use App\Models\User;
++use App\Models\Enums\UserType;
+@@
+         session(['utype' => $user->type]);
+         session(['uavatar' => $u->getAvatar()]);
+@@
+-        return redirect('home-redirect');
++        // If superadmin (global admin), force org selection
++        if($user->type === UserType::ADMIN){
++            return redirect()->route('org.select');
++        }
++
++        // If user belongs to exactly one organization, auto-select it
++        $orgIds = $user->organizations()->pluck('organization.id')->toArray();
++        if(count($orgIds) === 1){
++            session(['org_id' => $orgIds[0]]);
++            return redirect('home-redirect');
++        }
++
++        // Otherwise let them pick
++        return redirect()->route('org.select');
+*** End Patch
+
+*** Begin Patch
+*** Add File: meres-staging/resources/views/org/select.blade.php
++@extends('layouts.master')
++
++@section('content')
++<div class="tile">
++  <h2>{{ __('Válassz céget') }}</h2>
++  <p>{{ __('Kérlek válaszd ki, melyik cég felületén szeretnél dolgozni.') }}</p>
++  <form method="POST" action="{{ route('org.switch') }}">
++    @csrf
++    <div class="form-group">
++      <select name="org_id" class="form-control" required>
++        @foreach($orgs as $org)
++          <option value="{{ $org->id }}" {{ session('org_id') == $org->id ? 'selected' : '' }}>
++            {{ $org->name }}
++          </option>
++        @endforeach
++      </select>
++    </div>
++    <button type="submit" class="btn btn-primary" style="margin-top:10px">{{ __('Belépés') }}</button>
++  </form>
++  @if($isSuperAdmin)
++    <div style="margin-top:20px">
++      <a href="{{ route('admin.home') }}" class="btn btn-link">{{ __('Ugrás az admin felületre (cégek kezelése)') }}</a>
++    </div>
++  @endif
++</div>
++@endsection
++
+*** End Patch

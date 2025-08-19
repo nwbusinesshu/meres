@@ -14,6 +14,8 @@ use App\Http\Controllers\ResultsController;
 use App\Http\Middleware\Auth;
 use App\Models\Enums\UserType;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\OrganizationController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -45,7 +47,7 @@ Route::get('/home-redirect', function(Request $request){
 })->name('home-redirect')->middleware('auth:'.UserType::NORMAL);
 
 // admin
-Route::prefix('/admin')->name('admin.')->middleware('auth:'.UserType::ADMIN)->group(function(){
+Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'org'])->group(function(){
   Route::get('/home', [HomeController::class, 'admin'])->name('home');
   
   // assessment
@@ -98,7 +100,7 @@ Route::prefix('/admin')->name('admin.')->middleware('auth:'.UserType::ADMIN)->gr
 
 
 // normal
-Route::controller(NormalController::class)->middleware('auth:'.UserType::NORMAL)->group(function () {
+Route::controller(NormalController::class)->middleware(['auth:'.UserType::NORMAL, 'org'])->group(function () {
   Route::get('/home', [HomeController::class,'normal'])->name('home');
 
   // assessment
@@ -124,6 +126,17 @@ Route::controller(DevController::class)->name('dev.')->prefix('/dev')->group(fun
   Route::get('/makeFullAssessment', 'makeFullAssessment')->name('makeFullAssessment');
   Route::get('/generateBonusMalus', 'generateBonusMalus')->name('generateBonusMalus');
 });
+
+//org-selector
+Route::controller(OrganizationController::class)
+    ->prefix('/org')
+    ->middleware('auth:'.UserType::NORMAL)
+    ->name('org.')
+    ->group(function(){
+        Route::get('/select', 'select')->name('select');
+        Route::post('/switch', 'switch')->name('switch');
+    });
+
 
 
 

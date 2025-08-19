@@ -5,6 +5,7 @@ namespace App\Models\Enums;
 
 class UserType
 {
+  const SUPERADMIN = "superadmin";
   const GUEST = "guest";
   const ADMIN = "admin";
   const NORMAL = "normal";

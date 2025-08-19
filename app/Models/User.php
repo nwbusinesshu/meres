@@ -19,6 +19,12 @@ class User extends Model
         return $this->hasMany(UserLogin::class, 'user_id', 'id')->orderByDesc('logged_in_at');
     }
 
+    public function organizations(){
+    return $this->belongsToMany(\App\Models\Organization::class, 'organization_user', 'user_id', 'organization_id')
+        ->withPivot('role');
+    }
+
+
     public function getLastLogin(){
         return $this->logins()->first();
     }

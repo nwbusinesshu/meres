@@ -16,80 +16,84 @@ class Auth
    *
    * @param  Request  $request
    * @param  Closure  $next
-   * @param  string  $utype list of the usertypes that are allowed
-   * @return void redirect() | abort()
+   * @param  string   $utype  required user type for the route
    */
   public function handle(Request $request, Closure $next, $utype)
   {
-    if($utype != UserType::GUEST){
-      try{
-        // checking if user is logged in
-        if(!$this->isLoggedIn()){
+    if ($utype != UserType::GUEST) {
+      try {
+        // 1) be van-e jelentkezve?
+        if (!$this->isLoggedIn()) {
           throw new AuthFailException(__('auth.login-first'), 'login');
         }
-  
-        // logging off if there is a newer login
-        if(session()->getId() != User::find(session('uid'))->getLastLogin()->token){
+
+        // 2) másik eszközön újabb login?
+        $lastLogin = User::find(session('uid'))->getLastLogin();
+        if (!$lastLogin || session()->getId() != $lastLogin->token) {
           $request->session()->flush();
           return redirect('login')->with('warning', __('login.other-device-logout'));
         }
-  
-        // authorize user
-        if(!$this->isAuthorized($utype)){
+
+        // 3) jogosultság ellenőrzés
+        if (!$this->isAuthorized($utype)) {
           throw new AuthFailException(__('auth.access-denied'), 'home-redirect');
         }
-      }catch(AuthFailException $e){
-        return ! $request->expectsJson()
+      } catch (AuthFailException $e) {
+        return !$request->expectsJson()
           ? redirect($e->getFallback())->with('error', $e->getMessage())
           : abort(403, $e->getMessage());
       }
-    }else{
-      try{
-        // checking if user is logged in
-        if(Auth::isLoggedIn()){
+    } else {
+      // guest route → ha már be van lépve, irány haza
+      try {
+        if (Auth::isLoggedIn()) {
           return redirect('home-redirect');
-          //throw new AuthFailException(__('auth.already-logged-in'), 'home-redirect');
         }
-      }catch(AuthFailException $e){
-        return ! $request->expectsJson()
+      } catch (AuthFailException $e) {
+        return !$request->expectsJson()
           ? redirect($e->getFallback())->with('error', $e->getMessage())
           : abort(403, $e->getMessage());
       }
     }
-    
+
     return $next($request);
   }
-  
-  /**
-   * Check if the current user is logged in
-   *
-   * @return bool
-   */
-  public static function isLoggedIn(){
+
+  /** Be van-e jelentkezve */
+  public static function isLoggedIn()
+  {
     return session('uid') ? true : false;
   }
-  
+
   /**
-   * Check if the current user is authorized for the given type
-   * 
-   * @param  string $utype
-   * @return bool
+   * Jogosultság ellenőrzés az adott route-hoz kért $utype alapján
    */
-  public static function isAuthorized($utype){
-    if(!session()->has('utype')){ return false; }
-    
-    if(session('utype') == UserType::ADMIN){
+  public static function isAuthorized($utype)
+  {
+    if (!session()->has('utype')) {
+      return false;
+    }
+
+    $current = session('utype');
+
+    // ⬇⬇ Globális felülbírálók
+    if ($current === UserType::SUPERADMIN) {
+      return true; // superadmin mindenhova bemehet
+    }
+    if ($current === UserType::ADMIN) {
+      return true; // admin is mindenhova bemehet (megtartva a régi viselkedést)
+    }
+
+    // Pontos egyezés
+    if ($utype === $current) {
       return true;
     }
 
-    if($utype == session('utype')){
+    // CEO használhat "normal" felületet is
+    if ($utype === UserType::NORMAL && $current === UserType::CEO) {
       return true;
     }
 
-    if($utype == UserType::NORMAL && session('utype') == UserType::CEO){
-      return true;
-    }
-    
     return false;
   }
 }
