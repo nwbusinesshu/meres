@@ -15,6 +15,8 @@ use App\Http\Middleware\Auth;
 use App\Models\Enums\UserType;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\SuperAdminController;
+use App\Http\Controllers\SuperadminOrganizationController;
 
 
 /*
@@ -137,7 +139,23 @@ Route::controller(OrganizationController::class)
         Route::post('/switch', 'switch')->name('switch');
     });
 
+//superadmin
 
+Route::middleware(['auth:' . \App\Models\Enums\UserType::SUPERADMIN, 'org'])
+    ->prefix('superadmin')
+    ->name('superadmin.')
+    ->controller(SuperAdminController::class)
+    ->group(function () {
+        Route::get('/dashboard', 'dashboard')->name('dashboard');
+        Route::post('/org/store', 'store')->name('org.store');
+
+    });
+
+
+Route::prefix('/superadmin')->name('superadmin.')->middleware(['auth:' . UserType::SUPERADMIN])->group(function () {
+    Route::get('/org/create', [SuperadminOrganizationController::class, 'create'])->name('org.create');
+    Route::post('/organization/store', [SuperadminOrganizationController::class, 'store'])->name('organization.store');
+});
 
 
 

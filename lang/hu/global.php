@@ -74,4 +74,11 @@ return [
   ],
 
   "auto-level-up" => "Automatikus szintlépés havonta",
+  'admin-name' => 'Admin neve',
+    'admin-email' => 'Admin email',
+    'created' => 'Létrehozva',
+    'actions' => 'Műveletek',
+    'save' => 'Mentés',
+    'cancel' => 'Mégse',
+    'org-created' => 'Cég sikeresen létrehozva.',
 ];

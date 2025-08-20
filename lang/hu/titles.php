@@ -19,4 +19,8 @@ return [
     "ceoranks" => "Ügyvezetői rangsor",
     "results" => "Eredmények",
   ],
+  'superadmin' => [
+        'dashboard' => 'Szuperadmin Dashboard',
+        'new-org' => 'Új cég hozzáadása',
+    ],
 ];

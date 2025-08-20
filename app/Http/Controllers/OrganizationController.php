@@ -41,24 +41,25 @@ class OrganizationController extends Controller
 
 public function switch(Request $request)
 {
-    $user = auth()->user();
-    
-    if (!$user) {
-        return redirect()->route('login')->with('error', 'Nincs bejelentkezve.');
+    $request->validate(['org_id' => 'required|integer']);
+    $orgId = (int) $request->input('org_id');
+    $isSuperAdmin = (session('utype') === UserType::SUPERADMIN);
+
+    if ($isSuperAdmin) {
+        session(['org_id' => $orgId]);
+        return redirect('home-redirect')->with('info', 'Szervezet kiválasztva.');
     }
 
-    $orgId = (int) $request->input('id');
+    $user = User::find(session('uid'));
+    $allowed = $user->organizations()->where('organization.id', $orgId)->exists();
 
-    $isAuthorized = $user->type === \App\Models\Enums\UserType::SUPERADMIN
-        || $user->organizations()->where('organization_id', $orgId)->exists();
-
-    if (!$isAuthorized) {
-        abort(403, 'Nincs jogosultságod ehhez a szervezethez.');
+    if (!$allowed) {
+        return redirect()->route('org.select')->with('error', 'Nincs jogosultságod ehhez a szervezethez.');
     }
 
     session(['org_id' => $orgId]);
-
-    return redirect()->route('home-redirect');
+    return redirect('home-redirect')->with('info', 'Szervezet kiválasztva.');
 }
+
 
 }

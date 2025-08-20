@@ -10,6 +10,10 @@ class Organization extends Model
     public $timestamps = false;
     protected $guarded = [];
     protected $hidden = [];
+    protected $casts = [
+    'created_at' => 'datetime',
+];
+
 
     public function users(){
         return $this->belongsToMany(User::class, 'organization_user', 'organization_id', 'user_id')
