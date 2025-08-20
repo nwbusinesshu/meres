@@ -54,7 +54,8 @@
 
 @section('scripts')
 @include('superadmin.modals.org-create')
-@include('superadmin.modals.org-edit')
+@include('superadmin.modals.org-edit', ['admin' => $org->users()->wherePivot('role', 'admin')->first()])
+
 <script>
 $(document).on('submit', '#form-org-create', function(e) {
     e.preventDefault();
@@ -84,6 +85,76 @@ $(document).on('submit', '#form-org-create', function(e) {
         });
 });
 </script>
+
+<script>
+$(document).on('click', '.edit-org', function() {
+    let $row = $(this).closest('tr');
+    let orgId = $row.data('id');
+
+    $('#edit-org-id').val(orgId);
+    $('#edit-org-name').val($row.find('[data-col="{{ __('global.name') }}"]').text().trim());
+    $('#edit-admin-name').val($row.find('[data-col="{{ __('global.admin') }}"]').text().trim());
+    $('#edit-admin-email').val(''); // Ezt AJAX-ból is lekérhetjük később
+
+    $('#modal-org-edit').modal('show');
+});
+
+$(document).on('submit', '#form-org-edit', function(e) {
+    e.preventDefault();
+
+    let data = {
+        _token: '{{ csrf_token() }}',
+        org_id: $('#edit-org-id').val(),
+        org_name: $('#edit-org-name').val(),
+        admin_name: $('#edit-admin-name').val(),
+        admin_email: $('#edit-admin-email').val(),
+    };
+
+    $.post('{{ route('superadmin.org.update') }}', data)
+        .done(function(res) {
+            if (res.success) {
+                $('#modal-org-edit').modal('hide');
+                location.reload();
+            }
+        })
+        .fail(function(xhr) {
+            alert('Hiba történt.');
+        });
+});
+
+$(document).on('click', '.remove-org', function() {
+    if (!confirm('{{ __("global.confirm-delete") }}')) return;
+
+    let orgId = $(this).closest('tr').data('id');
+
+    $.post('{{ route('superadmin.org.delete') }}', {
+        _token: '{{ csrf_token() }}',
+        org_id: orgId
+    }).done(function(res) {
+        if (res.success) {
+            location.reload();
+        }
+    }).fail(function() {
+        alert('Nem sikerült törölni.');
+    });
+});
+
+$(document).on('click', '#remove-admin-btn', function() {
+  $('#current-admin').remove();
+  $('#new-admin-fields').removeClass('d-none');
+  $('input[name="admin_remove"]').val(1);
+});
+
+</script>
+
 @endsection
+
+@foreach ($organizations as $org)
+  @php
+    $admin = $org->users()->wherePivot('role', 'admin')->first();
+  @endphp
+  @include('superadmin.modals.org-edit', compact('org', 'admin'))
+@endforeach
+
 
 

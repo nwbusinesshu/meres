@@ -148,6 +148,9 @@ Route::middleware(['auth:' . \App\Models\Enums\UserType::SUPERADMIN, 'org'])
     ->group(function () {
         Route::get('/dashboard', 'dashboard')->name('dashboard');
         Route::post('/org/store', 'store')->name('org.store');
+        Route::post('/org/update', 'update')->name('org.update');
+        Route::post('/org/delete', 'delete')->name('org.delete');
+
 
     });
 

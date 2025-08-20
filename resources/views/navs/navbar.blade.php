@@ -49,7 +49,7 @@
   </div>
 
 <div class="userinfo">
-  @php
+@php
     use Illuminate\Support\Facades\Auth;
     use App\Models\Enums\UserType;
 
@@ -60,16 +60,21 @@
 
     if ($user) {
         if ($user->type === UserType::SUPERADMIN) {
-            $organizations = \App\Models\Organization::all();
+            $organizations = \App\Models\Organization::whereNull('removed_at')->get();
         } elseif ($user->type === UserType::ADMIN) {
-            $organizations = $user->organizations()->wherePivot('role', 'admin')->get();
+            $organizations = $user->organizations()
+                                  ->wherePivot('role', 'admin')
+                                  ->whereNull('organization.removed_at')
+                                  ->get();
         } else {
-            $organizations = $user->organizations;
+            $organizations = $user->organizations()
+                                  ->whereNull('organization.removed_at')
+                                  ->get();
         }
 
         $currentOrg = $organizations->firstWhere('id', $orgId);
     }
-  @endphp
+@endphp
 
   @if ($currentOrg)
     <div class="org-label" style="margin-right: 10px;">
@@ -99,9 +104,3 @@
 </div>
 
 </div>
-
-<pre>
-org_id: {{ session('org_id') }}
-user: {{ Auth::user()->id ?? 'nincs user' }}
-orgs: {{ json_encode($organizations->pluck('name', 'id')) }}
-</pre>
