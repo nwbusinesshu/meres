@@ -58,10 +58,10 @@ class LoginController extends Controller
         // --- ORG kiválasztás logika ---
         // 1) SUPERADMIN -> org választó (cégtagságtól függetlenül)
         if ($user->type === UserType::SUPERADMIN) {
-            // biztos ami biztos: ne maradjon előző org_id a sessionben
             session()->forget('org_id');
-            return redirect()->route('org.select');
+            return redirect()->route('superadmin.dashboard'); // <-- EZ volt: route('org.select')
         }
+
 
         // 2) Nem superadmin:
         //    - ha pontosan 1 org tagja -> automatikus org_id és tovább a home-redirectre

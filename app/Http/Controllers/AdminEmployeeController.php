@@ -58,7 +58,8 @@ class AdminEmployeeController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string'],
             'email' => ['required', 'email'],
-            'type' => ['required', Rule::in([UserType::NORMAL, UserType::CELEBRITY])],
+            'type' => ['required', Rule::in([UserType::NORMAL, UserType::CEO])],
+
         ]);
 
         $orgId = session('org_id');
@@ -79,7 +80,7 @@ class AdminEmployeeController extends Controller
 
         // Frissítsük a kapcsolatot a pivot táblában, ha új a felhasználó
         if (!$request->id) {
-            $user->organizations()->attach($orgId);
+            $user->organizations()->attach($orgId, ['role' => 'employee']);
         }
 
         return $user;
@@ -116,6 +117,34 @@ class AdminEmployeeController extends Controller
     {
         return UserRelation::where('assessor_id', $request->id)->get();
     }
+
+    public function getEmployeeRelations(Request $request)
+{
+    $orgId = session('org_id');
+
+    return UserRelation::with('assessee:id,name')
+        ->where('assessor_id', $request->id)
+        ->whereHas('assessee.organizations', function ($q) use ($orgId) {
+            $q->where('organization_id', $orgId);
+        })
+        ->get()
+        ->map(function ($rel) use ($request) {
+            return [
+                'target_id' => $rel->assessee_id,
+                'type' => match($rel->type) {
+                    UserRelationType::EQUAL => 'colleague',
+                    UserRelationType::UNDER => 'subordinate',
+                    UserRelationType::ABOVE => 'superior',
+                    default => 'colleague',
+                },
+                'target' => [
+                    'id' => $rel->assessee->id,
+                    'name' => $rel->assessee->name,
+                ]
+            ];
+        });
+}
+
 
     public function saveCompetencies(Request $request)
     {

@@ -8,19 +8,37 @@ use App\Models\Assessment;
 
 class SuperAdminController extends Controller
 {
-    public function dashboard()
+public function dashboard()
 {
-    $organizations = Organization::whereNull('removed_at')
-    ->orderBy('name')
-    ->get();
+    $organizations = \App\Models\Organization::with(['profile', 'users' => function ($q) {
+        $q->wherePivot('role', 'admin')->orWherePivot('role', 'employee');
+    }])
+    ->whereNull('removed_at')
+    ->get()
+    ->each(function ($org) {
+        $admin = $org->users->firstWhere('pivot.role', 'admin');
+        $employees = $org->users->where('pivot.role', 'employee')->count();
+
+        // dinamikus attribútum hozzáadása
+        $org->admin_name = $admin?->name;
+        $org->admin_email = $admin?->email;
+        $org->employee_count = $employees;
+    });
+
     return view('superadmin.dashboard', compact('organizations'));
 }
+
+
+
 public function store(Request $request)
 {
     $request->validate([
-        'org_name'     => 'required|string|max:255',
-        'admin_name'   => 'required|string|max:255',
-        'admin_email'  => 'required|email|max:255',
+        'org_name'           => 'required|string|max:255',
+        'admin_name'         => 'required|string|max:255',
+        'admin_email'        => 'required|email|max:255',
+        'tax_number'         => 'nullable|string|max:50',
+        'billing_address'    => 'nullable|string|max:255',
+        'subscription_type'  => 'nullable|string|max:50',
     ]);
 
     // 1. Szervezet létrehozása
@@ -43,31 +61,53 @@ public function store(Request $request)
         'role' => 'admin',
     ]);
 
+    // 4. OrganizationProfile létrehozása
+    \App\Models\OrganizationProfile::create([
+        'organization_id'   => $org->id,
+        'tax_number'        => $request->tax_number,
+        'billing_address'   => $request->billing_address,
+        'subscription_type' => $request->subscription_type,
+        'created_at'        => now(),
+    ]);
+
     return response()->json(['success' => true]);
 }
 
 public function update(Request $request)
 {
+    \Log::info('Update route hit with method: ' . $request->method());
+
     $request->validate([
-        'org_id'       => 'required|exists:organization,id',
-        'name'         => 'required|string|max:255',
-        'admin_name'   => 'nullable|string|max:255',
-        'admin_email'  => 'nullable|email|max:255',
-        'admin_remove' => 'nullable|in:0,1',
+        'org_id'            => 'required|exists:organization,id',
+        'org_name'          => 'required|string|max:255',
+        'admin_name'        => 'nullable|string|max:255',
+        'admin_email'       => 'nullable|email|max:255',
+        'admin_remove'      => 'nullable|in:0,1',
+        'tax_number'        => 'nullable|string|max:50',
+        'billing_address'   => 'nullable|string|max:255',
+        'subscription_type' => 'nullable|in:free,pro',
     ]);
 
     $org = \App\Models\Organization::findOrFail($request->org_id);
-    $org->name = $request->name;
+    $admin = $org->users()->wherePivot('role', 'admin')->first();
+
+    // Szervezet neve frissítése
+    $org->name = $request->org_name;
     $org->save();
 
-    // 1. Ha admin törlésre van jelölve
+    // Profil frissítése vagy létrehozása
+    $profile = \App\Models\OrganizationProfile::firstOrNew(['organization_id' => $org->id]);
+    $profile->tax_number = $request->tax_number;
+    $profile->billing_address = $request->billing_address;
+    $profile->subscription_type = $request->subscription_type;
+    $profile->updated_at = now();
+    $profile->save();
+
+    // Admin törlés logika
     if ($request->admin_remove == '1') {
-        $admin = $org->users()->wherePivot('role', 'admin')->first();
         if ($admin) {
-            // Kapcsolat törlése
             $org->users()->detach($admin->id);
 
-            // Ha nincs más szervezeti kapcsolata, akkor soft delete
             if ($admin->organizations()->count() === 0) {
                 $admin->removed_at = now();
                 $admin->save();
@@ -75,9 +115,11 @@ public function update(Request $request)
         }
     }
 
-    // 2. Új admin hozzáadása (csak ha van név és email)
+    // Új admin hozzáadása
     if ($request->filled('admin_name') && $request->filled('admin_email')) {
-        $existing = \App\Models\User::where('email', $request->admin_email)->first();
+        $existing = \App\Models\User::where('email', $request->admin_email)
+            ->where('id', '!=', optional($admin)->id)
+            ->first();
 
         if ($existing) {
             return response()->json([
@@ -104,7 +146,6 @@ public function update(Request $request)
 }
 
 
-
 public function delete(Request $request)
 {
     $request->validate([
@@ -113,24 +154,50 @@ public function delete(Request $request)
 
     $org = Organization::findOrFail($request->org_id);
 
-    $users = $org->users;
-
-    foreach ($users as $user) {
+    // Felhasználók kezelése
+    foreach ($org->users as $user) {
         $otherOrgs = $user->organizations()->where('organization_id', '!=', $org->id)->count();
 
         if ($otherOrgs === 0) {
-            // nincs más céges kapcsolódása → soft delete
             $user->update(['removed_at' => now()]);
         } else {
-            // csak a kapcsolatot töröljük
             $org->users()->detach($user->id);
         }
     }
 
-    // szervezet soft delete
+    // Szervezet soft delete
     $org->update(['removed_at' => now()]);
+
+    // Profil soft delete
+    \App\Models\OrganizationProfile::where('organization_id', $org->id)->update(['removed_at' => now()]);
 
     return response()->json(['success' => true]);
 }
+
+
+public function exitCompany(Request $request)
+{
+    $request->session()->forget('org_id');
+    return redirect()->route('superadmin.dashboard')->with('info', 'Kiléptél a cégből.');
+}
+
+public function getOrgData($orgId)
+{
+    $org = Organization::where('id', $orgId)->whereNull('removed_at')->firstOrFail();
+
+    $profile = $org->profile; // lehet null
+
+    $admin = $org->users()->wherePivot('role', 'admin')->first();
+
+    return response()->json([
+        'org_name' => $org->name,
+        'tax_number' => $profile?->tax_number ?? '',
+        'billing_address' => $profile?->billing_address ?? '',
+        'subscription_type' => $profile?->subscription_type ?? '',
+        'admin_name' => $admin?->name ?? '',
+        'admin_email' => $admin?->email ?? '',
+    ]);
+}
+
 
 }

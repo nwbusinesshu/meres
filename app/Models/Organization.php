@@ -20,4 +20,10 @@ class Organization extends Model
         return $this->belongsToMany(User::class, 'organization_user', 'organization_id', 'user_id')
             ->withPivot('role');
     }
+
+    public function profile()
+{
+    return $this->hasOne(\App\Models\OrganizationProfile::class);
+}
+
 }

@@ -22,5 +22,8 @@ return [
   'superadmin' => [
         'dashboard' => 'Szuperadmin Dashboard',
         'new-org' => 'Új cég hozzáadása',
+        'edit-org' => 'Cég szerkesztése'
     ],
+  'org' => [
+        'select' => 'Cégválasztó',]
 ];

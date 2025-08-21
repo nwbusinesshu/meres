@@ -19,4 +19,11 @@ class UserRelation extends Pivot
   public function target(){
     return $this->belongsTo(User::class, 'target_id', 'id');
   }
+
+
+  public function assessee()
+  {
+    return $this->belongsTo(User::class, 'assessee_id');
+  }
+
 }

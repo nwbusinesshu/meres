@@ -1,0 +1,60 @@
+.main-content > div:first-of-type {
+  display: flex;
+  flex-wrap: wrap-reverse;
+  gap: 1em;
+}
+.main-content > div:first-of-type > div {
+  flex: 1 400px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.search-tile {
+  gap: .5em;
+}
+.search-tile p {
+  font-size: 1.2em;
+  font-weight: 600;
+}
+.search-tile input {
+  flex: 1;
+  text-align: center;
+}
+.search-tile div {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+}
+.search-tile i {
+  color: var(--silver_chalice);
+  font-size: 1.3em;
+  margin-left: .5em;
+  margin-right: .2em;
+}
+.search-tile i:hover {
+  color: var(--outer_space);
+}
+tr.hidden {
+  display: none;
+}
+
+.org-info-table td {
+  vertical-align: top;
+  padding: 0.5rem;
+}
+.org-info-table small {
+  display: block;
+  color: #555;
+}
+.profile-label {
+  font-weight: bold;
+  display: inline-block;
+  min-width: 120px;
+}
+.profile-block {
+  margin-top: 0.25rem;
+}
+.org-actions {
+  white-space: nowrap;
+}

@@ -1,4 +1,4 @@
-<div class="modal" id="modal-org-edit">
+<div class="modal fade" id="modal-org-edit">
   <div class="modal-dialog">
     <div class="modal-content">
 
@@ -13,25 +13,51 @@
         <input type="hidden" name="admin_remove" id="admin-remove" value="0">
 
         <div class="modal-body">
+
+          {{-- Cégnév --}}
           <div class="form-group">
             <label for="edit-org-name">{{ __('global.name') }}</label>
-            <input type="text" name="name" id="edit-org-name" class="form-control" required>
+            <input type="text" name="org_name" id="edit-org-name" class="form-control" required>
           </div>
 
-          @if (isset($admin) && $admin)
-          <div class="form-group" id="current-admin">
+          {{-- Adószám --}}
+          <div class="form-group">
+            <label for="edit-tax-number">{{ __('global.tax-number') }}</label>
+            <input type="text" name="tax_number" id="edit-tax-number" class="form-control">
+          </div>
+
+          {{-- Számlázási cím --}}
+          <div class="form-group">
+            <label for="edit-billing-address">{{ __('global.billing-address') }}</label>
+            <input type="text" name="billing_address" id="edit-billing-address" class="form-control">
+          </div>
+
+          {{-- Előfizetés típus --}}
+          <div class="form-group">
+            <label for="edit-subscription-type">{{ __('global.subscription-type') }}</label>
+            <select name="subscription_type" id="edit-subscription-type" class="form-control">
+              <option value="">-- {{ __('global.select') }} --</option>
+              <option value="free">{{ __('global.subscription-free') }}</option>
+              <option value="pro">{{ __('global.subscription-pro') }}</option>
+            </select>
+          </div>
+
+          {{-- Admin blokk --}}
+          <div class="form-group d-none" id="current-admin">
             <label>{{ __('global.admin') }}</label>
             <div class="alert alert-light d-flex justify-content-between align-items-center">
               <div>
-                <strong>{{ $admin->name }}</strong><br>
-                <small>{{ $admin->email }}</small>
+                <strong id="admin-current-name">N/A</strong><br>
+                <small id="admin-current-email">N/A</small>
               </div>
-              <button type="button" class="btn btn-sm btn-danger" id="remove-admin-btn"><i class="fa fa-times"></i></button>
+              <button type="button" class="btn btn-sm btn-danger" id="remove-admin-btn">
+                <i class="fa fa-times"></i>
+              </button>
             </div>
           </div>
-          @endif
 
-          <div id="new-admin-fields" class="{{ isset($admin) && $admin ? 'd-none' : '' }}">
+          {{-- Új admin mezők --}}
+          <div id="new-admin-fields" class="d-none">
             <div class="form-group">
               <label for="admin-name">{{ __('global.admin-name') }}</label>
               <input type="text" name="admin_name" id="admin-name" class="form-control">
@@ -41,6 +67,7 @@
               <input type="email" name="admin_email" id="admin-email" class="form-control">
             </div>
           </div>
+
         </div>
 
         <div class="modal-footer">
@@ -52,11 +79,3 @@
     </div>
   </div>
 </div>
-
-<script>
-  $(document).on('click', '#remove-admin-btn', function () {
-    $('#current-admin').remove(); // Eltávolítjuk a megjelenített admin blokkot
-    $('#new-admin-fields').removeClass('d-none'); // Előhozzuk az új admin inputokat
-    $('#admin-remove').val('1'); // Backendnek jelezzük, hogy törölni kell
-  });
-</script>

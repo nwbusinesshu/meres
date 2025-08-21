@@ -160,5 +160,10 @@ Route::prefix('/superadmin')->name('superadmin.')->middleware(['auth:' . UserTyp
     Route::post('/organization/store', [SuperadminOrganizationController::class, 'store'])->name('organization.store');
 });
 
+Route::get('/superadmin/exit-company', [\App\Http\Controllers\SuperAdminController::class, 'exitCompany'])->name('superadmin.exit-company');
+Route::get('/superadmin/org/{id}/data', [SuperAdminController::class, 'getOrgData'])->name('superadmin.org.data');
+Route::get('/employee/relations', [AdminEmployeeController::class, 'getEmployeeRelations'])->name('admin.employee.relations');
+
+
 
 

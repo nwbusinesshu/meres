@@ -54,7 +54,26 @@ return [
 
   "database-error" => "Sikertelen művelet: szerverhiba!",
 
+  "subscription-free" => "Free",
+
+  "subscription-pro" => "Pro",
+
+  "select" => "Válassz...",
+
+  "search" => "Keresés",
+
+  "admin" => "Admin",
+
+  "tax-number" => "Adószám",
+
+  "billing-address" => "Számlázási cím",
+
+  "subscription-type" => "Előfizetés típusa",
+
   "bonusmalus" => "Besorolás",
+  "profile" => "Profil",
+  "employees" => "Dolgozók száma",
+
   "bonus-malus" => [
     "15" => "B10", 
     "14" => "B09", 

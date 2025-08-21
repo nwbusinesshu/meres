@@ -26,8 +26,11 @@ class SetOrganization
 
         if (!$orgId) {
             if ($isSuperAdmin) {
-                return redirect()->route('org.select');
-            }
+                // Csak akkor dobjuk át, ha nem a superadmin dashboardra akar menni
+                if (!$request->routeIs('superadmin.*')) {
+                    return redirect()->route('org.select');
+                }
+            } else {
             if (count($userOrgIds) === 1) {
                 session(['org_id' => $userOrgIds[0]]);
             } elseif (count($userOrgIds) > 1) {
@@ -35,6 +38,7 @@ class SetOrganization
             } else {
                 abort(403, __('auth.no-organization'));
             }
+        }
         } else {
             if (!$isSuperAdmin && !in_array($orgId, $userOrgIds)) {
                 session()->forget('org_id');

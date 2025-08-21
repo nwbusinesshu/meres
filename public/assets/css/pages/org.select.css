@@ -1,0 +1,55 @@
+  .company-select-tile {
+    max-width: 500px;
+    margin: 40px auto;
+    padding: 30px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    text-align: center;
+  }
+
+  .company-select-tile h2 {
+    font-size: 1.6rem;
+    margin-bottom: 10px;
+  }
+
+  .company-select-tile p {
+    color: #666;
+    font-size: 0.95rem;
+    margin-bottom: 25px;
+  }
+
+  .company-select-tile select {
+    padding: 10px 15px;
+    font-size: 1rem;
+    border-radius: 8px;
+    width: 100%;
+    height: auto;
+    min-height: 48px;
+    box-sizing: border-box;
+    overflow: visible;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .company-select-tile button {
+    margin-top: 20px;
+    width: 100%;
+    padding: 10px;
+    font-size: 1rem;
+    border-radius: 8px;
+  }
+
+  .company-select-admin {
+    margin-top: 30px;
+    font-size: 0.9rem;
+  }
+
+  .company-select-admin a {
+    color: #007bff;
+    text-decoration: none;
+  }
+
+  .company-select-admin a:hover {
+    text-decoration: underline;
+  }

@@ -129,22 +129,40 @@
 
 		/* SweetAlert 2 session handler */
 		$(document).ready(function(){
-			@if(session('error'))
-				swal_error.fire({html: '{!! session('error') !!}'});
-			@endif
+		  // Toast stílus csak success és info üzenetekhez
+		  const toast = (type, message) => {
+		    Swal.fire({
+		      toast: true,
+		      position: 'bottom',
+		      icon: type,
+		      title: message,
+		      showConfirmButton: false,
+		      timer: 4000,
+		      timerProgressBar: true,
+		      didOpen: (toast) => {
+		        toast.addEventListener('mouseenter', Swal.stopTimer);
+		        toast.addEventListener('mouseleave', Swal.resumeTimer);
+		      }
+		    });
+		  };
 
-			@if(session('warning'))
-				swal_warning.fire({html: '{!! session('warning') !!}'});
-			@endif
+		  @if(session('success'))
+		    toast('success', `{!! session('success') !!}`);
+		  @endif
 
-			@if(session('success'))
-				swal_success.fire({html: '{!! session('success') !!}'});
-			@endif
+		  @if(session('info'))
+		    toast('info', `{!! session('info') !!}`);
+		  @endif
 
-			@if(session('info'))
-				swal_info.fire({html: '{!! session('info') !!}'});
-			@endif
+		  @if(session('warning'))
+		    swal_warning.fire({html: `{!! session('warning') !!}`});
+		  @endif
+
+		  @if(session('error'))
+		    swal_error.fire({html: `{!! session('error') !!}`});
+		  @endif
 		});
+
 
 		const swal_loader = Swal.mixin({
 			allowOutsideClick: false,

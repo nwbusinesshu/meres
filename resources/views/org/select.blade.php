@@ -1,9 +1,13 @@
 @extends('layouts.master')
 
+@section('head-extra')
+@endsection
+
 @section('content')
-<div class="tile">
+<div class="company-select-tile">
   <h2>{{ __('Válassz céget') }}</h2>
   <p>{{ __('Kérlek válaszd ki, melyik cég felületén szeretnél dolgozni.') }}</p>
+
   <form method="POST" action="{{ route('org.switch') }}">
     @csrf
     <div class="form-group">
@@ -15,12 +19,6 @@
         @endforeach
       </select>
     </div>
-    <button type="submit" class="btn btn-primary" style="margin-top:10px">{{ __('Belépés') }}</button>
+    <button type="submit" class="btn btn-primary">{{ __('Belépés') }}</button>
   </form>
-  @if($isSuperAdmin)
-    <div style="margin-top:20px">
-      <a href="{{ route('admin.home') }}" class="btn btn-link">{{ __('Ugrás az admin felületre (cégek kezelése)') }}</a>
-    </div>
-  @endif
-</div>
 @endsection
