@@ -46,39 +46,63 @@ public function store(Request $request)
     return response()->json(['success' => true]);
 }
 
-public function update(Request $request, $id)
+public function update(Request $request)
 {
-    $org = Organization::findOrFail($id);
-    $org->name = $request->org_name;
+    $request->validate([
+        'org_id'       => 'required|exists:organization,id',
+        'name'         => 'required|string|max:255',
+        'admin_name'   => 'nullable|string|max:255',
+        'admin_email'  => 'nullable|email|max:255',
+        'admin_remove' => 'nullable|in:0,1',
+    ]);
+
+    $org = \App\Models\Organization::findOrFail($request->org_id);
+    $org->name = $request->name;
     $org->save();
 
-    if ($request->admin_remove) {
+    // 1. Ha admin törlésre van jelölve
+    if ($request->admin_remove == '1') {
         $admin = $org->users()->wherePivot('role', 'admin')->first();
         if ($admin) {
+            // Kapcsolat törlése
             $org->users()->detach($admin->id);
 
-            // Csak akkor töröljük, ha nincs más céges kapcsolódása
+            // Ha nincs más szervezeti kapcsolata, akkor soft delete
             if ($admin->organizations()->count() === 0) {
                 $admin->removed_at = now();
                 $admin->save();
             }
         }
-    } else {
-        // ha új admin megadva
-        if ($request->filled('admin_email')) {
-            $user = User::firstOrCreate(
-                ['email' => $request->admin_email],
-                [
-                    'name' => $request->admin_name,
-                    'type' => UserType::ADMIN
+    }
+
+    // 2. Új admin hozzáadása (csak ha van név és email)
+    if ($request->filled('admin_name') && $request->filled('admin_email')) {
+        $existing = \App\Models\User::where('email', $request->admin_email)->first();
+
+        if ($existing) {
+            return response()->json([
+                'success' => false,
+                'errors' => [
+                    'admin_email' => ['Ez az e-mail cím már létezik egy másik felhasználónál. Csak új admin regisztrálható.']
                 ]
-            );
-            $org->users()->syncWithoutDetaching([$user->id => ['role' => 'admin']]);
+            ], 422);
         }
+
+        $newAdmin = \App\Models\User::create([
+            'name'       => $request->admin_name,
+            'email'      => $request->admin_email,
+            'type'       => \App\Models\Enums\UserType::ADMIN,
+            'created_at' => now(),
+        ]);
+
+        $org->users()->attach($newAdmin->id, [
+            'role' => 'admin',
+        ]);
     }
 
     return response()->json(['success' => true]);
 }
+
 
 
 public function delete(Request $request)

@@ -118,8 +118,14 @@ $(document).on('submit', '#form-org-edit', function(e) {
             }
         })
         .fail(function(xhr) {
-            alert('Hiba történt.');
-        });
+    let errors = xhr.responseJSON.errors;
+    let msg = '';
+    for (let field in errors) {
+        msg += errors[field][0] + '\n';
+    }
+    alert(msg || 'Hiba történt.');
+});
+
 });
 
 $(document).on('click', '.remove-org', function() {
