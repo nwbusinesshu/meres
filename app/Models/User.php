@@ -41,10 +41,12 @@ class User extends Authenticatable
         return $this->allRelations()->whereNot('type', UserRelationType::SELF);
     }
 
-    public function competencies(){
-        return $this->hasManyThrough(Competency::class,UserCompetency::class,'user_id','id','id','competency_id');
+    public function competencies()
+    {
+      return $this->belongsToMany(Competency::class, 'user_competency', 'user_id', 'competency_id')
+                 ->withPivot('organization_id');
     }
-
+    
     public function competencySubmits($assessmentId = 0){
         if($assessmentId == 0){
             if(!is_null(($assessment = AssessmentService::getCurrentAssessment()))){

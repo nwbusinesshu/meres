@@ -7,6 +7,7 @@ use App\Models\CompetencyQuestion;
 use App\Services\AjaxService;
 use App\Services\AssessmentService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AdminCompetencyController extends Controller
 {
@@ -17,38 +18,52 @@ class AdminCompetencyController extends Controller
     }
 
     public function index(Request $request){
-        return view('admin.competencies',[
-            "competencies" => Competency::whereNull('removed_at')->with('questions')->get(),
-        ]);
+        $orgId = session('org_id');
+
+        $comps = Competency::whereNull('removed_at')
+            ->where(function($q) use ($orgId){
+                $q->whereNull('organization_id')
+                  ->orWhere('organization_id', $orgId);
+            })
+            ->with(['questions' => function($q) use ($orgId){
+                $q->whereNull('removed_at')
+                  ->where(function($q2) use ($orgId){
+                      $q2->whereNull('organization_id')
+                         ->orWhere('organization_id', $orgId);
+                  });
+            }])
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.competencies', ["competencies" => $comps]);
     }
 
+
     public function getAllCompetency(Request $request){
-        return Competency::whereNull('removed_at')->orderBy('name')->get();
+    $orgId = session('org_id');
+
+    return Competency::whereNull('removed_at')
+        ->where(function($q) use ($orgId){
+            $q->whereNull('organization_id')
+              ->orWhere('organization_id', $orgId);
+        })
+        ->orderBy('name')
+        ->get();
     }
 
     public function saveCompetency(Request $request){
         $comp = Competency::find($request->id);
+        $this->validate($request, ['name' => ['required']], [], ['name' => __('global.name')]);
 
-        $rules = [
-            "name" => ['required'],
-        ];
+        $orgId = session('org_id');
 
-        $attributes = [
-            "name" => __('global.name'),
-        ];
-    
-        $this->validate(
-            request: $request,
-            rules: $rules,
-            customAttributes: $attributes,
-        ); 
-
-        AjaxService::DBTransaction(function() use ($request, &$comp){
-            if(is_null($comp)){
-                Competency::create([
-                    "name" => $request->name
+        AjaxService::DBTransaction(function() use ($request, &$comp, $orgId){
+            if (is_null($comp)){
+                $comp = Competency::create([
+                    'name' => $request->name,
+                    'organization_id' => $orgId, // ← fontos
                 ]);
-            }else{
+            } else {
                 $comp->name = $request->name;
                 $comp->save();
             }
@@ -65,42 +80,39 @@ class AdminCompetencyController extends Controller
             "maxLabel" => ['required'],
             "scale" => ['required', 'numeric'],
         ];
-
-        $attributes = [
+        $this->validate($request, $rules, [], [
             "question" => __('admin/competencies.question'),
             "questionSelf" => __('admin/competencies.question-self'),
             "minLabel" => __('admin/competencies.min-label'),
             "maxLabel" => __('admin/competencies.max-label'),
             "scale" => __('admin/competencies.scale'),
-        ];
-    
-        $this->validate(
-            request: $request,
-            rules: $rules,
-            customAttributes: $attributes,
-        ); 
+        ]);
 
         AjaxService::DBTransaction(function() use ($request, &$question){
-            if(is_null($question)){
-                $comp = Competency::findOrFail($request->compId);
+            $comp = Competency::findOrFail($request->compId);
 
-                $comp->questions()->create([
+            if (is_null($question)){
+                $question = $comp->questions()->create([
                     "question" => $request->question,
                     "question_self" => $request->questionSelf,
                     "min_label" => $request->minLabel,
                     "max_label" => $request->maxLabel,
                     "max_value" => $request->scale,
+                    "organization_id" => $comp->organization_id, // ← kulcs a trigger miatt
                 ]);
-            }else{
+            } else {
                 $question->question = $request->question;
                 $question->question_self = $request->questionSelf;
                 $question->min_label = $request->minLabel;
                 $question->max_label = $request->maxLabel;
                 $question->max_value = $request->scale;
+                $question->organization_id = $comp->organization_id; // ← kulcs
+                $question->competency_id = $comp->id;                // ha comp váltás megengedett
                 $question->save();
             }
         });
     }
+
 
     public function getCompetencyQuestion(Request $request){
         return CompetencyQuestion::findOrFail($request->id);

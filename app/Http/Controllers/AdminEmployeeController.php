@@ -13,6 +13,10 @@ use App\Services\AssessmentService;
 use App\Services\UserService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
+use App\Models\Competency;
+
+
 
 class AdminEmployeeController extends Controller
 {
@@ -40,10 +44,15 @@ class AdminEmployeeController extends Controller
 
         $rules = [
             "name" => ['required'],
-            "email" => ['exclude_unless:id,0','required','email:rfc','unique:App\Models\User,email','regex:/.+@gmail\.com$/i'],
-            "type" => ['required', Rule::in(['normal', 'ceo'])] , 
-            "autoLevelUp" => ['required', Rule::in([0,1])]  
+            "email" => [
+                'required', 'email:rfc',
+                Rule::unique('user','email')->ignore($request->id), // táblanév: user
+                'regex:/.+@gmail\.com$/i'
+            ],
+            "type" => ['required', Rule::in(['normal', 'ceo'])],
+            "autoLevelUp" => ['required', Rule::in([0,1])]
         ];
+
 
         $attributes = [
             "name" => __('global.name'),
@@ -72,8 +81,12 @@ class AdminEmployeeController extends Controller
 
                 $user->relations()->create([
                     "target_id" => $user->id,
-                    "type" => UserRelationType::SELF
+                    "type" => UserRelationType::SELF,
+                    "organization_id" => session('org_id'),
                 ]);
+
+                $user->organizations()->syncWithoutDetaching([ session('org_id') ]);
+
 
                 $user->bonusMalus()->create([
                     "level" => UserService::DEFAULT_BM,
@@ -95,7 +108,12 @@ class AdminEmployeeController extends Controller
             $user->removed_at = date('Y-m-d H:i:s');
             $user->save();
 
-            UserRelation::where('target_id', $user->id)->delete();
+            UserRelation::where('organization_id', session('org_id'))
+                ->where(function($q) use ($user) {
+                    $q->where('target_id', $user->id)
+                      ->orWhere('user_id', $user->id);
+                })
+                ->delete();
         });
     }
 
@@ -130,10 +148,12 @@ class AdminEmployeeController extends Controller
 
         return $user->allRelations()
             ->with('target')
+            ->where('organization_id', session('org_id'))   // ← ez kell
             ->whereHas('target.organizations', function ($q) {
                 $q->where('organization_id', session('org_id'));
             })
             ->get();
+
     }
 
     public function saveEmployeeRelations(Request $request)
@@ -141,9 +161,9 @@ class AdminEmployeeController extends Controller
         Log::info('Kapott adat', $request->all());
 
         $request->validate([
-            'id' => 'required|integer|exists:users,id',
+            'id' => 'required|integer|exists:user,id',
             'relations' => 'required|array|min:1',
-            'relations.*.target' => 'required|integer|exists:users,id',
+            'relations.*.target' => 'required|integer|exists:user,id',
             'relations.*.type' => 'required|string|in:self,colleague,subordinate,superior',
         ]);
 
@@ -151,12 +171,15 @@ class AdminEmployeeController extends Controller
         $relations = collect($request->input('relations'));
 
         // 💡 Feltételezzük, hogy a user legalább 1 szervezet tagja
-        $organizationId = $user->organizations()->first()->id;
+        $organizationId = session('org_id'); // pontosan az aktív szervezet
 
         try {
             AjaxService::DBTransaction(function () use ($relations, $user, $organizationId) {
                 // korábbi kapcsolatok törlése
-                $user->allRelations()->delete();
+                $user->allRelations()
+                    ->where('organization_id', $organizationId)
+                    ->delete();
+
 
                 $relations->each(function ($item) use ($user, $organizationId) {
                     Log::info('Creating relation', [
@@ -189,25 +212,56 @@ class AdminEmployeeController extends Controller
     }
 
 
-
     public function getEmployeeCompetencies(Request $request){
-        return User::findOrFail($request->id)->competencies;
+        $orgId = session('org_id');
+        $user = User::findOrFail($request->id);
+
+        // ha belongsToMany pivotot használsz:
+        return $user->competencies()
+            ->wherePivot('organization_id', $orgId)
+            ->get(['competency.id','competency.name']);
     }
 
     public function saveEmployeeCompetencies(Request $request){
         $user = User::findOrFail($request->id);
-        if(!$request->has('competencies') || ($request->competencies = collect($request->competencies))->count() == 0){
-            return abort(403);
-        }
-        AjaxService::DBTransaction(function() use ($request, &$user){
-            UserCompetency::where('user_id', $user->id)->delete();
 
-            $request->competencies->each(function($compId) use (&$user){
-                UserCompetency::create([
-                    "user_id" => $user->id,
-                    "competency_id" => $compId,
+        // kötelező: legyen mit menteni
+        $ids = collect($request->competencies ?? [])->unique()->values();
+        if ($ids->isEmpty()) return abort(403);
+
+        $orgId = session('org_id');
+
+        // csak az aktuális org + globális kompetenciák engedettek (competency.organization_id NULL vagy = $orgId)
+        $validIds = Competency::whereNull('removed_at')
+            ->whereIn('id', $ids)
+            ->where(function($q) use ($orgId){
+                $q->whereNull('organization_id')->orWhere('organization_id', $orgId);
+            })
+            ->pluck('id');
+
+        $invalid = $ids->diff($validIds);
+        if ($invalid->isNotEmpty()) {
+            return response()->json([
+                'message' => 'Érvénytelen kompetencia az aktuális szervezethez.',
+                'invalid' => $invalid->values(),
+            ], 422);
+        }
+
+        \DB::transaction(function() use ($user, $orgId, $validIds) {
+            // csak az adott orgra törlünk
+            \DB::table('user_competency')
+                ->where('user_id', $user->id)
+                ->where('organization_id', $orgId)
+                ->delete();
+
+            // beszúrás org‑gal
+            foreach ($validIds as $cid) {
+                \DB::table('user_competency')->insert([
+                    'user_id' => $user->id,
+                    'organization_id' => $orgId,
+                    'competency_id' => $cid,
                 ]);
-            });
+            }
         });
     }
 
