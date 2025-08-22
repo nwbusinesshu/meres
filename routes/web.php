@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\SuperadminOrganizationController;
+use App\Http\Controllers\GlobalCompetencyController;
+
 
 // login
 Route::controller(LoginController::class)->middleware('auth:'.UserType::GUEST)->group(function () {
@@ -138,9 +140,24 @@ Route::middleware(['auth:' . UserType::SUPERADMIN, 'org'])
     });
 
 Route::prefix('/superadmin')->name('superadmin.')->middleware(['auth:' . UserType::SUPERADMIN])->group(function () {
-    Route::get('/org/create', [SuperadminOrganizationController::class, 'create'])->name('org.create');
-    Route::post('/organization/store', [SuperadminOrganizationController::class, 'store'])->name('organization.store');
-});
+        Route::get('/org/create', [SuperadminOrganizationController::class, 'create'])->name('org.create');
+        Route::post('/organization/store', [SuperadminOrganizationController::class, 'store'])->name('organization.store');
+    });
 
 Route::get('/superadmin/exit-company', [SuperAdminController::class, 'exitCompany'])->name('superadmin.exit-company');
-Route::get('/superadmin/org/{id}/data', [SuperAdminController::class, 'getOrgData'])->name('superadmin.org.data');
+    Route::get('/superadmin/org/{id}/data', [SuperAdminController::class, 'getOrgData'])->name('superadmin.org.data');
+
+Route::prefix('superadmin/competency')
+    ->name('superadmin.competency.')
+    ->middleware(['auth:' . UserType::SUPERADMIN])
+    ->controller(GlobalCompetencyController::class)
+    ->group(function () {
+        Route::get('/index', 'index')->name('index');
+
+        Route::post('/save', 'saveCompetency')->name('save');
+        Route::post('/remove', 'removeCompetency')->name('remove');
+
+        Route::get('/question/get', 'getCompetencyQuestion')->name('question.get');
+        Route::post('/question/save', 'saveCompetencyQuestion')->name('question.save');
+        Route::post('/question/remove', 'removeCompetencyQuestion')->name('question.remove');
+    });
