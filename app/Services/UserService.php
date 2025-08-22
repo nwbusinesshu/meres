@@ -12,10 +12,19 @@ use App\Models\UserBonusMalus;
 class UserService
 {
   const DEFAULT_BM = 5;
+  
+public static function getUsers() {
+    $orgId = session('org_id');
 
-  public static function getUsers(){
-    return User::whereNull('removed_at')->where('type', '!=', UserType::ADMIN)->orderBy('name')->get();
-  }
+    return User::whereNull('removed_at')
+        ->whereNotIn('type', [UserType::ADMIN, UserType::SUPERADMIN])
+        ->whereHas('organizations', function ($query) use ($orgId) {
+            $query->where('organization_id', $orgId);
+        })
+        ->orderBy('name')
+        ->get();
+}
+
 
   public static function getCurrentUser(){
     return User::findOrFail(session('uid'));

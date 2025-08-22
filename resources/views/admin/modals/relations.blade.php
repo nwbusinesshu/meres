@@ -33,6 +33,11 @@ function addNewRelationItem(uid, name, type){
   $('.relation-type').last().val(type);
 }
 function initRelationsModal(uid){
+   $.ajaxSetup({
+    headers: {
+      'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+    }
+  });
   $('#relations-modal').attr('data-id', uid);
   swal_loader.fire();
   $.ajax({
@@ -111,13 +116,15 @@ function initRelationsModal(uid){
           });
 
           $.ajax({
-            url: "{{ route('admin.employee.relations.save') }}",
-            data: {
-              id: $('#relations-modal').attr('data-id'),
-              relations: relations
-            },
-            successMessage: "{{ __('admin/employees.save-relation-success') }}",
-          });
+          url: "{{ route('admin.employee.relations.save') }}",
+          method: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({
+            id: $('#relations-modal').attr('data-id'),
+            relations: relations
+          }),
+          successMessage: "{{ __('admin/employees.save-relation-success') }}"
+        });
         }
       });
     });

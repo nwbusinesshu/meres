@@ -20,10 +20,4 @@ class UserRelation extends Pivot
     return $this->belongsTo(User::class, 'target_id', 'id');
   }
 
-
-  public function assessee()
-  {
-    return $this->belongsTo(User::class, 'assessee_id');
-  }
-
 }
