@@ -7,6 +7,8 @@ use App\Models\Enums\UserType;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+
 
 class OrganizationController extends Controller
 {
@@ -41,24 +43,32 @@ class OrganizationController extends Controller
 
 public function switch(Request $request)
 {
-    $request->validate(['org_id' => 'required|integer']);
-    $orgId = (int) $request->input('org_id');
-    $isSuperAdmin = (session('utype') === UserType::SUPERADMIN);
+    $data = $request->validate([
+        'org_id' => ['required', 'integer', 'exists:organization,id'],
+    ]);
 
-    if ($isSuperAdmin) {
-        session(['org_id' => $orgId]);
-        return redirect('home-redirect')->with('info', 'Szervezet kiválasztva.');
+    $orgId = (int) $data['org_id'];
+    $user  = Auth::user();
+
+    // Szuperadmin bárhová válthat
+    if ($user->type === UserType::SUPERADMIN) {
+        session()->put('org_id', $orgId);
+        return to_route('home-redirect')->with('info', 'Szervezet kiválasztva.');
     }
 
-    $user = User::find(session('uid'));
-    $allowed = $user->organizations()->where('organization.id', $orgId)->exists();
+    // Tag-e a felhasználó az adott szervezetben?
+    $hasAccess = $user->organizations()
+        ->where('organization.id', $orgId)
+        ->exists();
 
-    if (!$allowed) {
-        return redirect()->route('org.select')->with('error', 'Nincs jogosultságod ehhez a szervezethez.');
+    if (! $hasAccess) {
+        return to_route('org.select')
+            ->with('error', 'Nincs jogosultságod ehhez a szervezethez.');
     }
 
-    session(['org_id' => $orgId]);
-    return redirect('home-redirect')->with('info', 'Szervezet kiválasztva.');
+    session()->put('org_id', $orgId);
+
+    return to_route('home-redirect')->with('info', 'Szervezet kiválasztva.');
 }
 
 

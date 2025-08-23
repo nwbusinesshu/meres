@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Hash;     // <-- HOZZÁADVA
+use Illuminate\Support\Str;              // <-- HOZZÁADVA
 
 class User extends Authenticatable
 {
@@ -15,7 +17,28 @@ class User extends Authenticatable
     protected $table = 'user';
 	public $timestamps = false;
 	protected $guarded = [];
-	protected $hidden = [];
+	protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+    ];
+
+    public function setPasswordAttribute($value)
+    {
+        if (empty($value)) {
+            $this->attributes['password'] = null;
+            return;
+        }
+
+        $isAlreadyHashed =
+            Str::startsWith($value, '$2y$') ||        // bcrypt
+            Str::startsWith($value, '$argon2i$') ||
+            Str::startsWith($value, '$argon2id$');    // argon2
+
+        $this->attributes['password'] = $isAlreadyHashed ? $value : Hash::make($value);
+    }
 
     public function logins(){
         return $this->hasMany(UserLogin::class, 'user_id', 'id')->orderByDesc('logged_in_at');

@@ -18,6 +18,7 @@ use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\SuperadminOrganizationController;
 use App\Http\Controllers\GlobalCompetencyController;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 
 
 // login
@@ -25,7 +26,12 @@ Route::controller(LoginController::class)->middleware('auth:'.UserType::GUEST)->
     Route::get('/{login?}', 'index')->where('login','|login')->name('login');
     Route::get('/trigger-login', 'triggerLogin')->name('trigger-login');
     Route::any('/attempt-login', 'attemptLogin')->name('attempt-login');
+
+    Route::post('/attempt-password-login', 'passwordLogin')
+        ->name('attempt-password-login')
+        ->middleware('throttle:5,1'); // itt korlátozva
 });
+
 
 Route::controller(LoginController::class)->middleware('auth:'.UserType::NORMAL)->group(function () {
     Route::get('/logout', 'logout')->name('logout');

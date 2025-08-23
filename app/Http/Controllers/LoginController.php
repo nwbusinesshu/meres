@@ -5,75 +5,136 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Enums\UserType;
 use Illuminate\Http\Request;
-use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Facades\Auth;
-
+use Illuminate\Support\Facades\Hash;
+use Laravel\Socialite\Facades\Socialite;
 
 class LoginController extends Controller
 {
-    public function index(Request $request){
+    /**
+     * GET /login
+     */
+    public function index(Request $request)
+    {
         return view('login');
     }
 
+    /**
+     * GET /logout
+     */
     public function logout(Request $request)
     {
         $request->session()->flush();
         return redirect('login')->with('info', __('login.logged-out-normal'));
     }
 
-    public function triggerLogin(Request $request){
-        return Socialite::driver('google')->with(["prompt" => "select_account"])->redirect();
+    /**
+     * GET /trigger-login  (Google OAuth redirect)
+     */
+    public function triggerLogin(Request $request)
+    {
+        return Socialite::driver('google')->with(['prompt' => 'select_account'])->redirect();
     }
 
-    public function attemptLogin(Request $request){
-        try{
+    /**
+     * ANY /attempt-login   (Google OAuth callback)
+     */
+    public function attemptLogin(Request $request)
+    {
+        try {
             $u = Socialite::driver('google')->user();
-        }catch(\Throwable $th){
+        } catch (\Throwable $th) {
             return redirect('login')->with('error', __('login.failed-login'));
         }
 
         /** @var User|null $user */
-        $user = User::where('email', $u->getEmail())->whereNull('removed_at')->first();
+        $user = User::where('email', $u->getEmail())
+            ->whereNull('removed_at')
+            ->first();
+
         if (is_null($user)) {
             abort(403);
         }
-        
-        Auth::login($user); // <<< EZ HIÁNYZOTT
 
+        // Közös lezárás: auth + session + napló + org routing
+       return $this->finishLogin($request, $user, $u->getAvatar(), false);
+    }
+
+    /**
+     * POST /attempt-password-login   (Email + jelszó belépés)
+     */
+    public function passwordLogin(Request $request)
+    {
+        $data = $request->validate([
+            'email'    => 'required|email',
+            'password' => 'required|string|min:6',
+            'remember' => 'nullable|boolean',
+        ]);
+
+        /** @var User|null $user */
+        $user = User::where('email', $data['email'])
+            ->whereNull('removed_at')
+            ->first();
+
+        // Ha nincs user, nincs jelszó (Google-only), vagy rossz a jelszó → hiba
+        if (! $user || empty($user->password) || ! Hash::check($data['password'], $user->password)) {
+            return back()
+                ->withErrors(['email' => 'Hibás email/jelszó, vagy ehhez a fiókhoz még nincs jelszó beállítva.'])
+                ->withInput(['email' => $data['email']]);
+        }
+
+        $remember = (bool)($data['remember'] ?? false);
+
+        // Közös lezárás: auth + session + napló + org routing
+        return $this->finishLogin($request, $user, null, $remember);
+    }
+
+    /**
+     * Közös lezáró metódus mindkét belépési ágra:
+     * - Laravel Auth::login (remember opcióval)
+     * - Session feltöltése
+     * - user_login naplózás (session id mint token)
+     * - Org választás/irányítás
+     */
+    private function finishLogin(Request $request, User $user, ?string $avatar = null, bool $remember = false)
+    {
+        // Laravel auth + remember cookie (framework kezeli az élettartamot)
+        Auth::login($user, $remember);
 
         // Alap session adatok
         session([
             'uid'     => $user->id,
             'uname'   => $user->name,
             'utype'   => $user->type,
-            'uavatar' => $u->getAvatar(),
+            'uavatar' => $avatar,
         ]);
 
-        // Login naplózása
+        // Login naplózása a meglévő mechanizmusoddal
         $user->logins()->create([
-            "logged_in_at" => date('Y-m-d H:i:s'),
-            "token"        => session()->getId(),
+            'logged_in_at' => date('Y-m-d H:i:s'),
+            'token'        => session()->getId(),
+            'ip'           => $request->ip(),
+            'user_agent'   => substr($request->userAgent(),0,255),
+
         ]);
 
-        // --- ORG kiválasztás logika ---
-        // 1) SUPERADMIN -> org választó (cégtagságtól függetlenül)
+        // --- ORG kiválasztás / irányítás ---
+        // 1) SUPERADMIN → dashboard (org választó helyett)
         if ($user->type === UserType::SUPERADMIN) {
             session()->forget('org_id');
-            return redirect()->route('superadmin.dashboard'); // <-- EZ volt: route('org.select')
+            return redirect()->route('superadmin.dashboard');
         }
 
-
         // 2) Nem superadmin:
-        //    - ha pontosan 1 org tagja -> automatikus org_id és tovább a home-redirectre
+        //    - ha pontosan 1 org tagja → automatikus org_id, mehet tovább
         //    - különben org választó
-        $orgIds = $user->organizations()->pluck('organization.id')->toArray(); // pivot: organization_user
+        $orgIds = $user->organizations()->pluck('organization.id')->toArray();
 
         if (count($orgIds) === 1) {
             session(['org_id' => $orgIds[0]]);
             return redirect('home-redirect');
         }
 
-        // több vagy 0 tagság esetén válasszon
         session()->forget('org_id');
         return redirect()->route('org.select');
     }
