@@ -16,13 +16,22 @@ class AdminCeoRanksController extends Controller
     }
 
     public function index(Request $request){
+        $organizationId = session('org_id');
+
         return view('admin.ceoranks',[
-            "ceoranks" => CeoRank::whereNull('removed_at')->orderByDesc('value')->get(),
+            "ceoranks" => CeoRank::where('organization_id', $organizationId)
+                    ->whereNull('removed_at')
+                    ->orderByDesc('value')
+                    ->get(),
         ]);
     }
 
     public function getCeoRank(Request $request){
-        return CeoRank::findOrFail($request->id);
+        $organizationId = session('org_id');
+        return CeoRank::where('id', $request->id)
+              ->where('organization_id', $organizationId)
+              ->firstOrFail();
+
     }
 
     public function saveCeoRank(Request $request){
@@ -51,12 +60,15 @@ class AdminCeoRanksController extends Controller
         AjaxService::DBTransaction(function() use ($request, &$rank){
             if(is_null($rank)){
                 CeoRank::create([
-                    "name" => $request->name,
-                    "value" => $request->value,
-                    "min" => $request->min == 0 ? null : $request->min,
-                    "max" => $request->max == 0 ? null : $request->max,
-                ]);
+                "organization_id" => session('org_id'),
+                "name" => $request->name,
+                "value" => $request->value,
+                "min" => $request->min == 0 ? null : $request->min,
+                "max" => $request->max == 0 ? null : $request->max,
+            ]);
             }else{
+                $organizationId = session('org_id');
+                $rank = CeoRank::where('id', $request->id)->where('organization_id', $organizationId)->first();
                 $rank->name = $request->name;
                 $rank->value = $request->value;
                 $rank->min = $request->min == 0 ? null : $request->min;
@@ -67,7 +79,10 @@ class AdminCeoRanksController extends Controller
     }
 
     public function removeCeoRank(Request $request){
-        $rank = CeoRank::findOrFail($request->id);
+        $organizationId = session('org_id');
+        $rank = CeoRank::where('id', $request->id)
+              ->where('organization_id', $organizationId)
+              ->firstOrFail();
         AjaxService::DBTransaction(function() use(&$rank) {
             $rank->removed_at = date('Y-m-d H:i:s');
             $rank->save();

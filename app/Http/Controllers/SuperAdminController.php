@@ -70,6 +70,20 @@ public function store(Request $request)
         'created_at'        => now(),
     ]);
 
+    // 5. Alap CEO rangok másolása az új céghez
+    $defaultRanks = \App\Models\CeoRank::whereNull('organization_id')->get();
+
+    foreach ($defaultRanks as $rank) {
+        \App\Models\CeoRank::create([
+            'organization_id' => $org->id,
+            'name'            => $rank->name,
+            'value'           => $rank->value,
+            'min'             => $rank->min,
+            'max'             => $rank->max,
+            'removed_at'      => null,
+        ]);
+    }
+
     return response()->json(['success' => true]);
 }
 
@@ -171,8 +185,12 @@ public function delete(Request $request)
     // Profil soft delete
     \App\Models\OrganizationProfile::where('organization_id', $org->id)->update(['removed_at' => now()]);
 
+    // CeoRank soft delete
+    \App\Models\CeoRank::where('organization_id', $org->id)->update(['removed_at' => now()]);
+
     return response()->json(['success' => true]);
 }
+
 
 
 public function exitCompany(Request $request)
