@@ -161,3 +161,11 @@ Route::prefix('superadmin/competency')
         Route::post('/question/save', 'saveCompetencyQuestion')->name('question.save');
         Route::post('/question/remove', 'removeCompetencyQuestion')->name('question.remove');
     });
+    
+Route::get('/superadmin/global-competencies', [GlobalCompetencyController::class, 'index'])->name('superadmin.global-competencies');
+
+Route::post('/flash-success', function (\Illuminate\Http\Request $request) {
+    session()->flash('success', $request->input('message'));
+    return response()->json(['ok' => true]);
+})->name('flash.success');
+

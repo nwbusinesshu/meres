@@ -47,6 +47,25 @@
 
 	<!-- Global custom js -->
 	<script>
+  /* --- Globális toast helper --- */
+  window.toast = function(type, message, opts = {}) {
+    Swal.fire(Object.assign({
+      toast: true,
+      position: 'bottom', // vagy 'bottom-end'
+      icon: type,
+      title: message,
+      showConfirmButton: false,
+      timer: 4000,
+      timerProgressBar: true,
+      didOpen: (toastEl) => {
+        toastEl.addEventListener('mouseenter', Swal.stopTimer);
+        toastEl.addEventListener('mouseleave', Swal.resumeTimer);
+      }
+    }, opts));
+  };
+</script>
+
+	<script>
 		/* Constants */
 		const LANG_CODE = navigator.language.split("-")[0];
 
@@ -77,7 +96,7 @@
 				input: 'form-control',
 				loader: 'swal2-custom-loader',
 			},
-			loaderHtml: '<img src="{{ assets('loader/loader.svg') }}" width="50"/>',
+			loaderHtml: '<img src="{{ asset('assets/loader/loader.svg') }}" width="50"/>',
 			heightAuto: false,
 			allowEnterKey: true,
 			keydownListenerCapture: true,
@@ -169,7 +188,7 @@
 			allowEscapeKey: false,
 			allowEnterKey: false,
 			showConfirmButton: false,
-			imageUrl: '{{ assets("loader/loader.svg") }}',
+			imageUrl: '{{ asset("assets/loader/loader.svg") }}',
 			imageWidth: 125,
 			imageHeight: 125,
 			imageAlt: 'loader',
@@ -197,44 +216,72 @@
 		moment().locale(LANG_CODE);
 
 		/* Ajax setup */
-		$.ajaxSetup({
-			beforeSend: function(xhr, settings) {
-				if(settings.url.includes('{{ url('/') }}')){
-					xhr.setRequestHeader("X-CSRF-TOKEN", $('meta[name="csrf-token"]').attr('content'));
-				}
-			},
-			accepts: {
-        text: "application/json"
-    	},
-			method: "POST",
-			complete: function(xhr, status){
-				if(status != 'success'){
-					if(xhr.status == 419){
-						swal_loader.fire();
-						location.reload();
-						return;
-					}
-					if(xhr.status == 422){
-						var errors = Object.values(xhr.responseJSON.errors);
-						swal_error.fire({html: [].concat.apply([], errors).join('<br>')});
-						return;
-					}
-					swal_error.fire({text: '{{ __('global.connection-fail') }}'});
-					@if(config('app.debug'))
-					console.log(xhr.responseJSON);
-					@endif
-				}else if(typeof this.successMessage != 'undefined'){
-					swal_success.fire({text: this.successMessage}).then((result) => {
-						swal_loader.fire();
-						if(typeof this.successUrl != 'undefined'){
-							location.href = this.successUrl;
-						}else{
-							location.reload();
-						}
-					});
-				}
-			}
-		});
+ /* Ajax setup */
+  $.ajaxSetup({
+    beforeSend: function (xhr, settings) {
+      if (settings.url.includes('{{ url('/') }}')) {
+        xhr.setRequestHeader(
+          "X-CSRF-TOKEN",
+          $('meta[name="csrf-token"]').attr('content')
+        );
+      }
+    },
+    accepts: {
+      text: "application/json"
+    },
+    method: "POST",
+    complete: function (xhr, status) {
+      if (status !== 'success') {
+        // hibakezelés (419/422 stb.)
+        if (xhr.status == 419) {
+          swal_loader.fire();
+          location.reload();
+          return;
+        }
+        if (xhr.status == 422) {
+          var errors = Object.values(xhr.responseJSON.errors);
+          swal_error.fire({ html: [].concat.apply([], errors).join('<br>') });
+          return;
+        }
+        swal_error.fire({ text: '{{ __('global.connection-fail') }}' });
+        @if(config('app.debug'))
+          console.log(xhr.responseJSON);
+        @endif
+        return;
+      }
+
+      // ---- SIKER ÁG ----
+      if (typeof this.successMessage !== 'undefined') {
+        const wantsModal = this.useModal === true;
+
+        if (wantsModal) {
+          // régi, gombos modal
+          swal_success.fire({ text: this.successMessage }).then(() => {
+            swal_loader.fire();
+            if (typeof this.successUrl !== 'undefined') {
+              location.href = this.successUrl;
+            } else {
+              location.reload();
+            }
+          });
+        } else {
+          // ÚJ: redirect/reload azonnal, a toast a KÖVETKEZŐ oldalon jön fel (session flash)
+          const go = () => {
+            if (typeof this.successUrl !== 'undefined') {
+              location.href = this.successUrl;
+            } else {
+              location.reload();
+            }
+          };
+
+          $.post("{{ route('flash.success') }}", {
+            message: this.successMessage,
+            _token: $('meta[name="csrf-token"]').attr('content')
+          }).always(go);
+        }
+      }
+    }
+  });
 
 		/* preventing double form submit */
 		$(document).delegate('form', 'submit', function(){

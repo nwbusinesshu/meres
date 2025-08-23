@@ -4,8 +4,7 @@ namespace App\Models\Enums;
 
 class UserRelationType
 {
-    const EQUAL = "colleague";
-    const UNDER = "subordinate";
-    const ABOVE = "superior";
-    const SELF = "self";
+  const COLLEGAUGE = "colleague";
+  const SUBORDINATE = "subordinate";
+  const SELF = "self";
 }

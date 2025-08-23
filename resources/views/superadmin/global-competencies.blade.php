@@ -57,19 +57,22 @@
     <div class="no-competency"><p>{{ $_('no-competency') }}</p></div>
   @endforelse
 </div>
+
 @endsection
 
 @section('scripts')
   @include('admin.modals.competency')
   @include('admin.modals.competencyq')
-  <script>
-    // Ha a JS-ed endpoint-okat fix stringekre küldi, itt átírhatod:
-    window.GLOBAL_COMPETENCY_ENDPOINTS = {
-      save:      '{{ route('superadmin.competency.save') }}',
-      remove:    '{{ route('superadmin.competency.remove') }}',
-      qGet:      '{{ route('superadmin.competency.question.get') }}',
-      qSave:     '{{ route('superadmin.competency.question.save') }}',
-      qRemove:   '{{ route('superadmin.competency.question.remove') }}',
-    };
-  </script>
+<script>
+  window.SuperadminCompetencyRoutes = {
+    save:      '{{ route('superadmin.competency.save') }}',
+    remove:    '{{ route('superadmin.competency.remove') }}',
+    qGet:      '{{ route('superadmin.competency.question.get') }}',
+    qSave:     '{{ route('superadmin.competency.question.save') }}',
+    qRemove:   '{{ route('superadmin.competency.question.remove') }}',
+    index:     '{{ route('superadmin.global-competencies') }}' // ha szükséges redirecthez
+  };
+</script>
 @endsection
+
+
