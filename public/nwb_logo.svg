@@ -3,7 +3,7 @@
 <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 	 viewBox="0 0 2019.59 662.68" style="enable-background:new 0 0 2019.59 662.68;" xml:space="preserve">
 <style type="text/css">
-	.st0{fill:#1D2856;opacity:0.4;}
+	.st0{fill:#1D2856;}
 	.st1{fill:url(#SVGID_1_);}
 	.st2{fill:url(#SVGID_00000011735710764932157370000004942685148382062731_);}
 	.st3{fill:url(#SVGID_00000047777134716826479610000004569802794077089937_);}
@@ -12,7 +12,7 @@
 	.st6{fill:url(#SVGID_00000143582598233910022610000016646595244617199757_);}
 	.st7{fill:url(#SVGID_00000054969895216064187830000000444092660927066770_);}
 	.st8{fill:url(#SVGID_00000122700479190043434610000001938366604231156414_);}
-	.st9{fill:#E76A35;opacity:0.4;}
+	.st9{fill:#E76A35;}
 </style>
 <g>
 	<path class="st0" d="M118.57,41.33L16.29,621.35h580.02L698.59,41.33H118.57z M442.94,450.43h-58.02l-70.91-146.92l-26.13,146.92

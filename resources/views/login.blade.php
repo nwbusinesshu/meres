@@ -6,7 +6,7 @@
 @section('content')
 <div class="tile">
 
-  <img class="chaos-360" src="{{ asset('assets/logo/chaos360.svg') }}" alt="chaos-360">
+  <img class="chaos-360" src="{{ asset('assets/logo/quarma360.svg') }}" alt="chaos-360">
 
   {{-- Email + jelszó belépés --}}
   <form method="POST" action="{{ route('attempt-password-login') }}" class="w-100" style="max-width:420px;margin:0 auto;">
@@ -58,7 +58,7 @@
     {{ $_('login') }} <i class="fa fa-google"></i>
   </a>
 
-  <img class="mewocont-logo" src="{{ asset('assets/logo/mewocont_logo_dark.svg') }}" alt="">
+  <img class="mewocont-logo" src="{{ asset('assets/logo/nwb_logo.svg') }}" alt="">
 </div>
 @endsection
 

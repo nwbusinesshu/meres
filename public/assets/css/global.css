@@ -29,7 +29,7 @@
 
 html,body{
 	height:100%;
-	font-family: 'Quicksand', sans-serif;
+	font-family: 'Outfit', sans-serif;
 	-ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
@@ -43,7 +43,7 @@ body.mobile-noscroll{
 }
 
 h1,h2,h3,h4,h5,h6{
-  font-family: 'Kanit', sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-weight: 600;
   color: var(--outer_space);
   margin: 0;
@@ -69,7 +69,7 @@ td{
   margin-right: 0;
 }
 .btn{
-  font-family: 'Kanit', sans-serif;
+  font-family: 'Outfit', sans-serif;
   font-weight: 400;
   font-size: 1.2em;
   border-radius: 0;
@@ -99,7 +99,7 @@ td{
 	color: var(--info);
 }
 button.swal2-styled{
-  font-family: 'Kanit', sans-serif;
+  font-family: 'Outfit', sans-serif;
   font-weight: 600;
 }
 .swal2-loader-title{
@@ -112,7 +112,7 @@ button.swal2-styled{
 }
 .page-container{
 	min-height: 100%;
-  background: url('../logo/watermark_mewo.svg'), var(--bg);
+  background: url('../logo/quarma_wm.svg'), var(--bg);
   background-repeat: no-repeat;
   background-attachment: fixed;
   background-position-x: right;
@@ -164,7 +164,7 @@ button.swal2-styled{
   margin: 5px 0px;
 }
 .navbar .logo img{
-  height: 100%;
+  height: 50%;
 }
 .navbar .userinfo{
   gap: 1em;
@@ -233,7 +233,7 @@ button.swal2-styled{
   align-items: center;
   cursor: pointer;
   background-color: unset;
-  font-family: 'Kanit', sans-serif;
+  font-family: 'Outfit', sans-serif;
   font-weight: 600;
   color: var(--silver_chalice);
   border-left: 3px solid var(--silver_chalice);

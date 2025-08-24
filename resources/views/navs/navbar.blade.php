@@ -1,6 +1,6 @@
 <div class="navbar">
   <div class="logo">
-    <img src="{{ asset('assets/logo/chaos360.svg') }}" alt="mewo-logo">
+    <img src="{{ asset('assets/logo/quarma360.svg') }}" alt="mewo-logo">
   </div>
 
   @php

@@ -15,6 +15,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
 use App\Models\Competency;
+use App\Services\PasswordSetupService;
+
 
 
 
@@ -39,68 +41,153 @@ class AdminEmployeeController extends Controller
         return User::findOrFail($request->id);
     }
 
-    public function saveEmployee(Request $request){
-        $user = User::find($request->id);
+   public function saveEmployee(Request $request)
+{
+    $orgId = (int) session('org_id');
+    if (!$orgId) {
+        return response()->json([
+            'message' => 'Nincs kiválasztott szervezet.',
+            'errors'  => ['org' => ['Nincs kiválasztott szervezet.']],
+        ], 422);
+    }
 
-        $rules = [
-            "name" => ['required'],
-            "email" => [
-                'required', 'email:rfc',
-                Rule::unique('user','email')->ignore($request->id), // táblanév: user
-                'regex:/.+@gmail\.com$/i'
-            ],
-            "type" => ['required', Rule::in(['normal', 'ceo'])],
-            "autoLevelUp" => ['required', Rule::in([0,1])]
-        ];
+    /** @var User|null $user */
+    $user    = User::find($request->id);
+    $created = false;
 
+    // VALIDÁCIÓ (gmail-regex NINCS; unique csak élő userre)
+    $rules = [
+        'name'        => ['required', 'string', 'max:255'],
+        'email'       => [
+            'required',
+            'email:rfc',
+            Rule::unique('user', 'email')
+                ->ignore($request->id)
+                ->where(function ($q) { $q->whereNull('removed_at'); }),
+        ],
+        'type'        => ['required', Rule::in(['normal', 'ceo'])],
+        'autoLevelUp' => ['required', Rule::in([0, 1])],
+    ];
 
-        $attributes = [
-            "name" => __('global.name'),
-            "email" => __('global.email'),
-            "type" => __('global.type'),
-            "autoLevelUp" => __('global.auto-level-up') 
-        ];
-    
-        $this->validate(
-            request: $request,
-            rules: $rules,
-            customAttributes: $attributes,
-            messages: [
-                "email.regex" => __('admin/employees.email-only-gmail')
-            ]
-        ); 
+    $attributes = [
+        'name'        => __('global.name'),
+        'email'       => __('global.email'),
+        'type'        => __('global.type'),
+        'autoLevelUp' => __('global.auto-level-up'),
+    ];
 
-        AjaxService::DBTransaction(function() use ($request, &$user){
-            if(is_null($user)){
+    $validator = \Validator::make($request->all(), $rules, [], $attributes);
+    if ($validator->fails()) {
+        \Log::warning('employee.save.validation_failed', [
+            'org_id'  => $orgId,
+            'payload' => $request->all(),
+            'errors'  => $validator->errors()->toArray(),
+        ]);
+
+        return response()->json([
+            'message' => 'Hibás adatok.',
+            'errors'  => $validator->errors()->toArray(),
+        ], 422);
+    }
+
+    try {
+        AjaxService::DBTransaction(function () use ($request, $orgId, &$user, &$created) {
+            if (is_null($user)) {
+                // ÚJ FELHASZNÁLÓ
+                $created = true;
+
                 $user = User::create([
-                    "name" => $request->name,
-                    "email" => $request->email,
-                    "type" => $request->type,
-                    "has_auto_level_up" => $request->autoLevelUp,
+                    'name'              => $request->name,
+                    'email'             => $request->email,
+                    'type'              => $request->type,
+                    'has_auto_level_up' => (int) $request->autoLevelUp,
                 ]);
 
+                // SELF kapcsolat
                 $user->relations()->create([
-                    "target_id" => $user->id,
-                    "type" => UserRelationType::SELF,
-                    "organization_id" => session('org_id'),
+                    'target_id'       => $user->id,
+                    'type'            => UserRelationType::SELF,
+                    'organization_id' => $orgId,
                 ]);
 
-                $user->organizations()->syncWithoutDetaching([ session('org_id') ]);
+                // Org hozzárendelés
+                $user->organizations()->syncWithoutDetaching([$orgId]);
 
+                // Bonus/Malus — EXPLICIT MODELL, user_id is benne a kulcsban
+                UserBonusMalus::updateOrCreate(
+                    [
+                        'user_id'         => $user->id,
+                        'month'           => date('Y-m-01'),
+                        'organization_id' => $orgId,
+                    ],
+                    [
+                        'level' => UserService::DEFAULT_BM,
+                    ]
+                );
 
-                $user->bonusMalus()->create([
-                    "level" => UserService::DEFAULT_BM,
-                    "month" => date('Y-m-01')
-                ]);
-            }else{
-                $user->name = $request->name;
-                $user->email = $request->email;
-                $user->type = $request->type;
-                $user->has_auto_level_up = $request->autoLevelUp;
+            } else {
+                // MEGLÉVŐ FELHASZNÁLÓ FRISSÍTÉSE
+                $user->name              = $request->name;
+                $user->email             = $request->email;
+                $user->type              = $request->type;
+                $user->has_auto_level_up = (int) $request->autoLevelUp;
                 $user->save();
+
+                // Biztonság kedvéért org kapcsolat (ha korábbról nem lenne meg)
+                $user->organizations()->syncWithoutDetaching([$orgId]);
+
+                // Bonus/Malus — EXPLICIT MODELL
+                UserBonusMalus::updateOrCreate(
+                    [
+                        'user_id'         => $user->id,
+                        'month'           => date('Y-m-01'),
+                        'organization_id' => $orgId,
+                    ],
+                    [
+                        'level' => UserService::DEFAULT_BM,
+                    ]
+                );
             }
         });
+    } catch (\Throwable $e) {
+        \Log::error('employee.save.transaction_failed', [
+            'org_id'  => $orgId,
+            'user_id' => $user ? $user->id : null,
+            'error'   => $e->getMessage(),
+        ]);
+
+        return response()->json([
+            'message' => 'Sikertelen művelet: szerverhiba!',
+            'errors'  => ['exception' => [$e->getMessage()]],
+        ], 422);
     }
+
+    // E-MAIL csak ÚJ usernél
+    if ($created) {
+        try {
+            PasswordSetupService::createAndSend($orgId, $user->id, auth()->id());
+        } catch (\Throwable $e) {
+            \Log::error('password_setup_mail_failed', [
+                'org_id'  => $orgId,
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'ok'      => true,
+                'user_id' => $user->id,
+                'info'    => 'A felhasználó létrejött, de a jelszó-beállító e-mail küldése nem sikerült. Ellenőrizd a mail beállításokat.',
+            ], 200);
+        }
+    }
+
+    return response()->json([
+        'ok'      => true,
+        'user_id' => $user->id,
+        'created' => $created,
+    ], 200);
+}
+
 
     public function removeEmployee(Request $request){
         $user = User::findOrFail($request->id);

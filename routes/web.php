@@ -19,6 +19,8 @@ use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\SuperadminOrganizationController;
 use App\Http\Controllers\GlobalCompetencyController;
 use Illuminate\Routing\Middleware\ThrottleRequests;
+use App\Http\Controllers\PasswordSetupController;
+
 
 
 // login
@@ -32,7 +34,15 @@ Route::controller(LoginController::class)->middleware('auth:'.UserType::GUEST)->
         ->middleware('throttle:5,1'); // itt korlátozva
 });
 
+// Jelszó-létrehozás (guest)
+Route::controller(PasswordSetupController::class)
+    ->middleware('auth:'.\App\Models\Enums\UserType::GUEST)
+    ->group(function () {
+        Route::get('/{org}/password-setup/{token}', 'show')->name('password-setup.show');
+        Route::post('/{org}/password-setup/{token}', 'store')->name('password-setup.store');
+    });
 
+//logout
 Route::controller(LoginController::class)->middleware('auth:'.UserType::NORMAL)->group(function () {
     Route::get('/logout', 'logout')->name('logout');
 });
