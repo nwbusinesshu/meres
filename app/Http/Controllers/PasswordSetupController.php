@@ -7,6 +7,8 @@ use App\Models\PasswordSetup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use App\Models\User; 
 
 class PasswordSetupController extends Controller
 {
@@ -14,16 +16,22 @@ class PasswordSetupController extends Controller
     {
         $organization = Organization::where('slug', $org)->firstOrFail();
 
-        $ps = PasswordSetup::where('organization_id', $organization->id)
-            ->where('token_hash', hash('sha256', $token))
-            ->whereNull('used_at')
+        $row = DB::table('password_setup as ps')
+            ->join('user as u', 'u.id', '=', 'ps.user_id')
+            ->select('ps.id as ps_id', 'ps.expires_at', 'ps.used_at', 'u.id as user_id')
+            ->where('ps.organization_id', $organization->id)
+            ->whereNull('ps.used_at')
+            ->where('ps.expires_at', '>', now())
+            ->where('ps.token_hash', hash('sha256', $token))
             ->first();
 
-        if (!$ps || now()->greaterThan($ps->expires_at)) {
-            return redirect()->route('login')->with('error', 'A jelszó beállító link érvénytelen vagy lejárt.');
+        if (!$row) {
+            // lejárt/érvénytelen
+            return redirect()->route('login')->with('error', 'A link/token lejárt vagy nem létezik. Kérelem nem teljesíthető.');
         }
 
-        $user = $ps->user;
+        $user = User::findOrFail($row->user_id);
+
         if (!$user || !is_null($user->removed_at)) {
             return redirect()->route('login')->with('error', 'A felhasználói fiók nem aktív.');
         }
@@ -32,6 +40,7 @@ class PasswordSetupController extends Controller
             'org'   => $organization,
             'email' => $user->email,
             'token' => $token,
+            'user'  => $user,
         ]);
     }
 

@@ -24,6 +24,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+    protected $appends = ['has_password', 'login_mode_text'];
 
     public function setPasswordAttribute($value)
     {
@@ -38,6 +39,16 @@ class User extends Authenticatable
             Str::startsWith($value, '$argon2id$');    // argon2
 
         $this->attributes['password'] = $isAlreadyHashed ? $value : Hash::make($value);
+    }
+
+    public function getHasPasswordAttribute(): bool
+    {
+        return !is_null($this->password);
+    }
+
+    public function getLoginModeTextAttribute(): string
+    {
+        return $this->has_password ? 'jelszó + OAuth' : 'OAuth';
     }
 
     public function logins(){

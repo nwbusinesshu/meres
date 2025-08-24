@@ -28,6 +28,10 @@ Route::controller(LoginController::class)->middleware('auth:'.UserType::GUEST)->
     Route::get('/{login?}', 'index')->where('login','|login')->name('login');
     Route::get('/trigger-login', 'triggerLogin')->name('trigger-login');
     Route::any('/attempt-login', 'attemptLogin')->name('attempt-login');
+    // Microsoft login
+    Route::get('/trigger-microsoft-login', [LoginController::class, 'triggerMicrosoftLogin'])->name('trigger-microsoft-login');
+    Route::get('/auth/microsoft/callback', [LoginController::class, 'attemptMicrosoftLogin'])->name('microsoft.callback');
+
 
     Route::post('/attempt-password-login', 'passwordLogin')
         ->name('attempt-password-login')
@@ -78,6 +82,8 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         Route::post('/competencies/save', 'saveEmployeeCompetencies')->name('competencies.save');
         Route::post('/bonusmalus/get', 'getBonusMalus')->name('bonusmalus.get');
         Route::post('/bonusmalus/set', 'setBonusMalus')->name('bonusmalus.set');
+        Route::post('/password-reset', 'passwordReset')->name('password-reset');
+
     });
 
     // competency

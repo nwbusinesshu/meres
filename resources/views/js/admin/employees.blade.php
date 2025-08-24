@@ -71,3 +71,71 @@
     });
   });
 </script>
+ <script>
+    (function () {
+      // Delegált, vanilla JS eseménykezelő (nem kell jQuery)
+      function on(el, event, selector, handler) {
+        el.addEventListener(event, function (e) {
+          const target = e.target.closest(selector);
+          if (target) handler(e, target);
+        });
+      }
+
+      on(document, 'click', '.password-reset', async function (e, btn) {
+        const tr = btn.closest('tr');
+        const userId = tr?.dataset?.id;
+        if (!userId) return;
+
+        const hasSwal = !!(window.Swal && typeof Swal.fire === 'function');
+
+        // Megerősítés — SweetAlert2, ha van; különben native confirm
+        let proceed = false;
+        if (hasSwal) {
+          const r = await Swal.fire({
+            title: 'Jelszó visszaállítás?',
+            html: 'Ez <strong>törli</strong> a jelenlegi jelszót (ha volt), és új jelszó-beállító levelet küld.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'OK',
+            cancelButtonText: 'Mégse'
+          });
+          proceed = r.isConfirmed;
+        } else {
+          proceed = window.confirm('Ez törli a jelszót és új beállító levelet küld. Folytatod?');
+        }
+        if (!proceed) return;
+
+        try {
+          const resp = await fetch("{{ route('admin.employee.password-reset') }}", {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ user_id: userId })
+          });
+
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err?.message || ('HTTP ' + resp.status));
+          }
+
+          // UI frissítés: belépési mód most "OAuth"
+          const modeEl = tr.querySelector('.login-mode');
+          if (modeEl) modeEl.textContent = 'OAuth';
+
+          if (hasSwal) {
+            await Swal.fire({ icon: 'success', title: 'Elküldve', text: 'A jelszó-visszaállító e-mailt kiküldtük.' });
+          }
+        } catch (err) {
+          console.error(err);
+          if (hasSwal) {
+            await Swal.fire({ icon: 'error', title: 'Hiba', text: 'Nem sikerült elküldeni a visszaállító levelet.' });
+          } else {
+            alert('Nem sikerült elküldeni a visszaállító levelet.');
+          }
+        }
+      });
+    })();
+  </script>

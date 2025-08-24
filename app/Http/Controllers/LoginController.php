@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Socialite\Facades\Socialite;
+use Illuminate\Support\Facades\Log;
 
 class LoginController extends Controller
 {
@@ -36,6 +37,15 @@ class LoginController extends Controller
         return Socialite::driver('google')->with(['prompt' => 'select_account'])->redirect();
     }
 
+       public function triggerMicrosoftLogin(Request $request)
+    {
+        Log::info('Microsoft login redirect elindult');
+        return Socialite::driver('microsoft')
+            ->with(['prompt' => 'select_account'])
+            ->redirect();
+    }
+
+
     /**
      * ANY /attempt-login   (Google OAuth callback)
      */
@@ -58,6 +68,40 @@ class LoginController extends Controller
 
         // Közös lezárás: auth + session + napló + org routing
        return $this->finishLogin($request, $user, $u->getAvatar(), false);
+    }
+
+     public function attemptMicrosoftLogin(Request $request)
+    {
+        Log::info('Microsoft callback route meghívva', [
+            'query' => $request->query(),
+        ]);
+
+        try {
+            $u = Socialite::driver('microsoft')->user();
+            Log::info('Microsoft user adatok', [
+                'id'    => $u->getId(),
+                'email' => $u->getEmail(),
+                'name'  => $u->getName(),
+            ]);
+        } catch (\Throwable $th) {
+            Log::error('Microsoft login hiba', ['exception' => $th]);
+            return redirect('login')->with('error', __('login.failed-login'));
+        }
+
+        $user = \App\Models\User::where('email', $u->getEmail())
+            ->whereNull('removed_at')
+            ->first();
+
+        if (is_null($user)) {
+            Log::warning('Microsoft login: nincs ilyen user az adatbázisban', [
+                'email' => $u->getEmail(),
+            ]);
+            abort(403, 'Nincs ilyen felhasználó az adatbázisban.');
+        }
+
+        Log::info('Microsoft login sikeres', ['user_id' => $user->id]);
+
+        return $this->finishLogin($request, $user, $u->getAvatar(), false);
     }
 
     /**

@@ -1,41 +1,88 @@
 @extends('layouts.master')
 
-@section('content')
-<div class="tile" style="max-width:520px;margin:0 auto;">
-  <h3 class="mb-3">Jelszó beállítása</h3>
-  <p class="text-muted">Szervezet: <strong>{{ $org->name }}</strong></p>
+@section('head-extra')
+  {{-- opcionális saját CSS a laphoz; ha még nincs, maradhat így is --}}
+  <link rel="stylesheet" href="{{ assets('css/pages/password-setup.css') }}">
+@endsection
 
-  <form method="POST" action="{{ route('password-setup.store', ['org' => $org->slug, 'token' => $token]) }}" class="mb-4">
+@section('content')
+<div class="tile">
+  <img class="chaos-360" src="{{ asset('assets/logo/quarma360.svg') }}" alt="quarma-360">
+  <h3> Új jelszó beállítása</h3>
+
+  {{-- Jelszó beállítás --}}
+  <form method="POST"
+        action="{{ route('password-setup.store', ['org' => $org->slug, 'token' => $token]) }}"
+        class="w-100"
+        style="max-width:420px;margin:0 auto;">
     @csrf
 
     <div class="form-group">
-      <label>E-mail</label>
-      <input type="email" class="form-control" value="{{ $email }}" readonly tabindex="-1">
+      <label for="ps-email">E-mail</label>
+      <input id="ps-email"
+             type="email"
+             class="form-control"
+             value="{{ isset($user) ? $user->email : '' }}"
+             disabled
+             readonly>
     </div>
 
     <div class="form-group">
-      <label>Jelszó</label>
-      <input type="password" name="password" class="form-control" required minlength="8" autocomplete="new-password">
+      <label for="ps-password">Új jelszó</label>
+      <input id="ps-password"
+             name="password"
+             type="password"
+             class="form-control"
+             required
+             autocomplete="new-password">
     </div>
 
     <div class="form-group">
-      <label>Jelszó megerősítése</label>
-      <input type="password" name="password_confirmation" class="form-control" required minlength="8" autocomplete="new-password">
+      <label for="ps-password-confirmation">Jelszó megerősítése</label>
+      <input id="ps-password-confirmation"
+             name="password_confirmation"
+             type="password"
+             class="form-control"
+             required
+             autocomplete="new-password">
     </div>
 
-    <button class="btn btn-primary btn-block mt-2">Jelszó beállítása és belépés</button>
+    <button type="submit" class="btn btn-primary btn-block mt-3">
+      Jelszó beállítása
+    </button>
 
     @if ($errors->any())
       <div class="alert alert-danger mt-3">
         {{ $errors->first() }}
       </div>
     @endif
+
+    @if (session('error'))
+      <div class="alert alert-danger mt-3">{{ session('error') }}</div>
+    @endif
+
+    @if (session('success'))
+      <div class="alert alert-success mt-3">{{ session('success') }}</div>
+    @endif
   </form>
 
-  <div class="text-center my-2" style="opacity:.7;">— vagy —</div>
+  {{-- Elválasztó --}}
+  <div class="text-center my-3" style="opacity:.7;">— vagy —</div>
 
-  <a class="btn btn-outline-secondary btn-block" href="{{ route('trigger-login') }}">
-    Folytatom Google-lel
+  {{-- Google belépés (változatlanul) --}}
+  <a href="{{ route('trigger-login') }}"
+     role="button"
+     class="btn btn-outline-secondary btn-block trigger-login"
+     style="max-width:420px;margin:0 auto;">
+    Belépés Google-fiókkal <i class="fa fa-google"></i>
   </a>
+  <a href="{{ route('trigger-microsoft-login') }}" role="button" class="btn btn-outline-secondary btn-block trigger-microsoft-login" style="max-width:420px;margin:0 auto;">
+    Belépés Microsofttal <i class="fa-brands fa-microsoft"></i> </a>
+
+
+  <img class="mewocont-logo" src="{{ asset('assets/logo/nwb_logo.svg') }}" alt="">
 </div>
+@endsection
+
+@section('scripts')
 @endsection

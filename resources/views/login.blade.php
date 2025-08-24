@@ -57,6 +57,9 @@
   <a href="{{ route('trigger-login') }}" role="button" class="btn btn-outline-secondary btn-block trigger-login" style="max-width:420px;margin:0 auto;">
     {{ $_('login') }} <i class="fa fa-google"></i>
   </a>
+  <a href="{{ route('trigger-microsoft-login') }}" role="button" class="btn btn-outline-secondary btn-block trigger-microsoft-login" style="max-width:420px;margin:0 auto;">
+    Belépés Microsofttal <i class="fa-brands fa-microsoft"></i> </a>
+
 
   <img class="mewocont-logo" src="{{ asset('assets/logo/nwb_logo.svg') }}" alt="">
 </div>

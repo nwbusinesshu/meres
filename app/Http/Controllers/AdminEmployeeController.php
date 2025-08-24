@@ -16,8 +16,9 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
 use App\Models\Competency;
 use App\Services\PasswordSetupService;
-
-
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 
 class AdminEmployeeController extends Controller
@@ -91,102 +92,150 @@ class AdminEmployeeController extends Controller
     }
 
     try {
-        AjaxService::DBTransaction(function () use ($request, $orgId, &$user, &$created) {
-            if (is_null($user)) {
-                // ÚJ FELHASZNÁLÓ
-                $created = true;
+    AjaxService::DBTransaction(function () use ($request, $orgId, &$user, &$created) {
 
-                $user = User::create([
-                    'name'              => $request->name,
-                    'email'             => $request->email,
-                    'type'              => $request->type,
-                    'has_auto_level_up' => (int) $request->autoLevelUp,
-                ]);
+        // 1) USER létrehozás / frissítés
+        if (is_null($user)) {
+            $created = true;
 
-                // SELF kapcsolat
-                $user->relations()->create([
-                    'target_id'       => $user->id,
-                    'type'            => UserRelationType::SELF,
-                    'organization_id' => $orgId,
-                ]);
+            $user = User::create([
+                'name'              => $request->name,
+                'email'             => $request->email,
+                'type'              => $request->type,
+                'has_auto_level_up' => (int) $request->autoLevelUp,
+            ]);
 
-                // Org hozzárendelés
-                $user->organizations()->syncWithoutDetaching([$orgId]);
+            Log::info('employee.save.step_ok', ['step' => 'create_user', 'user_id' => $user->id]);
+        } else {
+            $user->name              = $request->name;
+            $user->email             = $request->email;
+            $user->type              = $request->type;
+            $user->has_auto_level_up = (int) $request->autoLevelUp;
+            $user->save();
 
-                // Bonus/Malus — EXPLICIT MODELL, user_id is benne a kulcsban
-                UserBonusMalus::updateOrCreate(
-                    [
-                        'user_id'         => $user->id,
-                        'month'           => date('Y-m-01'),
-                        'organization_id' => $orgId,
-                    ],
-                    [
-                        'level' => UserService::DEFAULT_BM,
-                    ]
-                );
+            Log::info('employee.save.step_ok', ['step' => 'update_user', 'user_id' => $user->id]);
+        }
 
-            } else {
-                // MEGLÉVŐ FELHASZNÁLÓ FRISSÍTÉSE
-                $user->name              = $request->name;
-                $user->email             = $request->email;
-                $user->type              = $request->type;
-                $user->has_auto_level_up = (int) $request->autoLevelUp;
-                $user->save();
+        // 2) ORG tagság (EZT KELL ELŐBB!)
+        $user->organizations()->syncWithoutDetaching([$orgId]);
+        Log::info('employee.save.step_ok', ['step' => 'attach_org', 'user_id' => $user->id, 'org_id' => $orgId]);
 
-                // Biztonság kedvéért org kapcsolat (ha korábbról nem lenne meg)
-                $user->organizations()->syncWithoutDetaching([$orgId]);
+        // 3) SELF relation (tagság után)
+        $user->relations()->firstOrCreate([
+            'target_id'       => $user->id,
+            'type'            => UserRelationType::SELF, // 'self'
+            'organization_id' => $orgId,
+        ]);
+        Log::info('employee.save.step_ok', ['step' => 'create_self_relation', 'user_id' => $user->id, 'org_id' => $orgId]);
 
-                // Bonus/Malus — EXPLICIT MODELL
-                UserBonusMalus::updateOrCreate(
-                    [
-                        'user_id'         => $user->id,
-                        'month'           => date('Y-m-01'),
-                        'organization_id' => $orgId,
-                    ],
-                    [
-                        'level' => UserService::DEFAULT_BM,
-                    ]
-                );
+        // 4) Bonus/Malus (idempotens, reláción – user_id automatikus)
+        $user->bonusMalus()->updateOrCreate(
+            [
+                'month'           => date('Y-m-01'),
+                'organization_id' => $orgId,
+            ],
+            [
+                'level' => UserService::DEFAULT_BM,
+            ]
+        );
+        Log::info('employee.save.step_ok', ['step' => 'bonus_malus', 'user_id' => $user->id, 'org_id' => $orgId]);
+    });
+        } catch (\Throwable $e) {
+            \Log::error('employee.save.transaction_failed', [
+                'org_id'  => $orgId,
+                'user_id' => $user ? $user->id : null,
+                'error'   => $e->getMessage(),
+                'prev'    => $e->getPrevious() ? $e->getPrevious()->getMessage() : null,
+            ]);
+
+            return response()->json([
+                'message' => 'Sikertelen művelet: szerverhiba!',
+                'errors'  => ['exception' => [$e->getMessage()]],
+            ], 422);
+        }
+
+
+
+            // E-MAIL csak ÚJ usernél
+            if ($created) {
+                try {
+                    PasswordSetupService::createAndSend($orgId, $user->id, auth()->id());
+                } catch (\Throwable $e) {
+                    \Log::error('password_setup_mail_failed', [
+                        'org_id'  => $orgId,
+                        'user_id' => $user->id,
+                        'error'   => $e->getMessage(),
+                    ]);
+
+                    return response()->json([
+                        'ok'      => true,
+                        'user_id' => $user->id,
+                        'info'    => 'A felhasználó létrejött, de a jelszó-beállító e-mail küldése nem sikerült. Ellenőrizd a mail beállításokat.',
+                    ], 200);
+                }
             }
-        });
-    } catch (\Throwable $e) {
-        \Log::error('employee.save.transaction_failed', [
-            'org_id'  => $orgId,
-            'user_id' => $user ? $user->id : null,
-            'error'   => $e->getMessage(),
+
+            return response()->json([
+                'ok'      => true,
+                'user_id' => $user->id,
+                'created' => $created,
+            ], 200);
+        }
+
+public function PasswordReset(Request $request)
+    {
+        $request->validate([
+            'user_id' => ['required', 'integer', 'exists:user,id'],
         ]);
 
-        return response()->json([
-            'message' => 'Sikertelen művelet: szerverhiba!',
-            'errors'  => ['exception' => [$e->getMessage()]],
-        ], 422);
-    }
+        $orgId = (int) session('org_id');
+        $adminId = (int) session('uid');
+        /** @var User $user */
+        $user = User::findOrFail($request->input('user_id'));
 
-    // E-MAIL csak ÚJ usernél
-    if ($created) {
+        // Biztonság: csak az aktuális org tagjain lehet resetelni
+        $inOrg = $user->organizations()->where('organization.id', $orgId)->exists();
+        if (!$inOrg) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'A felhasználó nem tagja az aktuális szervezetnek.',
+            ], 403);
+        }
+
         try {
-            PasswordSetupService::createAndSend($orgId, $user->id, auth()->id());
+            DB::transaction(function () use ($user, $orgId, $adminId) {
+                // 1) meglévő jelszó törlése
+                $user->password = null;
+                $user->save();
+
+                Log::info('employee.password_reset.password_cleared', [
+                    'org_id'  => $orgId,
+                    'user_id' => $user->id,
+                    'by'      => $adminId,
+                ]);
+
+                // 2) új jelszó-beállító e-mail küldése
+                PasswordSetupService::createAndSendReset($orgId, $user->id, $adminId);
+            });
+
+            return response()->json([
+                'ok' => true,
+                'message' => 'Jelszó-visszaállító link elküldve a felhasználónak.',
+            ]);
         } catch (\Throwable $e) {
-            \Log::error('password_setup_mail_failed', [
+            Log::error('employee.password_reset.failed', [
                 'org_id'  => $orgId,
                 'user_id' => $user->id,
                 'error'   => $e->getMessage(),
             ]);
 
             return response()->json([
-                'ok'      => true,
-                'user_id' => $user->id,
-                'info'    => 'A felhasználó létrejött, de a jelszó-beállító e-mail küldése nem sikerült. Ellenőrizd a mail beállításokat.',
-            ], 200);
+                'ok' => false,
+                'message' => 'Sikertelen művelet: szerverhiba!',
+            ], 500);
         }
     }
 
-    return response()->json([
-        'ok'      => true,
-        'user_id' => $user->id,
-        'created' => $created,
-    ], 200);
-}
 
 
     public function removeEmployee(Request $request){

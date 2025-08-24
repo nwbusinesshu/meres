@@ -108,7 +108,7 @@ return [
     */
 
     'markdown' => [
-        'theme' => 'default',
+        'theme' => 'quarma360',
 
         'paths' => [
             resource_path('views/vendor/mail'),
