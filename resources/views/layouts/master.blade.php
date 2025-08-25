@@ -13,5 +13,9 @@
 
       @include("js.$currentViewName")
       @yield('scripts')
+        @yield('modals')
+  @stack('modals')
+    @yield('scripts')
+  @stack('scripts')
     </body>
 </html>

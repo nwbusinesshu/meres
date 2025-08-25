@@ -191,3 +191,18 @@ Route::post('/flash-success', function (\Illuminate\Http\Request $request) {
     return response()->json(['ok' => true]);
 })->name('flash.success');
 
+Route::prefix('superadmin/competency')
+    ->middleware('auth:'.UserType::SUPERADMIN)
+    ->name('superadmin.competency.')
+    ->group(function () {
+        Route::get('/index',   [GlobalCompetencyController::class, 'index'])->name('index');
+
+        // Kompetencia
+        Route::post('/save',   [GlobalCompetencyController::class, 'saveCompetency'])->name('save');
+        Route::post('/remove', [GlobalCompetencyController::class, 'removeCompetency'])->name('remove');
+
+        // Kérdés
+        Route::get('/q/get',     [GlobalCompetencyController::class, 'getCompetencyQuestion'])->name('q.get');
+        Route::post('/q/save',   [GlobalCompetencyController::class, 'saveCompetencyQuestion'])->name('q.save');
+        Route::post('/q/remove', [GlobalCompetencyController::class, 'removeCompetencyQuestion'])->name('q.remove');
+    });

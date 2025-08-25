@@ -1,14 +1,15 @@
 <script>
 (function () {
+  window.CSRF = window.CSRF || (document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '');
   function ajax(method, url, data) {
-    return fetch(url, {
-      method: method || 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': window.CSRF
-      },
-      body: method === 'GET' ? undefined : JSON.stringify(data || {})
-    }).then(async (r) => {
+     return fetch(url, {
+       method: method || 'POST',
+       headers: {
+         'Content-Type': 'application/json',
+         'X-CSRF-TOKEN': window.CSRF
+       },
+       body: method === 'GET' ? undefined : JSON.stringify(data || {})
+     }).then(async (r) => {
       if (!r.ok) {
         const t = await r.text().catch(() => '');
         throw new Error(t || ('HTTP ' + r.status));

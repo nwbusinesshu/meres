@@ -10,6 +10,9 @@
   .userinfo-text {
     display:none;
   }
+  .page-container {
+    
+  }
 }
 
 @media all and (max-width: 768px){
