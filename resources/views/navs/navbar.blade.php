@@ -48,11 +48,11 @@
         <span>Dashboard</span>
       </a>
       <a class="menuitem" href="{{ route('superadmin.competency.index') }}" data-route="superadmin.competency.index">
-        <i class="fa fa-building"></i>
+        <i class="fa fa-medal"></i>
         <span>Globális kompetenciák</span>
       </a>
       <a class="menuitem" href="{{ route('org.select') }}" data-route="org.select">
-        <i class="fa fa-building"></i>
+        <i class="fa-solid fa-right-to-bracket"></i>
         <span>Belépés cégbe</span>
       </a>
     @else

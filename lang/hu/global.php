@@ -74,6 +74,8 @@ return [
   "profile" => "Profil",
   "employees" => "Dolgozók száma",
 
+  "no-org" => "Nincs ilyen cég regisztrálva.",
+
   "bonus-malus" => [
     "15" => "B10", 
     "14" => "B09", 

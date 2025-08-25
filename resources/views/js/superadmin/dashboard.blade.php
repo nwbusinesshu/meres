@@ -168,3 +168,42 @@ $(document).on('click', '#remove-admin-btn', function () {
   $('#admin-remove').val(1);
 });
 </script>
+
+<script>
+$(document).ready(function () {
+  const $input = $('.search-input');
+  const $clearBtn = $('.clear-search');
+  const $rows = $('.org-info-table tbody tr').not('.no-org');
+  const $noOrgRow = $('.no-org');
+
+  function filterRows() {
+    const search = $input.val().toLowerCase();
+    let matchCount = 0;
+
+    $rows.each(function () {
+      const textToSearch = [
+  $(this).find('td[data-col="{{ __('global.name') }}"]').text(),
+  $(this).find('td[data-col="{{ __('global.admin') }}"]').text(),
+].join(' ').toLowerCase();
+      const isMatch = textToSearch.includes(search);
+
+      $(this).toggle(isMatch);
+      if (isMatch) matchCount++;
+    });
+
+    $noOrgRow.toggle(matchCount === 0);
+  }
+
+  $input.on('input', filterRows);
+
+  $clearBtn.on('click', function () {
+    $input.val('').trigger('input');
+  });
+
+  // Ha readonly a mező (pl. kevés org esetén), ne csináljon semmit
+  if ($input.prop('readonly')) {
+    $input.closest('.org-search').addClass('disabled');
+  }
+});
+</script>
+

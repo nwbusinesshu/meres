@@ -7,7 +7,7 @@
 <h1>{{ __('titles.superadmin.dashboard') }}</h1>
 
 <div>
-  <div class="tile tile-info search-tile">
+  <div class="tile tile-info search-tile org-search">
     <p>{{ __('global.search') }}</p>
     <div>
       <input type="text" class="form-control search-input" @if ($organizations->count() < 5) readonly @endif>

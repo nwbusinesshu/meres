@@ -1,11 +1,16 @@
   .company-select-tile {
     max-width: 500px;
-    margin: 40px auto;
+    margin: 15vh auto;
     padding: 30px;
     background: #fff;
-    border-radius: 12px;
+    border-radius: 0;
+    border-left: 4px solid var(--pelorous);
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     text-align: center;
+  }
+
+  .page-container {
+    background-color: #888;
   }
 
   .company-select-tile h2 {
@@ -22,7 +27,6 @@
   .company-select-tile select {
     padding: 10px 15px;
     font-size: 1rem;
-    border-radius: 8px;
     width: 100%;
     height: auto;
     min-height: 48px;
@@ -37,7 +41,6 @@
     width: 100%;
     padding: 10px;
     font-size: 1rem;
-    border-radius: 8px;
   }
 
   .company-select-admin {

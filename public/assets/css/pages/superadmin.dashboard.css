@@ -58,3 +58,39 @@ tr.hidden {
 .org-actions {
   white-space: nowrap;
 }
+
+@media (max-width: 768px) {
+  .org-info-table thead {
+    display: none;
+  }
+
+  .org-info-table tbody tr {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--silver_chalice);
+    margin-bottom: 1em;
+    padding: 1em;
+  }
+
+  .org-info-table tbody td {
+    display: flex;
+    flex-direction: column;
+    padding: .4em 0;
+  }
+
+  .org-info-table tbody td[data-col]:before {
+    content: attr(data-col);
+    font-weight: 600;
+    color: var(--outer_space);
+    margin-bottom: .2em;
+  }
+
+  .org-info-table .org-actions {
+    justify-content: flex-end;
+    margin-top: 1em;
+  }
+
+  .org-info-table .org-actions button {
+    flex-shrink: 0;
+  }
+}
