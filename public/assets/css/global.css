@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 :root{
   --bg: #eaebee;
@@ -207,6 +207,104 @@ button.swal2-styled{
   color: var(--outer_space);
   border-color: var(--outer_space);
 }
+
+#config-dropdown {
+  background-color: var(--alabaster);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  height: 50px;
+  gap: 1em;
+  border-top: 1px solid var(--silver_chalice);
+}
+
+#config-dropdown .menuitem {
+  height: 40px;
+  border: none;
+  padding: 0 10px;
+}
+
+#config-dropdown-toggle {
+  cursor: pointer;
+}
+.config-bar {
+  width: 100%;
+  background-color: var(--mercury); /* vagy pl. #e0e0e0 */
+  display: flex;
+  justify-content: center; /* <<< KÖZÉPRE HOZÁS */
+  align-items: center;
+  gap: 1em;
+  padding: 0 20px;
+  height: 50px;
+  border-top: 1px solid var(--silver_chalice);
+}
+
+.config-bar .menuitem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 10px;
+  gap: .5em;
+  cursor: pointer;
+  color: var(--silver_chalice);
+  text-decoration: none;
+  font-weight: bold; /* <<< Alapból legyen félkövér, hogy ne ugráljon */
+}
+
+.config-bar .menuitem:hover,
+.config-bar .menuitem.active {
+  color: var(--outer_space);
+  border-bottom: 2px solid var(--outer_space);
+}
+
+.userinfo {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+}
+
+.userinfo img.avatar,
+.userinfo i.fallback-avatar {
+  height: 30px;
+  width: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  font-size: 30px;
+  color: var(--silver_chalice);
+}
+
+.userinfo-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font-size: 0.9em;
+  line-height: 1.2;
+}
+
+.userinfo-name {
+  font-weight: bold;
+}
+
+.userinfo-email {
+  font-size: 0.85em;
+  color: #777;
+}
+
+.userinfo-org {
+  font-size: 0.85em;
+  font-style: italic;
+}
+
+.userinfo .org-switch select {
+  font-size: 0.85em;
+  padding: 3px 6px;
+  border: 1px solid var(--silver_chalice);
+  border-radius: 4px;
+  background-color: #f9f9f9;
+}
+
+
 .tile.tile-info{
   border-left: 3px solid var(--info);
 }
@@ -347,3 +445,4 @@ button.swal2-styled{
 .form-row.centered .form-group{
   min-width: 50%;
 }
+

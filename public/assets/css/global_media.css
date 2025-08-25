@@ -4,4 +4,16 @@
   .navbar .menuitem span{
     display: none;
   }
+  .config-bar .menuitem span{
+    display: none;
+}
+  .userinfo-text {
+    display:none;
+  }
+}
+
+@media all and (max-width: 768px){
+  .navbar .logo {
+    height: 25px;
+  }
 }
