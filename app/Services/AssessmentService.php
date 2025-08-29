@@ -9,11 +9,17 @@ use App\Models\User;
 class AssessmentService
 {
   public static function getCurrentAssessment(){
-    return Assessment::whereNull('closed_at')->first();
+    $orgId = session('org_id');
+    return Assessment::where('organization_id', $orgId)
+                 ->whereNull('closed_at')
+                 ->first();
   }
 
   public static function isAssessmentRunning(){
-    return Assessment::whereNull('closed_at')->count() > 0;
+    $orgId = session('org_id');
+      return Assessment::where('organization_id', $orgId)
+                 ->whereNull('closed_at')
+                 ->exists();
   }
 
   public static function calculateNeededCeoRanks(){

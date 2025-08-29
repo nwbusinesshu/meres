@@ -28,11 +28,12 @@ class DevController extends Controller
     public function makeFullAssessment(Request $request){
         DB::transaction(function(){
 
-        $assessment = Assessment::create([
-            "started_at" => date('Y-m-d H:i:s'),
-            "due_at" => date('Y-m-d 00:00:00',strtotime('+14 Days'))
-        ]);
-
+        $orgId = session('org_id') ?: 1;  // use org 1 or another default for testing if needed
+            $assessment = Assessment::create([
+                "organization_id" => $orgId,
+                "started_at"      => date('Y-m-d H:i:s'),
+                "due_at"          => date('Y-m-d 00:00:00', strtotime('+14 Days'))
+            ]);
         User::whereNull('removed_at')->whereNot('type', UserType::ADMIN)->get()
         ->each(function($user) use ($assessment){
             $user->allRelations

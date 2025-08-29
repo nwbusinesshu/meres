@@ -72,8 +72,10 @@ class User extends Authenticatable
         return $this->hasMany(UserRelation::class, 'user_id', 'id');
     }
     public function relations(){
-        return $this->allRelations()->whereNot('type', UserRelationType::SELF);
-    }
+    return $this->allRelations()
+        ->where('organization_id', session('org_id'))
+        ->whereNot('type', UserRelationType::SELF);
+}
 
     public function competencies()
     {
@@ -109,8 +111,20 @@ class User extends Authenticatable
     }
 
     public function competencyQuestions(){
-        return $this->hasManyThrough(CompetencyQuestion::class, UserCompetency::class, 'user_id', 'competency_id', 'id', 'competency_id')->whereNull('removed_at');
-    }
+    $orgId = session('org_id');
+    return $this->hasManyThrough(
+        CompetencyQuestion::class,
+        UserCompetency::class,
+        'user_id',
+        'competency_id',
+        'id',
+        'competency_id'
+    )
+    ->whereNull('competency_question.removed_at')
+    ->whereHas('competency', function($q) use ($orgId) {
+        $q->whereNull('organization_id')->orWhere('organization_id', $orgId);
+    });
+}
 
     public function assessedCompetencies($assessmentId, $type){
         if($assessmentId == 0){

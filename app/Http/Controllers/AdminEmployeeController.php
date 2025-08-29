@@ -52,6 +52,26 @@ class AdminEmployeeController extends Controller
         ], 422);
     }
 
+        // Ellenőrizd, hogy az e-mail már létezik-e bármely usernél (és nincs törölve)
+    $existingUser = User::where('email', $request->email)
+                        ->whereNull('removed_at')
+                        ->first();
+
+    // Ha user van, nézd meg a tagságát!
+    if ($existingUser) {
+        $alreadyInOrg = $existingUser->organizations()->where('organization_id', $orgId)->exists();
+
+        // Már ebben a cégben van? Akkor lehet update (de NEM hozhatsz létre még egyet)
+        if (!$alreadyInOrg) {
+            // LÉNYEG: Ha máshol tag, NEM engedjük!
+            return response()->json([
+                'message' => 'Ez az e-mail cím már egy másik szervezethez tartozik!',
+                'errors'  => ['email' => ['Ez az e-mail cím már egy másik szervezethez tartozik!']]
+            ], 422);
+        }
+}
+
+
     /** @var User|null $user */
     $user    = User::find($request->id);
     $created = false;

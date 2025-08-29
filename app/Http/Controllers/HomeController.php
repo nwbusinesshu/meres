@@ -17,25 +17,33 @@ use Illuminate\Http\Request;
 class HomeController extends Controller
 {
     public function admin(Request $request){
+        $orgId = session('org_id');
         $assessment = AssessmentService::getCurrentAssessment();
         return view('admin.home',[
             'assessment' => $assessment,
             'employees' => User::whereNull('removed_at')
-                            ->where('type', '!=', UserType::ADMIN)
-                            ->withCount('relations')
-                            ->get()->map(function($user){
-                                $user['competency_submits_count'] = $user->competencySubmits()->count();
-                                $user['self_competency_submit_count'] = $user->selfCompetencySubmit()->count() > 0;
-                                return $user;
-                            }),
-            'neededCeoRanks' => User::where('type', UserType::CEO)->count(),
+                ->where('type', '!=', UserType::ADMIN)
+                ->whereHas('organizations', function($q) use ($orgId) {
+                    $q->where('organization_id', $orgId);
+                })
+                ->withCount('relations')
+                ->get()->map(function($user){
+                    $user['competency_submits_count'] = $user->competencySubmits()->count();
+                    $user['self_competency_submit_count'] = $user->selfCompetencySubmit()->count() > 0;
+                    return $user;
+                }),
+            'neededCeoRanks' => User::where('type', UserType::CEO)
+                  ->whereHas('organizations', function($q) use ($orgId) {
+                      $q->where('organization_id', $orgId);
+                  })->count(),
             'ceoRanks' => $assessment?->ceoRanks()->distinct('ceo_id')->count() ?? 0,
-            'neededAssessment' => UserRelation::all()->count(),
+            'neededAssessment' => UserRelation::where('organization_id', $orgId)->count(),
             'assessed' => $assessment?->userCompetencySubmits()->count() ?? 0
         ]);
     }
 
     public function normal(Request $request){
+        $orgId = session('org_id');
         $assessment = AssessmentService::getCurrentAssessment();
         $user = UserService::getCurrentUser();
         return view('home',[

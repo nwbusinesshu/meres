@@ -14,12 +14,29 @@ use Illuminate\Http\Request;
 class AdminAssessmentController extends Controller
 {
     public function getAssessment(Request $request){
-        return Assessment::findOrFail($request->id);
+        $orgId = session('org_id');
+        if (!$orgId) {
+            abort(403); // or return a 422 JSON error similar to other controllers
+        }
+        return Assessment::where('organization_id', $orgId)
+                 ->findOrFail($request->id);
     }
 
     public function saveAssessment(Request $request){
-        $assessment = Assessment::find($request->id);
-
+        $orgId = (int) session('org_id');
+        \Log::info('saveAssessment', [
+          'orgId' => $orgId,
+          'request' => $request->all()
+        ]);
+        
+        if (!$orgId) {
+            return response()->json([
+                'message' => 'Nincs kiválasztott szervezet.',
+                'errors'  => ['org' => ['Nincs kiválasztott szervezet.']]
+            ], 422);
+        }
+        $assessment = Assessment::where('organization_id', $orgId)
+                         ->find($request->id);
         $rules = [
             "due" => ['required', 'date'],
         ];
@@ -34,15 +51,25 @@ class AdminAssessmentController extends Controller
             customAttributes: $attributes,
         ); 
 
-        AjaxService::DBTransaction(function() use ($request, &$assessment){
+        AjaxService::DBTransaction(function() use ($request, &$assessment,$orgId){
+            $alreadyRunning = Assessment::where('organization_id', $orgId)
+                            ->whereNull('closed_at')
+                            ->exists();
+            if ($alreadyRunning) {
+                return response()->json([
+                    'message' => 'Már van folyamatban értékelési időszak.', 
+                    'errors'  => ['assessment' => ['Már van folyamatban értékelési időszak.']]
+                ], 422);
+            }
             if(is_null($assessment)){
                 Assessment::create([
-                    "started_at" => date('Y-m-d H:i:s'),
-                    "due_at" => $request->due,
-                    "normal_level_up" => ConfigService::getConfigItem('normal_level_up'),
-                    "normal_level_down" => ConfigService::getConfigItem('normal_level_down'),
-                    "monthly_level_down" => ConfigService::getConfigItem('monthly_level_down'),
-                ]);
+                "organization_id"   => $orgId,
+                "started_at"        => date('Y-m-d H:i:s'),
+                "due_at"            => $request->due,
+                "normal_level_up"   => ConfigService::getConfigItem('normal_level_up'),
+                "normal_level_down" => ConfigService::getConfigItem('normal_level_down'),
+                "monthly_level_down"=> ConfigService::getConfigItem('monthly_level_down'),
+            ]);
             }else{
                 $assessment->due_at = $request->due;
                 $assessment->save();
@@ -51,7 +78,8 @@ class AdminAssessmentController extends Controller
     }
 
     public function closeAssessment(Request $request){
-        $assessment = Assessment::findOrFail($request->id);
+        $assessment = Assessment::where('organization_id', $orgId)
+                         ->findOrFail($request->id);
         AjaxService::DBTransaction(function() use (&$assessment){
             $assessment->closed_at = moment();
             $assessment->save();
