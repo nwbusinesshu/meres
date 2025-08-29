@@ -6,14 +6,14 @@
 @section('content')
 <div class="tile">
 
-  <img class="chaos-360" src="{{ asset('assets/logo/quarma360.svg') }}" alt="chaos-360">
+  <img class="quarma-360" src="{{ asset('assets/logo/quarma360.svg') }}" alt="chaos-360">
 
   {{-- Email + jelszó belépés --}}
   <form method="POST" action="{{ route('attempt-password-login') }}" class="w-100" style="max-width:420px;margin:0 auto;">
     @csrf
 
     <div class="form-group">
-      <label for="login-email">Email</label>
+      <label for="login-email">{{ $_('email') }}</label>
       <input id="login-email"
              name="email"
              type="email"
@@ -25,7 +25,7 @@
     </div>
 
     <div class="form-group">
-      <label for="login-password">Jelszó</label>
+      <label for="login-password">{{ $_('password') }}</label>
       <input id="login-password"
              name="password"
              type="password"
@@ -34,13 +34,8 @@
              autocomplete="current-password">
     </div>
 
-    <div class="form-check">
-      <input class="form-check-input" type="checkbox" value="1" id="remember" name="remember">
-      <label class="form-check-label" for="remember">Emlékezz rám</label>
-    </div>
-
     <button type="submit" class="btn btn-primary btn-block mt-3">
-      Belépés
+      {{ $_('login_button') }}
     </button>
 
     @if ($errors->any())
@@ -51,17 +46,22 @@
   </form>
 
   {{-- Elválasztó --}}
-  <div class="text-center my-3" style="opacity:.7;">— vagy —</div>
+  <div class="text-center my-3" style="opacity:.7;">{{ $_('or') }}</div>
 
   {{-- Google belépés (változatlanul) --}}
-  <a href="{{ route('trigger-login') }}" role="button" class="btn btn-outline-secondary btn-block trigger-login" style="max-width:420px;margin:0 auto;">
+  <a href="{{ route('trigger-login') }}" role="button" class="google-login btn btn-outline-secondary btn-block trigger-login" style="max-width:420px;margin:0 auto;">
     {{ $_('login') }} <i class="fa fa-google"></i>
   </a>
-  <a href="{{ route('trigger-microsoft-login') }}" role="button" class="btn btn-outline-secondary btn-block trigger-microsoft-login" style="max-width:420px;margin:0 auto;">
-    Belépés Microsofttal <i class="fa-brands fa-microsoft"></i> </a>
+  <a href="{{ route('trigger-microsoft-login') }}" role="button" class="microsoft-login btn btn-outline-secondary btn-block trigger-microsoft-login" style="max-width:420px;margin:0 auto;">
+    {{ $_('login_microsoft') }}    <span class="ms-logo">
+     <span style="background:#f25022"></span>
+     <span style="background:#7fba00"></span>
+     <span style="background:#00a4ef"></span>
+     <span style="background:#ffb900"></span>
+   </span> </a>
+   <div><p>A bejelentkezéssel elfogadod az Adatvédelmi Irányelveinket.</p></div>
 
-
-  <img class="mewocont-logo" src="{{ asset('assets/logo/nwb_logo.svg') }}" alt="">
+  <img class="nwb-logo" src="{{ asset('assets/logo/nwb_logo.svg') }}" alt="">
 </div>
 @endsection
 

@@ -10,9 +10,11 @@
   }
 
   .page-container {
-    background-color: #888;
-  }
-
+    background: radial-gradient(circle at 20% 30%, #f5d6d6 0%, transparent 40%), 
+    radial-gradient(circle at 100% 20%, #d6e4f5 0%, transparent 40%), 
+    radial-gradient(circle at 50% 100%, #d6f5e1 0%, transparent 40%), 
+    #ddd; }
+  
   .company-select-tile h2 {
     font-size: 1.6rem;
     margin-bottom: 10px;

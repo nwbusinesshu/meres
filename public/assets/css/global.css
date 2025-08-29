@@ -28,7 +28,7 @@
 }
 
 html,body{
-	height:100%;
+	min-height:100%;
 	font-family: 'Outfit', sans-serif;
 	-ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
@@ -111,19 +111,24 @@ button.swal2-styled{
 	align-items: center;
 }
 .page-container{
-	min-height: 100%;
   background: url('../logo/quarma_wm.svg'), var(--bg);
   background-repeat: no-repeat;
   background-attachment: fixed;
   background-position-x: right;
   background-position-y: bottom;
   background-size: 18em, cover;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh; /* Ez már helyesen van beállítva nálad! */
 }
+
 .main-container{
   display: flex;
   flex-direction: column;
   align-items: center;
 	min-height: 100%;
+  flex: 1;
+  padding-bottom: 50px;
 }
 .main-content{
   display: flex;
@@ -456,3 +461,78 @@ button.swal2-styled{
   min-width: 50%;
 }
 
+.site-footer {
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+  padding: 1rem 2rem;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+
+.footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.footer-links {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.footer-links a {
+  color: #e0e0e0;
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  text-decoration: underline;
+}
+
+.footer-text {
+  white-space: nowrap;
+}
+
+.floating-help-btn {
+  position: fixed !important;
+  bottom: 20px !important;
+  left: 0 !important;
+  background-color: #007bff !important;
+  color: white !important;
+  border-radius: 0 30px 30px 0 !important;
+  height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 12px !important;
+  font-size: 16px !important;
+  text-decoration: none !important;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
+  z-index: 9999 !important;
+  overflow: hidden !important;
+  width: 40px !important;
+  transition: width 0.3s ease, background-color 0.2s ease !important;
+}
+
+.floating-help-btn:hover {
+  width: 140px !important;
+  background-color: #0056b3 !important;
+}
+
+.floating-help-btn .icon {
+  flex-shrink: 0 !important;
+}
+
+.floating-help-btn .help-label {
+  margin-left: 10px !important;
+  opacity: 0 !important;
+  white-space: nowrap !important;
+  transition: opacity 0.2s ease 0.1s !important;
+}
+
+.floating-help-btn:hover .help-label {
+  opacity: 1 !important;
+}

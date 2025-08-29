@@ -17,5 +17,10 @@
   @stack('modals')
     @yield('scripts')
   @stack('scripts')
+  @include('layouts.footer')
+<a href="#" class="floating-help-btn" title="Súgó">
+  <span class="icon">?</span>
+  <span class="help-label">Súgóközpont</span>
+</a>
     </body>
 </html>

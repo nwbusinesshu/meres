@@ -10,13 +10,18 @@
   .userinfo-text {
     display:none;
   }
-  .page-container {
-    
-  }
 }
 
 @media all and (max-width: 768px){
   .navbar .logo {
     height: 25px;
+  }
+}
+
+@media (max-width: 600px) {
+  .footer-inner {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
 }
