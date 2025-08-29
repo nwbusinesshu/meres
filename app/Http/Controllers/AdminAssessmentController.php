@@ -10,6 +10,8 @@ use App\Services\AssessmentService;
 use App\Services\ConfigService;
 use App\Services\UserService;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
+
 
 class AdminAssessmentController extends Controller
 {
@@ -78,6 +80,7 @@ class AdminAssessmentController extends Controller
     }
 
     public function closeAssessment(Request $request){
+        $orgId = (int) session('org_id'); 
         $assessment = Assessment::where('organization_id', $orgId)
                          ->findOrFail($request->id);
         AjaxService::DBTransaction(function() use (&$assessment){

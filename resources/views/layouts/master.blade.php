@@ -11,16 +11,27 @@
         </div>
       </div>
 
-      @include("js.$currentViewName")
-      @yield('scripts')
+      @once
+        @includeWhen(view()->exists("js.$currentViewName"), "js.$currentViewName")
+      @endonce
+
+      {{-- MODALS: támogatja a régi @section és az új @push használatát is --}}
+      @if (View::hasSection('modals'))
         @yield('modals')
-  @stack('modals')
-    @yield('scripts')
-  @stack('scripts')
-  @include('layouts.footer')
-<a href="#" class="floating-help-btn" title="Súgó">
-  <span class="icon">?</span>
-  <span class="help-label">Súgóközpont</span>
-</a>
+      @endif
+      @stack('modals')
+
+      {{-- SCRIPTS: támogatja a régi @section és az új @push használatát is --}}
+      @if (View::hasSection('scripts'))
+        @yield('scripts')
+      @endif
+      @stack('scripts')
+
+      @include('layouts.footer')
+
+      <a href="#" class="floating-help-btn" title="Súgó">
+        <span class="icon">?</span>
+        <span class="help-label">Súgóközpont</span>
+      </a>
     </body>
 </html>

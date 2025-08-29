@@ -74,7 +74,7 @@ class User extends Authenticatable
     public function relations(){
     return $this->allRelations()
         ->where('organization_id', session('org_id'))
-        ->whereNot('type', UserRelationType::SELF);
+        ->where('type', '!=', UserRelationType::SELF);
 }
 
     public function competencies()
@@ -139,7 +139,7 @@ class User extends Authenticatable
         return $this->hasMany(UserBonusMalus::class,'user_id', 'id')->orderByDesc('month');
     }
     public function getBonusMalusInMonth($month){
-    $last = $this->bonusMalus->last();
+    $last = $this->bonusMalus()->first();
     return $this->bonusMalus()->where('month', $month)->first() ?? new UserBonusMalus([
         "user_id" => $this->id,
         "level" => $last ? $last->level : 0,

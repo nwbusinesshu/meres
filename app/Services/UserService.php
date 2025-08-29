@@ -31,6 +31,10 @@ public static function getUsers() {
   }
 
   public static function calculateUserPoints(User $user, Assessment $assessment){
+    if ((int)$assessment->organization_id !== (int) session('org_id')) { 
+      return null; 
+    }
+
     //check if assessment is closed
     if(is_null($assessment->closed_at)){
       return null;
