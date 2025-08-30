@@ -344,6 +344,15 @@
 			$('.navbar a.menuitem[data-route="{{ Route::currentRouteName() }}"]').addClass("active");
 			$('.navbar a.menuitem[data-route-secondary="{{ Route::currentRouteName() }}"]').addClass("active");
 		});
+
+		window.addEventListener('pageshow', function(event) {
+    if (event.persisted) {
+        setTimeout(function() {
+            Swal.close();
+        }, 300); // Vár 300 milliszekundumot, majd bezárja a modált.
+    }
+});
+
   </script>
 
 	@yield('head-extra')

@@ -4,6 +4,6 @@ return [
   "result" => "Eredmény",
   "colleagues" => "Kollégák",
   "self" => "Ön",
-  "managers" => "Középvezetők",
-  "ceos" => "Ügyvezetők",
+  "managers" => "Felettesek",
+  "ceos" => "Rangsor",
 ];
