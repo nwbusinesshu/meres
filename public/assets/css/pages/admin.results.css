@@ -1,15 +1,54 @@
+/* === Lista és kártya-rács === */
 .employee-list{
   display: flex;
   gap: 1em;
   flex-direction: row;
   flex-wrap: wrap;
 }
+
+/* A LINK legyen a méretezett rácselem */
+.user-tile-link{
+  display: block;
+  width: calc(50% - .5em);
+  text-decoration: none;
+  color: inherit;
+  transition: .15s ease;
+}
+
+.employee-list a {
+  color: inherit;         /* ne legyen kék, örökölje a tile szöveg színét */
+  text-decoration: none;  /* ne legyen aláhúzás */
+  display: block;         /* a teljes tile-t linkké teszi */
+}
+
+.employee-list a:hover {
+  color: inherit;          /* hover-re se változzon a szín */
+  text-decoration: none;   /* hover-re se húzza alá */
+}
+
+.user-tile-link:focus-visible{
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.user-tile-link:hover .employee{
+  box-shadow: 0 6px 6px rgba(0,0,0,.2);
+  transform: translateY(-1px);
+  transform: scale(1.008);
+  transition: .15s ease;
+  border-left: 0;
+  border-bottom: 4px solid var(--pelorous);
+}
+
+/* Maga a csempe tartalom – 100% a linken belül */
 .employee{
   display: flex;
   flex-direction: row;
   gap: 1em;
-  width: calc(50% - .5em);
+  width: 100%;               /* <-- korábban 50% volt, ez borított a <a> burkolat miatt */
+  height: 100%;
 }
+
+/* === Figyelmeztetés csempe === */
 .tile-warning{
   width: 100%;
   padding: .5em;
@@ -17,6 +56,8 @@
 .tile-warning p{
   font-weight: bold;
 }
+
+/* === Eredmény (kördiagram tartó) === */
 .result{
   height: 100%;
   display: flex;
@@ -26,6 +67,8 @@
 .pie{
   font-family: 'Kanit', sans-serif;
 }
+
+/* Bal oldali oszlop a kártyán belül */
 .employee > div:first-child{
   display: flex;
   flex-direction: column;
@@ -33,6 +76,8 @@
   height: 100%;
   flex: 1;
 }
+
+/* Név- és pozíció sor */
 .name{
   display: flex;
   flex-direction: row;
@@ -46,6 +91,8 @@
 .name span:nth-child(2){
   font-style: italic;
 }
+
+/* Részstatisztikák */
 .stats{
   display: flex;
   flex-direction: row;
@@ -61,14 +108,18 @@
   font-weight: bold;
   color: var(--silver_chalice);
 }
-.stats div span:nth-child(2){ 
+.stats div span:nth-child(2){
   font-family: 'Kanit', sans-serif;
   font-size: 1.2em;
 }
 
+/* === Reszponzív töréspontok === */
 @media all and (max-width: 960px) {
   .employee-list{
     flex-direction: column;
+  }
+  .user-tile-link{
+    width: 100%;            /* <-- a link méreteződik 100%-ra */
   }
   .employee{
     width: 100%;
@@ -79,4 +130,89 @@
   .stats{
     flex-wrap: wrap;
   }
+}
+
+/* === Időszak váltó – kompakt, kontrasztos, “csempés” === */
+.period-nav{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:.75rem;
+  margin: .75rem 0 1rem;
+}
+
+.period-nav .nav-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:40px; height:40px;
+  background: #fff;
+  border:1px solid var(--silver_chalice, #b0b0b0);
+  color:#333;
+  text-decoration:none;
+  box-shadow: 0 2px 6px rgba(0,0,0,.06);
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+}
+.period-nav .nav-btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0,0,0,.10);
+  border-color:#888;
+  background: #fafafa;
+}
+.period-nav .nav-btn:active{
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+}
+.period-nav .nav-btn.is-disabled{
+  pointer-events:none;
+  opacity:.38;
+  filter: grayscale(30%);
+}
+
+/* Középső “chip” – olvasható, csempéhez illeszkedő */
+.period-nav .period-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:.5rem;
+  padding:.5rem .9rem;
+  background: var(--alabaster, #f6f6f6);
+  border:1px solid rgba(0,0,0,.06);
+  color:#222;
+  font-weight:600;
+  letter-spacing:.2px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 1px 2px rgba(0,0,0,.04);
+  white-space:nowrap;
+}
+
+/* Ikonok finomhangolása */
+.period-nav i.fa{
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Sötét mód / kontrasztos téma */
+@media (prefers-color-scheme: dark){
+  .period-nav .nav-btn{
+    background:#1f1f1f;
+    border-color:#3a3a3a;
+    color:#eaeaea;
+    box-shadow: 0 2px 6px rgba(0,0,0,.4);
+  }
+  .period-nav .nav-btn:hover{
+    background:#262626;
+    border-color:#555;
+  }
+  .period-nav .period-chip{
+    background:#242424;
+    border-color:#333;
+    color:#f0f0f0;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 2px rgba(0,0,0,.4);
+  }
+}
+
+/* Kis kijelzőn szellősebb */
+@media (max-width: 640px){
+  .period-nav{ gap:.5rem; }
+  .period-nav .nav-btn{ width:36px; height:36px; border-radius:10px; }
+  .period-nav .period-chip{ padding:.45rem .75rem; font-weight:600; }
 }

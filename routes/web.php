@@ -106,9 +106,8 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
     });
 
     // results
-    Route::controller(AdminResultsController::class)->name('results.')->prefix('/results')->group(function () {
-        Route::get('/index', 'index')->name('index');
-    });
+    Route::get('/results/{assessmentId?}', [AdminResultsController::class, 'index'])
+     ->name('results.index');
 });
 
 // normal
@@ -127,10 +126,9 @@ Route::controller(NormalController::class)->middleware(['auth:'.UserType::NORMAL
         Route::post('/submit', 'submitRanking')->name('submit');
     });
 
-    // results
-    Route::controller(ResultsController::class)->name('results.')->prefix('/results')->group(function () {
-        Route::get('/index', 'index')->name('index');
-    });
+    // results (NORMAL)
+    Route::get('/results/{assessmentId?}', [ResultsController::class, 'index'])
+    ->name('results.index');
 });
 
 // dev

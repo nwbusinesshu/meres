@@ -30,16 +30,29 @@
 html,body{
 	min-height:100%;
 	font-family: 'Outfit', sans-serif;
-	-ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
 }
 
-html::-webkit-scrollbar, body::-webkit-scrollbar {
-  display: none;
+/* A teljes görgetősáv stílusa */
+::-webkit-scrollbar {
+  width: 12px; /* A görgetősáv szélessége */
+  background-color: transparent; /* A háttér legyen áttetsző */
 }
 
-body.mobile-noscroll{
-	overflow: hidden;
+/* A görgető "hüvelykujj" (a mozgatható rész) stílusa */
+::-webkit-scrollbar-thumb {
+  background-color: rgba(128, 128, 128, 0.5); /* Világos, áttetsző szürke szín (50% átlátszóság) */
+  border-radius: 6px; /* Kapszula forma */
+  border: 3px solid transparent; /* Keret, hogy a háttér látszódjon */
+}
+
+/* A görgető "hüvelykujj" stílusa rámutatáskor */
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(128, 128, 128, 0.8); /* Sötétebb szürke rámutatáskor */
+}
+
+/* A görgetősáv alatti, nem mozgatható sáv stílusa (ha szükséges) */
+::-webkit-scrollbar-track {
+  background-color: transparent; /* Alapértelmezett háttér maradjon áttetsző */
 }
 
 h1,h2,h3,h4,h5,h6{
@@ -114,7 +127,7 @@ button.swal2-styled{
   background: url('../logo/quarma_wm.svg'), var(--bg);
   background-repeat: no-repeat;
   background-attachment: fixed;
-  background-position-x: right;
+  background-position-x: center;
   background-position-y: bottom;
   background-size: 18em, cover;
   display: flex;

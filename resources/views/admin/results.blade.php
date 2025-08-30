@@ -5,6 +5,33 @@
 
 @section('content')
 <h1>{{ __('titles.admin.results') }}</h1>
+
+@if ($assessment)
+  <div class="period-nav">
+    <a
+      class="nav-btn {{ $prevAssessment ? '' : 'is-disabled' }}"
+      @if($prevAssessment) href="{{ route(Route::currentRouteName(), $prevAssessment->id) }}" @endif
+      aria-label="Előző lezárt időszak"
+    >
+      <i class="fa fa-chevron-left" aria-hidden="true"></i>
+    </a>
+
+    <div class="period-chip" title="Lezárás dátuma">
+      <i class="fa fa-calendar" aria-hidden="true"></i>
+      <span>{{ \Carbon\Carbon::parse($assessment->closed_at)->translatedFormat('Y. m') }}</span>
+    </div>
+
+    <a
+      class="nav-btn {{ $nextAssessment ? '' : 'is-disabled' }}"
+      @if($nextAssessment) href="{{ route(Route::currentRouteName(), $nextAssessment->id) }}" @endif
+      aria-label="Következő lezárt időszak"
+    >
+      <i class="fa fa-chevron-right" aria-hidden="true"></i>
+    </a>
+  </div>
+@endif
+
+
 <div class="employee-list">
 @if (is_null($assessment))
   <div class="tile tile-warning">
@@ -12,6 +39,11 @@
   </div>
 @else
   @foreach ($users as $user)
+   <a
+    class="user-tile-link"
+    href="{{ route('results.index', ['assessmentId' => optional($assessment)->id, 'as' => $user->id]) }}"
+    title="Megnyitás: {{ $user->name }} eredményei"
+    target="_blank" rel="noopener">
   <div class="tile tile-info employee">
     <div>
       <div class="name">
@@ -74,6 +106,7 @@
         ></div>
     </div>
   </div>
+  </a>
   @endforeach
 @endif
 </div>
