@@ -77,11 +77,11 @@ function showTelemetryToast(){
   if (window.Swal && typeof Swal.fire === 'function') {
     Swal.fire({
       toast: true,
-      position: 'top-end',
+      position: 'bottom',
       icon: 'info',
-      title: 'Az oldalon telemetria fut',
+      title: 'Az oldalon telemetria fut.',
       showConfirmButton: false,
-      timer: 1800,
+      timer: 4000,
       timerProgressBar: true
     });
     return;
@@ -92,7 +92,7 @@ function showTelemetryToast(){
       text: 'Az oldalon telemetria fut',
       icon: 'info',
       buttons: false,
-      timer: 1800
+      timer: 4000
     });
     return;
   }

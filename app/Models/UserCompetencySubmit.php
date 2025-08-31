@@ -16,15 +16,15 @@ class UserCompetencySubmit extends Pivot
     'telemetry_ai' => 'array',
   ];
       
-  public static function user(){
+  public function user(){
     return $this->belongsTo(User::class, 'user_id', 'id');
   }
 
-  public static function target(){
+  public function target(){
     return $this->belongsTo(User::class, 'target_id', 'id');
   }
 
-  public static function assessment(){
+  public function assessment(){
     return $this->belongsTo(Assessment::class, 'assessment_id', 'id');
   }
 }

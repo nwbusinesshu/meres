@@ -7,21 +7,24 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Enums\UserRelationType;
 use App\Models\Enums\UserType;
 use App\Models\User;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 /**
- * A beküldéskori telemetria szerver-oldali összerakása (raw + digest + feature-ök).
- * Később ide kerülhet az AI-értékelés (telemetry_ai) is.
+ * A beküldéskori telemetria szerver-oldali összerakása (raw + digest + feature-ök),
+ * és az AI (telemetry_ai) meghívása / tárolása.
  */
 class TelemetryService
 {
     /**
      * @param array|null $clientTelemetry  A kliens JS által küldött telemetry_raw (vagy null, ha nincs/hibás)
-     * @param object     $assessment       AssessmentService::getCurrentAssessment() visszatérési értéke (App\Models\Assessment)
+     * @param object     $assessment       AssessmentService::getCurrentAssessment() (App\Models\Assessment)
      * @param User       $user             A rater (aki értékel)
      * @param User       $target           A cél (akit értékelnek)
      * @param Collection $questions        A target kérdései (CompetencyQuestion-ok gyűjteménye)
      * @param array      $answers          A request->input('answers', []) tömb
-     * @return array                      A mentendő telemetry_raw (JSON-olható tömb)
+     * @return array                       A mentendő telemetry_raw (JSON-olható tömb)
      */
     public static function makeTelemetryRaw(?array $clientTelemetry, $assessment, User $user, User $target, Collection $questions, array $answers): array
     {
@@ -133,7 +136,6 @@ class TelemetryService
      */
     protected static function buildHistoryDigest(int $organizationId, int $userId, int $currentTargetId): array
     {
-        // user_competency_submit + assessment (org szűrés), csak ahol VAN telemetry_ai
         $rows = DB::table('user_competency_submit as ucs')
             ->join('assessment as a', 'a.id', '=', 'ucs.assessment_id')
             ->where('a.organization_id', $organizationId)
@@ -147,9 +149,15 @@ class TelemetryService
         foreach ($rows as $r) {
             $ai = json_decode($r->telemetry_ai, true);
             if (!is_array($ai)) { continue; }
+            $flags = $ai['flags'] ?? [];
+            if (is_array($flags)) {
+                $flags = array_values(array_filter($flags, fn($f)=>is_string($f)));
+            } else {
+                $flags = [];
+            }
             $entries[] = [
                 'trust_score'       => $ai['trust_score'] ?? null,
-                'flags'             => array_values(array_filter($ai['flags'] ?? [], fn($f)=>is_string($f))),
+                'flags'             => $flags,
                 'relation_type'     => $ai['relation_type'] ?? null,
                 'target_id'         => $ai['target_id'] ?? $r->target_id,
                 'ai_timestamp'      => $ai['ai_timestamp'] ?? ($r->submitted_at ? (string)$r->submitted_at : null),
@@ -188,11 +196,13 @@ class TelemetryService
         $trust = [];
         $flagCount = [];
         foreach ($entries as $e) {
-            $relCount[$e['relation_type'] ?? 'unknown'] = ($relCount[$e['relation_type'] ?? 'unknown'] ?? 0) + 1;
+            $relKey = $e['relation_type'] ?? 'unknown';
+            $relCount[$relKey] = ($relCount[$relKey] ?? 0) + 1;
+
             if ($e['device_type'] !== null) {
                 $devCount[$e['device_type']] = ($devCount[$e['device_type']] ?? 0) + 1;
             }
-            if (is_numeric($e['trust_score'])) $trust[] = $e['trust_score'];
+            if (is_numeric($e['trust_score'])) $trust[] = (float)$e['trust_score'];
             foreach (($e['flags'] ?? []) as $f) { $flagCount[$f] = ($flagCount[$f] ?? 0) + 1; }
         }
         sort($trust);
@@ -230,7 +240,7 @@ class TelemetryService
             $vals = [];
             foreach ($entries as $e) {
                 if (isset($e['features_snapshot'][$key]) && is_numeric($e['features_snapshot'][$key])) {
-                    $vals[] = $e['features_snapshot'][$key];
+                    $vals[] = (float)$e['features_snapshot'][$key];
                 }
             }
             sort($vals);
@@ -311,8 +321,10 @@ class TelemetryService
         ];
     }
 
-     public static function scoreAndStoreTelemetryAI(int $assessmentId, int $userId, int $targetId): ?array
+    public static function scoreAndStoreTelemetryAI(int $assessmentId, int $userId, int $targetId): ?array
     {
+        Log::info('[AI] scoreAndStoreTelemetryAI about to call', compact('assessmentId','userId','targetId'));
+
         $row = DB::table('user_competency_submit')
             ->where('assessment_id', $assessmentId)
             ->where('user_id', $userId)
@@ -320,51 +332,70 @@ class TelemetryService
             ->first(['telemetry_raw', 'submitted_at']);
 
         if (!$row || !$row->telemetry_raw) {
+            Log::warning('[AI] scoreAndStoreTelemetryAI: missing telemetry_raw', compact('assessmentId','userId','targetId'));
             return null;
         }
 
-        $telemetryRaw = json_decode($row->telemetry_raw, true);
+        $telemetryRaw = self::normalizeJsonToArray($row->telemetry_raw);
+
         if (!is_array($telemetryRaw)) {
-            return null;
-        }
+        Log::warning('[AI] scoreAndStoreTelemetryAI: telemetry_raw decode failed', [
+        'assessmentId' => $assessmentId,
+        'userId'       => $userId,
+        'targetId'     => $targetId,
+        'sample'       => substr((string)$row->telemetry_raw, 0, 300) // diagnosztika
+        ]);
+    return null;
+}
+
 
         // 1) Kompakt AI payload építése
         $compact = self::buildCompactPayloadForAI($telemetryRaw);
 
-        // 2) Prompt felépítése + JSON schema a kimenetre
+        // 2) Prompt + JSON schema
         [$prompt, $jsonSchema] = self::buildPromptAndSchema($compact);
 
         // 3) OpenAI hívás
         $ai = self::callOpenAI($prompt, $jsonSchema, $compact['meta']);
 
         if ($ai) {
-            // 4) Visszaírás a DB-be
-            DB::table('user_competency_submit')
+            $affected = DB::table('user_competency_submit')
                 ->where('assessment_id', $assessmentId)
                 ->where('user_id', $userId)
                 ->where('target_id', $targetId)
                 ->update([
                     'telemetry_ai' => json_encode($ai, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 ]);
-        }
 
+            $check = DB::table('user_competency_submit')
+                ->where('assessment_id', $assessmentId)
+                ->where('user_id', $userId)
+                ->where('target_id', $targetId)
+                ->value('telemetry_ai');
+
+            Log::info('[AI] scoreAndStoreTelemetryAI stored', [
+                'trust_score' => $ai['trust_score'] ?? null,
+                'affected'    => $affected,
+                'non_empty'   => is_string($check) && strlen($check) > 2,
+            ]);
+        } else {
+            Log::warning('[AI] scoreAndStoreTelemetryAI returned NULL', compact('assessmentId','userId','targetId'));
+        }
+        
         return $ai;
     }
 
     /**
-     * A telemetry_raw-ból épít egy könnyű, AI-barát inputot:
-     *  - rövidített client.items (csak a fontos mezők),
-     *  - server_context, features, history_digest változatlanul,
-     *  - meta (org, relation, items_count, model guidance).
+     * A telemetry_raw-ból épít egy könnyű, AI-barát inputot.
      */
     protected static function buildCompactPayloadForAI(array $raw): array
     {
-        $client = $raw['client'] ?? null;
-        $server = $raw['server_context'] ?? [];
+        $client   = $raw['client'] ?? null;
+        $server   = $raw['server_context'] ?? [];
         $features = $raw['features'] ?? [];
-        $history = $raw['history_digest'] ?? null;
+        $history  = $raw['history_digest'] ?? null;
 
-        // Rövidített items: csak a lényeges mezők; value_path nem kell végig
+        // Rövidített items
         $items = [];
         if (is_array($client) && isset($client['items']) && is_array($client['items'])) {
             foreach ($client['items'] as $it) {
@@ -380,7 +411,7 @@ class TelemetryService
             }
         }
 
-        // Aggregált, könnyen számolható jellemzők (ha van client)
+        // Aggregált jellemzők
         $agg = null;
         if (is_array($client)) {
             $itemsCount = (int)($client['items_count'] ?? 0);
@@ -388,14 +419,12 @@ class TelemetryService
             $visibleMs  = (int)($client['visible_ms'] ?? 0);
             $activeMs   = (int)($client['active_ms'] ?? 0);
 
-            // egyszerű metrikák
             $avgMsPerItem = ($itemsCount > 0 && $totalMs > 0) ? (int) round($totalMs / $itemsCount) : null;
 
-            // uniform_ratio: leggyakoribb last_value aránya
             $uniformRatio = null;
             if ($itemsCount > 0 && $items) {
                 $vals = array_map(fn($i)=>$i['last_value'], $items);
-                $vals = array_filter($vals, fn($v)=>$v !== null);
+                $vals = array_values(array_filter($vals, fn($v)=>$v !== null));
                 if ($vals) {
                     $counts = array_count_values($vals);
                     rsort($counts);
@@ -403,7 +432,6 @@ class TelemetryService
                 }
             }
 
-            // fast_pass_rate: 1.5s alatt történt első interakció aránya
             $fastPassRate = null;
             if ($itemsCount > 0 && $items) {
                 $fast = 0; $total=0;
@@ -416,7 +444,6 @@ class TelemetryService
                 if ($total > 0) $fastPassRate = round($fast/$total, 3);
             }
 
-            // durva zigzag_index: egymást követő kérdések last_value különbségeinek előjelváltási aránya
             $zigzagIndex = null;
             if (count($items) >= 3) {
                 $vals = array_map(fn($i)=>$i['last_value'], $items);
@@ -441,35 +468,45 @@ class TelemetryService
             ];
         }
 
+        // meta + __fill_* backfill
+        $meta = [
+            'org_id'           => $server['org_id'] ?? null,
+            'relation_type'    => $server['relation_type'] ?? null,
+            'target_id'        => $server['target_id'] ?? null,
+            'measurement_uuid' => $server['measurement_uuid'] ?? null,
+            'tier'             => $history['tier'] ?? 'cold_start',
+            'guidance'         => $history['guidance'] ?? 'be_kind',
+        ];
+
+        if ($agg) {
+            $meta['__fill_avg_ms_per_item'] = $agg['avg_ms_per_item'] ?? null;
+            $meta['__fill_uniform_ratio']   = $agg['uniform_ratio'] ?? null;
+            $meta['__fill_zigzag_index']    = $agg['zigzag_index'] ?? null;
+            $meta['__fill_fast_pass_rate']  = $agg['fast_pass_rate'] ?? null;
+            $meta['__fill_device_type']     = $agg['device_type'] ?? null;
+        }
+
         return [
             'current' => [
                 'server_context' => $server,
                 'features'       => $features,
                 'agg'            => $agg,
-                'items'          => $items,   // rövidített
+                'items'          => $items,
             ],
             'history_digest' => $history,
-            'meta' => [
-                'org_id'        => $server['org_id'] ?? null,
-                'relation_type' => $server['relation_type'] ?? null,
-                'target_id'     => $server['target_id'] ?? null,
-                'measurement_uuid' => $server['measurement_uuid'] ?? null,
-                'tier'          => $history['tier'] ?? 'cold_start',
-                'guidance'      => $history['guidance'] ?? 'be_kind',
-            ],
+            'meta' => $meta,
         ];
     }
 
     /**
      * Prompt + JSON Schema felépítése.
-     * Responses API-hoz "json_schema" response_format-tal kérjük a kimenetet.
      */
     protected static function buildPromptAndSchema(array $compact): array
     {
         $meta = $compact['meta'];
         $guidance = $meta['guidance'] ?? 'be_kind';
 
-        // SYSTEM / USER üzenetet egyetlen "input" szövegbe illesztjük (Responses API)
+        // Alap prompt (heredoc) – csak statikus szöveg
         $prompt = <<<PROMPT
 You are scoring the reliability of a single 360° assessment submission.
 
@@ -490,150 +527,233 @@ Context:
 - Guidance: {$guidance}
 
 History digest (summarized, up to 20 past AI-scored submissions):
-{$this->jsonPretty($compact['history_digest'])}
-
-Current submission (aggregates, features, shortened per-item telemetry):
-{$this->jsonPretty($compact['current'])}
 PROMPT;
 
+        // Dinamikus blokkokat külön fűzzük hozzá
+        $prompt .= "\n" . self::jsonPretty($compact['history_digest']) . "\n\n";
+        $prompt .= "Current submission (aggregates, features, shortened per-item telemetry):\n";
+        $prompt .= self::jsonPretty($compact['current']);
+
         // JSON Schema a kimenetre (strukturált output; strict mode)
-        $jsonSchema = [
-            'name'   => 'TelemetryAi',
-            'schema' => [
-                'type'       => 'object',
-                'additionalProperties' => false,
-                'properties' => [
-                    'trust_score' => ['type'=>'integer','minimum'=>0,'maximum'=>20],
-                    'flags'       => [
-                        'type'=>'array',
-                        'items'=>[
-                            'type'=>'string',
-                            'enum'=>[
-                                'too_fast','too_uniform','extremes_only','count_mismatch',
-                                'low_variability','low_focus','low_visibility','incomplete_scroll',
-                                'suspicious_pattern','global_severity','global_leniency',
-                                'suspicious_target_bias','low_confidence'
-                            ]
-                        ]
-                    ],
-                    'rationale'   => ['type'=>'string','maxLength'=>800],
-                    'relation_type' => ['type'=>['string','null']],
-                    'target_id'     => ['type'=>['integer','null']],
-                    'ai_timestamp'  => ['type'=>'string'],
-                    'features_snapshot' => [
-                        'type'=>'object',
-                        'additionalProperties'=>false,
-                        'properties'=>[
-                            'avg_ms_per_item' => ['type'=>['number','null']],
-                            'uniform_ratio'   => ['type'=>['number','null']],
-                            'entropy'         => ['type'=>['number','null']],
-                            'zigzag_index'    => ['type'=>['number','null']],
-                            'fast_pass_rate'  => ['type'=>['number','null']],
-                            'device_type'     => ['type'=>['string','null']],
-                        ]
-                    ],
-                ],
-                'required' => ['trust_score','flags','rationale','relation_type','ai_timestamp','features_snapshot']
+// JSON Schema a kimenetre (strukturált output; strict mode)
+$jsonSchema = [
+    'name'   => 'TelemetryAi',
+    'schema' => [
+        'type' => 'object',
+        'additionalProperties' => false,
+        'properties' => [
+            'trust_score' => ['type'=>'integer','minimum'=>0,'maximum'=>20],
+            'flags' => [
+                'type'=>'array',
+                'items'=>[
+                    'type'=>'string',
+                    'enum'=>[
+                        'too_fast','too_uniform','extremes_only','count_mismatch',
+                        'low_variability','low_focus','low_visibility','incomplete_scroll',
+                        'suspicious_pattern','global_severity','global_leniency',
+                        'suspicious_target_bias','low_confidence'
+                    ]
+                ]
             ],
-            'strict' => true
-        ];
+            'rationale' => ['type'=>'string','maxLength'=>800],
+            'relation_type' => ['type'=>['string','null']],
+            'target_id' => ['type'=>['integer','null']],
+            'ai_timestamp' => ['type'=>'string'],
+            'features_snapshot' => [
+                'type'=>'object',
+                'additionalProperties'=>false,
+                'properties'=>[
+                    'avg_ms_per_item' => ['type'=>['number','null']],
+                    'uniform_ratio'   => ['type'=>['number','null']],
+                    'entropy'         => ['type'=>['number','null']],
+                    'zigzag_index'    => ['type'=>['number','null']],
+                    'fast_pass_rate'  => ['type'=>['number','null']],
+                    'device_type'     => ['type'=>['string','null']],
+                ],
+                // Kötelező: MINDEN kulcs legyen felsorolva
+                'required' => [
+                    'avg_ms_per_item',
+                    'uniform_ratio',
+                    'entropy',
+                    'zigzag_index',
+                    'fast_pass_rate',
+                    'device_type',
+                ],
+            ],
+        ],
+        // Kötelező: a ROOT szinten is legyen felsorolva MINDEN property
+        'required' => [
+            'trust_score',
+            'flags',
+            'rationale',
+            'relation_type',
+            'target_id',
+            'ai_timestamp',
+            'features_snapshot',
+        ],
+    ],
+    'strict' => true,
+];
+
+
 
         return [$prompt, $jsonSchema];
     }
 
     /**
      * OpenAI Responses API hívása strukturált (json_schema) válasszal.
-     * Laravel HTTP klienssel hívunk. response_format: json_schema (strict).
      */
     protected static function callOpenAI(string $prompt, array $jsonSchema, array $meta): ?array
     {
-        $apiKey = (string) config('services.openai.key', env('OPENAI_API_KEY'));
-        $model  = (string) env('OPENAI_MODEL', 'gpt-4.1-mini');
+        $apiKey  = (string) config('services.openai.key', env('OPENAI_API_KEY'));
+        $model   = (string) env('OPENAI_MODEL', 'gpt-4.1-mini');
         $timeout = (int) env('OPENAI_TIMEOUT', 12);
 
         if (!$apiKey) {
+            Log::warning('[AI] callOpenAI: missing API key');
             return null;
         }
 
         $idempotencyKey = 'telemetry:' . ($meta['measurement_uuid'] ?? Str::uuid()->toString());
 
+        Log::info('[AI] callOpenAI start', [
+            'model' => $model,
+            'timeout' => $timeout,
+            'idempotency' => $idempotencyKey,
+        ]);
+
         try {
+            // ...
             $resp = Http::withHeaders([
-                    'Authorization' => 'Bearer '.$apiKey,
-                    'Content-Type'  => 'application/json',
-                    'Idempotency-Key' => $idempotencyKey,
-                ])
-                ->timeout($timeout)
-                ->post('https://api.openai.com/v1/responses', [
-                    'model' => $model,
-                    // Responses API — egyszerű input szöveg
-                    'input' => $prompt,
-                    // Strukturált JSON kimenet
-                    'response_format' => [
-                        'type' => 'json_schema',
-                        'json_schema' => $jsonSchema,
+                'Authorization'   => 'Bearer '.$apiKey,
+                'Content-Type'    => 'application/json',
+                'Idempotency-Key' => $idempotencyKey,
+            ])
+            ->timeout($timeout)
+            ->post('https://api.openai.com/v1/responses', [
+                'model' => $model,
+                'input' => $prompt, // Responses API egyszálas input
+                'text' => [
+                    'format' => [
+                        'type'   => 'json_schema',
+                        'name'   => $jsonSchema['name']   ?? 'TelemetryAi',
+                        'schema' => $jsonSchema['schema'] ?? [],
+                        'strict' => $jsonSchema['strict'] ?? true,
                     ],
-                ]);
+                ],
+            ]);
+
+            $status = $resp->status();
+            Log::info('[AI] callOpenAI http', ['status' => $status]);
 
             if (!$resp->ok()) {
-                // ide tehetsz logolást, ha szükséges
+                $bodyPreview = substr($resp->body(), 0, 4000);
+                Log::warning('[AI] callOpenAI not ok', ['status' => $status, 'body' => $bodyPreview]);
                 return null;
             }
 
             $data = $resp->json();
 
             // A structured JSON a "output[0].content[0].text" vagy "output[0].content[0].json" alatt érkezhet
-            // Responses API változhat — a hivatalos doksi szerint structured outputot ad. :contentReference[oaicite:1]{index=1}
             $structured = null;
 
-            // 1) új Responses API "output" tömb (általános minta)
+            // 1) Responses API "output" tömb
             if (isset($data['output']) && is_array($data['output'])) {
                 $first = $data['output'][0]['content'][0] ?? null;
                 if ($first) {
-                    // próbáljuk json-ként olvasni
                     if (isset($first['text'])) {
                         $maybe = json_decode($first['text'], true);
                         if (is_array($maybe)) $structured = $maybe;
                     }
-                    if (!$structured && isset($first['json'])) {
+                    if (!$structured && isset($first['json']) && is_array($first['json'])) {
                         $structured = $first['json'];
                     }
                 }
             }
 
-            // 2) fallback: egyes válaszoknál "response" / "choices" struktúra is előfordulhat (átmeneti kompat)
+            // 2) fallback: choices
             if (!$structured && isset($data['choices'][0]['message']['content'])) {
                 $maybe = json_decode($data['choices'][0]['message']['content'], true);
                 if (is_array($maybe)) $structured = $maybe;
             }
 
             if (!is_array($structured)) {
+                Log::warning('[AI] callOpenAI parse failed', [
+                    'data_preview' => substr(json_encode($data), 0, 4000)
+                ]);
                 return null;
             }
 
-            // standardizáljuk a plusz meta mezőket
+            // meta standardizálás
             $structured['relation_type'] = $structured['relation_type'] ?? ($meta['relation_type'] ?? null);
             $structured['target_id']     = $structured['target_id']     ?? ($meta['target_id'] ?? null);
             $structured['ai_timestamp']  = $structured['ai_timestamp']  ?? now()->toIso8601String();
 
-            // ha a features_snapshot-ban hiányzik, töltsük fel a kompaktban lévő aggregált értékekkel
+            // features_snapshot backfill
             $structured['features_snapshot'] = $structured['features_snapshot'] ?? [];
             foreach (['avg_ms_per_item','uniform_ratio','zigzag_index','fast_pass_rate','device_type'] as $k) {
                 if (!array_key_exists($k, $structured['features_snapshot'])) {
-                    $structured['features_snapshot'][$k] = $compactAgg = $meta['__fill_'.$k] ?? null;
+                    $structured['features_snapshot'][$k] = $meta['__fill_'.$k] ?? null;
                 }
             }
+
+            Log::info('[AI] callOpenAI ok', [
+                'trust_score' => $structured['trust_score'] ?? null,
+                'flags' => $structured['flags'] ?? null,
+            ]);
 
             return $structured;
 
         } catch (\Throwable $e) {
+            Log::error('[AI] callOpenAI exception', [
+                'message' => $e->getMessage(),
+                'code' => $e->getCode(),
+            ]);
             return null;
         }
     }
 
-    /** Kis segéd a promptban szépített JSON-hoz (nem kötelező). */
-    protected function jsonPretty($v): string
+    /** Kis segéd a promptban szépített JSON-hoz. */
+    protected static function jsonPretty($v): string
     {
         return json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
     }
+
+    // a class végére (bárhol a classon belül), pl. jsonPretty alá/fölé
+protected static function normalizeJsonToArray(?string $raw): ?array
+{
+    if ($raw === null) return null;
+
+    // 1) első próbálkozás
+    $v = json_decode($raw, true);
+    if (is_array($v)) return $v;
+
+    // 2) ha string jött ki (dupla-JSON tipikus esete): próbáld még egyszer
+    if (is_string($v)) {
+        $v2 = json_decode($v, true);
+        if (is_array($v2)) return $v2;
+    }
+
+    // 3) gyakori: túl-escape-elt backslash-ek
+    $raw2 = stripslashes($raw);
+    if ($raw2 !== $raw) {
+        $v3 = json_decode($raw2, true);
+        if (is_array($v3)) return $v3;
+    }
+
+    // 4) safety: távolítsunk el BOM-ot, nem látható whitespace-t
+    $raw3 = trim($raw, "\xEF\xBB\xBF \t\n\r\0\x0B");
+    if ($raw3 !== $raw) {
+        $v4 = json_decode($raw3, true);
+        if (is_array($v4)) return $v4;
+
+        if (is_string($v4)) {
+            $v5 = json_decode($v4, true);
+            if (is_array($v5)) return $v5;
+        }
+    }
+
+    return null;
+}
+
 }

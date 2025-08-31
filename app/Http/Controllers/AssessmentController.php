@@ -49,7 +49,8 @@ class AssessmentController extends Controller
         ]);
     }
 
-    public function submitAssessment(Request $request){
+    public function submitAssessment(Request $request)
+{
     $assessment = AssessmentService::getCurrentAssessment();
     if (is_null($assessment)) {
         return abort(403);
@@ -82,40 +83,41 @@ class AssessmentController extends Controller
         }
     }
 
-    AjaxService::DBTransaction(function() use ($request, &$user, &$questions, $target, $assessment, $clientTelemetry){
+    AjaxService::DBTransaction(function () use ($request, $user, $questions, $target, $assessment, $clientTelemetry) {
 
         // --- Meglévő logika: kompetencia-aggregálás és mentés ---
-        $questions->groupBy('competency_id')->each(function($item, $key) use ($request, &$user, $target, $assessment){
+        $questions->groupBy('competency_id')->each(function ($item, $key) use ($request, $user, $target, $assessment) {
             $competencyId = $key;
             $sum = 0;
-            $item->each(function($question) use ($request, &$sum){
+
+            $item->each(function ($question) use ($request, &$sum) {
                 $max = $question->max_value;
-                $value = collect($request->answers)->filter(function($answer) use ($question){
-                    return $answer['questionId'] == $question->id;
-                })->first()['value'];
+                $value = collect($request->answers)
+                    ->firstWhere('questionId', $question->id)['value'] ?? 0;
+
                 $value = round($value / $max * 100);
                 $sum = $sum == 0 ? $value : round(($sum + $value) / 2);
             });
 
             $type = $user->id == $target->id
                 ? UserRelationType::SELF
-                : $user->relations()->where('target_id', $target->id)->first()['type'];
+                : optional($user->relations()->where('target_id', $target->id)->first())['type'];
 
             if ($type == UserRelationType::SUBORDINATE && session('utype') == UserType::CEO) {
                 $type = UserType::CEO;
             }
 
             CompetencySubmit::create([
-                "assessment_id" => $assessment->id,
-                "user_id"       => $user->id,
-                "target_id"     => $target->id,
-                "competency_id" => $competencyId,
-                "value"         => $sum,
-                "type"          => $type
+                'assessment_id' => $assessment->id,
+                'user_id'       => $user->id,
+                'target_id'     => $target->id,
+                'competency_id' => $competencyId,
+                'value'         => $sum,
+                'type'          => $type,
             ]);
         });
 
-        // --- ÚJ: telemetry_raw összeállítása a Service segítségével ---
+        // --- telemetry_raw összeállítása ---
         $telemetryRaw = TelemetryService::makeTelemetryRaw(
             $clientTelemetry,
             $assessment,
@@ -125,16 +127,42 @@ class AssessmentController extends Controller
             $request->input('answers', [])
         );
 
-        // Mentés
+        // Mentés user_competency_submit-be
         UserCompetencySubmit::create([
-            "assessment_id" => $assessment->id,
-            "user_id"       => $user->id,
-            "target_id"     => $target->id,
-            "submitted_at"  => date('Y-m-d H:i:s'),
-            "telemetry_raw" => json_encode($telemetryRaw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'assessment_id' => $assessment->id,
+            'user_id'       => $user->id,
+            'target_id'     => $target->id,
+            'submitted_at'  => date('Y-m-d H:i:s'),
+            'telemetry_raw' => json_encode($telemetryRaw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]);
-        TelemetryService::scoreAndStoreTelemetryAI($assessment->id, $user->id, $target->id);
-    });
+
+        // AI hívás COMMIT után, hogy az UPDATE ne guruljon vissza rollback esetén
+        \DB::afterCommit(function () use ($assessment, $user, $target) {
+            try {
+                \Log::info('[AI] afterCommit: start', [
+                    'assessmentId' => $assessment->id,
+                    'userId'       => $user->id,
+                    'targetId'     => $target->id,
+                ]);
+
+                $ai = \App\Services\TelemetryService::scoreAndStoreTelemetryAI(
+                    $assessment->id, $user->id, $target->id
+                );
+
+                \Log::info('[AI] afterCommit: done', [
+                    'ok'          => (bool) $ai,
+                    'trust_score' => $ai['trust_score'] ?? null,
+                ]);
+            } catch (\Throwable $e) {
+                \Log::error('[AI] afterCommit: exception', ['msg' => $e->getMessage()]);
+            }
+        });
+
+    }); // <-- DBTransaction zárása
+
+    // Adjunk vissza siker választ
+    return response()->json(['ok' => true]);
 }
+
 }
 
