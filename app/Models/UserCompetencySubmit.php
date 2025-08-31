@@ -11,6 +11,10 @@ class UserCompetencySubmit extends Pivot
   public $timestamps = false;
   protected $guarded = [];
   protected $hidden = [];
+  protected $casts = [
+    'telemetry_raw' => 'array',
+    'telemetry_ai' => 'array',
+  ];
       
   public static function user(){
     return $this->belongsTo(User::class, 'user_id', 'id');
