@@ -108,6 +108,21 @@ function showTelemetryToast(){
   })();
 
   const STORAGE_PREFIX = "q360:telemetry:";
+
+    // --- PAGE-LOAD GC: minden korábbi mérés törlése ebben a tabban ---
+  (function purgeOldTelemetry() {
+    try {
+      const toDelete = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i);
+        if (k && k.startsWith(STORAGE_PREFIX)) toDelete.push(k);
+      }
+      toDelete.forEach(k => sessionStorage.removeItem(k));
+    } catch (e) {
+      console.warn('Telemetry cleanup failed', e);
+    }
+  })();
+
   const nowISO = () => new Date().toISOString();
   const tzOffsetMin = -new Date().getTimezoneOffset(); // pl. Budapest: -120 -> 120 nyáron
   const perfNow = () => (window.performance && performance.now) ? performance.now() : Date.now();
@@ -145,73 +160,84 @@ function showTelemetryToast(){
   const focusEvents = { focus_count: (document.hasFocus && document.hasFocus())?1:0, blur_count:0 };
 
   // Kérdések feltérképezése
-  const $questions = $('.tile.tile-secondary.question[data-id]');
-  const itemsCount = $questions.length;
+const $questions = $('.tile.tile-secondary.question[data-id]');
+const itemsCount = $questions.length;
 
-  // display_order és item state előkészítés
-  const displayOrder = [];
-  const itemState = {}; // question_id -> state
+// display_order és item state előkészítés
+const displayOrder = [];
+const itemState = {}; // question_id -> state
 
-  // Skála detekt és item kezdeti állapot
-  $questions.each(function(i){
-    const $q = $(this);
-    const qid = parseInt($q.attr('data-id'), 10);
-    displayOrder.push(qid);
+// --- Szekvenciális olvasási idő számításhoz ---
+let lastAnswerClickRel = null;
+let lastActiveMsAtClick = 0;
 
-    // Skála: a gyerek .value elemeken data-value attribútum
-    const values = $q.find('.values .value[data-value]').map(function(){ return parseFloat($(this).attr('data-value')); }).get();
-    const min = Math.min.apply(null, values);
-    const max = Math.max.apply(null, values);
-    // step becslés (legkisebb pozitív különbség)
-    let step = 1;
-    if (values.length > 1) {
-      const sorted = [...new Set(values)].sort((a,b)=>a-b);
-      const diffs = [];
-      for (let j=1;j<sorted.length;j++) {
-        const d = sorted[j]-sorted[j-1];
-        if (d>0) diffs.push(d);
-      }
-      step = diffs.length? Math.min.apply(null, diffs) : 1;
+// Skála detekt és item kezdeti állapot
+$questions.each(function(i){
+  const $q = $(this);
+  const qid = parseInt($q.attr('data-id'), 10);
+  displayOrder.push(qid);
+
+  const charsAttr = parseInt($q.attr('data-chars'), 10);
+  const chars = Number.isFinite(charsAttr) ? charsAttr : null;
+
+  // Skála: a gyerek .value elemeken data-value attribútum
+  const values = $q.find('.values .value[data-value]').map(function(){ return parseFloat($(this).attr('data-value')); }).get();
+  const min = Math.min.apply(null, values);
+  const max = Math.max.apply(null, values);
+  let step = 1;
+  if (values.length > 1) {
+    const sorted = [...new Set(values)].sort((a,b)=>a-b);
+    const diffs = [];
+    for (let j=1;j<sorted.length;j++) {
+      const d = sorted[j]-sorted[j-1];
+      if (d>0) diffs.push(d);
     }
-
-    itemState[qid] = {
-      question_id: qid,
-      index: i+1,
-      scale: { min, max, step },
-      first_seen_ms: null,
-      first_interaction_ms: null,
-      value_path: [],
-      last_value: null,
-      changes_count: 0,
-      focus_ms: 0,
-      attention_check: { present: false } // ha lesz ilyen logika, itt megjelenik
-    };
-  });
-
-  // Görgetési lefedettség (mely indexig láttuk)
-  const scrollSeen = { min_index: itemsCount?1:0, max_index: 0 };
-
-  // IntersectionObserver: first_seen_ms és scrollSectionsSeen
-  if ('IntersectionObserver' in window) {
-    const io = new IntersectionObserver((entries)=>{
-      const tNow = perfNow();
-      entries.forEach(entry=>{
-        if (!entry.isIntersecting) return;
-        const $q = $(entry.target);
-        const qid = parseInt($q.attr('data-id'),10);
-        const st = itemState[qid];
-        if (st && st.first_seen_ms === null) {
-          st.first_seen_ms = Math.round(tNow - pageStartHR);
-        }
-        // max index frissítés
-        if (st && typeof st.index === 'number') {
-          if (scrollSeen.max_index < st.index) scrollSeen.max_index = st.index;
-        }
-      });
-    }, { root: null, threshold: 0.4 });
-
-    $questions.each(function(){ io.observe(this); });
+    step = diffs.length? Math.min.apply(null, diffs) : 1;
   }
+
+  itemState[qid] = {
+    question_id: qid,
+    index: i+1,
+    scale: { min, max, step },
+    chars: chars,
+    view_read_ms: null,
+    view_read_ms_per_100ch: null,
+    seq_read_ms_raw: null,
+    seq_read_ms_active: null,
+    seq_read_ms_per_100ch: null,
+    first_seen_ms: null,
+    first_interaction_ms: null,
+    value_path: [],
+    last_value: null,
+    changes_count: 0,
+    focus_ms: 0,
+    attention_check: { present: false }
+  };
+}); // <-- EZ HIÁNYZOTT: lezárjuk a $questions.each ciklust
+
+// Görgetési lefedettség (mely indexig láttuk)
+const scrollSeen = { min_index: itemsCount?1:0, max_index: 0 };
+
+// IntersectionObserver: first_seen_ms és scrollSectionsSeen
+if ('IntersectionObserver' in window) {
+  const io = new IntersectionObserver((entries)=>{
+    const tNow = perfNow();
+    entries.forEach(entry=>{
+      if (!entry.isIntersecting) return;
+      const $q = $(entry.target);
+      const qid = parseInt($q.attr('data-id'),10);
+      const st = itemState[qid];
+      if (st && st.first_seen_ms === null) {
+        st.first_seen_ms = Math.round(tNow - pageStartHR);
+      }
+      if (st && typeof st.index === 'number') {
+        if (scrollSeen.max_index < st.index) scrollSeen.max_index = st.index;
+      }
+    });
+  }, { root: null, threshold: 0.4 });
+
+  $questions.each(function(){ io.observe(this); });
+}
 
   // Egérmutató “fókusz” mérése kérdésblokkra
   $questions.on('mouseenter', function(){
@@ -233,29 +259,59 @@ function showTelemetryToast(){
 
   // Érték kiválasztás naplózása (delegálva)
   $(document).on('click', '.tile.tile-secondary.question .values .value[data-value]', function(){
-    interactions.clicks++;
-    const $v = $(this);
-    const $q = $v.closest('.tile.tile-secondary.question');
-    const qid = parseInt($q.attr('data-id'),10);
-    const st = itemState[qid];
-    if (!st) return;
+  interactions.clicks++;
+  const $v = $(this);
+  const $q = $v.closest('.tile.tile-secondary.question');
+  const qid = parseInt($q.attr('data-id'),10);
+  const st = itemState[qid];
+  if (!st) return;
 
-    const tRel = Math.round(perfNow() - pageStartHR);
-    const v = parseFloat($v.attr('data-value'));
+  const nowHR = perfNow();
+  const tRel = Math.round(nowHR - pageStartHR);
+  const v = parseFloat($v.attr('data-value'));
 
-    if (st.first_interaction_ms === null) st.first_interaction_ms = tRel;
+  if (st.first_interaction_ms === null) {
+    st.first_interaction_ms = tRel;
 
-    // változás számlálás
-    if (st.last_value === null || st.last_value !== v) {
-      if (st.last_value !== null) st.changes_count++;
-      st.last_value = v;
+    // --- VIEW-ALAPÚ olvasási idő: first_seen → first_interaction ---
+    if (typeof st.first_seen_ms === 'number') {
+      const viewGap = Math.max(0, st.first_interaction_ms - st.first_seen_ms);
+      st.view_read_ms = viewGap;
+      if (typeof st.chars === 'number' && st.chars > 0) {
+        st.view_read_ms_per_100ch = Math.round(viewGap / (st.chars / 100));
+      }
     }
-    // value_path gyűjtés (limit 20 / kérdés)
-    if (st.value_path.length === 0 || st.value_path[st.value_path.length-1].v !== v) {
-      if (st.value_path.length < 20) st.value_path.push({ ms: tRel, v: v });
+
+    // --- SZEKVENCIÁLIS olvasási idő: előző válasz óta ---
+    const actSoFar = activeMsSoFar(nowHR);
+    if (lastAnswerClickRel !== null) {
+      const seqRaw = Math.max(0, tRel - lastAnswerClickRel);
+      st.seq_read_ms_raw = seqRaw;
+
+      const seqActive = Math.max(0, actSoFar - lastActiveMsAtClick);
+      st.seq_read_ms_active = seqActive;
+
+      if (typeof st.chars === 'number' && st.chars > 0) {
+        st.seq_read_ms_per_100ch = Math.round(seqActive / (st.chars / 100));
+      }
     }
-    save();
-  });
+
+    // Frissítjük a „legutóbbi válasz” markereket (minden első katt után)
+    lastAnswerClickRel = tRel;
+    lastActiveMsAtClick = actSoFar;
+  }
+
+  // --- változás számlálás + value_path (meglévő működés) ---
+  if (st.last_value === null || st.last_value !== v) {
+    if (st.last_value !== null) st.changes_count++;
+    st.last_value = v;
+  }
+  if (st.value_path.length === 0 || st.value_path[st.value_path.length-1].v !== v) {
+    if (st.value_path.length < 20) st.value_path.push({ ms: tRel, v: v });
+  }
+  save();
+});
+
 
   // Globális interakció számlálók (összesítve, tartalom NÉLKÜL)
   $(document).on('keydown', function(){ interactions.keydowns++; });
@@ -301,6 +357,14 @@ function showTelemetryToast(){
       sessionStorage.setItem(STORAGE_PREFIX + 'bfcache-note', nowISO());
     }
   });
+
+  function activeMsSoFar(nowHR) {
+  let acc = totals.active_ms;
+  if ((document.hasFocus && document.hasFocus()) && activeSinceHR !== null) {
+    acc += Math.max(0, Math.round(nowHR - activeSinceHR));
+  }
+  return acc;
+  }
 
   // --- Telemetria objektum összeállítása (nyers) ---
   function buildPayload(finalize=false){

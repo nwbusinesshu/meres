@@ -30,7 +30,12 @@ $counter = 1;
 <div class="competency">
   <p>{{ $key }}</p>
   @foreach ($question->shuffle() as $q)
-  <div class="tile tile-secondary question" data-id="{{ $q->id }}">
+   @php
+    $qText  = session('uid') == $target->id ? $q->question_self : $q->question;
+    $qPlain = trim(preg_replace('/\s+/u', ' ', strip_tags($qText)));
+    $qChars = mb_strlen($qPlain, 'UTF-8');
+  @endphp
+  <div class="tile tile-secondary question" data-id="{{ $q->id }}" data-chars="{{ $qChars }}">
     <p>{{ $_('question') }} {{ $counter++ }}/{{ $questionsCount }}</p>
     <p>{{ session('uid') == $target->id ? $q->question_self : $q->question }}</p>
     <div>
