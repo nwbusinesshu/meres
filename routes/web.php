@@ -108,6 +108,16 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
     // results
     Route::get('/results/{assessmentId?}', [AdminResultsController::class, 'index'])
      ->name('results.index');
+
+     // settings (admin)
+Route::controller(\App\Http\Controllers\AdminSettingsController::class)
+    ->name('settings.')
+    ->prefix('/settings')
+    ->group(function () {
+        Route::get('/index', 'index')->name('index');          // GET  /admin/settings/index
+        Route::post('/toggle', 'toggle')->name('toggle');      // POST /admin/settings/toggle
+    });
+
 });
 
 // normal

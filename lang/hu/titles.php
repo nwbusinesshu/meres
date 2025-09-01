@@ -18,6 +18,7 @@ return [
     "competencies" => "Kompetenciák",
     "ceoranks" => "Ügyvezetői rangsor",
     "results" => "Eredmények",
+    "settings" => "Beállítások",
   ],
   'superadmin' => [
         'dashboard' => 'Szuperadmin Dashboard',

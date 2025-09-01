@@ -71,6 +71,14 @@ $(document).ready(function(){
 });
 </script>
 
+@php
+  use App\Services\OrgConfigService;
+  $orgId = (int) session('org_id');
+  $strictAnon  = OrgConfigService::getBool($orgId, OrgConfigService::STRICT_ANON_KEY, false);
+  $aiTelemetry = OrgConfigService::getBool($orgId, OrgConfigService::AI_TELEMETRY_KEY, true);
+  if ($strictAnon) $aiTelemetry = false;
+@endphp
+@if($aiTelemetry)
 <script>
 function showTelemetryToast(){
   // SweetAlert2
@@ -488,3 +496,4 @@ if ('IntersectionObserver' in window) {
 
 })(jQuery);
 </script>
+@endif

@@ -1,0 +1,47 @@
+/* Alcím */
+.settings-subtitle {
+  margin: .2rem 0 1rem 0;
+  color: var(--secondary);
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+/* Rács: 2 oszlop nagy képernyőn, wrap mobilon */
+.settings-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .8rem;
+}
+
+/* A settings-grid-ben lévő tile-okat vízszintes elrendezésűre vesszük,
+   a szöveg balra zárt, a kapcsoló jobbra kerül */
+.settings-grid .tile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex: 1 1 420px;            /* 2 oszlop, törik mobilon */
+  padding: 1em;
+  padding-bottom: .5em;
+  text-align: left;           /* felülírja az esetleges középre igazítást */
+}
+
+/* Bal oldali szövegdoboz */
+.settings-grid .tile .text {
+  flex: 1 1 auto;
+}
+
+/* Cím és leírás */
+.settings-grid .tile .title { font-size: 1rem; line-height: 1.25rem; }
+.settings-grid .tile .meta  { font-size: .9rem; color: var(--secondary); }
+
+/* Nagyobb iOS-szerű kapcsoló a jobb oldalon */
+.switch { position: relative; display: inline-block; width: 60px; height: 32px; margin-left: auto; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; inset: 0; cursor: pointer; background: #ccc; transition: .2s; border-radius: 32px; }
+.slider:before { content:""; position:absolute; height:24px; width:24px; left:4px; bottom:4px; background: var(--white); border-radius:50%; transition:.2s; }
+.switch input:checked + .slider { background: var(--success); }
+.switch input:checked + .slider:before { transform: translateX(28px); } /* 60 - 24 - 8 = 28 */
+
+/* Disabled állapot (strict anon mellett) */
+.switch input:disabled + .slider { background: var(--gray); opacity: .6; cursor: not-allowed; }

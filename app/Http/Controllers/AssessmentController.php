@@ -14,6 +14,7 @@ use App\Services\AssessmentService;
 use App\Services\UserService;
 use Illuminate\Http\Request;
 use App\Services\TelemetryService;
+use App\Services\OrgConfigService;
 
 
 class AssessmentController extends Controller
@@ -56,15 +57,27 @@ class AssessmentController extends Controller
         return abort(403);
     }
 
+    // --- Org beállítások kiolvasása (kizárólagossággal) ---
+    $orgId       = (int) $assessment->organization_id; // biztosan az aktuális assessment szervezete
+    $strictAnon  = OrgConfigService::getBool($orgId, OrgConfigService::STRICT_ANON_KEY, false);
+    $aiTelemetry = OrgConfigService::getBool($orgId, OrgConfigService::AI_TELEMETRY_KEY, true);
+    if ($strictAnon) {
+        $aiTelemetry = false; // szabály: strict anon => AI OFF
+    }
+
     // get target
     $target = User::findOrFail($request->target);
 
     // check if target is assessed already
-    $user = UserService::getCurrentUser();
-    if ($user->competencySubmits()->where('target_id', $target->id)->count() != 0) {
-        return abort(403);
-    }
+    $user = \App\Services\UserService::getCurrentUser();
+    $already = \App\Models\UserCompetencySubmit::where('assessment_id', $assessment->id)
+    ->where('user_id', $user->id)
+    ->where('target_id', $target->id)
+    ->exists();
 
+if ($already) {
+    return abort(403);
+}
     // get competencyQuestions
     $questions = $target->competencyQuestions;
 
@@ -73,9 +86,9 @@ class AssessmentController extends Controller
         return abort(403);
     }
 
-    // Kliens-telemetria biztonságos beolvasása (ha van)
+    // Kliens-telemetria biztonságos beolvasása (ha van és ha engedélyezett)
     $clientTelemetry = null;
-    if ($request->filled('telemetry_raw')) {
+    if ($aiTelemetry && $request->filled('telemetry_raw')) {
         try {
             $clientTelemetry = json_decode($request->input('telemetry_raw'), true, 512, JSON_THROW_ON_ERROR);
         } catch (\Throwable $e) {
@@ -83,10 +96,10 @@ class AssessmentController extends Controller
         }
     }
 
-    AjaxService::DBTransaction(function () use ($request, $user, $questions, $target, $assessment, $clientTelemetry) {
+    AjaxService::DBTransaction(function () use ($request, $user, $questions, $target, $assessment, $clientTelemetry, $strictAnon, $aiTelemetry) {
 
-        // --- Meglévő logika: kompetencia-aggregálás és mentés ---
-        $questions->groupBy('competency_id')->each(function ($item, $key) use ($request, $user, $target, $assessment) {
+        // --- Kompetencia-aggregálás és mentés ---
+        $questions->groupBy('competency_id')->each(function ($item, $key) use ($request, $user, $target, $assessment, $strictAnon) {
             $competencyId = $key;
             $sum = 0;
 
@@ -109,7 +122,7 @@ class AssessmentController extends Controller
 
             CompetencySubmit::create([
                 'assessment_id' => $assessment->id,
-                'user_id'       => $user->id,
+                'user_id'       => $strictAnon ? null : $user->id, // <<-- SZIGORÚ ANONÍMIA
                 'target_id'     => $target->id,
                 'competency_id' => $competencyId,
                 'value'         => $sum,
@@ -117,50 +130,58 @@ class AssessmentController extends Controller
             ]);
         });
 
-        // --- telemetry_raw összeállítása ---
-        $telemetryRaw = TelemetryService::makeTelemetryRaw(
-            $clientTelemetry,
-            $assessment,
-            $user,
-            $target,
-            $questions,
-            $request->input('answers', [])
-        );
+        // --- telemetry_raw összeállítása csak ha AI telemetria engedélyezett ---
+        $telemetryRaw = null;
+        if ($aiTelemetry) {
+            $telemetryRaw = TelemetryService::makeTelemetryRaw(
+                $clientTelemetry,
+                $assessment,
+                $user,
+                $target,
+                $questions,
+                $request->input('answers', [])
+            );
+        }
 
         // Mentés user_competency_submit-be
-        UserCompetencySubmit::create([
+        $ucs = UserCompetencySubmit::create([
             'assessment_id' => $assessment->id,
             'user_id'       => $user->id,
             'target_id'     => $target->id,
             'submitted_at'  => date('Y-m-d H:i:s'),
-            'telemetry_raw' => json_encode($telemetryRaw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'telemetry_raw' => $aiTelemetry
+                ? json_encode($telemetryRaw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                : null, // <<-- AI OFF esetén NULL
+            // 'telemetry_ai' itt NEM kerül kitöltésre; AI OFF esetén később is NULL marad
         ]);
 
-        // AI hívás COMMIT után, hogy az UPDATE ne guruljon vissza rollback esetén
-        \DB::afterCommit(function () use ($assessment, $user, $target) {
-            try {
-                \Log::info('[AI] afterCommit: start', [
-                    'assessmentId' => $assessment->id,
-                    'userId'       => $user->id,
-                    'targetId'     => $target->id,
-                ]);
+        // AI hívás csak akkor, ha engedélyezett
+        if ($aiTelemetry) {
+            \DB::afterCommit(function () use ($assessment, $user, $target) {
+                try {
+                    \Log::info('[AI] afterCommit: start', [
+                        'assessmentId' => $assessment->id,
+                        'userId'       => $user->id,
+                        'targetId'     => $target->id,
+                    ]);
 
-                $ai = \App\Services\TelemetryService::scoreAndStoreTelemetryAI(
-                    $assessment->id, $user->id, $target->id
-                );
+                    $ai = \App\Services\TelemetryService::scoreAndStoreTelemetryAI(
+                        $assessment->id, $user->id, $target->id
+                    );
 
-                \Log::info('[AI] afterCommit: done', [
-                    'ok'          => (bool) $ai,
-                    'trust_score' => $ai['trust_score'] ?? null,
-                ]);
-            } catch (\Throwable $e) {
-                \Log::error('[AI] afterCommit: exception', ['msg' => $e->getMessage()]);
-            }
-        });
+                    \Log::info('[AI] afterCommit: done', [
+                        'ok'          => (bool) $ai,
+                        'trust_score' => $ai['trust_score'] ?? null,
+                    ]);
+                } catch (\Throwable $e) {
+                    \Log::error('[AI] afterCommit: exception', ['msg' => $e->getMessage()]);
+                }
+            });
+        }
+        // AI OFF esetén nincs afterCommit callback -> telemetry_ai NULL marad
 
-    }); // <-- DBTransaction zárása
+    }); // DBTransaction vége
 
-    // Adjunk vissza siker választ
     return response()->json(['ok' => true]);
 }
 

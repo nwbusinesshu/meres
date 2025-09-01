@@ -37,6 +37,7 @@
       'admin.employee.index',
       'admin.competency.index',
       'admin.ceoranks.index',
+      'admin.settings.index',
     ];
     $isOnConfigChild = request()->routeIs($configChildRoutes);
   @endphp
@@ -159,6 +160,12 @@
       <i class="fa fa-ranking-star"></i>
       <span>{{ __('titles.admin.ceoranks') }}</span>
     </a>
+    <a class="menuitem {{ request()->routeIs('admin.settings.index') ? 'active' : '' }}" 
+   href="{{ route('admin.settings.index') }}" data-route="admin.settings.index">
+  <i class="fa fa-sliders"></i>
+  <span>Beállítások</span>
+</a>
+
   </div>
 @endif
 
