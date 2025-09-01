@@ -36,17 +36,5 @@
 
 
 @section('scripts')
-<script>
-    window.lang = {
-        confirm: "{{ __('admin/setting.confirm') }}",
-        warn_strict_on: "{{ __('admin/setting.warn_strict_on') }}",
-        warn_ai_on: "{{ __('admin/setting.warn_ai_on') }}",
-        warn_ai_off: "{{ __('admin/setting.warn_ai_off') }}",
-        saved: "{{ __('admin/setting.saved') }}",
-        error: "{{ __('admin/setting.error') }}",
-        yes: "{{ __('common.yes') }}",
-        no: "{{ __('common.no') }}",
-    };
-</script>
 
 @endsection

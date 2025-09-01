@@ -29,14 +29,6 @@
             </select>
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-check">
-            <input class="form-check-input auto-level-up" type="checkbox" id="auto-level-up">
-            <label class="form-check-label" for="auto-level-up">
-              {{ __('global.auto-level-up') }}
-            </label>
-          </div>
-        </div>
         <button class="btn btn-primary trigger-submit"></button>
       </div>
     </div>
