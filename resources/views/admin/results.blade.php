@@ -73,7 +73,7 @@
       <div class="stats">
         <div>
           <span>{{ $_('self') }}</span>
-          <span>{{ $user->stats->selfTotal*2 }}</span>
+          <span>{{ $user->stats->selfTotal}}</span>
         </div>
         <div>
           <span>{{ $_('colleagues') }}</span>
@@ -81,7 +81,7 @@
         </div>
         <div>
           <span>{{ $_('managers') }}</span>
-          <span>{{ round($user->stats->managersTotal / 2) }}</span>
+          <span>{{ round($user->stats->managersTotal) }}</span>
         </div>
         <div>
           <span>{{ $_('ceos') }}</span>

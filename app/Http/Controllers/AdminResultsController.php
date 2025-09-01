@@ -49,7 +49,7 @@ class AdminResultsController extends Controller
             ->orderBy('name')
             ->get()
             ->map(function ($user) use ($assessment) {
-                $user['stats'] = UserService::calculateUserPoints($user, $assessment);
+                $user['stats'] = UserService::calculateUserPoints($assessment, $user);
 
                 $month = date('Y-m-01', strtotime($assessment->closed_at));
                 $user['bonusMalus'] = optional($user->getBonusMalusInMonth($month))->level;

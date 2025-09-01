@@ -69,7 +69,7 @@ class ResultsController extends Controller
             ->first();
 
         // Aktuális user stat
-        $user['stats'] = UserService::calculateUserPoints($user, $assessment);
+        $user['stats'] = UserService::calculateUserPoints($assessment, $user);
 
         // BonusMalus
         if (!in_array($user->type, [UserType::ADMIN, UserType::SUPERADMIN], true)) {
@@ -107,16 +107,15 @@ class ResultsController extends Controller
 
         $history = collect();
         foreach ($allClosed as $a) {
-            $s = UserService::calculateUserPoints($user, $a);
+            // HELYES sorrend: (Assessment, User)
+            $s = UserService::calculateUserPoints($a, $user);
             if (!$s) continue;
 
-            // total
-            $total = isset($s->total) && is_numeric($s->total) ? (float)$s->total : null;
-
-            // részpontok a csempék logikája szerint
-            $selfVal      = isset($s->selfTotal)      && is_numeric($s->selfTotal)      ? (float)$s->selfTotal * 2 : null;
-            $employeesVal = isset($s->colleagueTotal) && is_numeric($s->colleagueTotal) ? (float)$s->colleagueTotal : null;
-            $leadersVal   = isset($s->managersTotal)  && is_numeric($s->managersTotal)  ? (float)$s->managersTotal / 2 : null;
+            // minden komponens 0..100, nincs *2, /2
+            $total        = isset($s->total)           && is_numeric($s->total)           ? (float)$s->total           : null;
+            $selfVal      = isset($s->selfTotal)       && is_numeric($s->selfTotal)       ? (float)$s->selfTotal       : null;
+            $employeesVal = isset($s->colleagueTotal)  && is_numeric($s->colleagueTotal)  ? (float)$s->colleagueTotal  : null;
+            $leadersVal   = isset($s->managersTotal)   && is_numeric($s->managersTotal)   ? (float)$s->managersTotal   : null;
 
             if ($total !== null) {
                 $history->push([
@@ -131,6 +130,7 @@ class ResultsController extends Controller
             }
         }
         $history = $history->values();
+
 
         if ($history->isEmpty()) {
             $currentIdx = 0;

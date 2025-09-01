@@ -75,7 +75,7 @@
     <div>
       <span>{{ $_('self') }}</span>
       <span class="value-trend">
-        <strong>{{ number_format(($user->stats?->selfTotal ?? 0) * 2, 1) }}</strong>
+        <strong>{{ number_format(($user->stats?->selfTotal ?? 0) * 1, 1) }}</strong>
         <span class="trend trend-{{ $user['trend']['self'] }}">{{ $trendIcon($user['trend']['self']) }}</span>
       </span>
     </div>
@@ -89,7 +89,7 @@
     <div>
       <span>{{ $_('managers') }}</span>
       <span class="value-trend">
-        <strong>{{ number_format(($user->stats?->managersTotal ?? 0) / 2, 1) }}</strong>
+        <strong>{{ number_format(($user->stats?->managersTotal ?? 0) / 1, 1) }}</strong>
         <span class="trend trend-{{ $user['trend']['leaders'] }}">{{ $trendIcon($user['trend']['leaders']) }}</span>
       </span>
     </div>

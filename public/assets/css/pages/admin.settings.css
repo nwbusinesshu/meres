@@ -12,6 +12,7 @@
   flex-wrap:wrap;
   gap:.8rem;
 }
+
 .tile{
   display:flex;
   align-items:center;

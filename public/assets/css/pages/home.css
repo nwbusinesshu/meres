@@ -50,6 +50,11 @@
   font-weight: bold;
 }
 
+.tile-button {
+  background-color: var(--pelorous);
+  color: #fff;
+}
+
 .no-more,
 .rank-done{
   width: 100%;
