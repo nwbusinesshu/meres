@@ -51,33 +51,40 @@ class AdminSettingsController extends Controller
     }
 
     public function toggle(Request $request)
-    {
-        $request->validate([
-            'key' => 'required|in:strict_anonymous_mode,ai_telemetry_enabled',
-            'value' => 'required|boolean',
-        ]);
+{
+    $request->validate([
+        'key' => 'required|in:strict_anonymous_mode,ai_telemetry_enabled',
+        'value' => 'required|boolean',
+    ]);
 
-        $orgId = (int) session('org_id');
-        $key   = $request->string('key');
-        $val   = (bool) $request->boolean('value');
+    $orgId = (int) session('org_id');
+    $key = $request->string('key');
+    $val = (bool) $request->boolean('value');
 
-        // üzleti szabály: ha strict anon-ON, akkor ai_telemetry OFF
-        if ($key === OrgConfigService::STRICT_ANON_KEY) {
-            OrgConfigService::setBool($orgId, OrgConfigService::STRICT_ANON_KEY, $val);
-            if ($val === true) {
-                OrgConfigService::setBool($orgId, OrgConfigService::AI_TELEMETRY_KEY, false);
-            }
-        } else {
-            // ai_telemetry toggling csak akkor, ha nincs strict anon
-            $strictAnon = OrgConfigService::getBool($orgId, OrgConfigService::STRICT_ANON_KEY, false);
-            if ($strictAnon && $val === true) {
-                $val = false;
-            }
-            OrgConfigService::setBool($orgId, OrgConfigService::AI_TELEMETRY_KEY, $val);
+    // Üzleti szabály: ha strict anon-ON, akkor ai_telemetry OFF
+    if ($key === OrgConfigService::STRICT_ANON_KEY) {
+        // Mindig beállítjuk az anonim módot
+        OrgConfigService::setBool($orgId, $key, $val);
+
+        // Ha az anonim mód be van kapcsolva, kikapcsoljuk a telemetry-t
+        if ($val === true) {
+            OrgConfigService::setBool($orgId, OrgConfigService::AI_TELEMETRY_KEY, false);
+        }
+        // Ha az anonim mód ki van kapcsolva, a telemetry-vel nem csinálunk semmit
+    } else { // key === OrgConfigService::AI_TELEMETRY_KEY
+        // ai_telemetry toggling csak akkor, ha nincs strict anon
+        $strictAnon = OrgConfigService::getBool($orgId, OrgConfigService::STRICT_ANON_KEY, false);
+
+        // Ha a telemetry bekapcsolása a cél, de az anonim mód be van kapcsolva, akkor kikapcsolva marad
+        if ($strictAnon && $val === true) {
+            $val = false;
         }
 
-        return response()->json(['ok' => true]);
+        OrgConfigService::setBool($orgId, $key, $val);
     }
+
+    return response()->json(['ok' => true]);
+}
 
     // === ÚJ: ponthatár-mód és értékek mentése ===
     public function saveThresholds(Request $request)
