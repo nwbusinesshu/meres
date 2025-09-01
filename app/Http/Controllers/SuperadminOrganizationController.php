@@ -41,7 +41,26 @@ class SuperadminOrganizationController extends Controller
             ]);
 
             $admin->organizations()->attach($org->id, ['role' => 'admin']);
-        });
+
+            $defaults = [
+            // Módválasztó
+            'threshold_mode'        => 'fixed',
+            // Fix ponthatárok (klasszikus)
+            'normal_level_up'       => '85',
+            'normal_level_down'     => '70',
+            // Hibrid / Dinamikus előkészítés (alapértékek)
+            'threshold_min_abs_up'  => '80', // hibrid: alsó fix küszöb
+            'threshold_top_pct'     => '15', // hibrid+dinamikus: felső X%
+            'threshold_bottom_pct'  => '20', // dinamikus: alsó Y%
+        ];
+
+        foreach ($defaults as $key => $val) {
+            DB::table('organization_config')->updateOrInsert(
+                ['organization_id' => $org->id, 'name' => $key],
+                ['value' => (string) $val]
+            );
+        }
+    });
 
         return redirect()->route('admin.home')->with('success', 'Új cég és admin sikeresen létrehozva!');
     }

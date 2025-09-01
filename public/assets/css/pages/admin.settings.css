@@ -1,47 +1,158 @@
 /* Alcím */
-.settings-subtitle {
-  margin: .2rem 0 1rem 0;
-  color: var(--secondary);
-  font-weight: 600;
-  font-size: 1.1rem;
+.settings-subtitle{
+  margin:.2rem 0 1rem 0;
+  color:var(--secondary);
+  font-weight:600;
+  font-size:1.1rem;
 }
 
-/* Rács: 2 oszlop nagy képernyőn, wrap mobilon */
-.settings-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .8rem;
+/* Grid */
+.settings-grid{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.8rem;
+}
+.tile{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:1rem;
+  flex:1 1 420px;
+  padding:1rem;
+  padding-bottom:.6rem;
+  text-align:left;
+}
+.tile-full{ flex:1 1 100%; }
+
+.tile .text{ flex:1 1 auto; }
+.tile .title{ font-size:1rem; line-height:1.25rem; margin-bottom:.2rem; }
+.tile .meta{ font-size:.9rem; color:var(--secondary); }
+
+/* iOS-szerű switch */
+.switch{ position:relative; display:inline-block; width:60px; height:32px; margin-left:auto; }
+.switch input{ opacity:0; width:0; height:0; }
+.slider{ position:absolute; inset:0; cursor:pointer; background:#cfd4dc; transition:.2s; border-radius:32px; }
+.slider:before{ content:""; position:absolute; height:24px; width:24px; left:4px; bottom:4px; background:var(--white); border-radius:50%; transition:.2s; }
+.switch input:checked + .slider{ background:var(--success); }
+.switch input:checked + .slider:before{ transform:translateX(28px); }
+.switch input:disabled + .slider{ background:var(--gray); opacity:.6; cursor:not-allowed; }
+
+/* Módválasztó (rádiók) */
+.mode-switch{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content: center; 
+  gap:1.8rem;
+  margin-top:1rem;
+}
+.mode-option{
+  display:inline-flex;
+  align-items:center;
+  gap:.8rem;
+  border:1px solid var(--border, #e3e7ef);
+  padding:.45rem .75rem;
+  background:#fff;
+  transition:.15s ease;
+  user-select:none;
+}
+.mode-option input[type="radio"]{ accent-color:var(--primary, #4f46e5); }
+.mode-option:hover{ box-shadow:0 2px 8px rgba(0,0,0,.06); transform:translateY(-1px); }
+.mode-option input:checked + span,
+.mode-option input:checked ~ span{ font-weight:600; }
+
+.mode-option:has(input:checked) {
+  background: #eef3ff;              /* szép kékes háttér */
+  border-color: var(--primary, #4f46e5);
+  box-shadow: 0 0 0 2px rgba(79,70,229,.15);
 }
 
-/* A settings-grid-ben lévő tile-okat vízszintes elrendezésűre vesszük,
-   a szöveg balra zárt, a kapcsoló jobbra kerül */
-.settings-grid .tile {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex: 1 1 420px;            /* 2 oszlop, törik mobilon */
-  padding: 1em;
-  padding-bottom: .5em;
-  text-align: left;           /* felülírja az esetleges középre igazítást */
+/* Panelek (módonként) */
+.mode-pane{ display:none; }
+.mode-pane.active{ display:block; }
+
+/* Mezők elrendezése */
+.fields{
+  width:100%;
+  display:grid;
+  gap:.8rem;
+  margin:.6rem 0 1rem 0;
+}
+.fields.two-col{
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+}
+@media (max-width: 720px){
+  .fields.two-col{ grid-template-columns: 1fr; }
 }
 
-/* Bal oldali szövegdoboz */
-.settings-grid .tile .text {
-  flex: 1 1 auto;
+.field{
+  display:flex;
+  flex-direction:column;
+  gap:.35rem;
+}
+.field > span{
+  font-size:.9rem;
+  color:var(--secondary);
+}
+.field input[type="number"]{
+  height:38px;
+  padding:.4rem .6rem;
+  border:1px solid var(--border, #e3e7ef);
+  border-radius:10px;
+  font-size:.95rem;
+  outline:none;
+}
+.field input[type="number"]:focus{
+  border-color:var(--primary, #4f46e5);
+  box-shadow:0 0 0 3px rgba(79,70,229,.12);
 }
 
-/* Cím és leírás */
-.settings-grid .tile .title { font-size: 1rem; line-height: 1.25rem; }
-.settings-grid .tile .meta  { font-size: .9rem; color: var(--secondary); }
+/* Leírás box a mód-panelekben */
+.mode-explainer{
+  margin:.6rem 0 1rem 0;
+  padding:.8rem 1rem;
+  background:#fafafa;
+  border:1px solid var(--border, #e3e7ef);
+  border-radius:12px;
+}
 
-/* Nagyobb iOS-szerű kapcsoló a jobb oldalon */
-.switch { position: relative; display: inline-block; width: 60px; height: 32px; margin-left: auto; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; inset: 0; cursor: pointer; background: #ccc; transition: .2s; border-radius: 32px; }
-.slider:before { content:""; position:absolute; height:24px; width:24px; left:4px; bottom:4px; background: var(--white); border-radius:50%; transition:.2s; }
-.switch input:checked + .slider { background: var(--success); }
-.switch input:checked + .slider:before { transform: translateX(28px); } /* 60 - 24 - 8 = 28 */
+.mode-explainer .chunk{
+  margin-bottom:.6rem;
+  color:var(--text, #222);
+  line-height:1.45;
+}
 
-/* Disabled állapot (strict anon mellett) */
-.switch input:disabled + .slider { background: var(--gray); opacity: .6; cursor: not-allowed; }
+.mode-explainer .columns{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(180px,1fr));
+  gap:.6rem 1rem;
+  margin:.4rem 0 .6rem 0;
+}
+
+@media (max-width: 720px){
+  .mode-explainer .columns{ grid-template-columns: 1fr; }
+}
+
+.mode-explainer .label{
+  font-size:.85rem;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.02em;
+  color:var(--secondary);
+  margin-bottom:.3rem;
+}
+
+.mode-explainer ul{
+  margin:0;
+  padding-left:1.1rem;
+}
+
+.mode-explainer li{
+  margin:.15rem 0;
+}
+
+.mode-explainer .footnote{
+  margin-top:.3rem;
+  font-size:.95rem;
+  color:var(--secondary);
+}
+

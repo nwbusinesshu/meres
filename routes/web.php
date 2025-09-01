@@ -116,6 +116,7 @@ Route::controller(\App\Http\Controllers\AdminSettingsController::class)
     ->group(function () {
         Route::get('/index', 'index')->name('index');          // GET  /admin/settings/index
         Route::post('/toggle', 'toggle')->name('toggle');      // POST /admin/settings/toggle
+        Route::post('/thresholds', 'saveThresholds')->name('save'); // POST /admin/settings/thresholds
     });
 
 });
