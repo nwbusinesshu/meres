@@ -7,19 +7,43 @@ document.addEventListener('DOMContentLoaded', function() {
     warn_ai_off:    @json(__('admin/settings.settings.warn_ai_off')),
     saved:          @json(__('admin/settings.settings.saved')),
     error:          @json(__('admin/settings.settings.error')),
-    yes:            @json(__('global.swal-confirm')), // vagy ahol a gombok vannak
+    yes:            @json(__('global.swal-confirm')),
     no:             @json(__('global.swal-cancel')),
   };
 
   const strictEl = document.getElementById('toggle-strict');
   const aiEl     = document.getElementById('toggle-ai');
 
+  // --- Reload utáni toast ---
+  (function showSavedToastOnLoad(){
+    const key = 'settings_saved_toast';
+    const msg = sessionStorage.getItem(key);
+    if (msg) {
+      sessionStorage.removeItem(key);
+      Swal.fire({
+        toast: true,
+        position: 'bottom',   // lent középen
+        icon: 'success',
+        title: msg,
+        timer: 1600,
+        showConfirmButton: false,
+      });
+    }
+  })();
+
   function postToggle(key, value) {
     return fetch("{{ route('admin.settings.toggle') }}", {
       method: 'POST',
-      headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}','Content-Type':'application/json' },
+      headers: {
+        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
       body: JSON.stringify({ key, value })
-    }).then(r => r.json());
+    }).then(async (r) => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
   }
 
   function warnConfirm(text) {
@@ -33,8 +57,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }).then(res => res.isConfirmed);
   }
 
-  function okToast(msg) {
-    return Swal.fire({ icon: 'success', title: msg, timer: 1200, showConfirmButton: false });
+  function reloadWithToast(msg) {
+    // jelzés elmentése a következő betöltésre
+    sessionStorage.setItem('settings_saved_toast', msg || T.saved);
+    // kis késleltetéssel töltsük újra, hogy a UI ne villogjon
+    setTimeout(() => window.location.reload(), 50);
   }
 
   strictEl?.addEventListener('change', async (e) => {
@@ -44,9 +71,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     try {
       await postToggle('strict_anonymous_mode', nextVal ? 1 : 0);
-      if (nextVal) { aiEl.checked = false; aiEl.setAttribute('disabled','disabled'); }
-      else { aiEl.removeAttribute('disabled'); }
-      okToast(T.saved);
+      // UI állapot azonnal (opcionális), a reload úgyis frissít mindent
+      if (nextVal) { if (aiEl) { aiEl.checked = false; aiEl.setAttribute('disabled','disabled'); } }
+      else { aiEl?.removeAttribute('disabled'); }
+      reloadWithToast(T.saved);
     } catch (err) {
       e.target.checked = !nextVal;
       Swal.fire({ icon:'error', title:T.error, text:String(err) });
@@ -60,7 +88,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     try {
       await postToggle('ai_telemetry_enabled', nextVal ? 1 : 0);
-      okToast(T.saved);
+      reloadWithToast(T.saved);
     } catch (err) {
       e.target.checked = !nextVal;
       Swal.fire({ icon:'error', title:T.error, text:String(err) });
@@ -68,6 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+
 
 <script>
 (function(){

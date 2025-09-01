@@ -36,12 +36,20 @@
 <h3 class="settings-subtitle" style="margin-top:1.2rem;">{{ $_('settings.scoring_subtitle') }}</h3>
 @php
   $activeMode = old('threshold_mode', $threshold_mode ?? 'fixed');
+
+  // suggested engedélyezettsége a már átadott változókból:
+  $canUseSuggested = ($hasClosedAssessment && $aiTelemetry);
+
+  // hibák összegyűjtése (ha több ok is van, mindet listázzuk)
+  $suggestedErrors = [];
+  if (!$hasClosedAssessment)  $suggestedErrors[] = 'Nem választható, mert nincs még lezárt mérés.';
+  if (!$aiTelemetry)          $suggestedErrors[] = 'Nem választható, mert az AI telemetria le van tiltva.';
 @endphp
 
 {{-- 1) Mód mentése --}}
 <form method="POST" action="{{ route('admin.settings.save') }}" id="mode-form">
   @csrf
-  <div class="settings-grid">
+  <div class="">
     <div class="tile tile-info tile-full">
       <div class="text">
         <div class="title"><h3>{{ $_('settings.mode.title') }}</h3></div>
@@ -60,10 +68,20 @@
             <input type="radio" name="threshold_mode" value="dynamic" {{ $activeMode==='dynamic' ? 'checked' : '' }}>
             <span>{{ $_('settings.mode.options.dynamic') }}</span>
           </label>
-          <label class="mode-option">
-            <input type="radio" name="threshold_mode" value="suggested" {{ $activeMode==='suggested' ? 'checked' : '' }}>
-            <span>{{ $_('settings.mode.options.suggested') }}</span>
-          </label>
+              <div class="mode-option-wrapper">
+        <label class="mode-option {{ $canUseSuggested ? '' : 'disabled-option' }}">
+          <input type="radio" name="threshold_mode" value="suggested"
+                 {{ $activeMode==='suggested' ? 'checked' : '' }}
+                 {{ $canUseSuggested ? '' : 'disabled' }}>
+          <span>{{ $_('settings.mode.options.suggested') }}</span>
+        </label>
+        @if(!$canUseSuggested && !empty($suggestedErrors))
+      <ul class="mode-error-list">
+        @foreach($suggestedErrors as $msg)
+          <li class="mode-error">{{ $msg }}</li>
+        @endforeach
+      </ul>
+    @endif
         </div>
       </div>
     </div>

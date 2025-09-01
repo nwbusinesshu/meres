@@ -25,7 +25,7 @@ return [
 // Módválasztó doboz
 'mode' => [
     'title' => 'Pontozási módszer',
-    'meta'  => 'Válaszd ki, hogyan határozzuk meg az előrelépés/stagnálás/visszaminősítés sávhatárait a lezárt értékeléseknél.',
+    'meta'  => 'Válaszd ki, hogyan határozzuk meg az értékelések ponthatárait. A korábbi, lezárt értékelési időszakokat nem befolyásolja.',
     'options' => [
         'fixed'     => 'Fixpontos',
         'hybrid'    => 'Hybrid',
@@ -50,8 +50,8 @@ return [
     ],
     'when' => 'Használd akkor, ha állandó mércét akarsz (pl. gyártás, erősen standard folyamatok).',
     'fields' => [
-        'normal_level_up'   => 'Felső határ (előrelépés) – normal_level_up',
-        'normal_level_down' => 'Alsó határ (visszaminősítés) – normal_level_down',
+        'normal_level_up'   => 'Felső határ',
+        'normal_level_down' => 'Alsó határ',
     ],
 ],
 
@@ -70,8 +70,8 @@ return [
     ],
     'when' => 'Akkor ideális, ha fontos az alapminőség és a legjobbak kiemelése (pl. értékesítés, ügyfélszolgálat).',
     'fields' => [
-        'threshold_min_abs_up' => 'Minimum pont (0–100)',
-        'threshold_top_pct'    => 'Legjobbak aránya (%)',
+        'threshold_min_abs_up' => 'Minimum pontszám (0–100)',
+        'threshold_top_pct'    => 'Előrelépők felső határa (%)',
     ],
 ],
 

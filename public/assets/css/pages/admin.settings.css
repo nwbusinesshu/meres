@@ -41,20 +41,31 @@
 .mode-switch{
   display:flex;
   flex-wrap:wrap;
-  justify-content: center; 
-  gap:1.8rem;
+  justify-content:center;
+  align-items:flex-start;       /* hogy az aláírás (hiba) ne húzza le a többieket */
+  gap:1.2rem;
   margin-top:1rem;
 }
+.mode-option-wrapper{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+
 .mode-option{
   display:inline-flex;
   align-items:center;
-  gap:.8rem;
+  gap:.6rem;
+  min-width: 180px;             /* ← egységes gombszélesség */
+  height: 44px;                 /* ← egységes magasság */
+  padding: 0 .9rem;
   border:1px solid var(--border, #e3e7ef);
-  padding:.45rem .75rem;
   background:#fff;
-  transition:.15s ease;
   user-select:none;
+  transition: box-shadow .15s ease, transform .15s ease, background .15s ease, border-color .15s ease;
+  cursor:pointer;
 }
+
 .mode-option input[type="radio"]{ accent-color:var(--primary, #4f46e5); }
 .mode-option:hover{ box-shadow:0 2px 8px rgba(0,0,0,.06); transform:translateY(-1px); }
 .mode-option input:checked + span,
@@ -156,3 +167,22 @@
   color:var(--secondary);
 }
 
+/* DISABLED állapot (AI tiltott / nincs mérés) – piros keret, de a méret változatlan */
+.mode-option.disabled-option{
+  border-color:#e74c3c;
+  opacity:.8;
+  cursor:not-allowed;
+}
+
+/* Hibaüzenet a gomb ALATT (nem része a gombnak) */
+.mode-error-list{
+  list-style:none;
+  padding:0;
+  margin:.4rem 0 0 0;
+  text-align:center;
+}
+.mode-error{
+  color:#e74c3c;
+  font-size:.9rem;
+  line-height:1.2;
+}

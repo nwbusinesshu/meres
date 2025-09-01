@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Services\OrgConfigService;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class AdminSettingsController extends Controller
 {
@@ -30,6 +31,11 @@ class AdminSettingsController extends Controller
         $normalLevelUp   = (int) OrgConfigService::get($orgId, 'normal_level_up', 85);
         $normalLevelDown = (int) OrgConfigService::get($orgId, 'normal_level_down', 70);
 
+        $hasClosed = DB::table('assessment')
+    ->where('organization_id', $orgId)
+    ->whereNotNull('closed_at')   // vagy a te státusz/flag meződ, ami a lezárást jelzi
+    ->exists();
+
         return view('admin.settings', [
             'strictAnon'            => $strictAnon,
             'aiTelemetry'           => $aiTelemetry,
@@ -40,6 +46,7 @@ class AdminSettingsController extends Controller
             'threshold_bottom_pct'  => $thresholdBottomPct,
             'normal_level_up'       => $normalLevelUp,
             'normal_level_down'     => $normalLevelDown,
+            'hasClosedAssessment' => $hasClosed,
         ]);
     }
 
