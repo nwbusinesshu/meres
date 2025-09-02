@@ -187,17 +187,33 @@
       <div class="fields two-col">
         <label class="field">
           <span>{{ $_('settings.hybrid.fields.threshold_min_abs_up') }}</span>
-          <input type="number" min="0" max="100" name="threshold_min_abs_up" value="{{ old('threshold_min_abs_up', $threshold_min_abs_up ?? 80) }}">
+          <input type="number" min="0" max="100" name="threshold_min_abs_up"
+                 value="{{ old('threshold_min_abs_up', $threshold_min_abs_up ?? 80) }}">
         </label>
         <label class="field">
           <span>{{ $_('settings.hybrid.fields.threshold_top_pct') }}</span>
-          <input type="number" min="0" max="100" name="threshold_top_pct" value="{{ old('threshold_top_pct', $threshold_top_pct ?? 15) }}">
+          <input type="number" min="0" max="100" name="threshold_top_pct"
+                 value="{{ old('threshold_top_pct', $threshold_top_pct ?? 15) }}">
+        </label>
+      </div>
+
+      <div class="fields two-col">
+        <label class="field">
+          <span>Grace (pont): Ha a felső ponthatár kiszámolva valójában alacsonyabb lenne, mint az alsó fix küszöb (pl. a csapat nagyon gyengén teljesített), akkor a rendszer engedheti, hogy a felső küszöb kicsit a minimum alá is essen. Így a legjobb teljesítők akkor is kaphatnak előrelépést, ha a csapat összességében gyenge volt.</span>
+          <input type="number" min="0" max="20" name="threshold_grace_points"
+                 value="{{ old('threshold_grace_points', $threshold_grace_points ?? 5) }}">
+        </label>
+        <label class="field">
+          <span>Gap (stagnálási rés, pont): Ez az a biztonsági sáv a fel- és lefokozási határ között, ahol a dolgozó nem lép sehová (stagnál). ? Biztosítja, hogy mindig legyen egy „közép zóna”, ahol senki sem lép se fel, se le → így nincs az a helyzet, hogy egy hajszálnyi különbség miatt valaki feljut, a másik meg visszaesik.</span>
+          <input type="number" min="0" max="10" name="threshold_gap_min"
+                 value="{{ old('threshold_gap_min', $threshold_gap_min ?? 2) }}">
         </label>
       </div>
       <div>
-        <button class="btn btn-primary" type="submit">{{ $_('settings.buttons.save_settings') }}</button>
+    <button class="btn btn-primary" type="submit">{{ $_('settings.buttons.save_settings') }}</button>
+  </div>
       </div>
-    </div>
+
 
     {{-- DYNAMIC --}}
     <div class="tile tile-info tile-full mode-pane mode-dynamic {{ $activeMode==='dynamic' ? 'active' : '' }}">
@@ -251,47 +267,85 @@
       </div>
     </div>
 
-    {{-- SUGGESTED --}}
-    <div class="tile tile-info tile-full mode-pane mode-suggested {{ $activeMode==='suggested' ? 'active' : '' }}">
-      <div class="text">
-        <div class="title"><h3>{{ $_('settings.suggested.title') }}</h3></div>
-        <div class="meta">{{ $_('settings.suggested.meta') }}</div>
+    <!-- SUGGESTED -->
+<div class="tile tile-info tile-full mode-pane mode-suggested {{ $activeMode==='suggested' ? 'active' : '' }}">
+  <div class="text">
+    <div class="title"><h3>{{ $_('settings.suggested.title') }}</h3></div>
+    <div class="meta">{{ $_('settings.suggested.meta') }}</div>
 
-        {{-- Leírás-doboz --}}
-        <div class="mode-explainer">
-          <div class="chunk">{!! $_('settings.suggested.description_html') !!}</div>
-
-          <div class="columns">
-            <div class="col">
-              <div class="label">Pro</div>
-              <ul>
-                @foreach($_('settings.suggested.pros') as $p)
-                  <li>{{ $p }}</li>
-                @endforeach
-              </ul>
-            </div>
-            <div class="col">
-              <div class="label">Contra</div>
-              <ul>
-                @foreach($_('settings.suggested.cons') as $c)
-                  <li>{{ $c }}</li>
-                @endforeach
-              </ul>
-            </div>
-          </div>
-
-          <div class="footnote">
-            <strong>Ajánlott használat:</strong>
-            {{ $_('settings.suggested.when') }}
-          </div>
-        </div>
-        {{-- /Leírás-doboz --}}
+    <div class="mode-explainer">
+      <div class="chunk">
+        {!! $_('settings.suggested.description_html')!!}
       </div>
+      <div class="columns"> <div class="col"> <div class="label">Pro</div> <ul> @foreach($_('settings.suggested.pros') as $p) <li>{{ $p }}</li> @endforeach </ul> </div> <div class="col"> <div class="label">Contra</div> <ul> @foreach($_('settings.suggested.cons') as $c) <li>{{ $c }}</li> @endforeach </ul> </div> </div> <div class="footnote"> <strong>Ajánlott használat:</strong> {{ $_('settings.suggested.when') }} 
+      </div> 
+    </div> {{-- /Leírás-doboz --}} 
+  </div>
+<div class="title"><h4>Haladó beállítások</h4></div>
+  <div class="fields two-col">
 
-      <div>
-        <button class="btn btn-primary" type="submit">{{ $_('settings.buttons.save_settings') }}</button>
+    <label class="field">
+      <span>Max. előléptetési ráta (%): Az AI legfeljebb a csapat hány százalékát engedheti feljebb egy mérésben.Megakadályozza, hogy az AI „túl sok” embert engedjen egyszerre előléptetni, így megmarad a szűrő szerepe.</span>
+      <input type="number" min="0" max="100" name="target_promo_rate_max_pct"
+             value="{{ old('target_promo_rate_max_pct', $target_promo_rate_max_pct ?? 20) }}">
+    </label>
+    <label class="field">
+      <span>Max. lefokozási ráta (%): Az AI legfeljebb a csapat hány százalékát ejtheti vissza. Nem fordulhat elő, hogy egy rossz mérés miatt hirtelen a fél csapat visszaesik.</span>
+      <input type="number" min="0" max="100" name="target_demotion_rate_max_pct"
+             value="{{ old('target_demotion_rate_max_pct', $target_demotion_rate_max_pct ?? 10) }}">
+    </label>
+  </div>
+
+  <div class="fields two-col">
+    <label class="field">
+      <span>Előléptetés absz. minimum (0–100, üres = nincs): Bármilyen gyengén is teljesít a csapat, az AI soha nem teheti az előléptetés határát ennél alacsonyabb pontra. Megakadályozza, hogy túl alacsonyan legyen a mérce.</span>
+      <input type="number" min="0" max="100" name="never_below_abs_min_for_promo"
+             value="{{ old('never_below_abs_min_for_promo', $never_below_abs_min_for_promo) }}">
+    </label>
+    <div class="field">
+  <div class="ai-toggles">
+
+    <div class="ai-toggle">
+      <div class="ai-toggle-row">
+        <span class="label">Telemetria figyelembevétele</span>
+        <label class="switch">
+          {{-- 0-s hidden, hogy kikapcsolva is legyen POST érték --}}
+          <input type="hidden" name="use_telemetry_trust" value="0">
+          <input type="checkbox" name="use_telemetry_trust" value="1"
+            {{ old('use_telemetry_trust', $use_telemetry_trust ?? true) ? 'checked' : '' }}>
+          <span class="slider"></span>
+        </label>
+</div>
+      <div class="hint">
+        Az AI beleszámolja az értékelések megbízhatóságát (pl. gyorsan kattintgatott, elfogult, túl egységes kitöltés stb.).
       </div>
     </div>
+
+    <div class="ai-toggle">
+      <div class="ai-toggle-row">
+        <span class="label">Ne erőltesse a lefokozást magas kohéziónál</span>
+        <label class="switch">
+          <input type="hidden" name="no_forced_demotion_if_high_cohesion" value="0">
+          <input type="checkbox" name="no_forced_demotion_if_high_cohesion" value="1"
+            {{ old('no_forced_demotion_if_high_cohesion', $no_forced_demotion_if_high_cohesion ?? true) ? 'checked' : '' }}>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="hint">
+        Ha a csapat teljesítménye nagyon egységes és jó (pl. mindenki 80 felett van,
+        alig van szórás), akkor az AI inkább ne is keressen mindenáron „vesztest”.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+  </div>
+
+  <div>
+    <button class="btn btn-primary" type="submit">{{ $_('settings.buttons.save_settings') }}</button>
+  </div>
+</div>
 
   </div>
 </form>

@@ -187,3 +187,39 @@
   font-size:.9rem;
   line-height:1.2;
 }
+
+.switch-item {
+  display:flex;
+  justify-content: space-between;
+  align-items:center;
+  margin:.4rem 0;
+}
+.switch-item .hint {
+  display:flex;
+  font-size:.8em;
+  color:#666;
+  margin-left:.5rem;
+}
+
+.ai-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ai-toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ai-toggle-row .label {
+  font-weight: 600;
+}
+
+.ai-toggle .hint {
+  margin-top: .25rem;
+  font-size: .85em;
+  color: #555;
+  line-height: 1.4;
+}

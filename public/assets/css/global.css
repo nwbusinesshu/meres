@@ -95,6 +95,10 @@ td{
 .modal::-webkit-scrollbar{
   display: none;
 }
+
+.modal-open {
+  overflow: scroll!important;
+}
 .swal2-title{
 	color: var(--mirage);
 	font-size: 1.8em;

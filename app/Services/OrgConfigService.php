@@ -8,6 +8,16 @@ class OrgConfigService
 {
     public const STRICT_ANON_KEY = 'strict_anonymous_mode';
     public const AI_TELEMETRY_KEY = 'ai_telemetry_enabled';
+     // ÚJ – HYBRID finomhangolás:
+    public const THRESHOLD_GRACE_POINTS = 'threshold_grace_points'; // int, 0..20 (ajánlott default 5)
+    public const THRESHOLD_GAP_MIN      = 'threshold_gap_min';      // int, 0..10 (ajánlott default 2)
+
+    // ÚJ – SUGGESTED (AI) policy:
+    public const TARGET_PROMO_RATE_MAX      = 'target_promo_rate_max';      // float, 0..1 (pl. 0.20)
+    public const TARGET_DEMOTION_RATE_MAX   = 'target_demotion_rate_max';   // float, 0..1 (pl. 0.10)
+    public const NEVER_BELOW_ABS_MIN_PROMO  = 'never_below_abs_min_for_promo'; // int|null 0..100
+    public const USE_TELEMETRY_TRUST        = 'use_telemetry_trust';        // bool
+    public const NO_FORCED_DEMOTION_IF_HIGH = 'no_forced_demotion_if_high_cohesion'; // bool
 
     /**
      * Általános getter – stringet ad vissza.

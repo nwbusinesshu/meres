@@ -30,6 +30,17 @@ class AdminSettingsController extends Controller
         $thresholdBottomPct  = (int) OrgConfigService::get($orgId, 'threshold_bottom_pct', 20); // DYNAMIC: alsó Y%
         $normalLevelUp   = (int) OrgConfigService::get($orgId, 'normal_level_up', 85);
         $normalLevelDown = (int) OrgConfigService::get($orgId, 'normal_level_down', 70);
+         // ÚJ – HYBRID finomhangolás
+        $thresholdGrace      = (int) OrgConfigService::get($orgId, 'threshold_grace_points', 5);
+        $thresholdGapMin     = (int) OrgConfigService::get($orgId, 'threshold_gap_min', 2);
+
+        // ÚJ – SUGGESTED policy (belsőleg 0..1, UI %-ban)
+        $promoRateMax = (float) OrgConfigService::get($orgId, 'target_promo_rate_max', 0.20);
+        $demoRateMax  = (float) OrgConfigService::get($orgId, 'target_demotion_rate_max', 0.10);
+        $absMinPromo  = OrgConfigService::get($orgId, 'never_below_abs_min_for_promo', null);
+        $useTrust     = OrgConfigService::getBool($orgId, 'use_telemetry_trust', true);
+        $noForcedDemo = OrgConfigService::getBool($orgId, 'no_forced_demotion_if_high_cohesion', true);
+
 
         $hasClosed = DB::table('assessment')
     ->where('organization_id', $orgId)
@@ -37,16 +48,28 @@ class AdminSettingsController extends Controller
     ->exists();
 
         return view('admin.settings', [
-            'strictAnon'            => $strictAnon,
-            'aiTelemetry'           => $aiTelemetry,
-            // módválasztó adatok
-            'threshold_mode'        => $thresholdMode,
-            'threshold_min_abs_up'  => $thresholdMinAbsUp,
-            'threshold_top_pct'     => $thresholdTopPct,
-            'threshold_bottom_pct'  => $thresholdBottomPct,
-            'normal_level_up'       => $normalLevelUp,
-            'normal_level_down'     => $normalLevelDown,
-            'hasClosedAssessment' => $hasClosed,
+        'strictAnon'            => $strictAnon,
+        'aiTelemetry'           => $aiTelemetry,
+
+        'threshold_mode'        => $thresholdMode,
+        'threshold_min_abs_up'  => $thresholdMinAbsUp,
+        'threshold_top_pct'     => $thresholdTopPct,
+        'threshold_bottom_pct'  => $thresholdBottomPct,
+        'normal_level_up'       => $normalLevelUp,
+        'normal_level_down'     => $normalLevelDown,
+
+        // ÚJ – HYBRID
+        'threshold_grace_points'=> $thresholdGrace,
+        'threshold_gap_min'     => $thresholdGapMin,
+
+        // ÚJ – SUGGESTED (UI %-ban mutatjuk)
+        'target_promo_rate_max_pct'    => (int) round($promoRateMax * 100),
+        'target_demotion_rate_max_pct' => (int) round($demoRateMax  * 100),
+        'never_below_abs_min_for_promo'=> $absMinPromo,
+        'use_telemetry_trust'          => $useTrust,
+        'no_forced_demotion_if_high_cohesion' => $noForcedDemo,
+
+        'hasClosedAssessment'   => $hasClosed,
         ]);
     }
 
@@ -98,7 +121,17 @@ class AdminSettingsController extends Controller
             'threshold_top_pct'    => ['nullable','integer','min:0','max:100'],
             'normal_level_up'      => ['nullable','integer','min:0','max:100'],
             'normal_level_down'    => ['nullable','integer','min:0','max:100'],
-        ]);
+            // ÚJ – HYBRID finomhangolás
+            'threshold_grace_points' => ['nullable','integer','min:0','max:20'],
+            'threshold_gap_min'      => ['nullable','integer','min:0','max:10'],
+
+            // ÚJ – SUGGESTED (UI %-ok + kapcsolók)
+            'target_promo_rate_max_pct'    => ['nullable','integer','min:0','max:100'],
+            'target_demotion_rate_max_pct' => ['nullable','integer','min:0','max:100'],
+            'never_below_abs_min_for_promo'=> ['nullable','integer','min:0','max:100'],
+            'use_telemetry_trust'          => ['nullable','boolean'],
+            'no_forced_demotion_if_high_cohesion' => ['nullable','boolean'],
+    ]);
 
         $mode = $validated['threshold_mode'];
 
@@ -141,6 +174,40 @@ class AdminSettingsController extends Controller
         if ($request->filled('normal_level_down')) {
             OrgConfigService::set($orgId, 'normal_level_down', (int) $request->input('normal_level_down'));
         }
+
+        // ÚJ – HYBRID finomhangolás mentése (ha küldték)
+        if ($request->filled('threshold_grace_points')) {
+            OrgConfigService::set($orgId, 'threshold_grace_points', (int) $request->input('threshold_grace_points'));
+        }
+        if ($request->filled('threshold_gap_min')) {
+            OrgConfigService::set($orgId, 'threshold_gap_min', (int) $request->input('threshold_gap_min'));
+        }
+
+        // ÚJ – SUGGESTED policy mentése
+        // %-os mezők → 0..1 float tárolás
+        if ($request->filled('target_promo_rate_max_pct')) {
+            $v = max(0, min(100, (int)$request->input('target_promo_rate_max_pct')));
+            OrgConfigService::set($orgId, 'target_promo_rate_max', $v / 100.0);
+        }
+        if ($request->filled('target_demotion_rate_max_pct')) {
+            $v = max(0, min(100, (int)$request->input('target_demotion_rate_max_pct')));
+            OrgConfigService::set($orgId, 'target_demotion_rate_max', $v / 100.0);
+        }
+        if ($request->exists('never_below_abs_min_for_promo')) {
+            // üres → töröljük (NULL)
+            $raw = $request->input('never_below_abs_min_for_promo');
+            if ($raw === null || $raw === '') {
+                OrgConfigService::set($orgId, 'never_below_abs_min_for_promo', null);
+            } else {
+                OrgConfigService::set($orgId, 'never_below_abs_min_for_promo', (int) $raw);
+            }
+        }
+        // checkboxok/kapcsolók
+        $useTrust = $request->boolean('use_telemetry_trust'); // 0/1-ből bool lesz
+        $noForced = $request->boolean('no_forced_demotion_if_high_cohesion');
+
+        OrgConfigService::setBool($orgId, 'use_telemetry_trust', $useTrust);
+        OrgConfigService::setBool($orgId, 'no_forced_demotion_if_high_cohesion', $noForced);
 
         return redirect()->back()->with('success', 'Ponthatár mód és beállítások mentve.');
     }

@@ -103,12 +103,13 @@ return [
     'pros' => [
         'Adatvezérelt és dinamikus – időt spórol.',
         'Segít kiszűrni torzító mintákat (pl. lepontozás).',
+        'A ponthatárállítás során rengeteg, cégspecifikus adatból dolgozik.'
     ],
     'cons' => [
-        'Kevésbé átlátható a dolgozók számára, magyarázatot igényelhet.',
-        'Vezetői felülvizsgálat szükséges (nem vakon követendő).',
+        'Kevésbé átlátható a dolgozók számára, magyarázatot igényelhet a ponthatárszámítás módja.',
+        'Nincs kézzel fogható "ponthatár", minden mérésnél máshol lehetnek a lépcsők.',
     ],
-    'when' => 'Közép- és nagyvállalati környezetben, nagy mintán; amikor fontos a torzítások csökkentése.',
+    'when' => 'Olyan, legalább közepes méretű vállalatoknál, ahol fontos a torzítások csökkentése, vagy az a gyanúnk, hogy a kitöltés során az alanyok csalhatnak.',
 ],
 
 // Gombok
