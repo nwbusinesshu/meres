@@ -32,6 +32,7 @@ class OrgConfigService
         return $row ?? $default;
     }
 
+    
     /**
      * Boolean getter.
      */
