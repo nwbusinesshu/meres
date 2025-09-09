@@ -120,156 +120,240 @@ class AdminAssessmentController extends Controller
 }
 
 
-    public function closeAssessment(Request $request)
-{
-    $orgId = (int) session('org_id');
-    $aid = (int) ($request->input('assessment_id') ?? $request->input('id')); // kompatibilis a régi payloaddal is
+     public function closeAssessment(Request $request)
+    {
+        $assessment = Assessment::findOrFail($request->id);
 
+        // --- ORG SCOPING ---
+        $orgId = (int) $assessment->organization_id;
+        if ($orgId !== (int) session('org_id')) {
+            throw ValidationException::withMessages([
+                'assessment' => 'Nem jogosult szervezet.',
+            ]);
+        }
 
-    if (!$orgId || !$aid) {
-        return response()->json([
-            'message' => 'Hiányzó szervezet vagy értékelés azonosító.',
-        ], 422);
-    }
+        // --- CEO RANK KÖTELEZŐ ---
+        $hasCeoRank = DB::table('user_ceo_rank')
+            ->where('assessment_id', $assessment->id)
+            ->exists();
 
-    /** @var \App\Models\Assessment|null $assessment */
-    $assessment = Assessment::where('id', $aid)
-        ->where('organization_id', $orgId)
-        ->first();
+        if (!$hasCeoRank) {
+            throw ValidationException::withMessages([
+                'ceo_rank' => 'A lezáráshoz legalább egy CEO rangsorolás szükséges.',
+            ]);
+        }
 
-    if (!$assessment) {
-        return response()->json([
-            'message' => 'Az értékelés nem található ebben a szervezetben.',
-        ], 404);
-    }
+        // --- Résztvevő pontok begyűjtése (org scope) ---
+        // stat->total 0..100 (UserService oldalon már kész)
+        $userIds = \DB::table('organization_user')
+            ->where('organization_id', $orgId)
+            ->pluck('user_id')
+            ->unique()
+            ->toArray();
 
-    if (!is_null($assessment->closed_at)) {
-        return response()->json([
-            'message' => 'Ez az értékelés már le van zárva.',
-        ], 422);
-    }
+        $participants = User::query()
+            ->whereIn('id', $userIds)
+            ->whereNull('removed_at')
+            // NINCS enum: egyszerű string összehasonlítás
+            ->where(function ($q) {
+                $q->whereNull('type')->orWhere('type', '!=', 'admin');
+            })
+            ->get();
 
-    // Módszer: assessment->threshold_method elsőbbséget élvez, különben org config
-    $cfg = $this->thresholds->getOrgConfigMap($orgId);
-    $method = $assessment->threshold_method ?: ($cfg['threshold_mode'] ?? 'dynamic');
-    $method = in_array($method, ['fixed','hybrid','dynamic','suggested'], true) ? $method : 'dynamic';
+        if ($participants->isEmpty()) {
+            throw ValidationException::withMessages([
+                'participants' => 'Nincsenek résztvevők az értékelésben.',
+            ]);
+        }
 
-    try {
-        return \DB::transaction(function () use ($orgId, $aid, $assessment, $method, $cfg) {
-
-            // Résztvevők: kizárjuk az adminokat (superadmin úgysem org-tag)
-            $participants = \App\Models\User::query()
-                ->select('user.*')
-                ->join('organization_user as ou', 'ou.user_id', '=', 'user.id')
-                ->where('ou.organization_id', $orgId)
-                ->whereNull('user.removed_at')
-                // ha nincs enumod, hagyd sima 'admin' stringen
-                ->where('user.type', '!=', (\App\Models\Enums\UserType::ADMIN ?? 'admin'))
-                ->get();
-
-            if ($participants->isEmpty()) {
-                // Nincs kit kockára tenni – NE zárjunk le!
-                return response()->json([
-                    'message' => 'Nincs egyetlen résztvevő sem az értékelésben (adminok kizárva).',
-                ], 422);
+        // Pontok listája (csak akik tényleg részt vettek)
+        $scores = [];
+        $userStats = []; // user_id => stat (később a bonus/malushoz)
+        foreach ($participants as $user) {
+            $stat = UserService::calculateUserPoints($assessment, $user);
+            if ($stat === null) {
+                continue; // nem vett részt
             }
+            $scores[] = (float) $stat->total;
+            $userStats[$user->id] = $stat;
+        }
 
-            // --- Küszöb számítás / módszer futtatás ---
+        if (empty($scores)) {
+            throw ValidationException::withMessages([
+                'scores' => 'Nincs egyetlen lezárt/érvényes pontszám sem ehhez az értékeléshez.',
+            ]);
+        }
 
-            // Pontok/összesítések lekészítése ide (a saját implementációd szerint)...
-            // pl. $totals = collect([...]);
+        // --- Küszöbök előkészítése / számítása ---
+        $thresholds = null;
+        $method = strtolower((string) ($assessment->threshold_method ?? ''));
+        if ($method === '') {
+            // végső védőháló, de NEM silent fallback: ha nincs elindításkor beállítva, hiba
+            throw ValidationException::withMessages([
+                'threshold_method' => 'Hiányzik az assessment threshold_method beállítása.',
+            ]);
+        }
 
-            // Válasszuk szét a módszereket. NINCS fallback!
+        // DYNAMIC/SUGGESTED: AI hívást tranzakción kívülre tesszük
+        $suggestedResult = null;
+        if ($method === 'suggested') {
+            /** @var SuggestedThresholdService $ai */
+            $ai = app(SuggestedThresholdService::class);
+            $payload  = $ai->buildAiPayload($assessment, $scores, $userStats);
+            $suggestedResult = $ai->callAiForSuggested($payload);
+
+            if (!$suggestedResult || empty($suggestedResult['ok'])) {
+                throw ValidationException::withMessages([
+                    'ai' => 'AI hiba: érvénytelen vagy hiányzó válasz.',
+                ]);
+            }
+            if (empty($suggestedResult['thresholds']['normal_level_up']) ||
+                empty($suggestedResult['thresholds']['normal_level_down'])) {
+                throw ValidationException::withMessages([
+                    'ai' => 'AI hiba: a válasz nem tartalmazza a küszöböket.',
+                ]);
+            }
+        }
+
+        // --- TRANZAKCIÓ: küszöbök mentése + bonus/malus döntések ---
+        return DB::transaction(function () use (
+            $assessment, $orgId, $participants, $userStats, $scores, $method, $suggestedResult
+        ) {
+            /** @var ThresholdService $T */
+            $T = app(ThresholdService::class);
+            $cfg = $T->getOrgConfigMap($orgId); // kötelező kulcsok ellenőrzése a belső metódusokban
+
+            // 1) Küszöbértékek meghatározása
             switch ($method) {
-                case 'fixed':
-                    // itt a fixed logikád + validáció
+                case 'fixed': {
+                    $thresholds = $T->thresholdsForFixed($cfg);
                     break;
-
-                case 'hybrid':
-                    // hybrid logika + validáció
+                }
+                case 'hybrid': {
+                    $thresholds = $T->thresholdsForHybrid($cfg, $scores);
                     break;
-
-                case 'dynamic':
-                    // dynamic logika + validáció
+                }
+                case 'dynamic': {
+                    $thresholds = $T->thresholdsForDynamic($cfg, $scores);
                     break;
-
-                case 'suggested':
-                    // AI hívás – ha hibázik, exception/hiba és VISSZATÉRÜNK (nem zárunk)
-                    try {
-                        $ai = app(\App\Services\SuggestedThresholdService::class);
-                            $payload  = $ai->buildAiPayload($assessment);
-                            $aiResult = $ai->callAiForSuggested($payload);
-
-                            if (!$aiResult) {
-                                return response()->json([
-                                    'message' => 'AI hiba – a modell nem válaszol vagy érvénytelen választ adott. Kérjük, próbálja meg később.',
-                                ], 502);
-                            }
-
-                        if (!$aiResult || empty($aiResult['ok'])) {
-                            // AI válasz hibás/üres → NE zárjunk le
-                            return response()->json([
-                                'message' => 'AI hiba – a modell nem válaszol vagy érvénytelen választ adott. Kérjük, próbálja meg később.',
-                            ], 502);
-                        }
-
-                        // apply $aiResult ... (küszöbök/pontok érvényesítése)
-                    } catch (\Throwable $e) {
-                        \Log::error('assessment.close.suggested_failed', [
-                            'org_id'        => $orgId,
-                            'assessment_id' => $aid,
-                            'error'         => $e->getMessage(),
-                        ]);
-                        return response()->json([
-                            'message' => 'AI hiba – a modell nem válaszol. Kérjük, próbálja meg később.',
-                        ], 502);
-                    }
+                }
+                case 'suggested': {
+                    $thresholds = $T->thresholdsFromSuggested($cfg, $suggestedResult);
                     break;
-
+                }
                 default:
-                    return response()->json([
-                        'message' => 'Ismeretlen küszöb-módszer: ' . $method,
-                    ], 422);
+                    throw ValidationException::withMessages([
+                        'threshold_method' => 'Ismeretlen threshold_method: ' . $method,
+                    ]);
             }
 
-            // --- Ha idáig eljutottunk: minden számítás sikeres volt, LE ZÁRHATJUK ---
-            $assessment->closed_at = now();
+            // threshold sanity
+            $up   = (int) $thresholds['normal_level_up'];
+            $down = (int) $thresholds['normal_level_down'];
+            $mon  = (int) ($thresholds['monthly_level_down'] ?? ($cfg['monthly_level_down'] ?? 70));
+
+            if ($up < 0 || $up > 100 || $down < 0 || $down > 100 || $mon < 0 || $mon > 100) {
+                throw ValidationException::withMessages([
+                    'thresholds' => 'A küszöbök 0..100 tartományon kívüliek.',
+                ]);
+            }
+
+            // 2) Assessment mentése thresholdokkal
+            $assessment->normal_level_up   = $up;
+            $assessment->normal_level_down = $down;
+            $assessment->monthly_level_down= $mon;
+            $assessment->closed_at         = now();
             $assessment->save();
 
-            \Log::info('assessment.close.ok', [
-                'org_id'        => $orgId,
-                'assessment_id' => $aid,
-                'method'        => $method,
-            ]);
+            // 3) BONUS/MALUS döntések
+            //    - HYBRID: grace csak a PROMÓCIÓ döntésnél érvényes (gap miatti felfelé tolás kompenzálása)
+            $useGrace = ($method === 'hybrid');
+            $gracePts = $useGrace ? (int)($cfg['threshold_grace_points'] ?? 0) : 0;
+            $hybridUpRaw = null;
+            if ($method === 'hybrid') {
+                // szükségünk van az eredeti relatív (top%) up_raw értékre a grace-hez
+                $hybridUpRaw = $T->topPercentileScore($scores, (float)$cfg['threshold_top_pct']);
+            }
+
+            foreach ($participants as $user) {
+                $stat = $userStats[$user->id] ?? null;
+                if ($stat === null) {
+                    continue;
+                }
+                $points = (float) $stat->total;
+
+                $bm = $user->bonusMalus()->first();
+                if (!$bm) {
+                    // ha nincs rekord, itt eldöntheted: létrehozod vagy hibát dobsz; most létrehozzuk 1-es szinttel
+                    $bm = new UserBonusMalus([
+                        'user_id' => $user->id,
+                        'month'   => now()->format('Y-m-01'),
+                        'level'   => 1,
+                    ]);
+                    $bm->save();
+                }
+
+                if ((int)$user->has_auto_level_up === 1) {
+                    // csak lefelé vizsgálat havi küszöb szerint
+                    if ($points < $mon) {
+                        if ($bm->level < 4) {
+                            $bm->level = 1;
+                        } else {
+                            $bm->level -= 3;
+                        }
+                    }
+                } else {
+                    // normál fel/le döntések
+                    $promote = false;
+
+                    if ($useGrace && $gracePts > 0 && $hybridUpRaw !== null) {
+                        // HYBRID GRACE: ha a gap miatt feljebb tolt "up" kizárt valakit, de:
+                        // - elérte az eredeti up_raw-t ÉS
+                        // - legfeljebb grace ponttal maradt el az új up-tól
+                        if ($points >= $hybridUpRaw && $points >= ($up - $gracePts)) {
+                            $promote = true;
+                        }
+                    }
+
+                    // "normál" promóció feltétel
+                    if ($points >= $up) {
+                        $promote = true;
+                    }
+
+                    if ($promote) {
+                        if ($bm->level < 15) {
+                            $bm->level++;
+                        } else {
+                            $bm->level = 15;
+                        }
+                    } elseif ($points < $down) {
+                        // lefokozás
+                        if ($bm->level < 2) {
+                            $bm->level = 1;
+                        } else {
+                            $bm->level--;
+                        }
+                    }
+                }
+
+                // upsert (régi kódod logikáját követve month+user alapján update)
+                UserBonusMalus::where('month', $bm->month)
+                    ->where('user_id', $bm->user_id)
+                    ->update(['level' => $bm->level]);
+            }
 
             return response()->json([
-                'ok'             => true,
-                'assessment_id'  => $aid,
-                'method'         => $method,
-                'message'        => 'Az értékelés sikeresen lezárva.',
-            ], 200);
+                'ok' => true,
+                'message' => 'Az értékelés sikeresen lezárva.',
+                'thresholds' => [
+                    'normal_level_up'   => $up,
+                    'normal_level_down' => $down,
+                    'monthly_level_down'=> $mon,
+                    'method'            => $method,
+                ],
+            ]);
         });
-    } catch (\Illuminate\Database\QueryException $qe) {
-        // Tipikus trigger/séma hibák – maradjon NYITVA
-        \Log::error('assessment.close.db_error', [
-            'org_id'        => $orgId,
-            'assessment_id' => $aid,
-            'error'         => $qe->getMessage(),
-        ]);
-        return response()->json([
-            'message' => 'Adatbázis hiba a lezárás során. Az értékelés nyitva maradt.',
-        ], 500);
-    } catch (\Throwable $e) {
-        \Log::error('assessment.close.error', [
-            'org_id'        => $orgId,
-            'assessment_id' => $aid,
-            'error'         => $e->getMessage(),
-        ]);
-        return response()->json([
-            'message' => 'Váratlan hiba a lezárás során. Az értékelés nyitva maradt.',
-        ], 500);
     }
-}
 
 }
 
