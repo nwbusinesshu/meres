@@ -32,11 +32,8 @@
 }
 .user-tile-link:hover .employee{
   box-shadow: 0 6px 6px rgba(0,0,0,.2);
-  transform: translateY(-1px);
-  transform: scale(1.008);
   transition: .15s ease;
   border-left: 0;
-  border-bottom: 4px solid var(--pelorous);
 }
 
 /* Maga a csempe tartalom – 100% a linken belül */

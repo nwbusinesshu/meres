@@ -10,6 +10,10 @@ class Assessment extends Model
 	public $timestamps = false;
 	protected $guarded = [];
 	protected $hidden = [];
+	protected $casts = [
+        'suggested_decision' => 'array',
+        'telemetry_ai' => 'array',
+    ];
 	
 	public function userCompetencySubmits(){
 		return $this->hasMany(UserCompetencySubmit::class, 'assessment_id', 'id');

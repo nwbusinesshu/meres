@@ -6,15 +6,18 @@
 @section('content')
 <h1>{{ __('titles.results') }}</h1>
 
+
 @if ($assessment)
   <div class="period-nav">
     <a
-      class="nav-btn {{ $prevAssessment ? '' : 'is-disabled' }}"
-      @if($prevAssessment) href="{{ route(Route::currentRouteName(), $prevAssessment->id) }}" @endif
-      aria-label="Előző lezárt időszak"
-    >
-      <i class="fa fa-chevron-left" aria-hidden="true"></i>
-    </a>
+  class="nav-btn {{ $prevAssessment ? '' : 'is-disabled' }}"
+  @if($prevAssessment)
+    href="{{ route(Route::currentRouteName(), $prevAssessment->id) }}{{ request()->has('as') ? '?as=' . request('as') : '' }}"
+  @endif
+  aria-label="Előző lezárt időszak"
+>
+  <i class="fa fa-chevron-left" aria-hidden="true"></i>
+</a>
 
     <div class="period-chip" title="Lezárás dátuma">
       <i class="fa fa-calendar" aria-hidden="true"></i>
@@ -23,12 +26,26 @@
     </div>
 
     <a
-      class="nav-btn {{ $nextAssessment ? '' : 'is-disabled' }}"
-      @if($nextAssessment) href="{{ route(Route::currentRouteName(), $nextAssessment->id) }}" @endif
-      aria-label="Következő lezárt időszak"
-    >
-      <i class="fa fa-chevron-right" aria-hidden="true"></i>
-    </a>
+  class="nav-btn {{ $nextAssessment ? '' : 'is-disabled' }}"
+  @if($nextAssessment)
+    href="{{ route(Route::currentRouteName(), $nextAssessment->id) }}{{ request()->has('as') ? '?as=' . request('as') : '' }}"
+  @endif
+  aria-label="Következő lezárt időszak"
+>
+  <i class="fa fa-chevron-right" aria-hidden="true"></i>
+</a>
+  </div>
+@endif
+
+@if(isset($user))
+  <div class="tile tile-info mb-4" style="display: flex; align-items: center; gap: 24px;">
+    <div>
+      <i class="fa fa-user" aria-hidden="true" style="font-size:2rem; margin-right: 12px; color: #2F6FEB;"></i>
+    </div>
+    <div>
+      <div style="font-size:1.2rem; font-weight:600;">{{ $user->name }}</div>
+      <div style="color:#666;">{{ $user->email }}</div>
+    </div>
   </div>
 @endif
 
@@ -192,7 +209,14 @@
     })();
   </script>
 @endif
-
+@if(auth()->check() && in_array(strtolower(auth()->user()->type), ['admin', 'superadmin']))
+  <div class="mb-4">
+    <a href="{{ route('admin.results.index') }}" class="btn btn-primary">
+      <i class="fa fa-arrow-left"></i>
+      Vissza az összesített eredményekhez
+    </a>
+  </div>
+@endif
 
 @endsection
 

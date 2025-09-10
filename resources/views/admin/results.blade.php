@@ -1,3 +1,4 @@
+
 {{-- resources/views/admin/results.blade.php --}}
 @extends('layouts.master')
 
