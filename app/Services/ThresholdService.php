@@ -169,46 +169,42 @@ class ThresholdService
 
     // ---------- SUGGESTED (AI eredményből) ----------
     public function thresholdsFromSuggested(array $cfg, array $ai): array
-    {
-        $up   = (int)($ai['thresholds']['normal_level_up']   ?? -1);
-        $down = (int)($ai['thresholds']['normal_level_down'] ?? -1);
-        $mon  = (int)($cfg['monthly_level_down'] ?? 70);
+{
+    $up   = (int)($ai['thresholds']['normal_level_up']   ?? -1);
+    $down = (int)($ai['thresholds']['normal_level_down'] ?? -1);
+    $mon  = (int)($cfg['monthly_level_down'] ?? 70);
 
-        if ($up < 0 || $down < 0) {
-            throw ValidationException::withMessages([
-                'ai' => 'SUGGESTED: AI küszöb értéktelen.',
-            ]);
-        }
-
-        // policy: never_below_abs_min_for_promo
-        $neverBelow = isset($cfg['never_below_abs_min_for_promo']) && (int)$cfg['never_below_abs_min_for_promo'] === 1;
-        if ($neverBelow) {
-            if (!isset($cfg['threshold_min_abs_up']) || $cfg['threshold_min_abs_up'] === '') {
-                throw ValidationException::withMessages([
-                    'config' => 'SUGGESTED: hiányzik threshold_min_abs_up, pedig never_below_abs_min_for_promo=1.',
-                ]);
-            }
-            $minAbs = (int)$cfg['threshold_min_abs_up'];
-            if ($up < $minAbs) {
-                // nem csendben javítjuk; inkább hiba, ahogy kérted (nincs silent fallback)
-                throw ValidationException::withMessages([
-                    'ai' => "SUGGESTED: AI által javasolt up ({$up}) kisebb, mint abszolút minimum ({$minAbs}).",
-                ]);
-            }
-        }
-
-        if (!($up > $down)) {
-            throw ValidationException::withMessages([
-                'ai' => 'SUGGESTED: upper <= lower küszöb (érvénytelen AI javaslat).',
-            ]);
-        }
-
-        return [
-            'normal_level_up'    => (int)$this->clamp($up),
-            'normal_level_down'  => (int)$this->clamp($down),
-            'monthly_level_down' => (int)$mon,
-        ];
+    if ($up < 0 || $down < 0) {
+        throw ValidationException::withMessages([
+            'ai' => 'SUGGESTED: AI küszöb értéktelen.',
+        ]);
     }
+
+    // ABS MIN mint konkrét pontszám (SUGGESTED-ben)
+    // Ha a configban NULL/üres -> nincs kényszer. Ha szám -> kényszer.
+    $absMinUp = $cfg['never_below_abs_min_for_promo'] ?? null;
+    if ($absMinUp !== null && $absMinUp !== '') {
+        $absMinUp = (int)$absMinUp;
+        if ($up < $absMinUp) {
+            throw ValidationException::withMessages([
+                'ai' => "SUGGESTED: az AI up ({$up}) kisebb, mint a kötelező minimum ({$absMinUp}).",
+            ]);
+        }
+    }
+
+    if (!($up > $down)) {
+        throw ValidationException::withMessages([
+            'ai' => 'SUGGESTED: upper <= lower küszöb (érvénytelen AI javaslat).',
+        ]);
+    }
+
+    return [
+        'normal_level_up'    => (int)$this->clamp($up),
+        'normal_level_down'  => (int)$this->clamp($down),
+        'monthly_level_down' => (int)$mon,
+    ];
+}
+
 
     // ---------- Segédek ----------
     public function topPercentileScore(array $scores, float $pct): int

@@ -1268,4 +1268,135 @@ protected static function normalizeJsonToArray(?string $raw): ?array
     return null;
     }
 
+    /**
+     * Org-szintű telemetria összegzés az adott assessmenthez.
+     * Mind a rater, mind a target az adott org-hoz tartozzon.
+     *
+     * Visszatér: assoc:
+     *  - n_records: int
+     *  - trust_score: [mean, median, p10, p25, p75, p90, stdev] (ha elérhető)
+     *  - trust_index: [mean] (ha elérhető)
+     *  - flags: [flag => count], flags_rate: [flag => count/n_records]
+     *  - device_types: [desktop => n, mobile => n, ...]
+     *  - suspicious_rate: float (bármelyik "gyanús" flag előfordult)
+     */
+    public function aggregateOrgTelemetry(int $assessmentId, ?int $orgId = null): array
+    {
+        // assessment -> org_id, ha nem adták meg
+        if ($orgId === null) {
+            $orgId = (int) DB::table('assessment')->where('id', $assessmentId)->value('organization_id');
+        }
+
+        $rows = DB::table('user_competency_submit as ucs')
+            ->join('organization_user as ou_target', 'ou_target.user_id', '=', 'ucs.target_id')
+            ->join('organization_user as ou_rater',  'ou_rater.user_id',  '=', 'ucs.user_id')
+            ->where('ou_target.organization_id', $orgId)
+            ->where('ou_rater.organization_id',  $orgId)
+            ->where('ucs.assessment_id', $assessmentId)
+            ->whereNotNull('ucs.telemetry_ai')
+            ->pluck('ucs.telemetry_ai');
+
+        if ($rows->isEmpty()) {
+            return [
+                'n_records'      => 0,
+                'trust_score'    => null,
+                'trust_index'    => null,
+                'flags'          => [],
+                'flags_rate'     => [],
+                'device_types'   => [],
+                'suspicious_rate'=> 0.0,
+            ];
+        }
+
+        $trustScores = [];
+        $trustIndex  = [];
+        $flagCounts  = [];
+        $deviceCounts= [];
+        $nSuspicious = 0;
+        $n           = 0;
+
+        foreach ($rows as $json) {
+            $t = json_decode($json, true);
+            if (!is_array($t)) continue;
+            $n++;
+
+            // trust_score (0..20) és trust_index (0..100 vagy 0..1 a te adatodtól függően)
+            if (isset($t['trust_score']) && is_numeric($t['trust_score'])) {
+                $trustScores[] = (float)$t['trust_score'];
+            }
+            if (isset($t['trust_index']) && is_numeric($t['trust_index'])) {
+                $trustIndex[] = (float)$t['trust_index'];
+            }
+
+            // device_type (ha van features_snapshot)
+            $dev = $t['features_snapshot']['device_type'] ?? null;
+            if (is_string($dev) && $dev !== '') {
+                $deviceCounts[$dev] = ($deviceCounts[$dev] ?? 0) + 1;
+            }
+
+            // flags
+            $flags = $t['flags'] ?? [];
+            if (is_array($flags)) {
+                $hadSuspicious = false;
+                foreach ($flags as $f) {
+                    if (!is_string($f)) continue;
+                    $flagCounts[$f] = ($flagCounts[$f] ?? 0) + 1;
+                    if (in_array($f, ['too_fast','fast_read','one_click_fast_read','suspicious_pattern','incomplete_scroll'], true)) {
+                        $hadSuspicious = true;
+                    }
+                }
+                if ($hadSuspicious) $nSuspicious++;
+            }
+        }
+
+        // stat segédek
+        $stat = function(array $xs): ?array {
+            $m = count($xs);
+            if ($m === 0) return null;
+            sort($xs, SORT_NUMERIC);
+            $mean = array_sum($xs) / $m;
+            $p = function(float $q) use ($xs, $m) {
+                if ($m === 1) return (float)$xs[0];
+                $rank = ($q/100.0) * ($m - 1);
+                $lo = (int)floor($rank);
+                $hi = (int)ceil($rank);
+                if ($lo === $hi) return (float)$xs[$lo];
+                $w = $rank - $lo;
+                return (1.0 - $w) * (float)$xs[$lo] + $w * (float)$xs[$hi];
+            };
+            $median = $p(50);
+            // stdev (minta)
+            $sum=0.0; foreach ($xs as $v) { $d = $v - $mean; $sum += $d*$d; }
+            $stdev = ($m>1) ? sqrt($sum/($m-1)) : 0.0;
+
+            return [
+                'mean'   => round($mean, 2),
+                'median' => round($median, 2),
+                'p10'    => round($p(10), 2),
+                'p25'    => round($p(25), 2),
+                'p75'    => round($p(75), 2),
+                'p90'    => round($p(90), 2),
+                'stdev'  => round($stdev, 2),
+            ];
+        };
+
+        // flags_rate
+        $flagsRate = [];
+        if ($n > 0) {
+            foreach ($flagCounts as $k => $v) {
+                $flagsRate[$k] = round($v / $n, 4);
+            }
+        }
+
+        return [
+            'n_records'       => $n,
+            'trust_score'     => $stat($trustScores),
+            'trust_index'     => !empty($trustIndex) ? ['mean' => round(array_sum($trustIndex)/count($trustIndex), 2)] : null,
+            'flags'           => $flagCounts,
+            'flags_rate'      => $flagsRate,
+            'device_types'    => $deviceCounts,
+            'suspicious_rate' => $n > 0 ? round($nSuspicious / $n, 4) : 0.0,
+        ];
+    }
+
 }

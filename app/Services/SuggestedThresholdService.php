@@ -4,177 +4,89 @@ namespace App\Services;
 
 use App\Models\Assessment;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
-use App\Services\ThresholdService;
-use App\Services\OrgConfigService;
 
 class SuggestedThresholdService
 {
     public function __construct(
-        protected ThresholdService $thresholds
+        protected ThresholdService $thresholds,
+        protected TelemetryService $telemetry
     ) {}
 
     /**
-     * AI payload felépítése – a UserService::calculateUserPoints()
-     * által visszaadott mezőkre támaszkodva.
+     * AI payload – Hybrid telemetria:
+     *  - scores (0..100), users (csak pontok + komponensek, telemetria NINCS user-szinten)
+     *  - telemetry_org: org-szintű telemetria összefoglaló az aktuális assessmenthez
+     *  - history: utolsó 3 lezárt assessment statjai és küszöbei
+     *  - policy: csak SUGGESTED-re releváns beállítások
      */
     public function buildAiPayload(Assessment $assessment, array $scores, array $userStats): array
-{
-    $orgId = (int) $assessment->organization_id;
+    {
+        $orgId = (int) $assessment->organization_id;
+        $cfg   = $this->thresholds->getOrgConfigMap($orgId);
 
-    /** @var \App\Services\ThresholdService $T */
-    $T   = app(\App\Services\ThresholdService::class);
-    $cfg = $T->getOrgConfigMap($orgId);
+        // ---- segédek
+        $toFloat = static fn($v) => ($v === null || $v === '') ? 0.0 : (float)$v;
+        $toInt   = static fn($v) => ($v === null || $v === '') ? 0   : (int)$v;
 
-    // ---- Lokális segédek (closure-ök), hogy a függvény önállóan működjön ----
-    $toFloat = static function ($v): float {
-        if ($v === null || $v === '') return 0.0;
-        return (float) $v;
-    };
-    $toInt = static function ($v): int {
-        if ($v === null || $v === '') return 0;
-        return (int) $v;
-    };
-    $percentile = static function (array $arr, float $p): float {
-        // p: 0..100
-        if (empty($arr)) return 0.0;
-        $p = max(0.0, min(100.0, $p));
-        sort($arr, SORT_NUMERIC);
-        $n = count($arr);
-        if ($n === 1) return (float) $arr[0];
-        $rank = ($p / 100.0) * ($n - 1);
-        $lo = (int) floor($rank);
-        $hi = (int) ceil($rank);
-        if ($lo === $hi) return (float) $arr[$lo];
-        $w = $rank - $lo;
-        return (1.0 - $w) * (float) $arr[$lo] + $w * (float) $arr[$hi];
-    };
-    $mean = static function (array $arr): float {
-        $n = count($arr);
-        if ($n === 0) return 0.0;
-        return array_sum($arr) / $n;
-    };
-    $stddev = static function (array $arr) use ($mean): float {
-        $n = count($arr);
-        if ($n <= 1) return 0.0;
-        $avg = $mean($arr);
-        $sum = 0.0;
-        foreach ($arr as $v) { $d = ((float)$v - $avg); $sum += $d * $d; }
-        return sqrt($sum / ($n - 1)); // minta szórás
-    };
-    $histogram = static function (array $arr, int $bins = 10): array {
-        // 0..100 skála feltételezve
-        $bins = max(1, $bins);
-        $counts = array_fill(0, $bins, 0);
-        foreach ($arr as $v) {
-            $x = max(0.0, min(100.0, (float)$v));
-            $idx = (int) floor($x / (100.0 / $bins));
-            if ($idx >= $bins) $idx = $bins - 1;
-            $counts[$idx]++;
-        }
-        $ranges = [];
-        $step = 100.0 / $bins;
-        for ($i=0; $i<$bins; $i++) {
-            $ranges[] = [
-                'from'  => (int) round($i * $step),
-                'to'    => (int) round(($i+1) * $step - ($i === $bins-1 ? 0 : 1)),
-                'count' => $counts[$i],
-            ];
-        }
-        return $ranges;
-    };
+        // ---- aktuális eloszlás a scores alapján
+        $cleanScores = array_values(array_map(static fn($v) => (float)$v, $scores));
+        sort($cleanScores, SORT_NUMERIC);
+        $statsNow = $this->computeStatsFromScores($cleanScores);
 
-    // ---- Alap statisztikák a scores tömbből ----
-    $cleanScores = array_values(array_map(static fn($v) => (float)$v, $scores));
-    $n           = count($cleanScores);
+        // ---- org-szintű telemetria összefoglaló (HYBRID stratégia)
+        $telemetryOrg = $this->telemetry->aggregateOrgTelemetry((int)$assessment->id, $orgId);
 
-    // FIGYELEM: Ha itt üres, azt a controller már lekezeli hibaüzenettel; itt csak védjük a számolást
-    $avg     = $mean($cleanScores);
-    $med     = $percentile($cleanScores, 50);
-    $p10     = $percentile($cleanScores, 10);
-    $p25     = $percentile($cleanScores, 25);
-    $p75     = $percentile($cleanScores, 75);
-    $p90     = $percentile($cleanScores, 90);
-    $sd      = $stddev($cleanScores);
-    $minSc   = $n ? (float) min($cleanScores) : 0.0;
-    $maxSc   = $n ? (float) max($cleanScores) : 0.0;
-    $hist    = $histogram($cleanScores, 10);
+        // ---- history (utolsó 3 lezárt) ugyanebben az orgban, újraszámolva a jelen motorral
+        $history = $this->fetchHistoryStats($orgId, 3, $assessment->id);
 
-    // ---- Korábbi lezárt értékelések küszöbei (history) ugyanabban az orgban ----
-    $history = \DB::table('assessments')
-        ->where('organization_id', $orgId)
-        ->whereNotNull('closed_at')
-        ->orderByDesc('closed_at')
-        ->limit(4)
-        ->get(['id','closed_at','normal_level_up','normal_level_down','monthly_level_down'])
-        ->map(static function ($r) {
-            return [
-                'assessment_id' => (int) $r->id,
-                'closed_at'     => (string) $r->closed_at,
-                'up'            => (int) $r->normal_level_up,
-                'down'          => (int) $r->normal_level_down,
-                'mon'           => (int) $r->monthly_level_down,
-            ];
-        })
-        ->toArray();
-
-    // ---- Policy (org configból) – az AI számára lényeges szabályok/korlátok ----
-    $policy = [
-        'target_promo_rate_max'               => $toFloat($cfg['target_promo_rate_max'] ?? 0.30),
-        'target_demotion_rate_max'            => $toFloat($cfg['target_demotion_rate_max'] ?? 0.30),
-        'never_below_abs_min_for_promo'       => $toInt($cfg['never_below_abs_min_for_promo'] ?? 0),
-        'threshold_min_abs_up'                => $toInt($cfg['threshold_min_abs_up'] ?? 70),
-        'no_forced_demotion_if_high_cohesion' => $toInt($cfg['no_forced_demotion_if_high_cohesion'] ?? 1),
-    ];
-
-    // ---- User-szintű részletek az AI-nak (opcionális, de hasznos kontextus) ----
-    // Csak a legszükségesebbeket küldjük: user_id + total. Ha kell, bővíthető komponensekkel.
-    $users = [];
-    foreach ($userStats as $userId => $stat) {
-        // $stat várhatóan objektum, total, esetleg komponensek mezőkkel (selfTotal, ceoTotal, colleagueTotal, stb.)
-        $row = [
-            'user_id' => (int) $userId,
-            'total'   => isset($stat->total) ? (float)$stat->total : 0.0,
+        // ---- policy (SUGGESTED-hez releváns mezők)
+        // NOTE: never_below_abs_min_for_promo itt konkrét pontszám vagy null!
+        $policy = [
+            'target_promo_rate_max'               => $toFloat($cfg['target_promo_rate_max'] ?? 0.30),
+            'target_demotion_rate_max'            => $toFloat($cfg['target_demotion_rate_max'] ?? 0.30),
+            'never_below_abs_min_for_promo'       => (isset($cfg['never_below_abs_min_for_promo']) && $cfg['never_below_abs_min_for_promo'] !== '')
+                ? $toInt($cfg['never_below_abs_min_for_promo'])
+                : null,
+            'no_forced_demotion_if_high_cohesion' => $toInt($cfg['no_forced_demotion_if_high_cohesion'] ?? 1),
         ];
-        // ha vannak komponensek és szeretnéd átadni:
-        if (isset($stat->selfTotal))     $row['self']      = (float)$stat->selfTotal;
-        if (isset($stat->ceoTotal))      $row['ceo']       = (float)$stat->ceoTotal;
-        if (isset($stat->colleagueTotal))$row['colleague'] = (float)$stat->colleagueTotal;
-        if (isset($stat->managersTotal)) $row['manager']   = (float)$stat->managersTotal;
-        $users[] = $row;
+
+        // ---- users rövid lista (csak pontok + komponensek, telemetria nélkül)
+        $users = [];
+        foreach ($userStats as $userId => $stat) {
+            $row = [
+                'user_id' => (int) $userId,
+                'total'   => isset($stat->total) ? (float)$stat->total : 0.0,
+            ];
+            if (isset($stat->selfTotal))       $row['self']      = (float)$stat->selfTotal;
+            if (isset($stat->ceoTotal))        $row['ceo']       = (float)$stat->ceoTotal;
+            if (isset($stat->colleagueTotal))  $row['colleague'] = (float)$stat->colleagueTotal;
+            if (isset($stat->managersTotal))   $row['manager']   = (float)$stat->managersTotal;
+            $users[] = $row;
+        }
+
+        // ---- végső payload
+        return [
+            'meta' => [
+                'assessment_id' => (int) $assessment->id,
+                'org_id'        => $orgId,
+                'now'           => now()->toIso8601String(),
+                'method'        => 'suggested',
+            ],
+            'stats'         => $statsNow,
+            'scores'        => $cleanScores,
+            'users'         => $users,           // komponensek OK, telemetria NINCS user-szinten
+            'telemetry_org' => $telemetryOrg,    // org-level telemetria összkép
+            'policy'        => $policy,
+            'history'       => $history,
+        ];
     }
 
-    // ---- Végső payload az AI-nak ----
-    return [
-        'meta' => [
-            'assessment_id' => (int) $assessment->id,
-            'org_id'        => $orgId,
-            'now'           => now()->toIso8601String(),
-        ],
-        'stats' => [
-            'count'     => $n,
-            'avg'       => $avg,
-            'median'    => $med,
-            'p10'       => $p10,
-            'p25'       => $p25,
-            'p75'       => $p75,
-            'p90'       => $p90,
-            'stdev'     => $sd,
-            'min'       => $minSc,
-            'max'       => $maxSc,
-            'histogram' => $hist,
-        ],
-        'scores'  => $cleanScores,     // aggregált pontok (0..100)
-        'users'   => $users,           // user szintű rövid összefoglaló
-        'policy'  => $policy,          // szervezeti korlátok/szabályok
-        'history_thresholds' => $history, // előző lezárások küszöbei (kontextus)
-    ];
-}
-
     /**
-     * Tényleges OpenAI hívás (STRICT JSON kérés).
-     * Hiba vagy érvénytelen válasz esetén: null.
+     * OpenAI hívás (STRICT JSON). Hiba esetén: null.
+     * Mentjük az assessment.suggested_decision mezőbe a request + response logot (appendelve, max 5 elem).
      */
     public function callAiForSuggested(array $payload): ?array
     {
@@ -183,6 +95,7 @@ class SuggestedThresholdService
         $timeout = (int) env('OPENAI_TIMEOUT', 30);
 
         if (!$apiKey) {
+            \Log::warning('AI call aborted: missing OPENAI_API_KEY');
             return null;
         }
 
@@ -201,9 +114,9 @@ class SuggestedThresholdService
                     'Content-Type'  => 'application/json',
                 ],
                 'json' => [
-                    'model' => $model,
+                    'model'           => $model,
                     'response_format' => ['type' => 'json_object'],
-                    'temperature' => 0.2,
+                    'temperature'     => 0.2,
                     'messages' => [
                         ['role' => 'system', 'content' => $systemPrompt],
                         ['role' => 'user',   'content' => $userPrompt],
@@ -211,18 +124,70 @@ class SuggestedThresholdService
                 ],
             ]);
 
-            $data    = json_decode((string) $resp->getBody(), true);
-            $content = $data['choices'][0]['message']['content'] ?? null;
-            if (!$content) {
+            $data       = json_decode((string) $resp->getBody(), true);
+            $rawContent = $data['choices'][0]['message']['content'] ?? null;
+            if (!$rawContent) {
                 return null;
             }
 
-            $json = json_decode($content, true);
+            $json = json_decode($rawContent, true);
             if (!is_array($json)) {
                 return null;
             }
 
-            return $this->validateAiResponse($json);
+            $validated = $this->validateAiResponse($json);
+            if (!$validated) {
+                return null;
+            }
+
+            // --- LOG: assessment.suggested_decision (append, max 5 elem) ---
+            try {
+                $assessmentId = (int)($payload['meta']['assessment_id'] ?? 0);
+                if ($assessmentId > 0) {
+                    $record = [
+                        'created_at' => now()->toIso8601String(),
+                        'model'      => $model,
+                        'request'    => [
+                            'system'   => $systemPrompt,
+                            'user'     => $userPrompt,
+                            'payload'  => $payload,
+                        ],
+                        'response'   => [
+                            'raw'       => $rawContent,
+                            'validated' => $validated,
+                        ],
+                    ];
+                    $prev = DB::table('assessment')->where('id', $assessmentId)->value('suggested_decision');
+                    if ($prev) {
+                        $prevArr = json_decode($prev, true);
+                        if (is_array($prevArr)) {
+                            // ha régi formátum 1 objektum: listává alakítjuk
+                            if (isset($prevArr['request']) && isset($prevArr['response'])) {
+                                $prevArr = [$prevArr];
+                            }
+                            $prevArr[] = $record;
+                            // limit 5 elemre
+                            $prevArr = array_slice($prevArr, -5);
+                            DB::table('assessment')->where('id', $assessmentId)->update([
+                                'suggested_decision' => json_encode($prevArr, JSON_UNESCAPED_UNICODE),
+                            ]);
+                        } else {
+                            DB::table('assessment')->where('id', $assessmentId)->update([
+                                'suggested_decision' => json_encode([$record], JSON_UNESCAPED_UNICODE),
+                            ]);
+                        }
+                    } else {
+                        DB::table('assessment')->where('id', $assessmentId)->update([
+                            'suggested_decision' => json_encode([$record], JSON_UNESCAPED_UNICODE),
+                        ]);
+                    }
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('Could not persist suggested_decision log: '.$e->getMessage());
+            }
+
+            return $validated;
+
         } catch (GuzzleException $e) {
             \Log::warning('AI call failed (suggested thresholds): ' . $e->getMessage());
             return null;
@@ -236,69 +201,89 @@ class SuggestedThresholdService
        HELPER FÜGGVÉNYEK
        ========================= */
 
+    /**
+     * System prompt – egyértelmű, kódoddal egyező döntési szabály:
+     *  promote if score >= up; demote if score < down; else stay.
+     */
     protected function aiSystemPrompt(): string
     {
         return <<<SYS
-You are a fair, deterministic thresholds engine for performance reviews.
-INPUT: a JSON payload with current team scores (0..100), breakdowns (self/colleagues/managers/ceo), team statistics (mean/median/stdev/quartiles/percentiles, CV, IQR/median), outliers, brief history, and policy caps.
+You are a deterministic thresholds engine for a performance review cycle.
+
+INPUT: A strict JSON payload with:
+- current team scores (0..100),
+- optional per-user components (self/colleagues/managers/ceo),
+- ORGANIZATION-LEVEL telemetry summary (reliability of the whole measurement),
+- team statistics (mean/median/stdev/percentiles, histogram),
+- a short history of previous cycles with basic stats and thresholds,
+- and policy caps and constraints.
+
 TASK:
-1) Suggest two integer thresholds for this assessment:
-   - normal_level_up (promotion threshold)
-   - normal_level_down (demotion threshold)
-2) Ensure a stagnation gap exists: up - down >= policy.min_gap_for_stagnation (if possible).
-3) Respect policy:
-   - Cap promotion rate around policy.target_promo_rate_max; demotion around policy.target_demotion_rate_max.
-   - If policy.never_below_abs_min_for_promo is set, do not put 'up' below that absolute minimum.
-   - If policy.no_forced_demotion_if_high_cohesion is true AND team cohesion is high (e.g., CV < 0.08 and mean >= 80), prefer fewer demotions (raise 'down' if needed).
-4) Use outliers conservatively: do not set thresholds based solely on extreme tails.
-5) Decision rule (informative): promote if total > up; demote if total < down; otherwise stay.
-6) Output must be STRICT JSON with this schema (no extra fields, no text outside JSON):
+1) Propose integer thresholds:
+   - normal_level_up (promotion)
+   - normal_level_down (demotion)
+2) Respect policy:
+   - Keep promotion rate around policy.target_promo_rate_max; demotion around policy.target_demotion_rate_max.
+   - If policy.never_below_abs_min_for_promo is a number, do not set 'normal_level_up' below that value.
+   - If policy.no_forced_demotion_if_high_cohesion is true and team cohesion is high (e.g., low stdev/CV with high mean), it's acceptable to reduce demotions (raise 'down').
+3) Use history to avoid unjustified drastic oscillations vs. previous cycles.
+4) Treat telemetry as reliability hints at the organization level; DO NOT overfit to outliers.
+5) Use this exact decision rule: promote if score >= normal_level_up; demote if score < normal_level_down; otherwise stay.
+6) Output STRICT JSON only:
+
 {
   "thresholds": {
     "normal_level_up": <int>,
     "normal_level_down": <int>,
-    "rationale": "<short string>"
+    "rationale": "<short>"
   },
   "decisions": [
-    { "user_id": <int>, "decision": "promote|stay|demote", "why": "<short string>" }
+    { "user_id": <int>, "decision": "promote|stay|demote", "why": "<short>" }
   ],
-  "stats_used": {
-    "team": { "mean": <int>, "median": <int>, "stdev": <int>, "q1": <int>, "q3": <int> },
-    "percentiles": { "p10": <int>, "p25": <int>, "p50": <int>, "p75": <int>, "p90": <int> }
-  ]
+  "summary_hu": "<Write a short (200-300 character) paragraph strictly in HUNGARIAN about your decision to let them know why those thresholds were selected. Keep it simple, pragmatic and user friendly. Do not leave room for any questions, be clear and sure. You want them to accept your thresholds.>" }
+7) Your thresholds MUST satisfy:
+- promotions_count / N <= policy.target_promo_rate_max
+- demotions_count  / N <= policy.target_demotion_rate_max
+If necessary, increase 'normal_level_up' (even above the policy minimum) and/or increase 'normal_level_down' to respect these caps.
+Define high cohesion strictly as (stdev <= 8 and mean >= 80) or (CV <= 0.10). Otherwise, do not treat the team as high cohesion.
+Return also:
+"rates": { "promotion_rate": <float>, "promotion_count": <int>, "demotion_rate": <float>, "demotion_count": <int>, "n": <int> }.
 }
-If uncertain, still return valid JSON with best-effort thresholds. Never return prose outside JSON.
+8) If possible, do not create thresholds with exactly the same points as any user's total point to lighten feelings of losing and users being on thresholds as it is a "grey zone".  
 SYS;
     }
 
+    /**
+     * Payload beágyazása (méretlimittel). Ha nagy, a users mezőt trimmeljük 200 főre.
+     */
     protected function aiUserPromptFromPayload(array $payload): string
     {
         $maxBytes = 1_500_000;
+
         $json = json_encode($payload, JSON_UNESCAPED_UNICODE);
         if ($json === false) {
             return json_encode([
-                'error' => 'payload_json_encode_failed',
-                'org_id' => $payload['org_id'] ?? null,
-                'assessment' => $payload['assessment'] ?? null,
+                'error'  => 'payload_json_encode_failed',
+                'meta'   => $payload['meta']   ?? null,
+                'policy' => $payload['policy'] ?? null,
             ], JSON_UNESCAPED_UNICODE);
         }
+
         if (strlen($json) > $maxBytes && isset($payload['users']) && is_array($payload['users'])) {
-            $trimmedUsers = [];
+            $trimmed = [];
             $limit = 200;
             foreach ($payload['users'] as $u) {
-                $trimmedUsers[] = [
-                    'user_id' => $u['user_id'] ?? null,
-                    'total'   => $u['total']   ?? null,
-                    'rank'    => $u['rank']    ?? null,
-                    'percentile' => $u['percentile'] ?? null,
-                    'self' => $u['self'] ?? null,
-                    'colleagues' => $u['colleagues'] ?? null,
-                    'managers' => $u['managers'] ?? null,
-                    'ceo_rank' => $u['ceo_rank'] ?? null,
+                $trimmed[] = [
+                    'user_id'   => $u['user_id'] ?? null,
+                    'total'     => $u['total']   ?? null,
+                    'self'      => $u['self']    ?? null,
+                    'colleague' => $u['colleague'] ?? null,
+                    'manager'   => $u['manager'] ?? null,
+                    'ceo'       => $u['ceo']     ?? null,
                 ];
-                if (count($trimmedUsers) >= $limit) break;
+                if (count($trimmed) >= $limit) break;
             }
-            $payload['users'] = $trimmedUsers;
+            $payload['users'] = $trimmed;
             $json = json_encode($payload, JSON_UNESCAPED_UNICODE);
         }
 
@@ -306,8 +291,7 @@ SYS;
     }
 
     /**
-     * Minimális validáció: legyenek meg a küszöbök egész számmal.
-     * Ha hiányos, térjünk vissza null-lal.
+     * Minimális válasz-validáció és tisztítás.
      */
     protected function validateAiResponse(array $json): ?array
     {
@@ -321,8 +305,8 @@ SYS;
             return null;
         }
 
-        $up   = max(0, min(100, (int) $up));
-        $down = max(0, min(100, (int) $down));
+        $up   = max(0, min(100, (int)$up));
+        $down = max(0, min(100, (int)$down));
         $json['thresholds']['normal_level_up']   = $up;
         $json['thresholds']['normal_level_down'] = $down;
 
@@ -345,215 +329,147 @@ SYS;
         return $json;
     }
 
-    /** Kvartilisek/percentilisek + homogenitás + outlierek (Z-score, MAD) – total (0..100) alapján. */
-    protected function teamStatsWithOutliers(array $sortedAscTotals, array $rows, array $idIndex): array
+    /**
+     * Histórikus statok és küszöbök: utolsó $limit lezárt assessment ugyanabban az orgban.
+     * A résztvevők pontjait a jelenlegi motorral számoljuk újra.
+     */
+    protected function fetchHistoryStats(int $orgId, int $limit = 3, ?int $excludeAssessmentId = null): array
     {
-        $n = count($sortedAscTotals);
-        $mean   = $this->mean($sortedAscTotals);
-        $median = $this->median($sortedAscTotals);
-        $mode   = $this->mode($sortedAscTotals);
-        $stdev  = $this->stdevSample($sortedAscTotals, $mean);
-        $min    = $sortedAscTotals[0];
-        $max    = $sortedAscTotals[$n - 1];
-        $q1     = $this->percentile($sortedAscTotals, 25);
-        $q3     = $this->percentile($sortedAscTotals, 75);
-        $iqr    = $q3 - $q1;
+        $q = DB::table('assessment') // NÁLATOK SINGULAR a tábla!
+            ->where('organization_id', $orgId)
+            ->whereNotNull('closed_at');
 
-        $cv  = ($mean > 0) ? ($stdev / $mean) : null;
-        $iqrOverMedian = ($median > 0) ? ($iqr / $median) : null;
-
-        $zCut = 2.5;
-        $zIds = [];
-        if ($stdev > 0) {
-            $totalsOriginalOrder = array_column($rows, 'total');
-            foreach ($totalsOriginalOrder as $i => $t) {
-                $z = ($t - $mean) / $stdev;
-                if (abs($z) >= $zCut) {
-                    $zIds[] = (int)$rows[$i]['user_id'];
-                }
-            }
+        if ($excludeAssessmentId) {
+            $q->where('id', '!=', $excludeAssessmentId);
         }
 
-        $madIds = [];
-        $mad = $this->mad($sortedAscTotals, $median);
-        if ($mad > 0) {
-            $factor = 0.6745 / $mad;
-            $totalsOriginalOrder = array_column($rows, 'total');
-            foreach ($totalsOriginalOrder as $i => $t) {
-                $mz = ($t - $median) * $factor;
-                if (abs($mz) >= 3.5) {
-                    $madIds[] = (int)$rows[$i]['user_id'];
-                }
-            }
-        }
+        $past = $q->orderByDesc('closed_at')
+                  ->limit($limit)
+                  ->get(['id','closed_at','threshold_method','normal_level_up','normal_level_down']);
 
-        return [
-            'n_participants' => $n,
-            'mean' => (int) round($mean),
-            'median' => (int) round($median),
-            'mode' => $mode,
-            'stdev' => (int) round($stdev),
-            'min' => (int) $min,
-            'q1'  => (int) $q1,
-            'q3'  => (int) $q3,
-            'max' => (int) $max,
-            'iqr' => (int) $iqr,
-            'percentiles' => [
-                'p10' => (int) $this->percentile($sortedAscTotals, 10),
-                'p25' => (int) $q1,
-                'p50' => (int) $median,
-                'p75' => (int) $q3,
-                'p90' => (int) $this->percentile($sortedAscTotals, 90),
-            ],
-            'homogeneity' => [
-                'cv' => $cv !== null ? round($cv, 3) : null,
-                'iqr_over_median' => $iqrOverMedian !== null ? round($iqrOverMedian, 3) : null,
-            ],
-            'outliers' => [
-                'zscore' => ['user_ids' => array_values(array_unique($zIds))],
-                'mad'    => ['user_ids' => array_values(array_unique($madIds))],
-            ],
-        ];
-    }
+        if ($past->isEmpty()) return [];
 
-    protected function fetchHistory(int $orgId, int $limit = 6): array
-    {
-        $assess = \App\Models\Assessment::where('organization_id', $orgId)
-            ->whereNotNull('closed_at')
-            ->orderByDesc('closed_at')
-            ->limit($limit)
+        // résztvevők (org-scope, aktív, nem admin)
+        $userIds = DB::table('organization_user')
+            ->where('organization_id', $orgId)
+            ->pluck('user_id')
+            ->unique()
+            ->toArray();
+
+        $participants = User::query()
+            ->whereIn('id', $userIds)
+            ->whereNull('removed_at')
+            ->where(function ($q2) {
+                $q2->whereNull('type')->orWhere('type', '!=', 'admin');
+            })
             ->get();
 
         $out = [];
-        foreach ($assess as $a) {
+        foreach ($past as $a) {
+            $scores = [];
+            $ass = Assessment::find($a->id);
+            if (!$ass) continue;
+
+            foreach ($participants as $u) {
+                $stat = \App\Services\UserService::calculateUserPoints($ass, $u);
+                if ($stat !== null) {
+                    $scores[] = (float)$stat->total;
+                }
+            }
+
+            sort($scores, SORT_NUMERIC);
+            $stats = $this->computeStatsFromScores($scores);
+
             $out[] = [
-                'id'   => (int) $a->id,
-                'date' => (string) $a->closed_at,
-                'n_participants' => null,
-                'mean' => null, 'median' => null, 'stdev' => null,
-                'q1' => null, 'q3' => null, 'min' => null, 'max' => null,
-                'thresholds_used' => [
-                    'method' => $a->threshold_method ?? null,
-                    'up'     => $a->normal_level_up,
-                    'down'   => $a->normal_level_down,
+                'assessment_id' => (int)$a->id,
+                'closed_at'     => (string)$a->closed_at,
+                'method'        => (string)($a->threshold_method ?? ''),
+                'thresholds'    => [
+                    'up'   => (int)$a->normal_level_up,
+                    'down' => (int)$a->normal_level_down,
                 ],
+                'stats'         => $stats,
             ];
         }
+
         return $out;
     }
 
-    protected function lastThresholdSnapshot(int $orgId): array
+    /**
+     * Statisztikák számítása 0..100 pontok tömbjéből (növekvő sor).
+     */
+    protected function computeStatsFromScores(array $scores): array
     {
-        $a = \App\Models\Assessment::where('organization_id', $orgId)
-            ->whereNotNull('closed_at')
-            ->orderByDesc('closed_at')
-            ->first();
+        $n = count($scores);
 
-        if (!$a) return [];
+        $mean = function(array $xs): float {
+            $m = count($xs);
+            return $m ? array_sum($xs)/$m : 0.0;
+        };
+        $percentile = function(array $arr, float $p): float {
+            if (empty($arr)) return 0.0;
+            $p = max(0.0, min(100.0, $p));
+            $m = count($arr);
+            if ($m === 1) return (float)$arr[0];
+            $rank = ($p / 100.0) * ($m - 1);
+            $lo = (int) floor($rank);
+            $hi = (int) ceil($rank);
+            if ($lo === $hi) return (float) $arr[$lo];
+            $w = $rank - $lo;
+            return (1.0 - $w) * (float) $arr[$lo] + $w * (float) $arr[$hi];
+        };
+        $stddev = function(array $arr) use ($mean): float {
+            $m = count($arr);
+            if ($m <= 1) return 0.0;
+            $avg = $mean($arr);
+            $sum = 0.0;
+            foreach ($arr as $v) { $d = ((float)$v - $avg); $sum += $d * $d; }
+            return sqrt($sum / ($m - 1));
+        };
+        $histogram = function (array $arr, int $bins = 10): array {
+            $bins = max(1, $bins);
+            $counts = array_fill(0, $bins, 0);
+            foreach ($arr as $v) {
+                $x = max(0.0, min(100.0, (float)$v));
+                $idx = (int) floor($x / (100.0 / $bins));
+                if ($idx >= $bins) $idx = $bins - 1;
+                $counts[$idx]++;
+            }
+            $ranges = [];
+            $step = 100.0 / $bins;
+            for ($i=0; $i<$bins; $i++) {
+                $ranges[] = [
+                    'from'  => (int) round($i * $step),
+                    'to'    => (int) round(($i+1) * $step - ($i === $bins-1 ? 0 : 1)),
+                    'count' => $counts[$i],
+                ];
+            }
+            return $ranges;
+        };
+
+        $avg   = $mean($scores);
+        $med   = $percentile($scores, 50);
+        $p10   = $percentile($scores, 10);
+        $p25   = $percentile($scores, 25);
+        $p75   = $percentile($scores, 75);
+        $p90   = $percentile($scores, 90);
+        $sd    = $stddev($scores);
+        $minSc = $n ? (float) min($scores) : 0.0;
+        $maxSc = $n ? (float) max($scores) : 0.0;
+        $hist  = $histogram($scores, 10);
 
         return [
-            'method' => $a->threshold_method ?? null,
-            'up'     => $a->normal_level_up,
-            'down'   => $a->normal_level_down,
-            'date'   => (string) $a->closed_at,
+            'count'     => $n,
+            'avg'       => round($avg, 2),
+            'median'    => round($med, 2),
+            'p10'       => round($p10, 2),
+            'p25'       => round($p25, 2),
+            'p75'       => round($p75, 2),
+            'p90'       => round($p90, 2),
+            'stdev'     => round($sd, 2),
+            'min'       => round($minSc, 2),
+            'max'       => round($maxSc, 2),
+            'histogram' => $hist,
         ];
-    }
-
-    protected function buildPolicy(int $orgId): array
-    {
-        // ThresholdService helyett az OrgConfigService adja a map-et
-        $cfg = $this->thresholds->getOrgConfigMap($orgId);
-
-        return [
-            'target_promo_rate_max'               => isset($cfg['target_promo_rate_max']) ? (float)$cfg['target_promo_rate_max'] : 0.20,
-            'target_demotion_rate_max'            => isset($cfg['target_demotion_rate_max']) ? (float)$cfg['target_demotion_rate_max'] : 0.10,
-            'min_gap_for_stagnation'              => isset($cfg['threshold_gap_min']) ? (int)$cfg['threshold_gap_min'] : 2,
-            'never_below_abs_min_for_promo'       => isset($cfg['never_below_abs_min_for_promo']) ? (int)$cfg['never_below_abs_min_for_promo'] : null,
-            'use_telemetry_trust'                 => isset($cfg['use_telemetry_trust']) ? (bool)$cfg['use_telemetry_trust'] : true,
-            'no_forced_demotion_if_high_cohesion' => isset($cfg['no_forced_demotion_if_high_cohesion']) ? (bool)$cfg['no_forced_demotion_if_high_cohesion'] : true,
-        ];
-    }
-
-    /* ===== stat utilok ===== */
-
-    protected function mean(array $xs): float
-    {
-        $n = count($xs);
-        return $n ? array_sum($xs) / $n : 0.0;
-    }
-
-    protected function median(array $xs): float
-    {
-        $n = count($xs);
-        if ($n === 0) return 0.0;
-        $mid = intdiv($n, 2);
-        if ($n % 2 === 0) return ($xs[$mid - 1] + $xs[$mid]) / 2.0;
-        return $xs[$mid];
-    }
-
-    protected function mode(array $xs): ?int
-    {
-        if (empty($xs)) return null;
-        $freq = array_count_values($xs);
-        arsort($freq);
-        $max = max($freq);
-        $cands = array_keys(array_filter($freq, fn($v) => $v === $max));
-        sort($cands, SORT_NUMERIC);
-        return (int) $cands[0];
-    }
-
-    protected function stdevSample(array $xs, float $mean = null): float
-    {
-        $n = count($xs);
-        if ($n < 2) return 0.0;
-        if ($mean === null) $mean = $this->mean($xs);
-        $sum = 0.0;
-        foreach ($xs as $x) { $d = $x - $mean; $sum += $d * $d; }
-        return sqrt($sum / ($n - 1));
-    }
-
-    protected function percentile(array $sortedAsc, float $p): float
-    {
-        $n = count($sortedAsc);
-        if ($n === 0) return 0.0;
-        $p = max(0.0, min(100.0, $p));
-        $rank = (int) ceil(($p / 100.0) * $n);
-        if ($rank < 1) $rank = 1;
-        if ($rank > $n) $rank = $n;
-        return (float) $sortedAsc[$rank - 1];
-    }
-
-    protected function percentileOf(array $sortedAsc, int $value): int
-    {
-        $n = count($sortedAsc);
-        if ($n === 0) return 0;
-        $count = 0;
-        foreach ($sortedAsc as $v) { if ($v <= $value) $count++; else break; }
-        return (int) floor(100.0 * $count / $n);
-    }
-
-    /** total → „legjobb=1” rang (azonos pont azonos rangot kap) */
-    protected function buildRanks(array $sortedDesc): array
-    {
-        $ranks = [];
-        $rank = 1;
-        $prev = null;
-        foreach ($sortedDesc as $v) {
-            if ($prev !== null && $v !== $prev) $rank++;
-            if (!isset($ranks[$v])) $ranks[$v] = $rank;
-            $prev = $v;
-        }
-        return $ranks;
-    }
-
-    /** Median Absolute Deviation (MAD) */
-    protected function mad(array $sortedAsc, float $median): float
-    {
-        $n = count($sortedAsc);
-        if ($n === 0) return 0.0;
-        $abs = [];
-        foreach ($sortedAsc as $x) { $abs[] = abs($x - $median); }
-        sort($abs);
-        return $this->median($abs);
     }
 }
