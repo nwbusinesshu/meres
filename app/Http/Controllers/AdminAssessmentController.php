@@ -15,6 +15,8 @@ use App\Services\ThresholdService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\SuggestedThresholdService;
+use App\Services\SnapshotService;
+
 
 
 
@@ -92,6 +94,12 @@ class AdminAssessmentController extends Controller
             /** @var \App\Services\ThresholdService $thresholds */
             $thresholds = app(\App\Services\ThresholdService::class);
             $init = $thresholds->buildInitialThresholdsForStart($orgId);
+
+              // === ÚJ: snapshot összeállítása induláskor ===
+            /** @var SnapshotService $snap */
+            $snap = app(SnapshotService::class);
+            $snapshotArr = $snap->buildOrgSnapshot($orgId); // itt gyűjtünk mindent
+            $snapshotJson = json_encode($snapshotArr, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
             Assessment::create([
                 'organization_id'     => $orgId,

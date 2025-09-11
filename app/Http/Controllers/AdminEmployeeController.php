@@ -33,8 +33,9 @@ class AdminEmployeeController extends Controller
 {
     $orgId = (int) session('org_id');
 
-    // meglévő user-lista (változatlan logikával)
-    $users = UserService::getUsers()->map(function($user){
+    // ===== LEGACY (régi) lista adatai – változatlan =====
+    $users = \App\Services\UserService::getUsers()->map(function ($user) {
+        // bonusMalus feltöltése biztonságos módon (nincs eager load, nincs created_at ordering)
         $user['bonusMalus'] = $user->bonusMalus()->first()?->level ?? null;
         return $user;
     });
@@ -42,49 +43,182 @@ class AdminEmployeeController extends Controller
     // multi-level flag
     $enableMultiLevel = \App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false);
 
-    // részlegek és választható managerek
-    $departments = collect();
-    $eligibleManagers = collect();
-
-    if ($enableMultiLevel) {
-        // aktív részlegek listája a nézethez
-        $departments = \DB::table('organization_departments as d')
-            ->leftJoin('user as u', 'u.id', '=', 'd.manager_id')   // tábla neve: user
-            ->where('d.organization_id', $orgId)
-            ->whereNull('d.removed_at')
-            ->orderBy('d.department_name')
-            ->get([
-                'd.id',
-                'd.department_name',
-                'd.manager_id',
-                'u.name  as manager_name',
-                'u.email as manager_email',
-                'd.created_at',
-            ]);
-
-        // olyan managerek, akik az org tagjai és MÉG nem vezetnek aktív részleget
-        $eligibleManagers = \DB::table('user as u')
-            ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
-            ->where('ou.organization_id', $orgId)
-            ->where('u.type', 'manager')
-            ->whereNull('u.removed_at')
-            ->whereNotExists(function($q) use ($orgId) {
-                $q->from('organization_departments as d')
-                  ->whereColumn('d.manager_id', 'u.id')
-                  ->where('d.organization_id', $orgId)
-                  ->whereNull('d.removed_at');
-            })
-            ->orderBy('u.name')
-            ->get(['u.id','u.name','u.email']);
+    // Ha nincs multi-level: megy a régi nézet, semmi extra
+    if (!$enableMultiLevel) {
+        return view('admin.employees', [
+            "users" => $users,
+        ]);
     }
 
+    // ===== MULTI-LEVEL STRUKTÚRA =====
+
+    // 1) CEO-k
+    $ceos = DB::table('organization_user as ou')
+        ->join('user as u', 'u.id', '=', 'ou.user_id')
+        ->where('ou.organization_id', $orgId)
+        ->whereNull('u.removed_at')
+        ->where('u.type', 'ceo')
+        ->orderBy('u.name')
+        ->get(['u.id','u.name','u.email','u.type']);
+
+    // 2) Be nem soroltak (nem admin, nincs department, és nem vezet aktív részleget)
+    $unassigned = DB::table('organization_user as ou')
+        ->join('user as u', 'u.id', '=', 'ou.user_id')
+        ->where('ou.organization_id', $orgId)
+        ->whereNull('u.removed_at')
+        ->where('u.type', '!=', 'admin')
+        ->whereNull('ou.department_id')
+        ->whereNotExists(function($q) use ($orgId){
+            $q->from('organization_departments as d')
+              ->whereColumn('d.manager_id', 'u.id')
+              ->where('d.organization_id', $orgId)
+              ->whereNull('d.removed_at');
+        })
+        ->orderBy('u.type', 'desc')
+        ->orderBy('u.name')
+        ->get(['u.id','u.name','u.email','u.type']);
+
+    // 3) Részlegek + manager
+    $rawDepts = DB::table('organization_departments as d')
+        ->leftJoin('user as m', 'm.id', '=', 'd.manager_id')
+        ->where('d.organization_id', $orgId)
+        ->whereNull('d.removed_at')
+        ->orderBy('d.department_name')
+        ->get([
+            'd.id','d.department_name','d.created_at',
+            'd.manager_id',
+            'm.name as manager_name','m.email as manager_email'
+        ]);
+
+    // 4) Tagok dept-enként
+    $membersByDept = DB::table('organization_user as ou')
+        ->join('user as u', 'u.id', '=', 'ou.user_id')
+        ->where('ou.organization_id', $orgId)
+        ->whereNull('u.removed_at')
+        ->where('u.type', '!=', 'admin')
+        ->whereNotNull('ou.department_id')
+        ->orderBy('u.name')
+        ->get([
+            'ou.department_id',
+            'u.id','u.name','u.email','u.type'
+        ])
+        ->groupBy('department_id');
+
+    // ========= ENRICH: login_mode_text + bonusMalus minden érintett usernek =========
+
+    // Gyűjtsük össze az összes érintett user ID-t (CEO + unassigned + minden dept member + minden manager)
+    $allIds = collect($ceos)->pluck('id')
+        ->merge($unassigned->pluck('id'))
+        ->merge($membersByDept->flatten()->pluck('id'))
+        ->merge($rawDepts->pluck('manager_id')->filter()) // lehet null
+        ->unique()
+        ->values();
+
+    // Lekérjük a modelleket Eloquenttel, de NEM eager-loadolunk orderrel (nincs created_at hiba)
+    $userModels = \App\Models\User::whereIn('id', $allIds)->get();
+
+    // Készítünk egy id->meta map-et: login_mode_text + bonusMalus + (opcionálisan a típus kiírása is)
+    $metaById = $userModels->mapWithKeys(function($u){
+        // bonusMalus: nincs ordering, first() elég
+        $bm = $u->bonusMalus()->first()?->level ?? null;
+        $typeLabel = method_exists($u, 'getNameOfType') ? $u->getNameOfType() : ucfirst($u->type);
+        return [
+            $u->id => [
+                'login_mode_text' => $u->login_mode_text, // accessor
+                'bonusMalus'      => $bm,
+                'type_label'      => $typeLabel,
+            ]
+        ];
+    });
+
+    // Helper az objektumok dúsítására (stdClass-eket egészítjük ki a meta adatokkal)
+    $enrich = function($row) use ($metaById) {
+        if (!$row || !isset($row->id)) return $row;
+        $meta = $metaById->get($row->id, null);
+        $row->login_mode_text = $meta['login_mode_text'] ?? null;
+        // FIGYELEM: a Blade a "bonusMalus" mezőt várja (mint a legacy listában)
+        $row->bonusMalus = $meta['bonusMalus'] ?? null;
+        // Ha szeretnéd, felülírhatjuk a típus címkéjét is:
+        // (de a Blade-ed jelenleg method_exists(UserModel,'getNameOfType')-et néz)
+        return $row;
+    };
+
+    // CEO-k és be nem soroltak dúsítása
+    $ceos = collect($ceos)->map($enrich);
+    $unassigned = collect($unassigned)->map($enrich);
+
+    // Részleg-objektumok összeállítása + tagok dúsítása + manager meta
+    $departments = collect();
+    $emptyDepartments = collect();
+
+    foreach ($rawDepts as $d) {
+        // tagok (manager nélkül)
+        $members = collect($membersByDept->get($d->id, collect()))
+            ->filter(fn($u) => $u->type !== 'manager')
+            ->map($enrich)
+            ->values();
+
+        // manager meta külön
+        $manager_login_mode_text = null;
+        $manager_bonusMalus = null;
+        if (!empty($d->manager_id)) {
+            $m = $metaById->get($d->manager_id);
+            if ($m) {
+                $manager_login_mode_text = $m['login_mode_text'] ?? null;
+                $manager_bonusMalus = $m['bonusMalus'] ?? null;
+            }
+        }
+
+        $deptData = (object) [
+            'id'                         => $d->id,
+            'department_name'            => $d->department_name,
+            'created_at'                 => $d->created_at,
+            'manager_id'                 => $d->manager_id,
+            'manager_name'               => $d->manager_name,
+            'manager_email'              => $d->manager_email,
+            // a Blade-ben a manager sorhoz készítesz egy $managerUser objektumot – ehhez adok plusz mezőket is:
+            'manager_login_mode_text'    => $manager_login_mode_text,
+            'manager_bonusMalus'         => $manager_bonusMalus,
+            'members'                    => $members,
+        ];
+
+        if ($members->isEmpty()) $emptyDepartments->push($deptData);
+        else $departments->push($deptData);
+    }
+
+    // olyan managerek, akik az org tagjai és MÉG nem vezetnek aktív részleget (CREATE/EDIT modálhoz)
+    $eligibleManagers = DB::table('user as u')
+        ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+        ->where('ou.organization_id', $orgId)
+        ->where('u.type', 'manager')
+        ->whereNull('u.removed_at')
+        ->whereNotExists(function($q) use ($orgId) {
+            $q->from('organization_departments as d')
+              ->whereColumn('d.manager_id', 'u.id')
+              ->where('d.organization_id', $orgId)
+              ->whereNull('d.removed_at');
+        })
+        ->orderBy('u.name')
+        ->get(['u.id','u.name','u.email']);
+
+    // Üres részlegek legalul
+    $departments = $departments->concat($emptyDepartments);
+
     return view('admin.employees', [
+        // LEGACY-hoz továbbra is megvan:
         "users"            => $users,
-        "enableMultiLevel" => $enableMultiLevel,
+
+        // MULTI-LEVEL:
+        "enableMultiLevel" => true,
+        "ceos"             => $ceos,
+        "unassigned"       => $unassigned,
         "departments"      => $departments,
+
+        // modálhoz:
         "eligibleManagers" => $eligibleManagers,
     ]);
 }
+
 
     public function getEmployee(Request $request){
         return User::findOrFail($request->id);

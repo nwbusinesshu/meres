@@ -1,209 +1,261 @@
-.main-content > div:first-of-type{
-  display: flex;
-  flex-wrap: wrap-reverse;
-  gap: 1em;
-}
-.main-content > div:first-of-type > div{
-  flex: 1 400px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-.search-tile{
-  gap: .5em;
-}
-.search-tile p{
-  font-size: 1.2em;
-  font-weight: 600;
-}
-.search-tile input{
-  flex: 1;
-  text-align: center;
-}
-.search-tile div{
-  display: flex;
-  width: 100%;
-  justify-content: center;
-  align-items: center;
-}
-.search-tile i{
-  color: var(--silver_chalice);
-  font-size: 1.3em;
-  margin-left: .5em;
-  margin-right: .2em;
-}
-.search-tile i:hover{
-  color: var(--outer_space);
-}
-td button{
-  display: flex!important;
-  justify-content: center;
-  align-items: center;
-  height: 2em;
-  width: 2em;
-}
-th:last-child{
-  text-align: right;
-}
-td:nth-child(5){
-  text-align: right;
-}
-td:nth-child(5) div{
-  display: flex;
-  gap: .5em;
-  justify-content: flex-end;
-  align-items: center;
-}
-td[colspan="5"]{
-  text-align: center;
-  font-weight: bold;
-  font-style: italic;
-}
-tr.hidden{
-  display: none;
-}
-#employee-modal .form-group,
-#employee-modal .btn{
-  width: 100%;
-}
-#employee-modal .form-row:last-of-type{
-  margin-bottom: 1em;
-}
-#employee-modal .form-check{
-  margin-left: .2em;
-}
-#employee-modal .auto-level-up{
-  scale: 1.2;
-}
-#relations-modal .modal-body{
-  display: flex;
-  flex-direction: column;
-  gap: 1em;
-}
-#relations-modal .relation-list{
-  display: flex;
-  flex-direction: column;
-  gap: 1em;
-  max-height: 300px;
-  height: 300px;
-  overflow-y: scroll;
-  padding-right: .5em;
-}
-#relations-modal .relation-item{
-  display: flex;
-  gap: 1em;
-  border-bottom: 3px solid var(--info);
-  padding-bottom: .5em;
-}
-#relations-modal .relation-item i{
-  display: flex;
-  font-size: 1.2em;
-  color: var(--danger);
-  justify-content: center;
-  align-items: center;
-}
-#relations-modal .relation-item.cant-remove i{
-  color: var(--silver_chalice);
-}
-#relations-modal .relation-item div{
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  gap: .5em;
-}
-#relations-modal .relation-item div p{
-  font-weight: bold;
-}
-
-#user-competencies-modal .modal-body{
-  display: flex;
-  flex-direction: column;
-  gap: 1em;
-}
-#user-competencies-modal .competency-list{
-  display: flex;
-  flex-direction: column;
-  gap: 1em;
-  max-height: 300px;
-  height: 300px;
-  overflow-y: scroll;
-  padding-right: .5em;
-}
-#user-competencies-modal .competency-item{
-  display: flex;
-  gap: 1em;
-  border-bottom: 3px solid var(--info);
-  padding-bottom: .5em;
-}
-#user-competencies-modal .competency-item i{
-  display: flex;
-  font-size: 1.2em;
-  color: var(--danger);
-  justify-content: center;
-  align-items: center;
-}
-
-#user-competencies-modal .competency-item div{
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  gap: .5em;
-}
-#user-competencies-modal .competency-item div p{
-  font-weight: bold;
-}
-#bonusmalus-modal .modal-body{
-  display: flex;
-  flex-direction: column;
-  gap: 1em;
-}
-#bonusmalus-modal .modal-body p{
-  text-align: center;
-}
-#bonusmalus-modal .modal-body p span{
-  font-family: 'Kanit', sans-serif;
-  font-size: 1.2em;
-}
-#bonusmalus-modal .modal-body .bonusmalus-now p{
-  font-weight: bold;
-}
-@media all and (max-width: 760px) {
-  table thead{
-    display: none;
-  }
-  table tbody{
+/* =======================================================================
+    RÉGI NÉZET (táblázatos) - Külön kezelt stílusok
+    ======================================================================= */
+.main-content > div:first-of-type {
     display: flex;
-    flex-direction: column;
-    gap: .5em;
-    padding-bottom: .2em;
-  }
-  table tr{
+    flex-wrap: wrap-reverse;
+    gap: 1em;
+}
+.main-content > div:first-of-type > div {
+    flex: 1 400px;
     display: flex;
-    flex-direction: column;
-    margin-right: .2em;
-  }
-  table tr:not(.hidden):first-of-type,
-  table tr:not(.hidden):last-of-type{
-    margin-top: .2em;
-  }
-  table td{
-    border: none!important;
-    padding: 0!important;
-  }
-  table td:before,
-  table table td::before{
-    content: attr(data-col)":\A";
-    margin-right: .25em;
-    font-weight: bold;
+    justify-content: center;
+    align-items: center;
+}
+.search-tile { gap: .5em; }
+.search-tile p {
+    font-size: 1.2em;
+    font-weight: 600;
+}
+.search-tile div {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    align-items: center;
+}
+.search-tile input {
+    flex: 1;
+    text-align: center;
+}
+.search-tile i {
     color: var(--silver_chalice);
-    font-size: 0.9em;
-    white-space:pre;
-  }
-  table td{
-    font-weight: bold;
-  }
-  table td{
-    padding-bottom: 0!important;
-    padding-top: 0!important;
-  }
+    font-size: 1.3em;
+    margin-left: .5em;
+    margin-right: .2em;
 }
+.search-tile i:hover { color: var(--outer_space); }
+td button {
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    height: 2em;
+    width: 2em;
+}
+th:last-child { text-align: right; }
+td:nth-child(5) { text-align: right; }
+td:nth-child(5) div {
+    display: flex;
+    gap: .5em;
+    justify-content: flex-end;
+    align-items: center;
+}
+td[colspan="5"] {
+    text-align: center;
+    font-weight: bold;
+    font-style: italic;
+}
+tr.hidden { display: none; }
+@media all and (max-width: 760px) {
+    table thead { display: none; }
+    table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: .5em;
+        padding-bottom: .2em;
+    }
+    table tr {
+        display: flex;
+        flex-direction: column;
+        margin-right: .2em;
+    }
+    table tr:not(.hidden):first-of-type,
+    table tr:not(.hidden):last-of-type { margin-top: .2em; }
+    table td {
+        border: none !important;
+        padding: 0 !important;
+        font-weight: bold;
+        padding-bottom: 0 !important;
+        padding-top: 0 !important;
+    }
+    table td:before,
+    table table td::before {
+        content: attr(data-col) ":\A";
+        margin-right: .25em;
+        font-weight: bold;
+        color: var(--silver_chalice);
+        font-size: 0.9em;
+        white-space: pre;
+    }
+}
+/* =======================================================================
+    MULTI-LEVEL (kártyás) NÉZET - JAVÍTOTT STÍLUSOK
+    ======================================================================= */
+.employees-ml .dept-header {
+    background: #e6f7ff; /* Világoskék háttér a részlegsorokhoz */
+    border: 1px solid #91d5ff; /* Kék szegély */
+    color: #003a8c;
+    font-weight: 600;
+    cursor: pointer;
+    padding: .75rem 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: .5rem;
+}
+.employees-ml .dept-header .left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+.employees-ml .dept-header .caret {
+    transition: transform .15s ease;
+}
+.employees-ml .dept-header .caret.rot {
+    transform: rotate(90deg);
+}
+.employees-ml .badge.count {
+    font-size: .8rem;
+    background: #1890ff;
+    color: #fff;
+    padding: .25rem .6rem;
+}
+.employees-ml .user-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 2fr) 1fr 120px 0.8fr minmax(280px, max-content);
+    gap: 1em;
+    align-items: center;
+    border: 1px solid #dbe2ea;
+    padding: .75rem 1rem;
+    margin: .35rem 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.employees-ml .user-row--manager {
+    background: #f7fbff;
+    border-color: #cfe8ff;
+}
+.employees-ml .user-row .col.col-name {
+    font-weight: 500;
+}
+.employees-ml .user-row .col.col-type {
+    font-weight: 400;
+    color: #64748b;
+    white-space: nowrap;
+}
+.employees-ml .user-row .col.col-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: .5rem;
+}
+.employees-ml .user-row .col.col-actions .btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+/* Mobilnézetre optimalizálva */
+@media (max-width: 768px) {
+    .employees-ml .user-row {
+        grid-template-columns: 1fr;
+        gap: .5rem;
+        padding: 1rem;
+    }
+    .employees-ml .user-row .col.col-actions {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+}
+/* =======================================================================
+    MODALOK STÍLUSAI
+    ======================================================================= */
+#employee-modal .form-group,
+#employee-modal .btn { width: 100%; }
+#employee-modal .form-row:last-of-type { margin-bottom: 1em; }
+#employee-modal .form-check { margin-left: .2em; }
+#employee-modal .auto-level-up { scale: 1.2; }
+#relations-modal .modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+}
+#relations-modal .relation-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+    max-height: 300px;
+    height: 300px;
+    overflow-y: scroll;
+    padding-right: .5em;
+}
+#relations-modal .relation-item {
+    display: flex;
+    gap: 1em;
+    border-bottom: 3px solid var(--info);
+    padding-bottom: .5em;
+}
+#relations-modal .relation-item i {
+    display: flex;
+    font-size: 1.2em;
+    color: var(--danger);
+    justify-content: center;
+    align-items: center;
+}
+#relations-modal .relation-item.cant-remove i { color: var(--silver_chalice); }
+#relations-modal .relation-item div {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: .5em;
+}
+#relations-modal .relation-item div p { font-weight: bold; }
+#user-competencies-modal .modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+}
+#user-competencies-modal .competency-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+    max-height: 300px;
+    height: 300px;
+    overflow-y: scroll;
+    padding-right: .5em;
+}
+#user-competencies-modal .competency-item {
+    display: flex;
+    gap: 1em;
+    border-bottom: 3px solid var(--info);
+    padding-bottom: .5em;
+}
+#user-competencies-modal .competency-item i {
+    display: flex;
+    font-size: 1.2em;
+    color: var(--danger);
+    justify-content: center;
+    align-items: center;
+}
+#user-competencies-modal .competency-item div {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: .5em;
+}
+#user-competencies-modal .competency-item div p { font-weight: bold; }
+#bonusmalus-modal .modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+}
+#bonusmalus-modal .modal-body p { text-align: center; }
+#bonusmalus-modal .modal-body p span {
+    font-family: 'Kanit', sans-serif;
+    font-size: 1.2em;
+}
+#bonusmalus-modal .modal-body .bonusmalus-now p { font-weight: bold; }
