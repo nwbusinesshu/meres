@@ -41,6 +41,14 @@ class AdminSettingsController extends Controller
         $useTrust     = OrgConfigService::getBool($orgId, 'use_telemetry_trust', true);
         $noForcedDemo = OrgConfigService::getBool($orgId, 'no_forced_demotion_if_high_cohesion', true);
 
+        $multi = \DB::table('organization_config')
+            ->where('organization_id', $orgId)
+            ->where('name', 'enable_multi_level')
+            ->value('value'); // '0' | '1' | null
+
+        $enableMultiLevel = $multi === '1';
+
+
 
         $hasClosed = DB::table('assessment')
     ->where('organization_id', $orgId)
@@ -70,40 +78,52 @@ class AdminSettingsController extends Controller
         'no_forced_demotion_if_high_cohesion' => $noForcedDemo,
 
         'hasClosedAssessment'   => $hasClosed,
+        'enableMultiLevel' => $enableMultiLevel,
         ]);
     }
 
     public function toggle(Request $request)
 {
     $request->validate([
-        'key' => 'required|in:strict_anonymous_mode,ai_telemetry_enabled',
+        'key'   => 'required|in:strict_anonymous_mode,ai_telemetry_enabled,enable_multi_level',
         'value' => 'required|boolean',
     ]);
 
     $orgId = (int) session('org_id');
-    $key = $request->string('key');
-    $val = (bool) $request->boolean('value');
+    $key   = (string) $request->input('key');
+    $val   = (bool) $request->boolean('value');
 
-    // Üzleti szabály: ha strict anon-ON, akkor ai_telemetry OFF
-    if ($key === OrgConfigService::STRICT_ANON_KEY) {
-        // Mindig beállítjuk az anonim módot
-        OrgConfigService::setBool($orgId, $key, $val);
+    if ($key === 'enable_multi_level') {
+        // Egyirányú: ha már ON, nem kapcsoljuk vissza.
+        $current = \App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false);
 
-        // Ha az anonim mód be van kapcsolva, kikapcsoljuk a telemetry-t
-        if ($val === true) {
-            OrgConfigService::setBool($orgId, OrgConfigService::AI_TELEMETRY_KEY, false);
+        if ($current) {
+            // már be van kapcsolva → nem állítjuk vissza OFF-ra
+            return response()->json(['ok' => true, 'already_on' => true]);
         }
-        // Ha az anonim mód ki van kapcsolva, a telemetry-vel nem csinálunk semmit
-    } else { // key === OrgConfigService::AI_TELEMETRY_KEY
-        // ai_telemetry toggling csak akkor, ha nincs strict anon
-        $strictAnon = OrgConfigService::getBool($orgId, OrgConfigService::STRICT_ANON_KEY, false);
 
-        // Ha a telemetry bekapcsolása a cél, de az anonim mód be van kapcsolva, akkor kikapcsolva marad
+        if ($val === true) {
+            \App\Services\OrgConfigService::setBool($orgId, 'enable_multi_level', true);
+            return response()->json(['ok' => true, 'enabled' => true]);
+        } else {
+            // OFF kérésre semmit nem csinálunk (egyirányú)
+            return response()->json(['ok' => true, 'noop' => true]);
+        }
+    }
+
+    // --- EDDIGI KÉT KAPCSOLÓ VÁLTOZATLANUL ---
+    if ($key === \App\Services\OrgConfigService::STRICT_ANON_KEY) {
+        $strict = $val === true;
+        \App\Services\OrgConfigService::setBool($orgId, $key, $strict);
+        if ($strict) {
+            \App\Services\OrgConfigService::setBool($orgId, \App\Services\OrgConfigService::AI_TELEMETRY_KEY, false);
+        }
+    } else { // AI_TELEMETRY_KEY
+        $strictAnon = \App\Services\OrgConfigService::getBool($orgId, \App\Services\OrgConfigService::STRICT_ANON_KEY, false);
         if ($strictAnon && $val === true) {
             $val = false;
         }
-
-        OrgConfigService::setBool($orgId, $key, $val);
+        \App\Services\OrgConfigService::setBool($orgId, $key, $val);
     }
 
     return response()->json(['ok' => true]);

@@ -139,3 +139,35 @@
       });
     })();
   </script>
+  <script>
+  $(document).ready(function(){
+
+    // --- Részleg szerkesztés (UI, backend később) ---
+    $(document).on('click', '.dept-edit', function(){
+      const id = $(this).closest('tr').data('id');
+      // Később ide jön: fetch -> kitöltött modal, mentés route-tal
+      Swal.fire({
+        icon: 'info',
+        title: 'Részleg szerkesztése',
+        text: 'A szerkesztő felületet a következő lépésben kötjük be.',
+      });
+    });
+
+    // --- Részleg törlés (UI + confirm; backend később) ---
+    $(document).on('click', '.dept-remove', function(){
+      const id = $(this).closest('tr').data('id');
+
+      swal_confirm.fire({
+        title: 'Részleg törlése?',
+        text: 'A részleg inaktiválása (soft delete) javasolt. Ezt a backendben fogjuk elvégezni.',
+      }).then((result) => {
+        if (!result.isConfirmed) return;
+
+        // Itt majd hívjuk: route('admin.employee.department.remove')  (POST)
+        // Most átmenetileg csak UI visszajelzés:
+        Swal.fire({ icon:'success', title:'OK', text:'A törlés végpontját a következő lépésben kötjük be.' });
+      });
+    });
+
+  });
+</script>

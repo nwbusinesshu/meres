@@ -19,7 +19,66 @@
   <div class="tile tile-button trigger-new">
     <span><i class="fa fa-user-plus"></i>{{ $_('new-employee') }}</span>
   </div>
+  @if(!empty($enableMultiLevel) && $enableMultiLevel)
+    <div class="tile tile-button trigger-new-dept">
+      <span><i class="fa fa-sitemap"></i> Új részleg</span>
+    </div>
+  @endif
 </div>
+
+@if(!empty($enableMultiLevel) && $enableMultiLevel)
+  <div class="tile userlist" style="margin-top:.75rem;">
+    <h3 style="margin-bottom:.5rem;">Részlegek</h3>
+
+    @if($departments->isEmpty())
+      <p>Még nincs létrehozott részleg.</p>
+    @else
+      <table class="table table-hover">
+        <thead>
+          <th>Részleg neve</th>
+          <th>Vezető</th>
+          <th>Létrehozva</th>
+          <th>{{ $_('operations') }}</th>
+        </thead>
+        <tbody>
+          @foreach($departments as $d)
+            <tr data-id="{{ $d->id }}">
+              <td data-col="Részleg neve">
+                <div>{{ $d->department_name }}</div>
+              </td>
+
+              <td data-col="Vezető">
+                <div>{{ $d->manager_name }}</div>
+                @if($d->manager_email)
+                  <div class="text-muted small">{{ $d->manager_email }}</div>
+                @endif
+              </td>
+
+              <td data-col="Létrehozva">
+                {{ \Carbon\Carbon::parse($d->created_at)->format('Y-m-d') }}
+              </td>
+
+              <td data-col="{{ $_('operations') }}">
+                <div class="d-flex gap-1" style="gap:.25rem;">
+                  <button class="btn btn-outline-success dept-members" data-tippy-content="Tagok kezelése">
+                    <i class="fa fa-users"></i>
+                  </button>
+                  <button class="btn btn-outline-primary dept-edit" data-tippy-content="Szerkesztés">
+                    <i class="fa fa-pen"></i>
+                  </button>
+                  <button class="btn btn-outline-danger dept-remove" data-tippy-content="{{ $_('remove') }}">
+                    <i class="fa fa-trash-alt"></i>
+                  </button>
+                  
+                </div>
+              </td>
+            </tr>
+          @endforeach
+        </tbody>
+      </table>
+    @endif
+  </div>
+@endif
 
 <div class="tile userlist">
   <table class="table table-hover">
@@ -87,5 +146,7 @@
   @include('admin.modals.select')
   @include('admin.modals.user-competencies')
   @include('admin.modals.bonusmalus')
+  @includeWhen(!empty($enableMultiLevel) && $enableMultiLevel, 'admin.modals.department')
+  @includeWhen(!empty($enableMultiLevel) && $enableMultiLevel, 'admin.modals.departmentuser')
 
 @endsection

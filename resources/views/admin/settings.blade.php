@@ -30,7 +30,31 @@
       <span class="slider"></span>
     </label>
   </div>
+  {{-- ÚJ: Többszintű részlegkezelés kapcsoló --}}
+  <div class="tile tile-info">
+    <div class="text">
+      <div class="title"><h3>Többszintű részlegkezelés</h3></div>
+      <div class="meta">
+        A részlegvezetői (manager) szint bekapcsolása után a felhasználók részleg(ek)be sorolhatók,
+        és a vezetők a saját részlegük beosztottait rangsorolhatják.
+        <br>
+        <strong>Visszavonhatatlan:</strong> a bekapcsolás után nem lehet kikapcsolni.
+      </div>
+      @if($enableMultiLevel)
+        <div class="alert alert-warning" style="margin-top:.5rem;">
+          A Többszintű részlegkezelés <strong>be van kapcsolva</strong>, és <u>nem kapcsolható ki</u>.
+        </div>
+      @endif
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="toggle-multi"
+             {{ $enableMultiLevel ? 'checked disabled' : '' }}>
+      <span class="slider"></span>
+    </label>
+  </div>
 </div>
+
+
 
 {{-- ===== PONTOZÁSI MÓDSZER ===== --}}
 <h3 class="settings-subtitle" style="margin-top:1.2rem;">{{ $_('settings.scoring_subtitle') }}</h3>

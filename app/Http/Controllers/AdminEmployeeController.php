@@ -29,14 +29,62 @@ class AdminEmployeeController extends Controller
         }
     }
 
-    public function index(Request $request){
-        return view('admin.employees',[
-            "users" => UserService::getUsers()->map(function($user){
-                $user['bonusMalus'] = $user->bonusMalus()->first()?->level ?? null;
-                return $user;
-            }),
-        ]);
+    public function index(Request $request)
+{
+    $orgId = (int) session('org_id');
+
+    // meglévő user-lista (változatlan logikával)
+    $users = UserService::getUsers()->map(function($user){
+        $user['bonusMalus'] = $user->bonusMalus()->first()?->level ?? null;
+        return $user;
+    });
+
+    // multi-level flag
+    $enableMultiLevel = \App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false);
+
+    // részlegek és választható managerek
+    $departments = collect();
+    $eligibleManagers = collect();
+
+    if ($enableMultiLevel) {
+        // aktív részlegek listája a nézethez
+        $departments = \DB::table('organization_departments as d')
+            ->leftJoin('user as u', 'u.id', '=', 'd.manager_id')   // tábla neve: user
+            ->where('d.organization_id', $orgId)
+            ->whereNull('d.removed_at')
+            ->orderBy('d.department_name')
+            ->get([
+                'd.id',
+                'd.department_name',
+                'd.manager_id',
+                'u.name  as manager_name',
+                'u.email as manager_email',
+                'd.created_at',
+            ]);
+
+        // olyan managerek, akik az org tagjai és MÉG nem vezetnek aktív részleget
+        $eligibleManagers = \DB::table('user as u')
+            ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+            ->where('ou.organization_id', $orgId)
+            ->where('u.type', 'manager')
+            ->whereNull('u.removed_at')
+            ->whereNotExists(function($q) use ($orgId) {
+                $q->from('organization_departments as d')
+                  ->whereColumn('d.manager_id', 'u.id')
+                  ->where('d.organization_id', $orgId)
+                  ->whereNull('d.removed_at');
+            })
+            ->orderBy('u.name')
+            ->get(['u.id','u.name','u.email']);
     }
+
+    return view('admin.employees', [
+        "users"            => $users,
+        "enableMultiLevel" => $enableMultiLevel,
+        "departments"      => $departments,
+        "eligibleManagers" => $eligibleManagers,
+    ]);
+}
 
     public function getEmployee(Request $request){
         return User::findOrFail($request->id);
@@ -86,7 +134,7 @@ class AdminEmployeeController extends Controller
                 ->ignore($request->id)
                 ->where(function ($q) { $q->whereNull('removed_at'); }),
         ],
-        'type'        => ['required', Rule::in(['normal', 'ceo'])],
+        'type'        => ['required', Rule::in(['normal', 'manager', 'ceo'])],
         'autoLevelUp' => ['required', Rule::in([0, 1])],
     ];
 
@@ -450,4 +498,299 @@ public function PasswordReset(Request $request)
             ]);
         });
     }
+
+    //RÉSZLEGKEZELÉS//
+
+    public function storeDepartment(Request $request)
+{
+    $orgId = (int) session('org_id');
+
+    // csak ha be van kapcsolva a multi-level
+    if (!\App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false)) {
+        return back()->with('error', 'A többszintű részlegkezelés nincs bekapcsolva.');
+    }
+
+    $data = $request->validate([
+        'department_name' => ['required','string','max:255'],
+        'manager_id'      => ['required','integer'],
+    ]);
+
+    // manager ellenőrzés: az adott org tagja és type='manager'
+    $manager = \DB::table('user as u')
+        ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+        ->where('ou.organization_id', $orgId)
+        ->where('u.id', $data['manager_id'])
+        ->where('u.type', 'manager')
+        ->first(['u.id']);
+
+    if (!$manager) {
+        return back()->with('error', 'Csak olyan vezető választható, aki manager és az adott szervezet tagja.');
+    }
+
+    // ne vezessen már aktív részleget
+    $already = \DB::table('organization_departments')
+        ->where('organization_id', $orgId)
+        ->where('manager_id', $data['manager_id'])
+        ->whereNull('removed_at')
+        ->exists();
+
+    if ($already) {
+        return back()->with('error', 'Ez a vezető már egy részleget vezet.');
+    }
+
+    // beszúrás
+    \DB::table('organization_departments')->insert([
+        'organization_id' => $orgId,
+        'department_name' => $data['department_name'],
+        'manager_id'      => $data['manager_id'],
+        'created_at'      => now(),
+        'removed_at'      => null,
+    ]);
+
+    return back()->with('success', 'Részleg létrehozva.');
+}
+
+public function getDepartment(Request $request)
+{
+    $orgId = (int) session('org_id');
+
+    $data = $request->validate([
+        'id' => ['required','integer'],
+    ]);
+
+    // alap adatok + manager adatok
+    $dept = \DB::table('organization_departments as d')
+        ->leftJoin('user as u', 'u.id', '=', 'd.manager_id')
+        ->where('d.organization_id', $orgId)
+        ->where('d.id', $data['id'])
+        ->whereNull('d.removed_at')
+        ->first([
+            'd.id',
+            'd.department_name',
+            'd.manager_id',
+            'u.name  as manager_name',
+            'u.email as manager_email',
+            'd.created_at',
+        ]);
+
+    if (!$dept) {
+        return response()->json([
+            'message' => 'A részleg nem található (vagy már inaktiválva lett).'
+        ], 404);
+    }
+
+    // Választható managerek: akik org tagok, type='manager', nincs aktív részlegük
+    // + a JELENLEGI manager mindig legyen benne a listában (különben nem tudnánk visszaállni)
+    $eligible = \DB::table('user as u')
+        ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+        ->where('ou.organization_id', $orgId)
+        ->where('u.type', 'manager')
+        ->whereNull('u.removed_at')
+        ->where(function($q) use ($orgId, $dept) {
+            $q->whereNotExists(function($q2) use ($orgId) {
+                $q2->from('organization_departments as d2')
+                   ->whereColumn('d2.manager_id', 'u.id')
+                   ->where('d2.organization_id', $orgId)
+                   ->whereNull('d2.removed_at');
+            })
+            ->orWhere('u.id', $dept->manager_id); // jelenlegi manager
+        })
+        ->orderBy('u.name')
+        ->get(['u.id','u.name','u.email']);
+
+    return response()->json([
+        'department' => $dept,
+        'eligibleManagers' => $eligible,
+    ]);
+}
+
+public function updateDepartment(Request $request)
+{
+    $orgId = (int) session('org_id');
+
+    if (!\App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false)) {
+        return response()->json(['message' => 'A többszintű részlegkezelés nincs bekapcsolva.'], 422);
+    }
+
+    $data = $request->validate([
+        'id'              => ['required','integer'],
+        'department_name' => ['required','string','max:255'],
+        'manager_id'      => ['required','integer'],
+    ]);
+
+    $dept = \DB::table('organization_departments')
+        ->where('organization_id', $orgId)
+        ->where('id', $data['id'])
+        ->whereNull('removed_at')
+        ->first(['id','manager_id']);
+
+    if (!$dept) {
+        return response()->json(['message' => 'A részleg nem található (vagy már inaktiválva lett).'], 404);
+    }
+
+    // ellenőrzés: a választott manager org tag, type='manager'
+    $manager = \DB::table('user as u')
+        ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+        ->where('ou.organization_id', $orgId)
+        ->where('u.id', $data['manager_id'])
+        ->where('u.type', 'manager')
+        ->whereNull('u.removed_at')
+        ->first(['u.id']);
+
+    if (!$manager) {
+        return response()->json(['message' => 'Csak olyan manager választható, aki az adott szervezet tagja és aktív.'], 422);
+    }
+
+    // ha manager csere történik: az új manager ne vezessen másik aktív részleget
+    if ((int)$data['manager_id'] !== (int)$dept->manager_id) {
+        $already = \DB::table('organization_departments')
+            ->where('organization_id', $orgId)
+            ->where('manager_id', $data['manager_id'])
+            ->whereNull('removed_at')
+            ->exists();
+
+        if ($already) {
+            return response()->json(['message' => 'A kiválasztott vezető már egy másik részleget vezet.'], 422);
+        }
+    }
+
+    \DB::table('organization_departments')
+        ->where('organization_id', $orgId)
+        ->where('id', $data['id'])
+        ->update([
+            'department_name' => $data['department_name'],
+            'manager_id'      => $data['manager_id'],
+            'created_at'      => \DB::raw('created_at'), // változatlanul hagyjuk
+            'removed_at'      => null, // biztos ami biztos
+        ]);
+
+    return response()->json(['ok' => true, 'message' => 'Részleg frissítve.']);
+}
+
+public function getDepartmentMembers(Request $request)
+{
+    $orgId = (int) session('org_id');
+
+    $data = $request->validate([
+        'department_id' => ['required','integer'],
+    ]);
+
+    // Ellenőrizzük, hogy ez a részleg ebben az orgban van és aktív
+    $dept = \DB::table('organization_departments')
+        ->where('id', $data['department_id'])
+        ->where('organization_id', $orgId)
+        ->whereNull('removed_at')
+        ->first(['id']);
+    if (!$dept) {
+        return response()->json(['message' => 'A részleg nem található az aktuális szervezetben.'], 404);
+    }
+
+    // Tagok lekérése az org_user pivotból
+    $members = \DB::table('organization_user as ou')
+        ->join('user as u', 'u.id', '=', 'ou.user_id')
+        ->where('ou.organization_id', $orgId)
+        ->where('ou.department_id', $data['department_id'])
+        ->whereNull('u.removed_at')
+        ->orderBy('u.name')
+        ->get([
+            'u.id', 'u.name', 'u.email'
+        ]);
+
+    return response()->json([
+        'department_id' => $dept->id,
+        'members' => $members,
+    ]);
+}
+
+public function getEligibleForDepartment(Request $request)
+{
+    $orgId = (int) session('org_id');
+
+    $data = $request->validate([
+        'department_id' => ['required','integer'],
+    ]);
+
+    // valid részleg?
+    $dept = \DB::table('organization_departments')
+        ->where('id', $data['department_id'])
+        ->where('organization_id', $orgId)
+        ->whereNull('removed_at')
+        ->first(['id']);
+    if (!$dept) {
+        return response()->json(['message' => 'A részleg nem található az aktuális szervezetben.'], 404);
+    }
+
+    // Választható dolgozók: az org tagjai, type != admin && != manager && != ceo? (kérésed szerint admin/manager kizárva; CEO-t hagyjuk ki logikusan)
+    $eligible = \DB::table('user as u')
+        ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+        ->where('ou.organization_id', $orgId)
+        ->whereNull('u.removed_at')
+        ->whereNotIn('u.type', ['admin','manager','ceo'])
+        ->whereNull('ou.department_id') // még nincs részleghez rendelve
+        ->orderBy('u.name')
+        ->get(['u.id','u.name','u.email']);
+
+    // A select-modal a teljes tömböt várja
+    return response()->json($eligible);
+}
+
+public function saveDepartmentMembers(Request $request)
+{
+    $orgId = (int) session('org_id');
+
+    $data = $request->validate([
+        'department_id' => ['required','integer'],
+        'user_ids'      => ['required','array'],
+        'user_ids.*'    => ['integer'],
+    ]);
+
+    // valid részleg ebben az orgban?
+    $dept = \DB::table('organization_departments')
+        ->where('id', $data['department_id'])
+        ->where('organization_id', $orgId)
+        ->whereNull('removed_at')
+        ->first(['id']);
+    if (!$dept) {
+        return response()->json(['message' => 'A részleg nem található az aktuális szervezetben.'], 404);
+    }
+
+    $ids = collect($data['user_ids'])->unique()->values();
+
+    // validáljuk: mind a user-ek ebben az orgban vannak, és nem admin/manager/ceo
+    $validIds = \DB::table('user as u')
+        ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+        ->where('ou.organization_id', $orgId)
+        ->whereIn('u.id', $ids)
+        ->whereNull('u.removed_at')
+        ->whereNotIn('u.type', ['admin','manager','ceo'])
+        ->pluck('u.id');
+
+    $invalid = $ids->diff($validIds);
+    if ($invalid->isNotEmpty()) {
+        return response()->json([
+            'message' => 'Érvénytelen felhasználó az aktuális szervezethez.',
+            'invalid' => $invalid->values(),
+        ], 422);
+    }
+
+    \DB::transaction(function() use ($orgId, $dept, $ids) {
+        // 1) Az adott részlegből eltávolítunk mindenkit, aki eddig tag volt, de most nincs a listában
+        \DB::table('organization_user')
+            ->where('organization_id', $orgId)
+            ->where('department_id', $dept->id)
+            ->whereNotIn('user_id', $ids) // akik nincsenek az új listában
+            ->update(['department_id' => null]);
+
+        // 2) Az új listában szereplőket ehhez a részleghez rendeljük — csak azokat, akiknél jelenleg NULL
+        \DB::table('organization_user')
+            ->where('organization_id', $orgId)
+            ->whereIn('user_id', $ids)
+            ->whereNull('department_id') // ne mozgassunk máshonnan
+            ->update(['department_id' => $dept->id]);
+    });
+
+    return response()->json(['ok' => true, 'message' => 'Részleg tagjai frissítve.']);
+}
+
+
 }

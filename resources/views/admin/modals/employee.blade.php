@@ -20,11 +20,18 @@
             <input type="email" class="form-control email">
           </div>
         </div>
-        <div class="form-row">
+        @php
+          $enableMultiLevel = \App\Services\OrgConfigService::getBool((int)session('org_id'), 'enable_multi_level', false);
+        @endphp
+
+        <div class="form-row" data-enable-multi="{{ $enableMultiLevel ? '1' : '0' }}">
           <div class="form-group">
             <label>{{ __('global.type') }}</label>
             <select class="form-control type">
               <option value="normal">{{ __('usertypes.normal') }}</option>
+              @if($enableMultiLevel)
+                <option value="manager">{{ __('usertypes.manager') }}</option>
+              @endif
               <option value="ceo">{{ __('usertypes.ceo') }}</option>
             </select>
           </div>

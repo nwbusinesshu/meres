@@ -94,6 +94,10 @@ class Auth
       return true;
     }
 
+    if($utype == UserType::NORMAL && $current == UserType::MANAGER){
+    return true;
+    }
+
     return false;
   }
 }

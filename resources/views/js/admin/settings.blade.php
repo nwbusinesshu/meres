@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', function() {
     warn_strict_on: @json(__('admin/settings.settings.warn_strict_on')),
     warn_ai_on:     @json(__('admin/settings.settings.warn_ai_on')),
     warn_ai_off:    @json(__('admin/settings.settings.warn_ai_off')),
+    warn_multi_on:  'Biztosan bekapcsolod a Többszintű részlegkezelést? A döntés végleges, később nem kapcsolható ki. Mielőtt bekapcsolod, tájékozódj a következményeiről a dokumentációban!',
+    saved:          @json(__('admin/settings.settings.saved')),
     saved:          @json(__('admin/settings.settings.saved')),
     error:          @json(__('admin/settings.settings.error')),
     yes:            @json(__('global.swal-confirm')),
@@ -13,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   const strictEl = document.getElementById('toggle-strict');
   const aiEl     = document.getElementById('toggle-ai');
+  const multiEl  = document.getElementById('toggle-multi');
 
   // --- Reload utáni toast ---
   (function showSavedToastOnLoad(){
@@ -94,7 +97,34 @@ document.addEventListener('DOMContentLoaded', function() {
       Swal.fire({ icon:'error', title:T.error, text:String(err) });
     }
   });
+
+  multiEl?.addEventListener('change', async (e) => {
+    const nextVal = e.target.checked;
+
+    // csak bekapcsolásra van értelme (kikapcsolás nem engedélyezett)
+    if (!nextVal) { 
+      // visszapattintjuk vizuálisan is
+      e.target.checked = true;
+      return;
+    }
+
+    const ok = await warnConfirm(T.warn_multi_on);
+    if (!ok) { e.target.checked = false; return; }
+
+    try {
+      await postToggle('enable_multi_level', 1);
+      // végleges: azonnal tiltjuk a kapcsolót, és újratöltünk
+      e.target.setAttribute('disabled','disabled');
+      reloadWithToast(T.saved);
+    } catch (err) {
+      e.target.checked = false;
+      Swal.fire({ icon:'error', title:T.error, text:String(err) });
+    }
+  });
+
 });
+
+
 </script>
 
 
