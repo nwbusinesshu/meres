@@ -87,6 +87,9 @@ tr.hidden { display: none; }
         white-space: pre;
     }
 }
+
+
+
 /* =======================================================================
     MULTI-LEVEL (kártyás) NÉZET - JAVÍTOTT STÍLUSOK
     ======================================================================= */
@@ -101,6 +104,7 @@ tr.hidden { display: none; }
     justify-content: space-between;
     align-items: center;
     margin-bottom: .5rem;
+    margin-top: 2rem;
 }
 .employees-ml .dept-header .left {
     display: flex;
@@ -111,7 +115,7 @@ tr.hidden { display: none; }
     transition: transform .15s ease;
 }
 .employees-ml .dept-header .caret.rot {
-    transform: rotate(90deg);
+    transform: rotate(-90deg);
 }
 .employees-ml .badge.count {
     font-size: .8rem;
@@ -134,9 +138,14 @@ tr.hidden { display: none; }
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
+.employees-ml .dept-body {
+    padding-left: 15px;
+    border-left: 4px solid var(--pelorous);
+}
+
 .employees-ml .user-row--manager {
-    background: #f7fbff;
-    border-color: #cfe8ff;
+    background: #e6f7ff;
+    border-color: var(--pelorous);
 }
 .employees-ml .user-row .col.col-name {
     font-weight: 500;
@@ -259,3 +268,15 @@ tr.hidden { display: none; }
     font-size: 1.2em;
 }
 #bonusmalus-modal .modal-body .bonusmalus-now p { font-weight: bold; }
+
+#employee-modal .type-hint {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  background-color: var(--tango);
+  padding: 5px;
+  color: #000!important;
+}
+#employee-modal .form-control[disabled] {
+  background: #f7f7f7;
+  cursor: not-allowed;
+}

@@ -11,27 +11,28 @@ class PasswordSetupMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public PasswordSetup $ps;
-    public string $orgSlug;
-    public string $token;
+    public Organization $org;
+    public User $user;
+    public string $url;
+    public \Carbon\CarbonInterface $expiresAt;
 
-    public function __construct(PasswordSetup $ps, string $orgSlug, string $token)
+    public function __construct(Organization $org, User $user, string $url, \Carbon\CarbonInterface $expiresAt)
     {
-        $this->ps = $ps;
-        $this->orgSlug = $orgSlug;
-        $this->token = $token;
+        $this->org = $org;
+        $this->user = $user;
+        $this->url = $url;
+        $this->expiresAt = $expiresAt;
     }
 
     public function build()
     {
-        $url = route('password-setup.show', ['org' => $this->orgSlug, 'token' => $this->token]);
-
         return $this->subject('Jelszó beállítása – 360 értékelés')
             ->view('emails.password_setup', [
-                'url'        => $url,
-                'email'      => $this->ps->user->email,
-                'org'        => $this->ps->organization->name,
-                'expires_at' => $this->ps->expires_at,
+                'url'        => $this->url,
+                'email'      => $this->user->email,
+                'org'        => $this->org->name,
+                'expires_at' => $this->expiresAt,
             ]);
     }
 }
+

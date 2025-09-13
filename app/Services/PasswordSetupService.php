@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Mail\PasswordResetMail;
 use App\Mail\PasswordSetupMail;
 use App\Models\Organization;
+use App\Models\PasswordSetup;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;

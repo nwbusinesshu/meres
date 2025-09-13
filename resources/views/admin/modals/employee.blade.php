@@ -34,6 +34,7 @@
               @endif
               <option value="ceo">{{ __('usertypes.ceo') }}</option>
             </select>
+             <small class="form-text text-muted type-help d-none"></small>
           </div>
         </div>
         <button class="btn btn-primary trigger-submit"></button>
@@ -42,64 +43,152 @@
   </div>
 </div>
 <script>
+  // -- Segédfüggvények a típus-korlátozásokhoz -------------------------------
+
+  function ensureTypeHintEl() {
+    const $group = $('#employee-modal .type').closest('.form-group');
+    if (!$group.find('.type-hint').length) {
+      $group.append('<small class="form-text text-muted type-hint d-none"></small>');
+    }
+    return $group.find('.type-hint');
+  }
+
+  function clearTypeLocks() {
+    const $type = $('#employee-modal .type');
+    const $hint = ensureTypeHintEl();
+
+    // minden tiltás feloldása
+    $type.prop('disabled', false);
+    $type.find('option').prop('disabled', false);
+
+    // hint elrejtése
+    $hint.text('').addClass('d-none');
+  }
+
+  function applyTypeLocksFromResponse(response) {
+    const $type = $('#employee-modal .type');
+    const $hint = ensureTypeHintEl();
+
+    // Alap: minden szabad; aztán ráhúzzuk a tiltást a szabályok szerint
+    clearTypeLocks();
+
+    // 1) Ha részlegvezető (és type=manager): teljes tiltás
+    if (response.is_dept_manager && response.type === 'manager') {
+      $type.val('manager');
+      $type.prop('disabled', true);
+      $hint
+        .text('Ez a dolgozó jelenleg részlegvezető. Amíg részleghez van rendelve mint vezető, a típusa nem módosítható.')
+        .removeClass('d-none');
+      return; // a teljes tiltás mindent lefed
+    }
+
+    // 2) Ha részlegtag és normal: teljes tiltás (kért módosítás)
+    if (response.is_in_department && response.type === 'normal') {
+      // biztos ami biztos: normalra állítjuk és lezárjuk
+      $type.val('normal');
+      $type.prop('disabled', true);
+      $hint
+        .text('Ez a dolgozó már tagja egy részlegnek, ezért a típus nem módosítható.')
+        .removeClass('d-none');
+      return;
+    }
+
+    // Egyéb esetben nincs tiltás
+  }
+
+  // -- Modal megnyitása -------------------------------------------------------
+
   function openEmployeeModal(uid = null){
     swal_loader.fire();
+
     if(uid == null){
       $('#employee-modal').attr('data-id', 0);
       $('#employee-modal .modal-title').html('{{ __('admin/employees.new-employee') }}');
       $('#employee-modal .trigger-submit').html('{{ __('admin/employees.new-employee') }}');
 
       $('#employee-modal .name').val('');
-      $('#employee-modal .email').val('');
-      $('#employee-modal .email').prop('readonly', false);
+      $('#employee-modal .email').val('').prop('readonly', false);
       $('#employee-modal .type').val('normal');
       $('#employee-modal .auto-level-up').prop('checked', false);
 
+      clearTypeLocks();
+
       swal_loader.close();
       $('#employee-modal').modal();
-    }else{
+    } else {
       $('#employee-modal').attr('data-id', uid);
       $('#employee-modal .modal-title').html('{{ __('admin/employees.modify-employee') }}');
       $('#employee-modal .trigger-submit').html('{{ __('admin/employees.modify') }}');
 
       $.ajax({
+        method: 'POST',                       // route POST, nem GET
         url: "{{ route('admin.employee.get') }}",
-        data: { id: uid },
+        data: {
+          id: uid,
+          _token: "{{ csrf_token() }}"
+        }
       })
       .done(function(response){
         $('#employee-modal .name').val(response.name);
-        $('#employee-modal .email').val(response.email);
-        $('#employee-modal .email').prop('readonly', true);
+        $('#employee-modal .email').val(response.email).prop('readonly', true);
         $('#employee-modal .type').val(response.type);
         $('#employee-modal .auto-level-up').prop('checked', response.has_auto_level_up == 1);
 
+        // Üzleti tiltások (részlegvezető / részlegtag)
+        applyTypeLocksFromResponse(response);
+
         swal_loader.close();
         $('#employee-modal').modal();
+      })
+      .fail(function(){
+        swal_loader.close();
+        Swal.fire('Hiba', 'Nem sikerült betölteni a dolgozó adatait.', 'error');
       });
     }
   }
 
+  // -- Mentés gomb ------------------------------------------------------------
+
   $(document).ready(function(){
     $('.trigger-submit').click(function(){
-      uid = $('#employee-modal').attr('data-id');
+      const uid = $('#employee-modal').attr('data-id');
+
       swal_confirm.fire({
-        title: uid ? '{{ __('admin/employees.new-employee-confirm') }}' : '{{ __('admin/employees.modify-employee-confirm') }}'
+        title: uid && parseInt(uid) > 0
+          ? '{{ __('admin/employees.modify-employee-confirm') }}'
+          : '{{ __('admin/employees.new-employee-confirm') }}'
       }).then((result) => {
         if (result.isConfirmed) {
           swal_loader.fire();
+
           $.ajax({
+            method: 'POST',
             url: "{{ route('admin.employee.save') }}",
             data: {
               id: uid,
-              name:  $('.name').val(),
-              email:  $('.email').val(),
-              type:  $('.type').val(),
-              autoLevelUp:  $('.auto-level-up').is(':checked') ? 1 : 0,
-            },
-            successMessage: uid ? "{{ __('admin/employees.new-employee-success') }}" : '{{ __('admin/employees.modify-employee-success') }}',
+              name:  $('#employee-modal .name').val(),
+              email: $('#employee-modal .email').val(),
+              type:  $('#employee-modal .type').val(),
+              autoLevelUp:  $('#employee-modal .auto-level-up').is(':checked') ? 1 : 0,
+              _token: "{{ csrf_token() }}"
+            }
+          })
+          .done(function(){
+            swal_loader.close();
+            const msg = (uid && parseInt(uid) > 0)
+              ? "{{ __('admin/employees.modify-employee-success') }}"
+              : "{{ __('admin/employees.new-employee-success') }}";
+            Swal.fire('OK', msg, 'success').then(() => window.location.reload());
+          })
+          .fail(function(xhr){
+            swal_loader.close();
+            let msg = 'Szerverhiba történt.';
+            if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
+            Swal.fire('Hiba', msg, 'error');
           });
         }
       });
     });
   });
 </script>
+

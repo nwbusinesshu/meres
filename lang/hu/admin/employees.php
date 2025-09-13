@@ -69,4 +69,6 @@ return [
   "change-bonusmalus-success" => "A besorolás sikeresen módosításra került!",
 
   "bonusmalus-now" => "Jelenlegi besorolás",
+
+  "password-reset" => "Jelszó visszaállítás",
 ];

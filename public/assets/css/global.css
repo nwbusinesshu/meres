@@ -97,7 +97,9 @@ td{
 }
 
 .modal-open {
-  overflow: scroll!important;
+  overflow-y: scroll!important;
+  overflow-x: hidden!important;
+  padding-right:0px!important;
 }
 .swal2-title{
 	color: var(--mirage);

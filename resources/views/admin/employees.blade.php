@@ -40,9 +40,9 @@
         @foreach($departments as $d)
             <div class="userlist dept-block" data-dept-id="{{ $d->id }}">
                 {{-- Fejléc --}}
-                <div class="dept-header dept-header--dept js-dept-toggle" data-dept-id="{{ $d->id }}">
-                    <div class="left">
-                        <i class="fa fa-chevron-right caret"></i>
+                <div class="dept-header dept-header--dept " data-dept-id="{{ $d->id }}">
+                    <div class="left js-dept-toggle">
+                        <i class="fa fa-chevron-down caret "></i>
                         <span class="dept-title">{{ $d->department_name }}</span>
                         <span class="badge count">{{ $d->members->count() }}</span>
                     </div>
