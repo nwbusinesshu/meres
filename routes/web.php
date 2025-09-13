@@ -89,6 +89,7 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         Route::post('/department/members', 'getDepartmentMembers')->name('department.members');          // lista (prefill)
         Route::post('/department/eligible', 'getEligibleForDepartment')->name('department.eligible');    // választhatók a select-modalhoz
         Route::post('/department/members/save', 'saveDepartmentMembers')->name('department.members.save'); // mentés (set)
+        Route::post('/department/delete', 'deleteDepartment')->name('department.delete');
 
 
 

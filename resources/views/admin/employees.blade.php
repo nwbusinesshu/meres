@@ -62,8 +62,9 @@
                         'name'            => $d->manager_name ?? '— nincs kijelölt manager —',
                         'email'           => $d->manager_email ?? null,
                         'type'            => 'manager',
-                        'login_mode_text' => $d->manager_login_mode_text ?? null, // <-- ÚJ
-                        'bonusMalus'      => $d->manager_bonusMalus ?? null,      // <-- ÚJ
+                        'login_mode_text' => $d->manager_login_mode_text ?? null,
+                        'bonusMalus'      => $d->manager_bonusMalus ?? null,
+                        'rater_count'     => $d->manager_rater_count ?? 0, // Add manager rater count
                       ];
                     @endphp
                     @include('admin.partials.user-row', [
@@ -88,29 +89,65 @@
         <table class="table table-hover">
             <thead>
                 <th>{{ __('global.name') }}</th>
-                <th>{{ __('global.email') }}</th>
+                <th>Értékelők</th>
                 <th>{{ __('global.type') }}</th>
-                <th>{{ __('global.bonusmalus') }}</th>
+                
+                <th>@if(!empty($showBonusMalus)){{ __('global.bonusmalus') }}@endif</th>
+                
                 <th>{{ $_('operations') }}</th>
             </thead>
             <tbody>
                 @foreach ($users as $user)
+                @php
+                    $raterCount = $user->rater_count ?? 0;
+                    $raterClass = 'rater-sufficient';
+                    if ($raterCount < 3) {
+                        $raterClass = 'rater-insufficient';
+                    } elseif ($raterCount < 7) {
+                        $raterClass = 'rater-okay';
+                    }
+                @endphp
                 <tr data-id="{{ $user->id }}">
                     <td data-col="{{ __('global.name') }}">
-                        <div>{{ $user->name }}</div>
-                        <div class="text-muted small">
-                            Belépési mód:
-                            <span class="login-mode">{{ $user->login_mode_text }}</span>
+                        <div class="user-name">{{ $user->name }}</div>
+                        <div class="text-muted small user-details">
+                            <div>
+                                Belépési mód:
+                                <span class="login-mode">{{ $user->login_mode_text ?? '—' }}</span>
+                            </div>
+                            <div class="user-email">
+                                {{ $user->email }}
+                            </div>
                         </div>
                     </td>
-                    <td data-col="{{ __('global.email') }}">{{ $user->email }}</td>
-                    <td data-col="{{ __('global.type') }}">{{ $user->getNameOfType() }}</td>
-                    <td data-col="{{ __('global.bonusmalus') }}">{{ __("global.bonus-malus.$user->bonusMalus") }}</td>
+                    <td data-col="Értékelők">
+                        <div class="rater-counter {{ $raterClass }}">
+                            <div class="rater-number">{{ $raterCount }}
+                            <span class="rater-label">értékelő</span></div>
+                            <div class="rater-bar">
+                                <div class="rater-progress" style="width: {{ min(100, ($raterCount / 10) * 100) }}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td data-col="{{ __('global.type') }}">{{ __('usertypes.' . $user->type) }}</td>
+                    
+                    <td data-col="{{ __('global.bonusmalus') }}">
+                        @if(!empty($showBonusMalus))
+                        @if(!empty($user->bonusMalus))
+                            {{ __("global.bonus-malus.$user->bonusMalus") }}
+                        @else
+                            —
+                        @endif
+                        @endif
+                    </td>
+                    
                     <td data-col="{{ $_('operations') }}">
                         <div class="d-flex gap-1" style="gap:.25rem;">
+                            @if(!empty($showBonusMalus))
                             <button class="btn btn-outline-info bonusmalus" data-tippy-content="{{ $_('bonusmalus') }}">
                                 <i class="fa fa-layer-group"></i>
                             </button>
+                            @endif
                             <button class="btn btn-outline-success competencies" data-tippy-content="{{ $_('competencies') }}">
                                 <i class="fa fa-medal"></i>
                             </button>
@@ -131,7 +168,7 @@
                 </tr>
                 @endforeach
                 <tr class="no-employee @if($users->count() != 0) hidden @endif">
-                    <td colspan="5">{{ __('global.no-employee') }}</td>
+                    <td colspan="{{ !empty($showBonusMalus) ? '5' : '4' }}">{{ __('global.no-employee') }}</td>
                 </tr>
             </tbody>
         </table>

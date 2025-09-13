@@ -17,6 +17,10 @@ $(function(){
     return !!document.querySelector('.tile.userlist table tbody');
   }
 
+  // Make functions globally accessible for other event handlers
+  window.getUserIdFromAny = getUserIdFromAny;
+  window.getDeptIdFromAny = getDeptIdFromAny;
+
   // ---------- ÚJ DOLGOZÓ ----------
   $(document).on('click', '.trigger-new', function(){
     if (typeof openEmployeeModal === 'function') openEmployeeModal();
@@ -273,6 +277,72 @@ $(function(){
     });
   });
 
+  // ---------- RÉSZLEG: DELETE ----------
+  $(document).on('click', '.dept-remove', function(){
+    const deptId = getDeptIdFromAny(this);
+    if (!deptId) return console.warn('Nincs department ID.');
+
+    const $deptBlock = $(this).closest('.dept-block');
+    const deptName = $deptBlock.find('.dept-title').text();
+    const memberCount = $deptBlock.find('.badge.count').text() || '0';
+    const hasManager = $deptBlock.find('.user-row--manager').length > 0;
+
+    // Check if department has members or manager
+    const hasUsers = parseInt(memberCount) > 0 || hasManager;
+
+    let confirmText = `Biztosan törlöd a "${deptName}" részleget?`;
+    if (hasUsers) {
+      confirmText += `\n\nA részleg nem üres (${memberCount} tag${hasManager ? ' + vezető' : ''}). ` +
+                     'Törlés előtt minden felhasználó eltávolításra kerül a részlegből, de megmaradnak a rendszerben.';
+    }
+
+    Swal.fire({
+      icon: 'warning',
+      title: 'Részleg törlése',
+      text: confirmText,
+      showCancelButton: true,
+      confirmButtonText: 'Igen, törölje',
+      cancelButtonText: 'Mégse',
+      confirmButtonColor: '#d33'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        swal_loader.fire();
+        
+        fetch("{{ route('admin.employee.department.delete') }}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+          },
+          body: JSON.stringify({ id: deptId })
+        })
+        .then(async r => {
+          if (!r.ok) {
+            const j = await r.json().catch(()=>({}));
+            throw new Error(j?.message || ('HTTP ' + r.status));
+          }
+          return r.json();
+        })
+        .then(() => {
+          Swal.fire({ 
+            icon:'success', 
+            title:'Sikeres törlés', 
+            text: `A "${deptName}" részleg törölve lett.` 
+          }).then(() => window.location.reload());
+        })
+        .catch(err => {
+          swal_loader.close();
+          Swal.fire({
+            icon: 'error',
+            title: 'Hiba történt',
+            text: String(err.message || err)
+          });
+        });
+      }
+    });
+  });
+
   // ---------- RÉSZLEG: TAGOK KEZELÉSE (MODAL) ----------
   function addMemberItem(uid, name, email){
     const mail = email ? ' <span class="text-muted small">(' + email + ')</span>' : '';
@@ -283,6 +353,7 @@ $(function(){
       '</div>'
     );
   }
+
   function initDeptMembersModal(deptId){
     $('#dept-members-modal').attr('data-id', deptId);
     swal_loader.fire();
@@ -305,11 +376,13 @@ $(function(){
       Swal.fire({ icon:'error', title:'Hiba', text:'Nem sikerült betölteni a tagokat.' });
     });
   }
+
   $(document).on('click', '.dept-members', function(){
     const deptId = getDeptIdFromAny(this);
     if (!deptId) return console.warn('Nincs department ID.');
     initDeptMembersModal(deptId);
   });
+
   $(document).on('click', '.trigger-add-member', function(){
     const deptId = $('#dept-members-modal').attr('data-id');
     var except = [];
@@ -335,9 +408,93 @@ $(function(){
       emptyMessage: 'Nincs választható dolgozó'
     });
   });
+
+  // NEW: Empty department button (works immediately)
+  $(document).on('click', '.trigger-empty-department', function(){
+    const deptId = $('#dept-members-modal').attr('data-id');
+    const memberCount = $('#dept-members-modal .dept-member-item').length;
+    
+    if (memberCount === 0) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Nincs mit eltávolítani',
+        text: 'A részlegben jelenleg nincsenek tagok.'
+      });
+      return;
+    }
+
+    Swal.fire({
+      icon: 'warning',
+      title: 'Biztos vagy benne?',
+      text: `Minden tag (${memberCount} fő) azonnal eltávolításra kerül a részlegből. A felhasználók megmaradnak a rendszerben, csak nem lesznek részleg tagjai.`,
+      showCancelButton: true,
+      confirmButtonText: 'Igen, mindenkit eltávolít most',
+      cancelButtonText: 'Mégse',
+      confirmButtonColor: '#d33'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        swal_loader.fire();
+        
+        // Call server immediately with empty array
+        $.ajax({
+          url: "{{ route('admin.employee.department.members.save') }}",
+          method: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({ 
+            department_id: deptId, 
+            user_ids: [] // Empty array to remove everyone
+          }),
+          success: function(response) {
+            swal_loader.close();
+            
+            // Close modal
+            $('#dept-members-modal').modal('hide');
+            
+            // Set toast message for after page reload
+            sessionStorage.setItem('dept_empty_success_toast', 'Minden tag eltávolításra került a részlegből.');
+            
+            // Reload page
+            setTimeout(() => window.location.reload(), 300); // Small delay to let modal close
+          },
+          error: function(xhr) {
+            swal_loader.close();
+            const errorMsg = xhr.responseJSON?.message || 'Hiba történt az eltávolítás során.';
+            Swal.fire({
+              icon: 'error',
+              title: 'Hiba',
+              text: errorMsg
+            });
+          }
+        });
+      }
+    });
+  });
+
+  // Show toast after page reload (for department empty success)
+  (function showDeptEmptyToast(){
+    const message = sessionStorage.getItem('dept_empty_success_toast');
+    if (message) {
+      sessionStorage.removeItem('dept_empty_success_toast');
+      
+      // Use Swal toast if available, otherwise simple alert
+      if (window.Swal && typeof Swal.fire === 'function') {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: message,
+          timer: 3000,
+          showConfirmButton: false,
+          timerProgressBar: true
+        });
+      }
+    }
+  })();
+
   $(document).on('click', '#dept-members-modal .dept-member-item i', function(){
     $(this).closest('.dept-member-item').remove();
   });
+
   $(document).on('click', '.save-dept-members', function(){
     const deptId = $('#dept-members-modal').attr('data-id');
     var ids = [];

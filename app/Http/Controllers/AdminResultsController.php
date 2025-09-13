@@ -28,6 +28,8 @@ class AdminResultsController extends Controller
             ]);
         }
 
+        $showBonusMalus = \App\Services\OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
+
         // Előző/következő lezárt mérés
         $prevAssessment = Assessment::where('organization_id', $orgId)
             ->whereNotNull('closed_at')
@@ -113,6 +115,7 @@ if (strtolower((string)($assessment->threshold_method ?? '')) === 'suggested') {
     'nextAssessment' => $nextAssessment,
     'summaryHu'      => $summaryHu,
     'summaryDbg'     => $summaryDbg,
+    'showBonusMalus' => $showBonusMalus,
 ]);
     }
 }

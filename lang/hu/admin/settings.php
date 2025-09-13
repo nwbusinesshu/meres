@@ -15,8 +15,8 @@ return [
 
         // AI telemetria
         'ai' => [
-            'title' => 'NWB AI intelligencia',
-            'meta_html' => 'A kitöltéseket AI alapú telemetria szolgáltatással mérjük a háttérben, viselkedési minták alapján súlyozzuk a kitöltéseket és igyekszünk kiszűrni a csalásokat. A felhasználók személyes adatait a modell nem dolgozza fel, kizárólag anonim viselkedési és tartalmi minták alapján határozza meg a kitöltés megbízhatóságát. A funkció hosszútávon javítja a mérési eredményeket és megtanulja az egyes alkalmazottak viselkedését.',
+            'title' => 'NWB THEMIS AI Engine',
+            'meta_html' => 'NWB Fejlett intelligencia - viselkedési minták alapján súlyozzuk a kitöltéseket és igyekszünk kiszűrni a csalásokat. A felhasználók személyes adatait a modell nem dolgozza fel, kizárólag anonim viselkedési és tartalmi minták alapján határozza meg a kitöltés megbízhatóságát. A funkció hosszútávon javítja a mérési eredményeket és megtanulja az egyes alkalmazottak viselkedését.',
         ],
 
         // Scoring rész alcím
@@ -30,7 +30,7 @@ return [
         'fixed'     => 'Fixpontos',
         'hybrid'    => 'Hybrid',
         'dynamic'   => 'Dynamic',
-        'suggested' => 'Dynamic+AI',
+        'suggested' => 'Fejlett intelligencia',
     ],
 ],
 
@@ -97,8 +97,8 @@ return [
 
 // SUGGESTED panel
 'suggested' => [
-    'title' => 'Dynamic+AI',
-    'meta'  => 'Az értékelési időszak zárásakor az AI egyedi, a munkavállalói csapatra szabott ponthatárokat állapít meg.',
+    'title' => 'Fejlett intelligencia',
+    'meta'  => 'Az értékelési időszak zárásakor a THEMIS AI Engine egyedi, a munkavállalói csapatra szabott ponthatárokat állapít meg.',
     'description_html' => 'Az AI korábbi időszakok, aktuális eredmények és megbízhatósági minták alapján ajánl határokat. Gyors döntést támogat, vezetői kontrollal.',
     'pros' => [
         'Adatvezérelt és dinamikus – időt spórol.',

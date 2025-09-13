@@ -63,10 +63,11 @@
   <div class="tile tile-info">
     <p>{{ $_('last-period') }}<br>{{ formatDateTime($assessment->closed_at) }}</p>
     <div>
+      @if(!empty($showBonusMalus))
       <div class="bonusmalus">
         <span>{{ __('global.bonusmalus') }}</span>
         <span>{{ __("global.bonus-malus.$user->bonusMalus") }}</span>
-      </div>
+      </div> @endif
 
       <div class="result">
         <div class="pie"

@@ -86,7 +86,7 @@
           <div>
             <div class="name">
               <span>{{ $user->name }}</span>
-              <span>{{ __("global.bonus-malus.$user->bonusMalus") }}</span>
+              <span>@if(!empty($showBonusMalus)){{ __("global.bonus-malus.$user->bonusMalus") }}@endif</span>
             </div>
 
             @if (is_null($user->stats))

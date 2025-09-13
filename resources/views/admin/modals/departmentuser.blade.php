@@ -1,5 +1,5 @@
 @if(!empty($enableMultiLevel) && $enableMultiLevel)
-<div class="modal fade" tabindex="-1" role="dialog" id="dept-members-modal">
+<div class="modal fade modal-drawer" tabindex="-1" role="dialog" id="dept-members-modal">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
 
@@ -14,13 +14,18 @@
 
         <div class="dept-members-list"><!-- ide töltjük a tagokat --></div>
 
-        <div class="tile tile-button trigger-add-member" style="margin-top:.5rem;">
-          Új tag hozzáadása
+        <div class="d-flex" style="gap: 0.5rem; margin-top: 0.5rem;">
+          <div class="tile tile-button trigger-add-member" style="flex: 1;">
+            Új tag hozzáadása
+          </div>
         </div>
 
         <button class="btn btn-primary save-dept-members" style="margin-top:.5rem;">
           Mentés
         </button>
+        <button class="btn btn-danger trigger-empty-department" style="flex: 1;">
+            <i class="fa fa-users-slash"></i> Mindenki eltávolítása
+          </button>
 
       </div>
 
@@ -65,8 +70,8 @@
 
   // gomb a táblában
   $(document).on('click', '.dept-members', function(){
-    const deptId = $(this).closest('tr').data('id');
-    if (!deptId) return;
+    const deptId = getDeptIdFromAny(this);
+    if (!deptId) return console.warn('Nincs department ID.');
     initDeptMembersModal(deptId);
   });
 
@@ -106,6 +111,41 @@
     });
   });
 
+  // NEW: Remove all members button
+  $(document).on('click', '.trigger-remove-all-members', function(){
+    const memberCount = $('#dept-members-modal .dept-member-item').length;
+    
+    if (memberCount === 0) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Nincs mit eltávolítani',
+        text: 'A részlegben jelenleg nincsenek tagok.'
+      });
+      return;
+    }
+
+    Swal.fire({
+      icon: 'warning',
+      title: 'Biztos vagy benne?',
+      text: `Minden tag (${memberCount} fő) eltávolításra kerül a részlegből. A felhasználók megmaradnak, csak nem lesznek részleg tagjai.`,
+      showCancelButton: true,
+      confirmButtonText: 'Igen, mindenkit eltávolít',
+      cancelButtonText: 'Mégse',
+      confirmButtonColor: '#d33'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        $('.dept-members-list').html('');
+        Swal.fire({
+          icon: 'success',
+          title: 'Tagok eltávolítva',
+          text: 'Minden tag eltávolításra került. Ne felejts el menteni!',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      }
+    });
+  });
+
   // eltávolítás a listából (csak UI, mentéskor érvényesül)
   $(document).on('click', '#dept-members-modal .dept-member-item i', function(){
     $(this).closest('.dept-member-item').remove();
@@ -137,6 +177,74 @@
   });
 
 })();
+
+// NEW: Department Delete Functionality
+$(document).ready(function(){
+  $(document).on('click', '.dept-remove', function(){
+    const deptId = getDeptIdFromAny(this);
+    if (!deptId) return console.warn('Nincs department ID.');
+
+    const $deptBlock = $(this).closest('.dept-block');
+    const deptName = $deptBlock.find('.dept-title').text();
+    const memberCount = $deptBlock.find('.badge.count').text() || '0';
+    const hasManager = $deptBlock.find('.user-row--manager').length > 0;
+
+    // Check if department has members or manager
+    const hasUsers = parseInt(memberCount) > 0 || hasManager;
+
+    let confirmText = `Biztosan törlöd a "${deptName}" részleget?`;
+    if (hasUsers) {
+      confirmText += `\n\nA részleg nem üres (${memberCount} tag${hasManager ? ' + vezető' : ''}). ` +
+                     'Törlés előtt minden felhasználó eltávolításra kerül a részlegből, de megmaradnak a rendszerben.';
+    }
+
+    Swal.fire({
+      icon: 'warning',
+      title: 'Részleg törlése',
+      text: confirmText,
+      showCancelButton: true,
+      confirmButtonText: 'Igen, törölje',
+      cancelButtonText: 'Mégse',
+      confirmButtonColor: '#d33'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        swal_loader.fire();
+        
+        fetch("{{ route('admin.employee.department.delete') }}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+          },
+          body: JSON.stringify({ id: deptId })
+        })
+        .then(async r => {
+          if (!r.ok) {
+            const j = await r.json().catch(()=>({}));
+            throw new Error(j?.message || ('HTTP ' + r.status));
+          }
+          return r.json();
+        })
+        .then(() => {
+          Swal.fire({ 
+            icon:'success', 
+            title:'Sikeres törlés', 
+            text: `A "${deptName}" részleg törölve lett.` 
+          }).then(() => window.location.reload());
+        })
+        .catch(err => {
+          swal_loader.close();
+          Swal.fire({
+            icon: 'error',
+            title: 'Hiba történt',
+            text: String(err.message || err)
+          });
+        });
+      }
+    });
+  });
+});
 </script>
 
 @endif

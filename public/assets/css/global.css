@@ -555,3 +555,48 @@ button.swal2-styled{
 .floating-help-btn:hover .help-label {
   opacity: 1 !important;
 }
+
+/*modal teszt*/
+/* Jobbról becsúszó, teljes magasságú "drawer" modal variáns */
+.modal.modal-drawer {
+  /* a Bootstrap teszi rá a backdropot, ezt nem bántjuk */
+}
+
+/* A dialog legyen fixen a jobb oldalon, teljes magasságban */
+.modal.modal-drawer .modal-dialog {
+  position: fixed;
+  top: 0;
+  right: 0;
+  margin: 0;                 /* nincs középre igazítás */
+  height: 100vh;
+  max-height: 100vh;
+  width: min(520px, 100vw);  /* szélesség, ízlés szerint */
+  transform: translateX(100%);          /* kezdetben kint jobbra */
+  transition: transform .2s ease-out;   /* sima becsúszás */
+}
+
+/* A tartalom görgethető, éleknél ne legyen lekerekítés (edge-to-edge) */
+.modal.modal-drawer .modal-content {
+  height: 100%;
+  border-radius: 0;
+  overflow: auto;
+  box-shadow: -6px 0 16px rgba(0,0,0,.08);
+}
+
+/* Felülírjuk a Bootstrap saját "fade felülről" animját erre a variánsra */
+.modal.modal-drawer.fade .modal-dialog {
+  transform: translateX(100%);          /* induló állapot */
+}
+.modal.modal-drawer.show .modal-dialog {
+  transform: translateX(0);             /* látható állapot */
+}
+
+/* Opcionális: kicsit sötétebb backdrop */
+.modal-backdrop.show { opacity: .75; }
+
+/* Mobilon mehet teljes szélességre */
+@media (max-width: 576px) {
+  .modal.modal-drawer .modal-dialog {
+    width: 100vw;
+  }
+}

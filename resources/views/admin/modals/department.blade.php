@@ -1,5 +1,5 @@
 @if(!empty($enableMultiLevel) && $enableMultiLevel)
-<div class="modal fade" tabindex="-1" role="dialog" id="department-modal">
+<div class="modal fade modal-drawer" tabindex="-1" role="dialog" id="department-modal">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
 

@@ -15,6 +15,7 @@ class AdminSettingsController extends Controller
 
         $strictAnon = OrgConfigService::getBool($orgId, OrgConfigService::STRICT_ANON_KEY, false);
         $aiTelemetry = OrgConfigService::getBool($orgId, OrgConfigService::AI_TELEMETRY_KEY, true);
+        $showBonusMalus = OrgConfigService::getBool($orgId, 'show_bonus_malus', true); // NEW: Default to true
 
         // kizárólagosság biztosítása (ha strict anon ON, akkor AI OFF)
         if ($strictAnon && $aiTelemetry) {
@@ -23,14 +24,12 @@ class AdminSettingsController extends Controller
         }
 
         // === ÚJ: ponthatár-mód és kapcsolódó értékek betöltése ===
-        // Ha nincs külön helper, OrgConfigService::get() használható; ha nincs, írhatsz rá egyet.
-        $thresholdMode       = OrgConfigService::get($orgId, 'threshold_mode', 'fixed'); // fixed | hybrid | dynamic | suggested
-        $thresholdMinAbsUp   = (int) OrgConfigService::get($orgId, 'threshold_min_abs_up', 80); // HYBRID: alsó fix
-        $thresholdTopPct     = (int) OrgConfigService::get($orgId, 'threshold_top_pct', 15);    // HYBRID/DYNAMIC: felső X%
-        $thresholdBottomPct  = (int) OrgConfigService::get($orgId, 'threshold_bottom_pct', 20); // DYNAMIC: alsó Y%
+        $thresholdMode       = OrgConfigService::get($orgId, 'threshold_mode', 'fixed');
+        $thresholdMinAbsUp   = (int) OrgConfigService::get($orgId, 'threshold_min_abs_up', 80);
+        $thresholdTopPct     = (int) OrgConfigService::get($orgId, 'threshold_top_pct', 15);
+        $thresholdBottomPct  = (int) OrgConfigService::get($orgId, 'threshold_bottom_pct', 20);
         $normalLevelUp   = (int) OrgConfigService::get($orgId, 'normal_level_up', 85);
         $normalLevelDown = (int) OrgConfigService::get($orgId, 'normal_level_down', 70);
-         // ÚJ – HYBRID finomhangolás
         $thresholdGrace      = (int) OrgConfigService::get($orgId, 'threshold_grace_points', 5);
         $thresholdGapMin     = (int) OrgConfigService::get($orgId, 'threshold_gap_min', 2);
 
@@ -44,90 +43,92 @@ class AdminSettingsController extends Controller
         $multi = \DB::table('organization_config')
             ->where('organization_id', $orgId)
             ->where('name', 'enable_multi_level')
-            ->value('value'); // '0' | '1' | null
+            ->value('value');
 
         $enableMultiLevel = $multi === '1';
 
-
-
         $hasClosed = DB::table('assessment')
-    ->where('organization_id', $orgId)
-    ->whereNotNull('closed_at')   // vagy a te státusz/flag meződ, ami a lezárást jelzi
-    ->exists();
+            ->where('organization_id', $orgId)
+            ->whereNotNull('closed_at')
+            ->exists();
 
         return view('admin.settings', [
-        'strictAnon'            => $strictAnon,
-        'aiTelemetry'           => $aiTelemetry,
+            'strictAnon'            => $strictAnon,
+            'aiTelemetry'           => $aiTelemetry,
+            'showBonusMalus'        => $showBonusMalus, // NEW: Pass to view
 
-        'threshold_mode'        => $thresholdMode,
-        'threshold_min_abs_up'  => $thresholdMinAbsUp,
-        'threshold_top_pct'     => $thresholdTopPct,
-        'threshold_bottom_pct'  => $thresholdBottomPct,
-        'normal_level_up'       => $normalLevelUp,
-        'normal_level_down'     => $normalLevelDown,
+            'threshold_mode'        => $thresholdMode,
+            'threshold_min_abs_up'  => $thresholdMinAbsUp,
+            'threshold_top_pct'     => $thresholdTopPct,
+            'threshold_bottom_pct'  => $thresholdBottomPct,
+            'normal_level_up'       => $normalLevelUp,
+            'normal_level_down'     => $normalLevelDown,
 
-        // ÚJ – HYBRID
-        'threshold_grace_points'=> $thresholdGrace,
-        'threshold_gap_min'     => $thresholdGapMin,
+            // ÚJ – HYBRID
+            'threshold_grace_points'=> $thresholdGrace,
+            'threshold_gap_min'     => $thresholdGapMin,
 
-        // ÚJ – SUGGESTED (UI %-ban mutatjuk)
-        'target_promo_rate_max_pct'    => (int) round($promoRateMax * 100),
-        'target_demotion_rate_max_pct' => (int) round($demoRateMax  * 100),
-        'never_below_abs_min_for_promo'=> $absMinPromo,
-        'use_telemetry_trust'          => $useTrust,
-        'no_forced_demotion_if_high_cohesion' => $noForcedDemo,
+            // ÚJ – SUGGESTED (UI %-ban mutatjuk)
+            'target_promo_rate_max_pct'    => (int) round($promoRateMax * 100),
+            'target_demotion_rate_max_pct' => (int) round($demoRateMax  * 100),
+            'never_below_abs_min_for_promo'=> $absMinPromo,
+            'use_telemetry_trust'          => $useTrust,
+            'no_forced_demotion_if_high_cohesion' => $noForcedDemo,
 
-        'hasClosedAssessment'   => $hasClosed,
-        'enableMultiLevel' => $enableMultiLevel,
+            'hasClosedAssessment'   => $hasClosed,
+            'enableMultiLevel'      => $enableMultiLevel,
         ]);
     }
 
     public function toggle(Request $request)
-{
-    $request->validate([
-        'key'   => 'required|in:strict_anonymous_mode,ai_telemetry_enabled,enable_multi_level',
-        'value' => 'required|boolean',
-    ]);
+    {
+        $request->validate([
+            'key'   => 'required|in:strict_anonymous_mode,ai_telemetry_enabled,enable_multi_level,show_bonus_malus', // NEW: Add show_bonus_malus
+            'value' => 'required|boolean',
+        ]);
 
-    $orgId = (int) session('org_id');
-    $key   = (string) $request->input('key');
-    $val   = (bool) $request->boolean('value');
+        $orgId = (int) session('org_id');
+        $key   = (string) $request->input('key');
+        $val   = (bool) $request->boolean('value');
 
-    if ($key === 'enable_multi_level') {
-        // Egyirányú: ha már ON, nem kapcsoljuk vissza.
-        $current = \App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false);
-
-        if ($current) {
-            // már be van kapcsolva → nem állítjuk vissza OFF-ra
-            return response()->json(['ok' => true, 'already_on' => true]);
+        // NEW: Handle bonus/malus toggle
+        if ($key === 'show_bonus_malus') {
+            OrgConfigService::setBool($orgId, 'show_bonus_malus', $val);
+            return response()->json(['ok' => true]);
         }
 
-        if ($val === true) {
-            \App\Services\OrgConfigService::setBool($orgId, 'enable_multi_level', true);
-            return response()->json(['ok' => true, 'enabled' => true]);
-        } else {
-            // OFF kérésre semmit nem csinálunk (egyirányú)
-            return response()->json(['ok' => true, 'noop' => true]);
+        if ($key === 'enable_multi_level') {
+            $current = \App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false);
+
+            if ($current) {
+                return response()->json(['ok' => true, 'already_on' => true]);
+            }
+
+            if ($val === true) {
+                \App\Services\OrgConfigService::setBool($orgId, 'enable_multi_level', true);
+                return response()->json(['ok' => true, 'enabled' => true]);
+            } else {
+                return response()->json(['ok' => true, 'noop' => true]);
+            }
         }
+
+        // --- EDDIGI KÉT KAPCSOLÓ VÁLTOZATLANUL ---
+        if ($key === \App\Services\OrgConfigService::STRICT_ANON_KEY) {
+            $strict = $val === true;
+            \App\Services\OrgConfigService::setBool($orgId, $key, $strict);
+            if ($strict) {
+                \App\Services\OrgConfigService::setBool($orgId, \App\Services\OrgConfigService::AI_TELEMETRY_KEY, false);
+            }
+        } else { // AI_TELEMETRY_KEY
+            $strictAnon = \App\Services\OrgConfigService::getBool($orgId, \App\Services\OrgConfigService::STRICT_ANON_KEY, false);
+            if ($strictAnon && $val === true) {
+                $val = false;
+            }
+            \App\Services\OrgConfigService::setBool($orgId, $key, $val);
+        }
+
+        return response()->json(['ok' => true]);
     }
-
-    // --- EDDIGI KÉT KAPCSOLÓ VÁLTOZATLANUL ---
-    if ($key === \App\Services\OrgConfigService::STRICT_ANON_KEY) {
-        $strict = $val === true;
-        \App\Services\OrgConfigService::setBool($orgId, $key, $strict);
-        if ($strict) {
-            \App\Services\OrgConfigService::setBool($orgId, \App\Services\OrgConfigService::AI_TELEMETRY_KEY, false);
-        }
-    } else { // AI_TELEMETRY_KEY
-        $strictAnon = \App\Services\OrgConfigService::getBool($orgId, \App\Services\OrgConfigService::STRICT_ANON_KEY, false);
-        if ($strictAnon && $val === true) {
-            $val = false;
-        }
-        \App\Services\OrgConfigService::setBool($orgId, $key, $val);
-    }
-
-    return response()->json(['ok' => true]);
-}
 
     // === ÚJ: ponthatár-mód és értékek mentése ===
     public function saveThresholds(Request $request)

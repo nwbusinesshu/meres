@@ -68,6 +68,8 @@ class ResultsController extends Controller
             ->orderBy('closed_at')
             ->first();
 
+        $showBonusMalus = \App\Services\OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
+
         // Aktuális user stat
         $user['stats'] = UserService::calculateUserPoints($assessment, $user);
 
@@ -167,8 +169,9 @@ class ResultsController extends Controller
         ];
 
         return view('results', compact(
-            'assessment','user','prevAssessment','nextAssessment',
-            'history','currentIdx','minVal','maxVal'
+    'assessment','user','prevAssessment','nextAssessment',
+    'history','currentIdx','minVal','maxVal','showBonusMalus'
         ));
+
     }
 }

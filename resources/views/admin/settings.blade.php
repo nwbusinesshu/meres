@@ -30,10 +30,11 @@
       <span class="slider"></span>
     </label>
   </div>
+
   {{-- ÚJ: Többszintű részlegkezelés kapcsoló --}}
   <div class="tile tile-info">
     <div class="text">
-      <div class="title"><h3>Többszintű részlegkezelés</h3></div>
+      <div class="title"><h3>Multi-level részlegkezelés</h3></div>
       <div class="meta">
         A részlegvezetői (manager) szint bekapcsolása után a felhasználók részleg(ek)be sorolhatók,
         és a vezetők a saját részlegük beosztottait rangsorolhatják.
@@ -49,6 +50,22 @@
     <label class="switch">
       <input type="checkbox" id="toggle-multi"
              {{ $enableMultiLevel ? 'checked disabled' : '' }}>
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  {{-- NEW: Bonus/Malus megjelenítés kapcsoló --}}
+  <div class="tile tile-info">
+    <div class="text">
+      <div class="title"><h3>Jutalmazási bónuszrendszer</h3></div>
+      <div class="meta">
+        A Bonus/Malus besorolások megjelenítésének ki- és bekapcsolása a felhasználói felületen.
+        Kikapcsolás esetén a számítások továbbra is működnek, de a kategóriák nem jelennek meg
+        az alkalmazott listában és a kapcsolódó szerkesztési lehetőségek sem lesznek elérhetők.
+      </div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="toggle-bonus-malus" {{ $showBonusMalus ? 'checked' : '' }}>
       <span class="slider"></span>
     </label>
   </div>
