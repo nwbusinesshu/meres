@@ -163,6 +163,11 @@ $(function(){
   })();
 
   // ---------- RÉSZLEG: ÚJ LÉTREHOZÁSA (CREATE MODAL) ----------
+
+  $(document).on('click', '.network', function() {
+                initNetworkModal();
+            });
+
   $(document).on('click', '.trigger-new-dept', function(){
     $('#dept-error').addClass('d-none').text('');
     $('#department-modal').attr('data-id', ''); // üres = CREATE

@@ -22,6 +22,11 @@
             <span><i class="fa fa-sitemap"></i> Új részleg</span>
         </div>
     @endif
+
+    <div class="tile tile-button network">
+        <span><i class="fa fa-project-diagram"></i> Céges kapcsolati háló</span>
+    </div>
+
 </div>
 
 @if(!empty($enableMultiLevel))
@@ -183,6 +188,7 @@
     @include('admin.modals.select')
     @include('admin.modals.user-competencies')
     @include('admin.modals.bonusmalus')
+    @include('admin.modals.network')
     @includeWhen(!empty($enableMultiLevel), 'admin.modals.department')
     @includeWhen(!empty($enableMultiLevel), 'admin.modals.departmentuser')
 @endsection

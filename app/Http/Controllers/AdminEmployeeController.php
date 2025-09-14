@@ -1139,4 +1139,142 @@ public function deleteDepartment(Request $request)
     }
 
 
+    public function getNetworkData(Request $request)
+    {
+        $orgId = (int) session('org_id');
+        
+        try {
+            // Get all users in the organization with their metadata
+            $users = DB::table('organization_user as ou')
+                ->join('user as u', 'u.id', '=', 'ou.user_id')
+                ->leftJoin('organization_departments as d', function($join) use ($orgId) {
+                    $join->on('d.manager_id', '=', 'u.id')
+                         ->where('d.organization_id', '=', $orgId)
+                         ->whereNull('d.removed_at');
+                })
+                ->where('ou.organization_id', $orgId)
+                ->whereNull('u.removed_at')
+                ->whereNotIn('u.type', ['admin']) // Exclude admins from network
+                ->select([
+                    'u.id',
+                    'u.name', 
+                    'u.email',
+                    'u.type',
+                    'ou.department_id',
+                    'd.department_name',
+                    'd.id as managed_dept_id' // If user manages a department
+                ])
+                ->get();
+
+            // Get rater counts for all users
+            $raterCounts = $this->getRaterCounts($users->pluck('id'), $orgId);
+
+            // Get all relationships
+            $relations = DB::table('user_relation as ur')
+                ->join('user as u1', 'u1.id', '=', 'ur.user_id')
+                ->join('user as u2', 'u2.id', '=', 'ur.target_id')
+                ->where('ur.organization_id', $orgId)
+                ->whereNull('u1.removed_at')
+                ->whereNull('u2.removed_at')
+                ->whereNotIn('u1.type', ['admin'])
+                ->whereNotIn('u2.type', ['admin'])
+                ->whereColumn('ur.user_id', '!=', 'ur.target_id') // Exclude self relations
+                ->select([
+                    'ur.user_id',
+                    'ur.target_id', 
+                    'ur.type'
+                ])
+                ->get();
+
+            // Get departments
+            $departments = DB::table('organization_departments')
+                ->where('organization_id', $orgId)
+                ->whereNull('removed_at')
+                ->select(['id', 'department_name', 'manager_id'])
+                ->get();
+
+            // Transform users for frontend
+            $networkNodes = $users->map(function($user) use ($raterCounts) {
+                $raterCount = $raterCounts->get($user->id, 0);
+                $raterStatus = $raterCount < 3 ? 'insufficient' : ($raterCount < 7 ? 'okay' : 'sufficient');
+                
+                return [
+                    'id' => 'user_' . $user->id,
+                    'user_id' => $user->id,
+                    'label' => $user->name,
+                    'email' => $user->email,
+                    'type' => $user->type,
+                    'department_id' => $user->department_id,
+                    'department_name' => $user->department_name,
+                    'managed_dept_id' => $user->managed_dept_id,
+                    'rater_count' => $raterCount,
+                    'rater_status' => $raterStatus,
+                    'is_manager' => !empty($user->managed_dept_id),
+                ];
+            });
+
+            // Transform relationships for frontend
+            $networkEdges = [];
+            $relationshipPairs = [];
+
+            foreach ($relations as $relation) {
+                $sourceId = 'user_' . $relation->user_id;
+                $targetId = 'user_' . $relation->target_id;
+                $pairKey = min($sourceId, $targetId) . '_' . max($sourceId, $targetId);
+                
+                if (!isset($relationshipPairs[$pairKey])) {
+                    $relationshipPairs[$pairKey] = [
+                        'source' => $sourceId,
+                        'target' => $targetId,
+                        'types' => [],
+                        'bidirectional' => false
+                    ];
+                }
+                
+                $relationshipPairs[$pairKey]['types'][] = $relation->type;
+                
+                // Check if we have the reverse relationship
+                $reverseExists = $relations->contains(function($r) use ($relation) {
+                    return $r->user_id == $relation->target_id && $r->target_id == $relation->user_id;
+                });
+                
+                if ($reverseExists) {
+                    $relationshipPairs[$pairKey]['bidirectional'] = true;
+                }
+            }
+
+            // Create edges from relationship pairs
+            $edgeId = 0;
+            foreach ($relationshipPairs as $pair) {
+                $networkEdges[] = [
+                    'id' => 'edge_' . $edgeId++,
+                    'source' => $pair['source'],
+                    'target' => $pair['target'],
+                    'bidirectional' => $pair['bidirectional'],
+                    'types' => array_unique($pair['types']),
+                    'is_subordinate' => in_array('subordinate', $pair['types']) || in_array('superior', $pair['types'])
+                ];
+            }
+
+            return response()->json([
+                'nodes' => $networkNodes->values(),
+                'edges' => $networkEdges,
+                'departments' => $departments,
+                'organization_id' => $orgId
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Network data fetch failed', [
+                'organization_id' => $orgId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to fetch network data: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
 }
