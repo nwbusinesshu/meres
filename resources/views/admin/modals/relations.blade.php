@@ -18,7 +18,7 @@
   </div>
 </div>
 <script>
-function addNewRelationItem(uid, name, type){
+function addNewRelationItem(uid, name, type = 'colleague'){
   $('.relation-list').append(''
     +'<div class="relation-item" data-id="'+uid+'">'
     +'<i class="fa fa-trash-alt" data-tippy-content="{{ __('admin/employees.remove-relation') }}"></i>'
@@ -32,6 +32,7 @@ function addNewRelationItem(uid, name, type){
     +'</div>');
   $('.relation-type').last().val(type);
 }
+
 function initRelationsModal(uid){
    $.ajaxSetup({
     headers: {
@@ -77,6 +78,8 @@ function initRelationsModal(uid){
       $('#relations-modal .relation-item').each(function(){
         exceptArray.push($(this).attr('data-id')*1);
       });
+      
+      // UPDATED: Using enhanced multi-select modal with no checkboxes
       openSelectModal({
         title: "{{ __('select.title') }}",
         parentSelector: '#relations-modal',
@@ -84,14 +87,23 @@ function initRelationsModal(uid){
         itemData: function(item){ return {
           id: item.id,
           name: item.name,
+          top: null,
+          bottom: item.email || null
         }; },
         selectFunction: function(){
-          addNewRelationItem($(this).attr('data-id'), $(this).attr('data-name'), 'colleague');
-          tippy('.relation-list [data-tippy-content]');
-          $('#select-modal').modal('hide');
+          // This function is called for each selected item
+          const selectedId = $(this).attr('data-id');
+          const selectedName = $(this).attr('data-name');
+          
+          // Check if relation already exists to prevent duplicates
+          if ($('#relations-modal .relation-item[data-id="'+selectedId+'"]').length === 0) {
+            addNewRelationItem(selectedId, selectedName);
+            tippy('.relation-list [data-tippy-content]');
+          }
         },
         exceptArray: exceptArray,
-        emptyMessage: '{{ __('select.no-user') }}'
+        multiSelect: true,  // Enable multi-select mode (no checkboxes, just color changes)
+        emptyMessage: '{{ __('admin/employees.no-employees') }}'
       });
     });
 
@@ -108,23 +120,21 @@ function initRelationsModal(uid){
 
           var relations = [];
 
-          $('.relation-item').each(function(){
+          $('.relation-item:not(.cant-remove)').each(function(){
             relations.push({
-              target: $(this).attr('data-id'),
-              type: $(this).find('select').val()
+              target_id: $(this).attr('data-id')*1,
+              type: $(this).find('.relation-type').val()
             });
           });
 
           $.ajax({
-          url: "{{ route('admin.employee.relations.save') }}",
-          method: 'POST',
-          contentType: 'application/json',
-          data: JSON.stringify({
-            id: $('#relations-modal').attr('data-id'),
-            relations: relations
-          }),
-          successMessage: "{{ __('admin/employees.save-relation-success') }}"
-        });
+            url: "{{ route('admin.employee.relations.save') }}",
+            data: {
+              id: $('#relations-modal').attr('data-id'),
+              relations: relations
+            },
+            successMessage: "{{ __('admin/employees.save-relation-success') }}",
+          });
         }
       });
     });

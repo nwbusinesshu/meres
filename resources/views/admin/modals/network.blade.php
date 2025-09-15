@@ -4,7 +4,7 @@
             <div class="modal-header">
                 <h5 class="modal-title">
                     <i class="fa fa-network-wired mr-2"></i>
-                    Company Network Visualization
+                    Cégkapcsolati háló
                 </h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
@@ -93,22 +93,54 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.21.1/cytoscape.min.js"></script>
 <script>
+// FINAL FIXED network with proper spacing and Hungarian labels
 let cy;
 let networkData = null;
+let savedPositions = new Map();
 
 function initNetworkModal() {
     $('#network-modal').modal('show');
     
     if (!cy) {
-        // Initialize Cytoscape.js
         cy = cytoscape({
             container: document.getElementById('cy-container'),
             elements: [],
             style: [
-                // Node styles
+                // Department Container Styles - PROPER SIZE
                 {
-                    selector: 'node',
+                    selector: 'node[type = "department"]',
                     style: {
+                        'shape': 'rectangle',
+                        'background-color': '#f8fafc',
+                        'background-opacity': 0.7,
+                        'border-width': 2,
+                        'border-color': '#4f46e5',
+                        'border-style': 'dashed',
+                        'label': 'data(name)',
+                        'text-valign': 'top',
+                        'text-halign': 'center',
+                        'font-size': '16px',
+                        'font-weight': '700',
+                        'color': '#4f46e5',
+                        'text-margin-y': -15,
+                        'min-width': '320px',      // Slightly wider for better spacing
+                        'min-height': '240px',     // Taller for better spacing
+                        'padding': '10px',         // More padding
+                        'compound-sizing-wrt-labels': 'exclude',
+                        'z-index': 1,
+                        'text-background-color': '#ffffff',
+                        'text-background-opacity': 0.9,
+                        'text-background-padding': '4px',
+                        'text-background-shape': 'round-rectangle'
+                    }
+                },
+                // User Node Styles - READABLE TEXT WITH HUNGARIAN LABELS
+                {
+                    selector: 'node[type != "department"]',
+                    style: {
+                        'shape': 'rectangle',
+                        'width': 150,
+                        'height': 80,
                         'background-color': function(ele) {
                             const type = ele.data('type');
                             switch(type) {
@@ -118,31 +150,46 @@ function initNetworkModal() {
                                 default: return '#6c757d';
                             }
                         },
-                        'label': 'data(name)',
-                        'width': function(ele) {
-                            const type = ele.data('type');
-                            return type === 'ceo' ? 60 : type === 'manager' ? 50 : 40;
-                        },
-                        'height': function(ele) {
-                            const type = ele.data('type');
-                            return type === 'ceo' ? 60 : type === 'manager' ? 50 : 40;
+                        'border-width': 3,
+                        'border-color': '#ffffff',
+                        'border-opacity': 1,
+                        'label': function(ele) {
+                            const name = ele.data('name') || '';
+                            const type = ele.data('type') || '';
+                            // FIXED: Use Hungarian labels from your language file
+                            const typeLabels = {
+                                'ceo': 'Ügyvezető',        // From usertypes.php
+                                'manager': 'Manager',      // From usertypes.php  
+                                'normal': 'Alkalmazott'    // From usertypes.php
+                            };
+                            return `${name}\n${typeLabels[type] || type}`;
                         },
                         'text-valign': 'center',
                         'text-halign': 'center',
-                        'color': 'white',
-                        'text-outline-width': 2,
-                        'text-outline-color': '#000',
-                        'font-size': '12px',
-                        'font-weight': 'bold'
+                        'font-size': '14px',
+                        'font-weight': '700',
+                        'color': '#ffffff',
+                        'text-shadow-color': '#000000',
+                        'text-shadow-opacity': 0.6,
+                        'text-shadow-offset-x': '1px',
+                        'text-shadow-offset-y': '1px',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '140px',
+                        'z-index': 10,
+                        'box-shadow-color': '#000000',
+                        'box-shadow-opacity': 0.3,
+                        'box-shadow-offset-x': '2px',
+                        'box-shadow-offset-y': '2px',
+                        'box-shadow-blur': '8px'
                     }
                 },
-                // Edge styles
+                // Edge Styles - PROPER HIERARCHY
                 {
                     selector: 'edge',
                     style: {
-                        'width': 3,
+                        'width': 4,
                         'line-color': function(ele) {
-                            const type = ele.data('type');
+                            const type = getStrongestRelationType(ele.data('types') || [ele.data('type')]);
                             switch(type) {
                                 case 'superior': return '#007bff';
                                 case 'subordinate': return '#fd7e14';
@@ -151,7 +198,7 @@ function initNetworkModal() {
                             }
                         },
                         'target-arrow-color': function(ele) {
-                            const type = ele.data('type');
+                            const type = getStrongestRelationType(ele.data('types') || [ele.data('type')]);
                             switch(type) {
                                 case 'superior': return '#007bff';
                                 case 'subordinate': return '#fd7e14';
@@ -160,85 +207,73 @@ function initNetworkModal() {
                             }
                         },
                         'target-arrow-shape': 'triangle',
-                        'curve-style': 'bezier'
+                        'arrow-scale': 1.8,
+                        'curve-style': 'bezier',
+                        'control-point-step-size': 50,
+                        'opacity': 0.9,
+                        'z-index': 5,
+                        'line-style': function(ele) {
+                            const type = getStrongestRelationType(ele.data('types') || [ele.data('type')]);
+                            return type === 'colleague' ? 'dashed' : 'solid';
+                        }
                     }
                 },
-                // Highlighted node
+                // Selected/Highlighted States
                 {
-                    selector: 'node.highlighted',
+                    selector: 'node[type != "department"]:selected',
                     style: {
-                        'border-width': 4,
+                        'border-width': 5,
+                        'border-color': '#4f46e5',
+                        'border-opacity': 1
+                    }
+                },
+                {
+                    selector: 'node[type != "department"].highlighted',
+                    style: {
+                        'border-width': 5,
                         'border-color': '#ff6b6b',
                         'border-opacity': 1
                     }
                 }
             ],
-            layout: {
-                name: 'cose',
-                idealEdgeLength: 100,
-                nodeOverlap: 20,
-                refresh: 20,
-                fit: true,
-                padding: 30,
-                randomize: false,
-                componentSpacing: 40,
-                nodeRepulsion: 400000,
-                edgeElasticity: 100,
-                nestingFactor: 5,
-                gravity: 80,
-                numIter: 1000,
-                initialTemp: 200,
-                coolingFactor: 0.95,
-                minTemp: 1.0
-            }
+            layout: { name: 'preset' },
+            autoungrabify: false,
+            autounselectify: false
         });
 
         // Event handlers
-        cy.on('tap', 'node', function(evt) {
+        cy.on('tap', 'node[type != "department"]', function(evt) {
             const node = evt.target;
             const nodeData = node.data();
             
-            // Highlight clicked node
-            cy.nodes().removeClass('highlighted');
+            cy.nodes('[type != "department"]').removeClass('highlighted');
             node.addClass('highlighted');
             
-            // Show node info (you can customize this)
-            const info = `
-                <strong>${nodeData.name}</strong><br>
-                Email: ${nodeData.email}<br>
-                Type: ${nodeData.type}<br>
-                Department: ${nodeData.department}
-            `;
-            
-            // Simple tooltip - you can replace with a proper tooltip library
-            console.log('Node clicked:', nodeData);
+            console.log('User Details:', {
+                name: nodeData.name,
+                email: nodeData.email,
+                type: nodeData.type,
+                department: nodeData.department,
+                raterCount: nodeData.rater_count,
+                isManager: nodeData.is_manager
+            });
+        });
+
+        cy.on('dragfree', 'node', function(evt) {
+            const node = evt.target;
+            const position = node.position();
+            savedPositions.set(node.id(), position);
         });
 
         // Control handlers
         $('#layout-select').on('change', function() {
             const layoutName = $(this).val();
-            cy.layout({
-                name: layoutName,
-                fit: true,
-                padding: 30
-            }).run();
+            applyStableLayout(layoutName);
         });
 
         $('#department-filter').on('change', function() {
             const department = $(this).val();
-            
-            if (department === '') {
-                // Show all nodes
-                cy.nodes().show();
-            } else {
-                // Hide nodes not in selected department
-                cy.nodes().hide();
-                cy.nodes().filter(function(node) {
-                    return node.data('department') === department;
-                }).show();
-            }
-            
-            cy.fit();
+            filterByDepartment(department);
         });
 
         $('#fit-network').on('click', function() {
@@ -246,6 +281,7 @@ function initNetworkModal() {
         });
 
         $('#reset-network').on('click', function() {
+            savedPositions.clear();
             loadNetworkData();
         });
     }
@@ -264,42 +300,20 @@ function loadNetworkData() {
         }
     })
     .done(function(response) {
-        networkData = response;
+        console.log('Raw response:', response);
         
-        // Update department filter options
-        const departments = [...new Set(response.elements.nodes.map(n => n.data.department))];
-        const $deptFilter = $('#department-filter');
-        $deptFilter.empty().append('<option value="">All Departments</option>');
+        const transformedData = transformToCompoundNodesFinalFix(response);
+        networkData = transformedData;
         
-        departments.forEach(dept => {
-            if (dept) {
-                $deptFilter.append(`<option value="${dept}">${dept}</option>`);
-            }
-        });
+        console.log('Transformed data:', networkData);
         
-        // Load data into Cytoscape
+        updateDepartmentFilter(response.departments);
+        
         cy.elements().remove();
-        cy.add(response.elements);
+        cy.add(transformedData.elements);
         
-        // Apply layout
-        cy.layout({
-            name: 'cose',
-            idealEdgeLength: 100,
-            nodeOverlap: 20,
-            refresh: 20,
-            fit: true,
-            padding: 30,
-            randomize: false,
-            componentSpacing: 40,
-            nodeRepulsion: 400000,
-            edgeElasticity: 100,
-            nestingFactor: 5,
-            gravity: 80,
-            numIter: 1000,
-            initialTemp: 200,
-            coolingFactor: 0.95,
-            minTemp: 1.0
-        }).run();
+        // Apply STABLE layout with proper spacing
+        applyStableInitialLayout();
         
         swal_loader.close();
     })
@@ -314,91 +328,456 @@ function loadNetworkData() {
     });
 }
 
-// Make function globally available
+function getStrongestRelationType(types) {
+    if (!types || types.length === 0) return 'colleague';
+    
+    console.log('Evaluating relationship types:', types);
+    
+    if (types.includes('superior')) {
+        console.log('Selected: superior');
+        return 'superior';
+    }
+    if (types.includes('subordinate')) {
+        console.log('Selected: subordinate');
+        return 'subordinate';
+    }
+    if (types.includes('colleague')) {
+        console.log('Selected: colleague');
+        return 'colleague';
+    }
+    
+    console.log('Selected fallback:', types[0]);
+    return types[0];
+}
+
+function transformToCompoundNodesFinalFix(response) {
+    const elements = [];
+    const departments = new Map();
+    
+    console.log('=== TRANSFORMATION DEBUG ===');
+    console.log('Raw nodes:', response.nodes);
+    console.log('Raw departments:', response.departments);
+    
+    // Create department containers
+    response.departments.forEach(dept => {
+        departments.set(dept.id, dept);
+        elements.push({
+            data: {
+                id: `dept_${dept.id}`,
+                name: dept.department_name,
+                type: 'department'
+            }
+        });
+        console.log(`Created department: dept_${dept.id} (${dept.department_name})`);
+    });
+    
+    // Check if we need "No Department" container
+    const hasNoDeptUsers = response.nodes.some(node => 
+        !node.department_id && !node.managed_dept_id
+    );
+    if (hasNoDeptUsers) {
+        elements.push({
+            data: {
+                id: 'dept_none',
+                name: 'Közvetlen munkatársak',
+                type: 'department'
+            }
+        });
+        console.log('Created: dept_none (Központi Iroda)');
+    }
+    
+    // Transform user nodes with CORRECT department assignment logic
+    response.nodes.forEach(node => {
+        let parentId;
+        let departmentName = null;
+        
+        console.log(`\n--- Processing user: ${node.label} ---`);
+        console.log(`department_id: ${node.department_id}`);
+        console.log(`managed_dept_id: ${node.managed_dept_id}`);
+        console.log(`department_name: ${node.department_name}`);
+        
+        if (node.managed_dept_id) {
+            parentId = `dept_${node.managed_dept_id}`;
+            departmentName = departments.get(node.managed_dept_id)?.department_name || node.department_name;
+            console.log(`→ Manager of dept ${node.managed_dept_id} → ${parentId}`);
+        } else if (node.department_id) {
+            parentId = `dept_${node.department_id}`;
+            departmentName = departments.get(node.department_id)?.department_name || node.department_name;
+            console.log(`→ Member of dept ${node.department_id} → ${parentId}`);
+        } else {
+            parentId = 'dept_none';
+            console.log(`→ No department → ${parentId}`);
+        }
+        
+        elements.push({
+            data: {
+                id: node.id,
+                name: node.label,
+                email: node.email,
+                type: node.type,
+                department: departmentName,
+                department_id: node.department_id,
+                managed_dept_id: node.managed_dept_id,
+                rater_count: node.rater_count,
+                rater_status: node.rater_status,
+                is_manager: node.is_manager,
+                parent: parentId
+            }
+        });
+        
+        console.log(`✓ Assigned ${node.label} to ${parentId}`);
+    });
+    
+    // Transform edges with CORRECT relationship hierarchy
+    response.edges.forEach(edge => {
+        console.log(`\n--- Processing edge: ${edge.id} ---`);
+        console.log(`Types: ${JSON.stringify(edge.types)}`);
+        
+        const strongestType = getStrongestRelationType(edge.types);
+        console.log(`Selected strongest type: ${strongestType}`);
+        
+        elements.push({
+            data: {
+                id: edge.id,
+                source: edge.source,
+                target: edge.target,
+                type: strongestType,
+                types: edge.types,
+                bidirectional: edge.bidirectional,
+                is_subordinate: edge.is_subordinate
+            }
+        });
+    });
+    
+    console.log('=== FINAL ELEMENTS ===');
+    elements.forEach(el => {
+        if (el.data.type !== 'department') {
+            console.log(`${el.data.name} → parent: ${el.data.parent}`);
+        }
+    });
+    
+    return { elements };
+}
+
+// FIXED: Stable layout with PROPER SPACING to prevent overlaps
+function applyStableInitialLayout() {
+    const hasSavedPositions = savedPositions.size > 0;
+    
+    if (hasSavedPositions) {
+        // Use saved positions
+        const presetLayout = cy.layout({
+            name: 'preset',
+            positions: function(node) {
+                return savedPositions.get(node.id());
+            },
+            fit: true,
+            padding: 50
+        });
+        presetLayout.run();
+    } else {
+        // Apply manual layout with PROPER SPACING
+        applyManualLayoutWithSpacing();
+    }
+}
+
+// FIXED: Manual layout with proper spacing to prevent overlap
+function applyManualLayoutWithSpacing() {
+    console.log('Applying manual layout with proper spacing to prevent overlaps');
+    
+    const departments = cy.nodes('[type = "department"]');
+    const containerWidth = cy.width();
+    const containerHeight = cy.height();
+    
+    // Position departments first - more spacing
+    const deptCount = departments.length;
+    const deptSpacing = Math.max(450, containerWidth / deptCount); // Increased from 400 to 450
+    
+    departments.forEach((dept, index) => {
+        const x = 150 + (index * deptSpacing); // Start further from edge
+        const y = containerHeight / 2;
+        
+        dept.position({ x, y });
+        console.log(`Positioned department ${dept.data('name')} at (${x}, ${y})`);
+        
+        // Position users within this department - FIXED SPACING
+        const usersInDept = cy.nodes(`[parent = "${dept.id()}"]`);
+        const userCount = usersInDept.length;
+        
+        if (userCount > 0) {
+            // FIXED: Better grid arrangement with proper spacing
+            const cols = Math.min(Math.ceil(Math.sqrt(userCount)), 3); // Max 3 columns
+            const rows = Math.ceil(userCount / cols);
+            const userSpacingX = 120; // FIXED: Increased from 80 to 120 (horizontal spacing)
+            const userSpacingY = 110; // FIXED: Increased from 80 to 110 (vertical spacing)
+            
+            usersInDept.forEach((user, userIndex) => {
+                const col = userIndex % cols;
+                const row = Math.floor(userIndex / cols);
+                
+                // FIXED: Position relative to department center with proper spacing
+                const userX = x + (col - (cols - 1) / 2) * userSpacingX;
+                const userY = y + (row - (rows - 1) / 2) * userSpacingY;
+                
+                user.position({ x: userX, y: userY });
+                console.log(`Positioned user ${user.data('name')} at (${userX}, ${userY}) [col:${col}, row:${row}]`);
+                
+                // Save position for stability
+                savedPositions.set(user.id(), { x: userX, y: userY });
+            });
+        }
+        
+        // Save department position
+        savedPositions.set(dept.id(), { x, y });
+    });
+    
+    // Fit to view with proper padding
+    cy.fit(undefined, 60); // Increased padding from 50 to 60
+}
+
+function applyStableLayout(layoutName) {
+    console.log(`Applying stable layout: ${layoutName}`);
+    
+    let layoutOptions;
+    
+    switch(layoutName) {
+        case 'circle':
+            layoutOptions = {
+                name: 'circle',
+                fit: true,
+                padding: 60,
+                spacingFactor: 1.8, // Increased spacing
+                animate: true,
+                animationDuration: 1000
+            };
+            break;
+        case 'grid':
+            layoutOptions = {
+                name: 'grid',
+                fit: true,
+                padding: 60,
+                spacingFactor: 2.5, // Increased spacing
+                animate: true,
+                animationDuration: 1000
+            };
+            break;
+        case 'breadthfirst':
+            layoutOptions = {
+                name: 'breadthfirst',
+                fit: true,
+                padding: 60,
+                directed: true,
+                spacingFactor: 2, // Increased spacing
+                animate: true,
+                animationDuration: 1000
+            };
+            break;
+        case 'concentric':
+            layoutOptions = {
+                name: 'concentric',
+                fit: true,
+                padding: 60,
+                spacingFactor: 2.5, // Increased spacing
+                animate: true,
+                animationDuration: 1000,
+                concentric: function(node) {
+                    const type = node.data('type');
+                    if (type === 'ceo') return 3;
+                    if (type === 'manager') return 2;
+                    return 1;
+                }
+            };
+            break;
+        default: // cose or manual
+            // Use manual layout for consistency
+            applyManualLayoutWithSpacing();
+            return;
+    }
+    
+    const layout = cy.layout(layoutOptions);
+    layout.run();
+    
+    // Save new positions after layout completes
+    layout.promiseOn('layoutstop').then(function() {
+        cy.nodes().forEach(function(node) {
+            const position = node.position();
+            savedPositions.set(node.id(), position);
+        });
+        console.log('Layout completed and positions saved');
+    });
+}
+
+function updateDepartmentFilter(departments) {
+    const $deptFilter = $('#department-filter');
+    $deptFilter.empty().append('<option value="">All Departments</option>');
+    
+    departments.forEach(dept => {
+        $deptFilter.append(`<option value="${dept.department_name}">${dept.department_name}</option>`);
+    });
+    
+    if (networkData && networkData.elements.some(el => 
+        el.data.type !== 'department' && !el.data.department_id && !el.data.managed_dept_id)) {
+        $deptFilter.append('<option value="none">Központi Iroda</option>');
+    }
+}
+
+function filterByDepartment(department) {
+    if (department === '') {
+        cy.elements().show();
+    } else if (department === 'none') {
+        cy.elements().hide();
+        cy.nodes('[type = "department"]').filter('[id = "dept_none"]').show();
+        cy.nodes('[type != "department"]').filter(function(node) {
+            return !node.data('department_id') && !node.data('managed_dept_id');
+        }).show();
+        cy.edges().show();
+    } else {
+        cy.elements().hide();
+        
+        cy.nodes('[type = "department"]').filter(function(node) {
+            return node.data('name') === department;
+        }).show();
+        
+        cy.nodes('[type != "department"]').filter(function(node) {
+            return node.data('department') === department;
+        }).show();
+        
+        cy.edges().show();
+    }
+    
+    cy.fit();
+}
+
 window.initNetworkModal = initNetworkModal;
 </script>
 
 <style>
-  /* Add this CSS to your main stylesheet or create a separate network.css file */
-
-/* Network Modal Styles */
+/* Improved Network Modal Styles - Cleaner, More Modern Design */
 #network-modal .modal-dialog {
-    max-width: 1200px;
+    max-width: 1500px;
     margin: 1rem auto;
 }
 
 #network-modal .modal-content {
-    border: none;
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    border-left: 4px solid var(--pelorous);
+    border-radius: 0;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    background: #ffffff;
+    overflow: hidden;
 }
 
 #network-modal .modal-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-radius: 8px 8px 0 0;
+    color: var(--silver_chalice);
+    border-radius: 0;
     border-bottom: none;
+    padding: 2rem;
+}
+
+#network-modal .modal-header .modal-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
 }
 
 #network-modal .modal-header .close {
-    color: white;
-    opacity: 0.8;
+    color: grey;
+    opacity: 0.9;
     text-shadow: none;
+    font-size: 1.75rem;
+    transition: all 0.3s ease;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 #network-modal .modal-header .close:hover {
     opacity: 1;
+    transform: scale(1.1);
+    background: rgba(255, 255, 255, 0.1);
 }
 
-/* Network Controls */
+/* Network Controls - Ultra Modern Design */
 .network-controls {
-    background: #f8f9fa;
-    border-bottom: 1px solid #dee2e6;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border-bottom: 1px solid #cbd5e0;
+    padding: 2rem;
 }
 
 .network-controls label {
-    font-weight: 600;
-    margin-bottom: 0.25rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
     display: block;
+    color: #2d3748;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
 }
 
 .network-controls .form-control-sm {
-    border-radius: 4px;
-    border: 1px solid #ced4da;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    border: 2px solid #e2e8f0;
+    transition: all 0.3s ease;
+    background: white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    font-weight: 600;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
 }
 
 .network-controls .form-control-sm:focus {
     border-color: #667eea;
-    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+    outline: none;
+    transform: translateY(-1px);
 }
 
 .network-controls .btn-sm {
-    padding: 0.375rem 0.75rem;
+    padding: 0.75rem 1.5rem;
     font-size: 0.875rem;
-    border-radius: 4px;
-    margin-right: 0.5rem;
-    transition: all 0.15s ease-in-out;
+    margin-right: 0.75rem;
+    transition: all 0.3s ease;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-width: 2px;
+}
+
+.network-controls .btn-outline-primary {
+    border-color: #667eea;
+    color: #667eea;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .network-controls .btn-outline-primary:hover {
     background-color: #667eea;
     border-color: #667eea;
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(102, 126, 234, 0.3);
+}
+
+.network-controls .btn-outline-secondary {
+    border-color: #718096;
+    color: #718096;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .network-controls .btn-outline-secondary:hover {
-    background-color: #6c757d;
-    border-color: #6c757d;
-    transform: translateY(-1px);
+    background-color: #718096;
+    border-color: #718096;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(113, 128, 150, 0.3);
 }
 
-/* Cytoscape Container */
+/* Cytoscape Container - Premium Background */
 #cy-container {
-    border: 1px solid #dee2e6;
-    background: #ffffff;
+    border: none;
+    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
     position: relative;
     overflow: hidden;
+    border-radius: 0;
+    box-shadow: inset 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 #cy-container:before {
@@ -409,176 +788,182 @@ window.initNetworkModal = initNetworkModal;
     right: 0;
     bottom: 0;
     background: 
-        radial-gradient(circle at 20% 80%, rgba(102, 126, 234, 0.05) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(118, 75, 162, 0.05) 0%, transparent 50%);
+        radial-gradient(circle at 25% 25%, rgba(102, 126, 234, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(118, 75, 162, 0.05) 0%, transparent 50%),
+        linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
     pointer-events: none;
     z-index: 0;
 }
 
-/* Network Legend */
+/* Network Legend - Premium Design */
 .network-legend {
-    background: #f8f9fa;
-    border-top: 1px solid #dee2e6;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border-top: 1px solid #cbd5e0;
+    padding: 2rem;
+
 }
 
 .network-legend h6 {
-    color: #495057;
-    font-weight: 600;
-    font-size: 0.9rem;
+    color: #2d3748;
+    font-weight: 700;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 1.5rem;
 }
 
 .legend-items {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
+    gap: 2rem;
 }
 
 .legend-item {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 1rem;
     font-size: 0.875rem;
-    color: #495057;
+    color: #4a5568;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Legend Nodes */
+/* Legend Nodes - Premium Styling */
 .legend-node {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+
     display: inline-block;
-    border: 2px solid rgba(0, 0, 0, 0.1);
+    border: 3px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .legend-node.ceo {
-    background-color: #dc3545;
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
 }
 
 .legend-node.manager {
-    background-color: #ffc107;
+    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
 }
 
 .legend-node.normal {
-    background-color: #28a745;
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
 }
 
-/* Legend Edges */
+/* Legend Edges - Premium Styling */
 .legend-edge {
-    width: 30px;
-    height: 3px;
+    width: 36px;
+    height: 5px;
     display: inline-block;
+
     position: relative;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .legend-edge:after {
     content: '';
     position: absolute;
-    right: -3px;
-    top: -3px;
+    right: -5px;
+    top: -6px;
     width: 0;
     height: 0;
-    border-left: 6px solid;
-    border-top: 4px solid transparent;
-    border-bottom: 4px solid transparent;
+    border-left: 10px solid;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.1));
 }
 
 .legend-edge.superior {
-    background-color: #007bff;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
 }
 
 .legend-edge.superior:after {
-    border-left-color: #007bff;
+    border-left-color: #0056b3;
 }
 
 .legend-edge.colleague {
-    background-color: #20c997;
+    background: linear-gradient(135deg, #20c997 0%, #17a2b8 100%);
+    opacity: 0.8;
 }
 
 .legend-edge.colleague:after {
-    border-left-color: #20c997;
+    border-left-color: #17a2b8;
 }
 
 .legend-edge.subordinate {
-    background-color: #fd7e14;
+    background: linear-gradient(135deg, #fd7e14 0%, #e55a00 100%);
 }
 
 .legend-edge.subordinate:after {
-    border-left-color: #fd7e14;
+    border-left-color: #e55a00;
 }
 
-/* Network Button Enhancement */
-.btn-outline-primary.relations {
-    transition: all 0.2s ease;
+/* Row styling improvements */
+.network-controls .row {
+    align-items: end;
 }
 
-.btn-outline-primary.relations:hover {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-color: #667eea;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+.network-controls .row > div {
+    margin-bottom: 0;
 }
 
-/* Loading State */
-.network-loading {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 100;
-    background: rgba(255, 255, 255, 0.9);
-    padding: 2rem;
-    border-radius: 8px;
-    text-align: center;
-}
-
-.network-loading .spinner-border {
-    color: #667eea;
-}
-
-/* Responsive Design */
+/* Additional responsive improvements */
 @media (max-width: 768px) {
     #network-modal .modal-dialog {
         margin: 0.5rem;
-        max-width: none;
+        max-width: calc(100vw - 1rem);
     }
     
-    .network-controls .row {
-        flex-direction: column;
+    .network-controls {
+        padding: 1.5rem;
     }
     
-    .network-controls .col-md-4 {
-        margin-bottom: 1rem;
-    }
-    
-    #cy-container {
-        height: 400px;
+    .network-controls .row > div {
+        margin-bottom: 1.5rem;
     }
     
     .legend-items {
         flex-direction: column;
-        gap: 0.5rem;
+        gap: 1rem;
+    }
+    
+    .network-legend {
+        padding: 1.5rem;
+        
+
+    }
+    
+    #network-modal .modal-content {
+        
+    }
+    
+    #network-modal .modal-header {
+        
+        padding: 1.5rem;
     }
 }
 
-/* Animation for modal appearance */
-#network-modal.fade .modal-dialog {
-    transform: translate(0, -50px);
-    transition: transform 0.3s ease-out;
+/* Loading state improvements */
+.network-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 500px;
+    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+    border-radius: 0;
+    color: #4a5568;
+    font-weight: 600;
+    font-size: 1.1rem;
 }
 
-#network-modal.show .modal-dialog {
-    transform: translate(0, 0);
+/* Enhanced hover effects */
+.network-controls .btn-sm:active {
+    transform: translateY(0);
 }
 
-/* Tooltip styles (if you want to add custom tooltips) */
-.cy-tooltip {
-    position: absolute;
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 0.5rem;
-    border-radius: 4px;
-    font-size: 0.875rem;
-    pointer-events: none;
-    z-index: 1000;
-    max-width: 200px;
-}</style>
+.network-controls .form-control-sm:hover {
+    border-color: #a0aec0;
+}
+</style>

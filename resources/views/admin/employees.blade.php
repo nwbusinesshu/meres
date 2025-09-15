@@ -21,11 +21,12 @@
         <div class="tile tile-button trigger-new-dept">
             <span><i class="fa fa-sitemap"></i> Új részleg</span>
         </div>
-    @endif
+    
 
     <div class="tile tile-button network">
-        <span><i class="fa fa-project-diagram"></i> Céges kapcsolati háló</span>
+        <span><i class="fa fa-project-diagram"></i> Cégkapcsolati háló</span>
     </div>
+    @endif
 
 </div>
 

@@ -24,10 +24,10 @@ function addNewCompetencyItem(uid, name){
     +'<i class="fa fa-trash-alt" data-tippy-content="{{ __('admin/employees.remove-competency') }}"></i>'
     +'<div>'
     +'<p>'+name+'</p>'
-    +'</select>'
     +'</div>'
     +'</div>');
 }
+
 function initCompetenciesModal(uid){
   $('#user-competencies-modal').attr('data-id', uid);
   swal_loader.fire();
@@ -42,7 +42,6 @@ function initCompetenciesModal(uid){
       addNewCompetencyItem(item.id, item.name);
     });
 
-
     tippy('.competency-list [data-tippy-content]');
 
     swal_loader.close();
@@ -56,6 +55,8 @@ function initCompetenciesModal(uid){
       $('#user-competencies-modal .competency-item').each(function(){
         exceptArray.push($(this).attr('data-id')*1);
       });
+      
+      // UPDATED: Using enhanced multi-select modal with no checkboxes
       openSelectModal({
         title: "{{ __('admin/employees.select-competency') }}",
         parentSelector: '#user-competencies-modal',
@@ -65,11 +66,18 @@ function initCompetenciesModal(uid){
           name: item.name,
         }; },
         selectFunction: function(){
-          addNewCompetencyItem($(this).attr('data-id'), $(this).attr('data-name'));
-          tippy('.competency-list [data-tippy-content]');
-          $('#select-modal').modal('hide');
+          // This function is called for each selected item
+          const selectedId = $(this).attr('data-id');
+          const selectedName = $(this).attr('data-name');
+          
+          // Check if competency already exists to prevent duplicates
+          if ($('#user-competencies-modal .competency-item[data-id="'+selectedId+'"]').length === 0) {
+            addNewCompetencyItem(selectedId, selectedName);
+            tippy('.competency-list [data-tippy-content]');
+          }
         },
         exceptArray: exceptArray,
+        multiSelect: true,  // Enable multi-select mode (no checkboxes, just color changes)
         emptyMessage: '{{ __('admin/competencies.no-competency') }}'
       });
     });

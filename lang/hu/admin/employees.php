@@ -71,4 +71,12 @@ return [
   "bonusmalus-now" => "Jelenlegi besorolás",
 
   "password-reset" => "Jelszó visszaállítás",
+
+  "select-all" => "Összes",
+
+  "clear-all" => "Ürít",
+
+  "selected" => "kiválasztva",
+  
+  "add-selected" => "Hozzáadás",
 ];
