@@ -93,561 +93,401 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.21.1/cytoscape.min.js"></script>
 <script>
-// FINAL FIXED network with proper spacing and Hungarian labels
-let cy;
-let networkData = null;
-let savedPositions = new Map();
+// COMPLETE FIXED NETWORK MODAL INITIALIZATION
 
-function initNetworkModal() {
+window.initNetworkModal = function() {
+    console.log('Initializing network modal...');
+    
+    // Show the modal first
     $('#network-modal').modal('show');
     
-    if (!cy) {
-        cy = cytoscape({
-            container: document.getElementById('cy-container'),
-            elements: [],
-            style: [
-                // Department Container Styles - PROPER SIZE
-                {
-                    selector: 'node[type = "department"]',
-                    style: {
-                        'shape': 'rectangle',
-                        'background-color': '#f8fafc',
-                        'background-opacity': 0.7,
-                        'border-width': 2,
-                        'border-color': '#4f46e5',
-                        'border-style': 'dashed',
-                        'label': 'data(name)',
-                        'text-valign': 'top',
-                        'text-halign': 'center',
-                        'font-size': '16px',
-                        'font-weight': '700',
-                        'color': '#4f46e5',
-                        'text-margin-y': -15,
-                        'min-width': '320px',      // Slightly wider for better spacing
-                        'min-height': '240px',     // Taller for better spacing
-                        'padding': '10px',         // More padding
-                        'compound-sizing-wrt-labels': 'exclude',
-                        'z-index': 1,
-                        'text-background-color': '#ffffff',
-                        'text-background-opacity': 0.9,
-                        'text-background-padding': '4px',
-                        'text-background-shape': 'round-rectangle'
-                    }
-                },
-                // User Node Styles - READABLE TEXT WITH HUNGARIAN LABELS
-                {
-                    selector: 'node[type != "department"]',
-                    style: {
-                        'shape': 'rectangle',
-                        'width': 150,
-                        'height': 80,
-                        'background-color': function(ele) {
-                            const type = ele.data('type');
-                            switch(type) {
-                                case 'ceo': return '#dc3545';
-                                case 'manager': return '#ffc107';
-                                case 'normal': return '#28a745';
-                                default: return '#6c757d';
-                            }
-                        },
-                        'border-width': 3,
-                        'border-color': '#ffffff',
-                        'border-opacity': 1,
-                        'label': function(ele) {
-                            const name = ele.data('name') || '';
-                            const type = ele.data('type') || '';
-                            // FIXED: Use Hungarian labels from your language file
-                            const typeLabels = {
-                                'ceo': 'Ügyvezető',        // From usertypes.php
-                                'manager': 'Manager',      // From usertypes.php  
-                                'normal': 'Alkalmazott'    // From usertypes.php
-                            };
-                            return `${name}\n${typeLabels[type] || type}`;
-                        },
-                        'text-valign': 'center',
-                        'text-halign': 'center',
-                        'font-size': '14px',
-                        'font-weight': '700',
-                        'color': '#ffffff',
-                        'text-shadow-color': '#000000',
-                        'text-shadow-opacity': 0.6,
-                        'text-shadow-offset-x': '1px',
-                        'text-shadow-offset-y': '1px',
-                        'text-wrap': 'wrap',
-                        'text-max-width': '140px',
-                        'z-index': 10,
-                        'box-shadow-color': '#000000',
-                        'box-shadow-opacity': 0.3,
-                        'box-shadow-offset-x': '2px',
-                        'box-shadow-offset-y': '2px',
-                        'box-shadow-blur': '8px'
-                    }
-                },
-                // Edge Styles - PROPER HIERARCHY
-                {
-                    selector: 'edge',
-                    style: {
-                        'width': 4,
-                        'line-color': function(ele) {
-                            const type = getStrongestRelationType(ele.data('types') || [ele.data('type')]);
-                            switch(type) {
-                                case 'superior': return '#007bff';
-                                case 'subordinate': return '#fd7e14';
-                                case 'colleague': return '#20c997';
-                                default: return '#6c757d';
-                            }
-                        },
-                        'target-arrow-color': function(ele) {
-                            const type = getStrongestRelationType(ele.data('types') || [ele.data('type')]);
-                            switch(type) {
-                                case 'superior': return '#007bff';
-                                case 'subordinate': return '#fd7e14';
-                                case 'colleague': return '#20c997';
-                                default: return '#6c757d';
-                            }
-                        },
-                        'target-arrow-shape': 'triangle',
-                        'arrow-scale': 1.8,
-                        'curve-style': 'bezier',
-                        'control-point-step-size': 50,
-                        'opacity': 0.9,
-                        'z-index': 5,
-                        'line-style': function(ele) {
-                            const type = getStrongestRelationType(ele.data('types') || [ele.data('type')]);
-                            return type === 'colleague' ? 'dashed' : 'solid';
+    // Wait for modal to be shown before initializing cytoscape
+    $('#network-modal').on('shown.bs.modal', function() {
+        initCytoscapeNetwork();
+    });
+};
+
+function initCytoscapeNetwork() {
+    // FIXED: Use correct container ID from the modal HTML
+    const container = document.getElementById('cy-container');
+    
+    if (!container) {
+        console.error('Network container #cy-container not found!');
+        handleNetworkError('A hálózati megjelenítő konténer nem található.');
+        return;
+    }
+
+    // Initialize cytoscape if not already done
+    if (!window.cy) {
+        console.log('Initializing Cytoscape...');
+        
+        try {
+            window.cy = cytoscape({
+                container: container, // Use the correct container
+                style: [
+                    // Department containers
+                    {
+                        selector: 'node[type = "department"]',
+                        style: {
+                            'shape': 'rectangle',
+                            'background-color': '#f8fafc',
+                            'background-opacity': 0.7,
+                            'border-width': 2,
+                            'border-color': '#4f46e5',
+                            'border-style': 'dashed',
+                            'label': 'data(name)',
+                            'text-valign': 'top',
+                            'text-halign': 'center',
+                            'font-size': '16px',
+                            'font-weight': '700',
+                            'color': '#4f46e5',
+                            'text-margin-y': -15,
+                            'min-width': '320px',
+                            'min-height': '240px',
+                            'padding': '10px'
+                        }
+                    },
+                    // User nodes
+                    {
+                        selector: 'node[type != "department"]',
+                        style: {
+                            'background-color': '#fff',
+                            'border-color': '#666',
+                            'border-width': 2,
+                            'label': 'data(name)',
+                            'text-valign': 'center',
+                            'text-halign': 'center',
+                            'font-size': '12px',
+                            'width': 80,
+                            'height': 80,
+                            'shape': 'ellipse'
+                        }
+                    },
+                    // Manager styling
+                    {
+                        selector: 'node[is_manager = true]',
+                        style: {
+                            'border-color': '#28a745',
+                            'border-width': 3,
+                            'background-color': '#d4edda'
+                        }
+                    },
+                    // CEO styling
+                    {
+                        selector: 'node[type = "ceo"]',
+                        style: {
+                            'border-color': '#dc3545',
+                            'border-width': 3,
+                            'background-color': '#f8d7da'
+                        }
+                    },
+                    // Edges
+                    {
+                        selector: 'edge',
+                        style: {
+                            'width': 2,
+                            'line-color': '#999',
+                            'target-arrow-color': '#999',
+                            'target-arrow-shape': 'triangle',
+                            'curve-style': 'bezier'
+                        }
+                    },
+                    {
+                        selector: 'edge[type = "superior"]',
+                        style: {
+                            'line-color': '#007bff',
+                            'target-arrow-color': '#007bff',
+                            'width': 3
+                        }
+                    },
+                    {
+                        selector: 'edge[type = "subordinate"]',
+                        style: {
+                            'line-color': '#fd7e14',
+                            'target-arrow-color': '#fd7e14',
+                            'width': 3
+                        }
+                    },
+                    {
+                        selector: 'edge[type = "colleague"]',
+                        style: {
+                            'line-color': '#20c997',
+                            'target-arrow-color': '#20c997',
+                            'width': 2,
+                            'line-style': 'dashed'
                         }
                     }
-                },
-                // Selected/Highlighted States
-                {
-                    selector: 'node[type != "department"]:selected',
-                    style: {
-                        'border-width': 5,
-                        'border-color': '#4f46e5',
-                        'border-opacity': 1
-                    }
-                },
-                {
-                    selector: 'node[type != "department"].highlighted',
-                    style: {
-                        'border-width': 5,
-                        'border-color': '#ff6b6b',
-                        'border-opacity': 1
-                    }
+                ],
+                layout: {
+                    name: 'cose',
+                    animate: false,
+                    fit: true,
+                    padding: 50
                 }
-            ],
-            layout: { name: 'preset' },
-            autoungrabify: false,
-            autounselectify: false
-        });
-
-        // Event handlers
-        cy.on('tap', 'node[type != "department"]', function(evt) {
-            const node = evt.target;
-            const nodeData = node.data();
-            
-            cy.nodes('[type != "department"]').removeClass('highlighted');
-            node.addClass('highlighted');
-            
-            console.log('User Details:', {
-                name: nodeData.name,
-                email: nodeData.email,
-                type: nodeData.type,
-                department: nodeData.department,
-                raterCount: nodeData.rater_count,
-                isManager: nodeData.is_manager
             });
-        });
 
-        cy.on('dragfree', 'node', function(evt) {
-            const node = evt.target;
-            const position = node.position();
-            savedPositions.set(node.id(), position);
-        });
+            // Add event listeners
+            $('#layout-select').off('change').on('change', function() {
+                applyLayout($(this).val());
+            });
 
-        // Control handlers
-        $('#layout-select').on('change', function() {
-            const layoutName = $(this).val();
-            applyStableLayout(layoutName);
-        });
+            $('#department-filter').off('change').on('change', function() {
+                filterByDepartment($(this).val());
+            });
 
-        $('#department-filter').on('change', function() {
-            const department = $(this).val();
-            filterByDepartment(department);
-        });
+            $('#fit-network').off('click').on('click', function() {
+                if (window.cy) window.cy.fit();
+            });
 
-        $('#fit-network').on('click', function() {
-            cy.fit();
-        });
+            $('#reset-network').off('click').on('click', function() {
+                if (window.cy) {
+                    loadNetworkData(); // Reload data
+                }
+            });
 
-        $('#reset-network').on('click', function() {
-            savedPositions.clear();
-            loadNetworkData();
-        });
+            console.log('Cytoscape initialized successfully');
+        } catch (error) {
+            console.error('Failed to initialize Cytoscape:', error);
+            handleNetworkError('Nem sikerült inicializálni a hálózati megjelenítőt: ' + error.message);
+            return;
+        }
     }
     
+    // Load the network data
     loadNetworkData();
 }
 
 function loadNetworkData() {
-    swal_loader.fire();
+    console.log('Loading network data...');
+    
+    if (typeof swal_loader !== 'undefined' && swal_loader.fire) {
+        swal_loader.fire();
+    }
     
     $.ajax({
         url: "{{ route('admin.employee.network') }}",
         method: 'POST',
         headers: {
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-        }
+        },
+        timeout: 30000 // 30 second timeout
     })
     .done(function(response) {
-        console.log('Raw response:', response);
+        console.log('Network data loaded successfully:', response);
         
-        const transformedData = transformToCompoundNodesFinalFix(response);
-        networkData = transformedData;
-        
-        console.log('Transformed data:', networkData);
-        
-        updateDepartmentFilter(response.departments);
-        
-        cy.elements().remove();
-        cy.add(transformedData.elements);
-        
-        // Apply STABLE layout with proper spacing
-        applyStableInitialLayout();
-        
-        swal_loader.close();
-    })
-    .fail(function(xhr) {
-        swal_loader.close();
-        console.error('Failed to load network data:', xhr.responseText);
-        Swal.fire({
-            title: 'Error',
-            text: 'Failed to load network data. Please try again.',
-            icon: 'error'
-        });
-    });
-}
-
-function getStrongestRelationType(types) {
-    if (!types || types.length === 0) return 'colleague';
-    
-    console.log('Evaluating relationship types:', types);
-    
-    if (types.includes('superior')) {
-        console.log('Selected: superior');
-        return 'superior';
-    }
-    if (types.includes('subordinate')) {
-        console.log('Selected: subordinate');
-        return 'subordinate';
-    }
-    if (types.includes('colleague')) {
-        console.log('Selected: colleague');
-        return 'colleague';
-    }
-    
-    console.log('Selected fallback:', types[0]);
-    return types[0];
-}
-
-function transformToCompoundNodesFinalFix(response) {
-    const elements = [];
-    const departments = new Map();
-    
-    console.log('=== TRANSFORMATION DEBUG ===');
-    console.log('Raw nodes:', response.nodes);
-    console.log('Raw departments:', response.departments);
-    
-    // Create department containers
-    response.departments.forEach(dept => {
-        departments.set(dept.id, dept);
-        elements.push({
-            data: {
-                id: `dept_${dept.id}`,
-                name: dept.department_name,
-                type: 'department'
-            }
-        });
-        console.log(`Created department: dept_${dept.id} (${dept.department_name})`);
-    });
-    
-    // Check if we need "No Department" container
-    const hasNoDeptUsers = response.nodes.some(node => 
-        !node.department_id && !node.managed_dept_id
-    );
-    if (hasNoDeptUsers) {
-        elements.push({
-            data: {
-                id: 'dept_none',
-                name: 'Közvetlen munkatársak',
-                type: 'department'
-            }
-        });
-        console.log('Created: dept_none (Központi Iroda)');
-    }
-    
-    // Transform user nodes with CORRECT department assignment logic
-    response.nodes.forEach(node => {
-        let parentId;
-        let departmentName = null;
-        
-        console.log(`\n--- Processing user: ${node.label} ---`);
-        console.log(`department_id: ${node.department_id}`);
-        console.log(`managed_dept_id: ${node.managed_dept_id}`);
-        console.log(`department_name: ${node.department_name}`);
-        
-        if (node.managed_dept_id) {
-            parentId = `dept_${node.managed_dept_id}`;
-            departmentName = departments.get(node.managed_dept_id)?.department_name || node.department_name;
-            console.log(`→ Manager of dept ${node.managed_dept_id} → ${parentId}`);
-        } else if (node.department_id) {
-            parentId = `dept_${node.department_id}`;
-            departmentName = departments.get(node.department_id)?.department_name || node.department_name;
-            console.log(`→ Member of dept ${node.department_id} → ${parentId}`);
-        } else {
-            parentId = 'dept_none';
-            console.log(`→ No department → ${parentId}`);
-        }
-        
-        elements.push({
-            data: {
-                id: node.id,
-                name: node.label,
-                email: node.email,
-                type: node.type,
-                department: departmentName,
-                department_id: node.department_id,
-                managed_dept_id: node.managed_dept_id,
-                rater_count: node.rater_count,
-                rater_status: node.rater_status,
-                is_manager: node.is_manager,
-                parent: parentId
-            }
-        });
-        
-        console.log(`✓ Assigned ${node.label} to ${parentId}`);
-    });
-    
-    // Transform edges with CORRECT relationship hierarchy
-    response.edges.forEach(edge => {
-        console.log(`\n--- Processing edge: ${edge.id} ---`);
-        console.log(`Types: ${JSON.stringify(edge.types)}`);
-        
-        const strongestType = getStrongestRelationType(edge.types);
-        console.log(`Selected strongest type: ${strongestType}`);
-        
-        elements.push({
-            data: {
-                id: edge.id,
-                source: edge.source,
-                target: edge.target,
-                type: strongestType,
-                types: edge.types,
-                bidirectional: edge.bidirectional,
-                is_subordinate: edge.is_subordinate
-            }
-        });
-    });
-    
-    console.log('=== FINAL ELEMENTS ===');
-    elements.forEach(el => {
-        if (el.data.type !== 'department') {
-            console.log(`${el.data.name} → parent: ${el.data.parent}`);
-        }
-    });
-    
-    return { elements };
-}
-
-// FIXED: Stable layout with PROPER SPACING to prevent overlaps
-function applyStableInitialLayout() {
-    const hasSavedPositions = savedPositions.size > 0;
-    
-    if (hasSavedPositions) {
-        // Use saved positions
-        const presetLayout = cy.layout({
-            name: 'preset',
-            positions: function(node) {
-                return savedPositions.get(node.id());
-            },
-            fit: true,
-            padding: 50
-        });
-        presetLayout.run();
-    } else {
-        // Apply manual layout with PROPER SPACING
-        applyManualLayoutWithSpacing();
-    }
-}
-
-// FIXED: Manual layout with proper spacing to prevent overlap
-function applyManualLayoutWithSpacing() {
-    console.log('Applying manual layout with proper spacing to prevent overlaps');
-    
-    const departments = cy.nodes('[type = "department"]');
-    const containerWidth = cy.width();
-    const containerHeight = cy.height();
-    
-    // Position departments first - more spacing
-    const deptCount = departments.length;
-    const deptSpacing = Math.max(450, containerWidth / deptCount); // Increased from 400 to 450
-    
-    departments.forEach((dept, index) => {
-        const x = 150 + (index * deptSpacing); // Start further from edge
-        const y = containerHeight / 2;
-        
-        dept.position({ x, y });
-        console.log(`Positioned department ${dept.data('name')} at (${x}, ${y})`);
-        
-        // Position users within this department - FIXED SPACING
-        const usersInDept = cy.nodes(`[parent = "${dept.id()}"]`);
-        const userCount = usersInDept.length;
-        
-        if (userCount > 0) {
-            // FIXED: Better grid arrangement with proper spacing
-            const cols = Math.min(Math.ceil(Math.sqrt(userCount)), 3); // Max 3 columns
-            const rows = Math.ceil(userCount / cols);
-            const userSpacingX = 120; // FIXED: Increased from 80 to 120 (horizontal spacing)
-            const userSpacingY = 110; // FIXED: Increased from 80 to 110 (vertical spacing)
+        try {
+            // Simple transformation for the fixed structure
+            const elements = transformNetworkData(response);
             
-            usersInDept.forEach((user, userIndex) => {
-                const col = userIndex % cols;
-                const row = Math.floor(userIndex / cols);
+            // Update department filter
+            updateDepartmentFilter(response.departments || []);
+            
+            // Clear existing elements and add new ones
+            if (window.cy) {
+                window.cy.elements().remove();
+                window.cy.add(elements);
                 
-                // FIXED: Position relative to department center with proper spacing
-                const userX = x + (col - (cols - 1) / 2) * userSpacingX;
-                const userY = y + (row - (rows - 1) / 2) * userSpacingY;
-                
-                user.position({ x: userX, y: userY });
-                console.log(`Positioned user ${user.data('name')} at (${userX}, ${userY}) [col:${col}, row:${row}]`);
-                
-                // Save position for stability
-                savedPositions.set(user.id(), { x: userX, y: userY });
-            });
+                // Apply initial layout
+                applyLayout('cose');
+            }
+            
+            if (typeof swal_loader !== 'undefined' && swal_loader.close) {
+                swal_loader.close();
+            }
+            
+        } catch (error) {
+            console.error('Error transforming network data:', error);
+            handleNetworkError('Hiba a hálózati adatok feldolgozásakor: ' + error.message);
+        }
+    })
+    .fail(function(xhr, status, error) {
+        console.error('Failed to load network data:', {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            responseText: xhr.responseText,
+            error: error
+        });
+        
+        let errorMessage = 'Nem sikerült betölteni a hálózati adatokat.';
+        
+        if (xhr.status === 500) {
+            try {
+                const response = JSON.parse(xhr.responseText);
+                errorMessage += ' Szerverhiba: ' + (response.message || 'Ismeretlen hiba');
+            } catch (e) {
+                errorMessage += ' Szerverhiba történt.';
+            }
+        } else if (xhr.status === 404) {
+            errorMessage += ' Az endpoint nem található.';
+        } else if (xhr.status === 0) {
+            errorMessage += ' Hálózati kapcsolat megszakadt.';
+        } else if (status === 'timeout') {
+            errorMessage += ' A kérés túllépte az időkorlátot.';
         }
         
-        // Save department position
-        savedPositions.set(dept.id(), { x, y });
+        handleNetworkError(errorMessage);
     });
-    
-    // Fit to view with proper padding
-    cy.fit(undefined, 60); // Increased padding from 50 to 60
 }
 
-function applyStableLayout(layoutName) {
-    console.log(`Applying stable layout: ${layoutName}`);
-    
-    let layoutOptions;
-    
-    switch(layoutName) {
-        case 'circle':
-            layoutOptions = {
-                name: 'circle',
-                fit: true,
-                padding: 60,
-                spacingFactor: 1.8, // Increased spacing
-                animate: true,
-                animationDuration: 1000
-            };
-            break;
-        case 'grid':
-            layoutOptions = {
-                name: 'grid',
-                fit: true,
-                padding: 60,
-                spacingFactor: 2.5, // Increased spacing
-                animate: true,
-                animationDuration: 1000
-            };
-            break;
-        case 'breadthfirst':
-            layoutOptions = {
-                name: 'breadthfirst',
-                fit: true,
-                padding: 60,
-                directed: true,
-                spacingFactor: 2, // Increased spacing
-                animate: true,
-                animationDuration: 1000
-            };
-            break;
-        case 'concentric':
-            layoutOptions = {
-                name: 'concentric',
-                fit: true,
-                padding: 60,
-                spacingFactor: 2.5, // Increased spacing
-                animate: true,
-                animationDuration: 1000,
-                concentric: function(node) {
-                    const type = node.data('type');
-                    if (type === 'ceo') return 3;
-                    if (type === 'manager') return 2;
-                    return 1;
-                }
-            };
-            break;
-        default: // cose or manual
-            // Use manual layout for consistency
-            applyManualLayoutWithSpacing();
-            return;
+function handleNetworkError(message) {
+    if (typeof swal_loader !== 'undefined' && swal_loader.close) {
+        swal_loader.close();
     }
     
-    const layout = cy.layout(layoutOptions);
-    layout.run();
+    console.error('Network error:', message);
     
-    // Save new positions after layout completes
-    layout.promiseOn('layoutstop').then(function() {
-        cy.nodes().forEach(function(node) {
-            const position = node.position();
-            savedPositions.set(node.id(), position);
+    if (typeof Swal !== 'undefined' && Swal.fire) {
+        Swal.fire({
+            title: 'Hiba',
+            text: message,
+            icon: 'error',
+            confirmButtonText: 'OK'
         });
-        console.log('Layout completed and positions saved');
-    });
+    } else {
+        alert(message);
+    }
+}
+
+function transformNetworkData(response) {
+    console.log('Transforming network data...');
+    
+    const elements = [];
+    
+    // Add departments
+    if (response.departments) {
+        response.departments.forEach(dept => {
+            elements.push({
+                data: {
+                    id: `dept_${dept.id}`,
+                    name: dept.department_name,
+                    type: 'department'
+                }
+            });
+        });
+    }
+    
+    // Add users (nodes)
+    if (response.nodes) {
+        response.nodes.forEach(node => {
+            elements.push({
+                data: {
+                    id: node.id,
+                    name: node.label,
+                    email: node.email,
+                    type: node.type,
+                    department_id: node.department_id,
+                    managed_dept_id: node.managed_dept_id,
+                    is_manager: node.is_manager || false,
+                    rater_count: node.rater_count || 0,
+                    parent: node.department_id ? `dept_${node.department_id}` : undefined
+                }
+            });
+        });
+    }
+    
+    // Add relationships (edges)
+    if (response.edges) {
+        response.edges.forEach(edge => {
+            elements.push({
+                data: {
+                    id: edge.id,
+                    source: edge.source,
+                    target: edge.target,
+                    type: edge.type || 'colleague',
+                    bidirectional: edge.bidirectional || false
+                }
+            });
+        });
+    }
+    
+    console.log('Transformed elements:', elements);
+    return elements;
 }
 
 function updateDepartmentFilter(departments) {
-    const $deptFilter = $('#department-filter');
-    $deptFilter.empty().append('<option value="">All Departments</option>');
+    const $filter = $('#department-filter');
+    $filter.empty().append('<option value="">Minden részleg</option>');
     
     departments.forEach(dept => {
-        $deptFilter.append(`<option value="${dept.department_name}">${dept.department_name}</option>`);
+        $filter.append(`<option value="${dept.id}">${dept.department_name}</option>`);
     });
-    
-    if (networkData && networkData.elements.some(el => 
-        el.data.type !== 'department' && !el.data.department_id && !el.data.managed_dept_id)) {
-        $deptFilter.append('<option value="none">Központi Iroda</option>');
-    }
 }
 
-function filterByDepartment(department) {
-    if (department === '') {
-        cy.elements().show();
-    } else if (department === 'none') {
-        cy.elements().hide();
-        cy.nodes('[type = "department"]').filter('[id = "dept_none"]').show();
-        cy.nodes('[type != "department"]').filter(function(node) {
-            return !node.data('department_id') && !node.data('managed_dept_id');
-        }).show();
-        cy.edges().show();
+function filterByDepartment(departmentId) {
+    if (!window.cy) return;
+    
+    if (departmentId === '') {
+        // Show all elements
+        window.cy.elements().show();
     } else {
-        cy.elements().hide();
+        // Hide all elements first
+        window.cy.elements().hide();
         
-        cy.nodes('[type = "department"]').filter(function(node) {
-            return node.data('name') === department;
-        }).show();
+        // Show the selected department
+        window.cy.nodes(`[id = "dept_${departmentId}"]`).show();
         
-        cy.nodes('[type != "department"]').filter(function(node) {
-            return node.data('department') === department;
-        }).show();
+        // Show users in this department
+        window.cy.nodes(`[department_id = "${departmentId}"]`).show();
+        window.cy.nodes(`[managed_dept_id = "${departmentId}"]`).show();
         
-        cy.edges().show();
+        // Show relevant edges
+        window.cy.edges().show();
     }
     
-    cy.fit();
+    window.cy.fit();
 }
 
-window.initNetworkModal = initNetworkModal;
+function applyLayout(layoutName) {
+    if (!window.cy) return;
+    
+    console.log('Applying layout:', layoutName);
+    
+    let layoutOptions = {
+        name: layoutName,
+        animate: true,
+        animationDuration: 500,
+        fit: true,
+        padding: 50
+    };
+    
+    switch (layoutName) {
+        case 'cose':
+            layoutOptions = {
+                ...layoutOptions,
+                nodeRepulsion: 100000,
+                idealEdgeLength: 100,
+                edgeElasticity: 100,
+                nestingFactor: 5,
+                gravity: 80,
+                numIter: 1000,
+                initialTemp: 200,
+                coolingFactor: 0.95,
+                minTemp: 1.0
+            };
+            break;
+        case 'circle':
+            layoutOptions.radius = 200;
+            break;
+        case 'grid':
+            layoutOptions.spacingFactor = 2;
+            break;
+        case 'breadthfirst':
+            layoutOptions.directed = true;
+            layoutOptions.spacingFactor = 1.5;
+            break;
+        case 'concentric':
+            layoutOptions.concentric = function(node) {
+                return node.degree();
+            };
+            layoutOptions.levelWidth = function(nodes) {
+                return 2;
+            };
+            break;
+    }
+    
+    const layout = window.cy.layout(layoutOptions);
+    layout.run();
+}
 </script>
 
 <style>

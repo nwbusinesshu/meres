@@ -194,23 +194,6 @@ class AdminEmployeeController extends Controller
     /**
      * Get rater counts for given user IDs in bulk
      */
-    private function getRaterCounts($userIds, $orgId)
-    {
-        if ($userIds->isEmpty()) {
-            return collect();
-        }
-
-        return DB::table('user_relation')
-            ->whereIn('target_id', $userIds->toArray())
-            ->where('organization_id', $orgId)
-            ->groupBy('target_id')
-            ->get(['target_id', DB::raw('COUNT(*) as rater_count')])
-            ->pluck('rater_count', 'target_id');
-    }
-
-    /**
-     * Add rater counts to a collection of users (for legacy view)
-     */
     private function addRaterCounts($users, $orgId)
 {
     $userIds = $users->pluck('id')->toArray();
@@ -227,15 +210,21 @@ class AdminEmployeeController extends Controller
         ->groupBy('ur.target_id')
         ->pluck(DB::raw('COUNT(*)'), 'ur.target_id');
 
+    // FIXED: Get login modes for all users
+    $loginModes = DB::table('user')
+        ->whereIn('id', $userIds)
+        ->whereNull('removed_at')
+        ->pluck('login_mode', 'id');
+
     // Add login_mode_text and rater counts to users
-    return $users->map(function ($user) use ($raterCounts, $orgId) {
+    return $users->map(function ($user) use ($raterCounts, $loginModes) {
         $user = (object) $user; // Ensure it's an object
         
         // Add rater count
         $user->rater_count = $raterCounts[$user->id] ?? 0;
         
-        // Add login mode text
-        $loginMode = $user->login_mode ?? null;
+        // FIXED: Add proper login mode text
+        $loginMode = $loginModes[$user->id] ?? null;
         $user->login_mode_text = match($loginMode) {
             'email' => 'Email',
             'google' => 'Google',
@@ -246,21 +235,53 @@ class AdminEmployeeController extends Controller
         return $user;
     });
 }
-    public function getEligibleManagers(Request $request)
+
+/**
+ * Get rater counts for given user IDs in bulk
+ */
+private function getRaterCounts($userIds, $orgId)
+{
+    if ($userIds->isEmpty()) {
+        return collect();
+    }
+
+    return DB::table('user_relation')
+        ->whereIn('target_id', $userIds->toArray())
+        ->where('organization_id', $orgId)
+        ->groupBy('target_id')
+        ->get(['target_id', DB::raw('COUNT(*) as rater_count')])
+        ->pluck('rater_count', 'target_id');
+}
+
+
+   public function getEligibleManagers(Request $request)
 {
     $orgId = (int) session('org_id');
+    $currentDepartmentId = $request->input('department_id'); // For edit mode
 
-    $managers = DB::table('user as u')
+    // Get all managers in the organization
+    $managersQuery = DB::table('user as u')
         ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
         ->where('ou.organization_id', $orgId)
         ->whereNull('u.removed_at')
-        ->where('u.type', 'manager')
+        ->where('u.type', 'manager');
+
+    // Filter out managers who are already managing other departments
+    $managersQuery->whereNotExists(function ($q) use ($currentDepartmentId) {
+        $q->from('organization_department_managers as odm')
+          ->whereColumn('odm.manager_id', 'u.id');
+        
+        // If editing a department, allow managers from that department
+        if ($currentDepartmentId) {
+            $q->where('odm.department_id', '!=', $currentDepartmentId);
+        }
+    });
+
+    $managers = $managersQuery
         ->orderBy('u.name')
         ->get(['u.id', 'u.name', 'u.email']);
 
-    return response()->json([
-        'managers' => $managers
-    ]);
+    return response()->json($managers->toArray());
 }
 
 
@@ -271,14 +292,15 @@ class AdminEmployeeController extends Controller
     /** @var \App\Models\User $u */
     $u = \App\Models\User::findOrFail($request->id);
 
-    // részleg-vezető?
-    $isDeptManager = \DB::table('organization_departments')
-        ->where('organization_id', $orgId)
-        ->where('manager_id', $u->id)
-        ->whereNull('removed_at')
-        ->exists(); // organization_departments: id, organization_id, department_name, manager_id, removed_at
+    // UPDATED: Check if user is a department manager using the new structure
+    $isDeptManager = \DB::table('organization_department_managers as odm')
+        ->join('organization_departments as d', 'd.id', '=', 'odm.department_id')
+        ->where('d.organization_id', $orgId)
+        ->where('odm.manager_id', $u->id)
+        ->whereNull('d.removed_at')
+        ->exists();
 
-    // részleg-tag?
+    // částleg-tag?
     $deptId = \DB::table('organization_user')
         ->where('organization_id', $orgId)
         ->where('user_id', $u->id)
@@ -288,12 +310,12 @@ class AdminEmployeeController extends Controller
         'id'                => $u->id,
         'name'              => $u->name,
         'email'             => $u->email,
-        'type'              => $u->type,            // 'normal' | 'manager' | 'ceo'  (user tábla) :contentReference[oaicite:2]{index=2}
+        'type'              => $u->type,            // 'normal' | 'manager' | 'ceo'
         'has_auto_level_up' => (int) $u->has_auto_level_up,
 
         'is_dept_manager'   => (bool) $isDeptManager,
         'is_in_department'  => !is_null($deptId),
-        'department_id'     => $deptId,             // opcionális, de hasznos lehet a UI-nak
+        'department_id'     => $deptId,             // opcionális, but useful for UI
     ]);
 }
 
@@ -388,11 +410,12 @@ if ($user) {
         ->whereNotNull('department_id')
         ->exists();
 
-    // Aktív részleg vezetője?
-    $isDeptManager = DB::table('organization_departments')
-        ->where('organization_id', $orgId)
-        ->where('manager_id', $user->id)
-        ->whereNull('removed_at')
+    // UPDATED: Check if user is department manager using new structure
+    $isDeptManager = DB::table('organization_department_managers as odm')
+        ->join('organization_departments as d', 'd.id', '=', 'odm.department_id')
+        ->where('d.organization_id', $orgId)
+        ->where('odm.manager_id', $user->id)
+        ->whereNull('d.removed_at')
         ->exists();
 
     // Szabály 1: Ha manager és részleghez is van rendelve (vezetőként ÉS/VAGY tagként),
@@ -400,19 +423,15 @@ if ($user) {
     if ($currentType === 'manager' && ($isDeptManager || $hasDept) && $requestedType !== 'manager') {
         return response()->json([
             'message' => 'A felhasználó menedzser és részleghez van rendelve; a típus nem módosítható.',
-            'errors'  => [
-                'type' => ['A típus módosításához előbb töröld a részleg-hozzárendelést (vezetői és tagsági szinten is).']
-            ],
+            'errors'  => ['type' => ['A felhasználó menedzser és részleghez van rendelve; a típus nem módosítható.']]
         ], 422);
     }
 
-    // Szabály 2: Ha alkalmazott (normal) és már részleghez tartozik, NEM lehet belőle manager vagy CEO
-    if ($currentType === 'normal' && $hasDept && in_array($requestedType, ['manager','ceo'], true)) {
+    // Szabály 2: Ha partial tag és normal típusú, a típus nem változtatható
+    if ($hasDept && $currentType === 'normal' && $requestedType !== 'normal') {
         return response()->json([
-            'message' => 'Ez a felhasználó már részleghez tartozik; nem léptethető menedzserré vagy CEO-vá.',
-            'errors'  => [
-                'type' => ['Előbb távolítsd el a részlegről, utána módosítható a típus.']
-            ],
+            'message' => 'Ez a dolgozó már tagja egy részlegnek, ezért a típus nem módosítható.',
+            'errors'  => ['type' => ['Ez a dolgozó már tagja egy részlegnek, ezért a típus nem módosítható.']]
         ], 422);
     }
 }
@@ -773,53 +792,78 @@ public function PasswordReset(Request $request)
 
     //RÉSZLEGKEZELÉS//
 
-    public function storeDepartment(Request $request)
+   public function storeDepartment(Request $request)
 {
     $orgId = (int) session('org_id');
 
-    // csak ha be van kapcsolva a multi-level
     if (!\App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false)) {
-        return back()->with('error', 'A többszintű részlegkezelés nincs bekapcsolva.');
+        return response()->json(['message' => 'A többszintű részlegkezelés nincs bekapcsolva.'], 422);
     }
 
     $data = $request->validate([
-        'department_name' => ['required','string','max:255'],
-        'manager_id'      => ['required','integer'],
+        'name' => ['required','string','max:255'],
+        'manager_ids' => ['required','array','min:1'],
+        'manager_ids.*' => ['required','integer'],
     ]);
 
-    // manager ellenőrzés: az adott org tagja és type='manager'
-    $manager = \DB::table('user as u')
-        ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
-        ->where('ou.organization_id', $orgId)
-        ->where('u.id', $data['manager_id'])
-        ->where('u.type', 'manager')
-        ->first(['u.id']);
+    // Check all managers are valid
+    foreach ($data['manager_ids'] as $managerId) {
+        // Manager validation: organization member and type='manager'
+        $manager = \DB::table('user as u')
+            ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+            ->where('ou.organization_id', $orgId)
+            ->where('u.id', $managerId)
+            ->where('u.type', 'manager')
+            ->whereNull('u.removed_at')
+            ->first(['u.id']);
 
-    if (!$manager) {
-        return back()->with('error', 'Csak olyan vezető választható, aki manager és az adott szervezet tagja.');
+        if (!$manager) {
+            return response()->json(['message' => "Manager ID {$managerId} nem található vagy nem manager típusú."], 422);
+        }
+
+        // Check if manager is already managing another department
+        $alreadyManaging = \DB::table('organization_department_managers as odm')
+            ->join('organization_departments as d', 'd.id', '=', 'odm.department_id')
+            ->where('d.organization_id', $orgId)
+            ->where('odm.manager_id', $managerId)
+            ->whereNull('d.removed_at')
+            ->exists();
+
+        if ($alreadyManaging) {
+            $managerName = \DB::table('user')->where('id', $managerId)->value('name');
+            return response()->json(['message' => "A vezető ({$managerName}) már egy másik részleget vezet."], 422);
+        }
     }
 
-    // ne vezessen már aktív részleget
-    $already = \DB::table('organization_departments')
-        ->where('organization_id', $orgId)
-        ->where('manager_id', $data['manager_id'])
-        ->whereNull('removed_at')
-        ->exists();
+    try {
+        \DB::transaction(function() use ($orgId, $data) {
+            // 1. Create department
+            $deptId = \DB::table('organization_departments')->insertGetId([
+                'organization_id' => $orgId,
+                'department_name' => $data['name'],
+                'created_at' => now(),
+                'removed_at' => null,
+            ]);
 
-    if ($already) {
-        return back()->with('error', 'Ez a vezető már egy részleget vezet.');
+            // 2. Assign managers
+            foreach ($data['manager_ids'] as $managerId) {
+                \DB::table('organization_department_managers')->insert([
+                    'organization_id' => $orgId,
+                    'department_id' => $deptId,
+                    'manager_id' => $managerId,
+                    'created_at' => now(),
+                ]);
+            }
+        });
+
+        return response()->json(['ok' => true, 'message' => 'Részleg létrehozva.']);
+    } catch (\Exception $e) {
+        \Log::error('Department creation failed', [
+            'organization_id' => $orgId,
+            'error' => $e->getMessage(),
+        ]);
+        return response()->json(['message' => 'Hiba történt a részleg létrehozásakor.'], 500);
     }
-
-    // beszúrás
-    \DB::table('organization_departments')->insert([
-        'organization_id' => $orgId,
-        'department_name' => $data['department_name'],
-        'manager_id'      => $data['manager_id'],
-        'created_at'      => now(),
-        'removed_at'      => null,
-    ]);
-
-    return back()->with('success', 'Részleg létrehozva.');
 }
 
 public function getDepartment(Request $request)
@@ -830,18 +874,14 @@ public function getDepartment(Request $request)
         'id' => ['required','integer'],
     ]);
 
-    // alap adatok + manager adatok
+    // Get department basic data
     $dept = \DB::table('organization_departments as d')
-        ->leftJoin('user as u', 'u.id', '=', 'd.manager_id')
         ->where('d.organization_id', $orgId)
         ->where('d.id', $data['id'])
         ->whereNull('d.removed_at')
         ->first([
             'd.id',
             'd.department_name',
-            'd.manager_id',
-            'u.name  as manager_name',
-            'u.email as manager_email',
             'd.created_at',
         ]);
 
@@ -851,28 +891,40 @@ public function getDepartment(Request $request)
         ], 404);
     }
 
-    // Választható managerek: akik org tagok, type='manager', nincs aktív részlegük
-    // + a JELENLEGI manager mindig legyen benne a listában (különben nem tudnánk visszaállni)
-    $eligible = \DB::table('user as u')
+    // Get current managers
+    $currentManagers = \DB::table('organization_department_managers as odm')
+        ->join('user as u', 'u.id', '=', 'odm.manager_id')
+        ->where('odm.department_id', $data['id'])
+        ->whereNull('u.removed_at')
+        ->orderBy('u.name')
+        ->get([
+            'u.id',
+            'u.name',
+            'u.email',
+            'odm.created_at as assigned_at'
+        ]);
+
+    // Get eligible managers (those not managing any other department)
+    $eligibleManagers = \DB::table('user as u')
         ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
         ->where('ou.organization_id', $orgId)
         ->where('u.type', 'manager')
         ->whereNull('u.removed_at')
-        ->where(function($q) use ($orgId, $dept) {
-            $q->whereNotExists(function($q2) use ($orgId) {
-                $q2->from('organization_departments as d2')
-                   ->whereColumn('d2.manager_id', 'u.id')
-                   ->where('d2.organization_id', $orgId)
-                   ->whereNull('d2.removed_at');
-            })
-            ->orWhere('u.id', $dept->manager_id); // jelenlegi manager
+        ->whereNotExists(function($q) use ($orgId, $data) {
+            $q->from('organization_department_managers as odm')
+              ->join('organization_departments as d', 'd.id', '=', 'odm.department_id')
+              ->whereColumn('odm.manager_id', 'u.id')
+              ->where('d.organization_id', $orgId)
+              ->where('d.id', '!=', $data['id']) // Allow current department managers
+              ->whereNull('d.removed_at');
         })
         ->orderBy('u.name')
         ->get(['u.id','u.name','u.email']);
 
     return response()->json([
         'department' => $dept,
-        'eligibleManagers' => $eligible,
+        'currentManagers' => $currentManagers,
+        'eligibleManagers' => $eligibleManagers,
     ]);
 }
 
@@ -885,58 +937,87 @@ public function updateDepartment(Request $request)
     }
 
     $data = $request->validate([
-        'id'              => ['required','integer'],
-        'department_name' => ['required','string','max:255'],
-        'manager_id'      => ['required','integer'],
+        'id' => ['required','integer'],
+        'name' => ['required','string','max:255'],
+        'manager_ids' => ['required','array','min:1'],
+        'manager_ids.*' => ['required','integer'],
     ]);
 
     $dept = \DB::table('organization_departments')
         ->where('organization_id', $orgId)
         ->where('id', $data['id'])
         ->whereNull('removed_at')
-        ->first(['id','manager_id']);
+        ->first(['id']);
 
     if (!$dept) {
         return response()->json(['message' => 'A részleg nem található (vagy már inaktiválva lett).'], 404);
     }
 
-    // ellenőrzés: a választott manager org tag, type='manager'
-    $manager = \DB::table('user as u')
-        ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
-        ->where('ou.organization_id', $orgId)
-        ->where('u.id', $data['manager_id'])
-        ->where('u.type', 'manager')
-        ->whereNull('u.removed_at')
-        ->first(['u.id']);
+    // Validate all managers
+    foreach ($data['manager_ids'] as $managerId) {
+        // Check if manager exists and is valid
+        $manager = \DB::table('user as u')
+            ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+            ->where('ou.organization_id', $orgId)
+            ->where('u.id', $managerId)
+            ->where('u.type', 'manager')
+            ->whereNull('u.removed_at')
+            ->first(['u.id']);
 
-    if (!$manager) {
-        return response()->json(['message' => 'Csak olyan manager választható, aki az adott szervezet tagja és aktív.'], 422);
-    }
+        if (!$manager) {
+            return response()->json(['message' => "Manager ID {$managerId} nem található vagy nem manager típusú."], 422);
+        }
 
-    // ha manager csere történik: az új manager ne vezessen másik aktív részleget
-    if ((int)$data['manager_id'] !== (int)$dept->manager_id) {
-        $already = \DB::table('organization_departments')
-            ->where('organization_id', $orgId)
-            ->where('manager_id', $data['manager_id'])
-            ->whereNull('removed_at')
+        // Check if manager is managing another department (not this one)
+        $alreadyManaging = \DB::table('organization_department_managers as odm')
+            ->join('organization_departments as d', 'd.id', '=', 'odm.department_id')
+            ->where('d.organization_id', $orgId)
+            ->where('odm.manager_id', $managerId)
+            ->where('d.id', '!=', $data['id']) // Different department
+            ->whereNull('d.removed_at')
             ->exists();
 
-        if ($already) {
-            return response()->json(['message' => 'A kiválasztott vezető már egy másik részleget vezet.'], 422);
+        if ($alreadyManaging) {
+            $managerName = \DB::table('user')->where('id', $managerId)->value('name');
+            return response()->json(['message' => "A vezető ({$managerName}) már egy másik részleget vezet."], 422);
         }
     }
 
-    \DB::table('organization_departments')
-        ->where('organization_id', $orgId)
-        ->where('id', $data['id'])
-        ->update([
-            'department_name' => $data['department_name'],
-            'manager_id'      => $data['manager_id'],
-            'created_at'      => \DB::raw('created_at'), // változatlanul hagyjuk
-            'removed_at'      => null, // biztos ami biztos
-        ]);
+    try {
+        \DB::transaction(function() use ($orgId, $data) {
+            // 1. Update department name
+            \DB::table('organization_departments')
+                ->where('organization_id', $orgId)
+                ->where('id', $data['id'])
+                ->update([
+                    'department_name' => $data['name'],
+                ]);
 
-    return response()->json(['ok' => true, 'message' => 'Részleg frissítve.']);
+            // 2. Remove all current managers
+            \DB::table('organization_department_managers')
+                ->where('department_id', $data['id'])
+                ->delete();
+
+            // 3. Add new managers
+            foreach ($data['manager_ids'] as $managerId) {
+                \DB::table('organization_department_managers')->insert([
+                    'organization_id' => $orgId,
+                    'department_id' => $data['id'],
+                    'manager_id' => $managerId,
+                    'created_at' => now(),
+                ]);
+            }
+        });
+
+        return response()->json(['ok' => true, 'message' => 'Részleg frissítve.']);
+    } catch (\Exception $e) {
+        \Log::error('Department update failed', [
+            'department_id' => $data['id'],
+            'organization_id' => $orgId,
+            'error' => $e->getMessage(),
+        ]);
+        return response()->json(['message' => 'Hiba történt a részleg frissítésekor.'], 500);
+    }
 }
 
 public function getDepartmentMembers(Request $request)
@@ -1073,205 +1154,272 @@ public function saveDepartmentMembers(Request $request)
 }
 
 public function deleteDepartment(Request $request)
-    {
-        $orgId = (int) session('org_id');
-        $deptId = (int) $request->input('id');
-        
-        if (!$deptId) {
-            return response()->json([
-                'message' => 'Nincs megadva részleg ID.',
-                'errors' => ['id' => ['Részleg ID kötelező.']],
-            ], 422);
-        }
-
-        try {
-            DB::transaction(function () use ($orgId, $deptId) {
-                // Check if department exists and belongs to the organization
-                $department = DB::table('organization_departments')
-                    ->where('id', $deptId)
-                    ->where('organization_id', $orgId)
-                    ->whereNull('removed_at')
-                    ->first();
-
-                if (!$department) {
-                    throw new \Exception('A részleg nem található vagy már törölve lett.');
-                }
-
-                // 1. Remove all members from the department
-                // Set department_id to NULL for all users in this department
-                DB::table('organization_user')
-                    ->where('organization_id', $orgId)
-                    ->where('department_id', $deptId)
-                    ->update(['department_id' => null]);
-
-                // 2. Mark the department as removed (soft delete)
-                DB::table('organization_departments')
-                    ->where('id', $deptId)
-                    ->where('organization_id', $orgId)
-                    ->update(['removed_at' => now()]);
-
-                // Note: We don't need to manually remove the manager assignment 
-                // because the manager relationship is handled through the department record
-                // When the department is soft-deleted, the manager relationship is effectively removed
-            });
-
-            return response()->json([
-                'message' => 'A részleg sikeresen törölve lett. Minden felhasználó eltávolításra került a részlegből.',
-                'success' => true
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Department deletion failed', [
-                'department_id' => $deptId,
-                'organization_id' => $orgId,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'message' => 'Hiba történt a részleg törlésekor: ' . $e->getMessage(),
-                'errors' => ['general' => ['A részleg törlése sikertelen volt.']],
-            ], 500);
-        }
+{
+    $orgId = (int) session('org_id');
+    $deptId = (int) $request->input('id');
+    
+    if (!$deptId) {
+        return response()->json([
+            'message' => 'Nincs megadva részleg ID.',
+            'errors' => ['id' => ['Részleg ID kötelező.']],
+        ], 422);
     }
+
+    try {
+        DB::transaction(function () use ($orgId, $deptId) {
+            // Check if department exists and belongs to the organization
+            $department = DB::table('organization_departments')
+                ->where('id', $deptId)
+                ->where('organization_id', $orgId)
+                ->whereNull('removed_at')
+                ->first();
+
+            if (!$department) {
+                throw new \Exception('A részleg nem található vagy már törölve lett.');
+            }
+
+            // 1. Remove all members from the department
+            DB::table('organization_user')
+                ->where('organization_id', $orgId)
+                ->where('department_id', $deptId)
+                ->update(['department_id' => null]);
+
+            // 2. Remove all manager assignments
+            DB::table('organization_department_managers')
+                ->where('department_id', $deptId)
+                ->delete();
+
+            // 3. Mark the department as removed (soft delete)
+            DB::table('organization_departments')
+                ->where('id', $deptId)
+                ->where('organization_id', $orgId)
+                ->update(['removed_at' => now()]);
+        });
+
+        return response()->json([
+            'message' => 'A részleg sikeresen törölve lett. Minden felhasználó eltávolításra került a részlegből.',
+            'success' => true
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Department deletion failed', [
+            'department_id' => $deptId,
+            'organization_id' => $orgId,
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'message' => 'Hiba történt a részleg törlésekor: ' . $e->getMessage(),
+            'errors' => ['general' => ['A részleg törlése sikertelen volt.']],
+        ], 500);
+    }
+}
 
 
     public function getNetworkData(Request $request)
-    {
-        $orgId = (int) session('org_id');
-        
-        try {
-            // Get all users in the organization with their metadata
-            $users = DB::table('organization_user as ou')
-                ->join('user as u', 'u.id', '=', 'ou.user_id')
-                ->leftJoin('organization_departments as d', function($join) use ($orgId) {
-                    $join->on('d.manager_id', '=', 'u.id')
-                         ->where('d.organization_id', '=', $orgId)
-                         ->whereNull('d.removed_at');
-                })
-                ->where('ou.organization_id', $orgId)
-                ->whereNull('u.removed_at')
-                ->whereNotIn('u.type', ['admin']) // Exclude admins from network
-                ->select([
-                    'u.id',
-                    'u.name', 
-                    'u.email',
-                    'u.type',
-                    'ou.department_id',
-                    'd.department_name',
-                    'd.id as managed_dept_id' // If user manages a department
-                ])
-                ->get();
+{
+    $orgId = (int) session('org_id');
+    
+    try {
+        // UPDATED: Get all users in the organization with proper multi-manager support
+        $users = DB::table('organization_user as ou')
+            ->join('user as u', 'u.id', '=', 'ou.user_id')
+            ->leftJoin('organization_departments as d', function($join) {
+                $join->on('d.id', '=', 'ou.department_id')
+                     ->whereNull('d.removed_at');
+            })
+            // UPDATED: Check if user is a manager using the new table structure
+            ->leftJoin('organization_department_managers as odm', function($join) use ($orgId) {
+                $join->on('odm.manager_id', '=', 'u.id')
+                     ->where('odm.organization_id', '=', $orgId);
+            })
+            ->leftJoin('organization_departments as managed_dept', function($join) {
+                $join->on('managed_dept.id', '=', 'odm.department_id')
+                     ->whereNull('managed_dept.removed_at');
+            })
+            ->where('ou.organization_id', $orgId)
+            ->whereNull('u.removed_at')
+            ->whereNotIn('u.type', ['admin']) // Exclude admins from network
+            ->select([
+                'u.id',
+                'u.name', 
+                'u.email',
+                'u.type',
+                'u.login_mode', // ADDED: Include login mode for proper display
+                'ou.department_id',
+                'd.department_name',
+                'managed_dept.id as managed_dept_id', // Department they manage
+                'managed_dept.department_name as managed_dept_name'
+            ])
+            ->get();
 
-            // Get rater counts for all users
-            $raterCounts = $this->getRaterCounts($users->pluck('id'), $orgId);
+        // Get rater counts for all users with login mode
+        $userIds = $users->pluck('id');
+        $raterCounts = $this->getRaterCounts($userIds, $orgId);
 
-            // Get all relationships
-            $relations = DB::table('user_relation as ur')
-                ->join('user as u1', 'u1.id', '=', 'ur.user_id')
-                ->join('user as u2', 'u2.id', '=', 'ur.target_id')
-                ->where('ur.organization_id', $orgId)
-                ->whereNull('u1.removed_at')
-                ->whereNull('u2.removed_at')
-                ->whereNotIn('u1.type', ['admin'])
-                ->whereNotIn('u2.type', ['admin'])
-                ->whereColumn('ur.user_id', '!=', 'ur.target_id') // Exclude self relations
-                ->select([
-                    'ur.user_id',
-                    'ur.target_id', 
-                    'ur.type'
-                ])
-                ->get();
+        // UPDATED: Get all relationships
+        $relations = DB::table('user_relation as ur')
+            ->join('user as u1', 'u1.id', '=', 'ur.user_id')
+            ->join('user as u2', 'u2.id', '=', 'ur.target_id')
+            ->join('organization_user as ou1', function($join) use ($orgId) {
+                $join->on('ou1.user_id', '=', 'u1.id')
+                     ->where('ou1.organization_id', '=', $orgId);
+            })
+            ->join('organization_user as ou2', function($join) use ($orgId) {
+                $join->on('ou2.user_id', '=', 'u2.id')
+                     ->where('ou2.organization_id', '=', $orgId);
+            })
+            ->where('ur.organization_id', $orgId)
+            ->whereNull('u1.removed_at')
+            ->whereNull('u2.removed_at')
+            ->whereNotIn('u1.type', ['admin'])
+            ->whereNotIn('u2.type', ['admin'])
+            ->whereColumn('ur.user_id', '!=', 'ur.target_id') // Exclude self relations
+            ->select([
+                'ur.user_id',
+                'ur.target_id', 
+                'ur.type'
+            ])
+            ->get();
 
-            // Get departments
-            $departments = DB::table('organization_departments')
-                ->where('organization_id', $orgId)
-                ->whereNull('removed_at')
-                ->select(['id', 'department_name', 'manager_id'])
-                ->get();
-
-            // Transform users for frontend
-            $networkNodes = $users->map(function($user) use ($raterCounts) {
-                $raterCount = $raterCounts->get($user->id, 0);
-                $raterStatus = $raterCount < 3 ? 'insufficient' : ($raterCount < 7 ? 'okay' : 'sufficient');
-                
+        // UPDATED: Get departments with multiple managers
+        $departments = DB::table('organization_departments as d')
+            ->leftJoin('organization_department_managers as odm', 'd.id', '=', 'odm.department_id')
+            ->leftJoin('user as u', 'u.id', '=', 'odm.manager_id')
+            ->where('d.organization_id', $orgId)
+            ->whereNull('d.removed_at')
+            ->whereNull('u.removed_at')
+            ->select([
+                'd.id', 
+                'd.department_name',
+                'u.id as manager_id',
+                'u.name as manager_name'
+            ])
+            ->get()
+            ->groupBy('id')
+            ->map(function($deptManagers) {
+                $first = $deptManagers->first();
                 return [
-                    'id' => 'user_' . $user->id,
-                    'user_id' => $user->id,
-                    'label' => $user->name,
-                    'email' => $user->email,
-                    'type' => $user->type,
-                    'department_id' => $user->department_id,
-                    'department_name' => $user->department_name,
-                    'managed_dept_id' => $user->managed_dept_id,
-                    'rater_count' => $raterCount,
-                    'rater_status' => $raterStatus,
-                    'is_manager' => !empty($user->managed_dept_id),
+                    'id' => $first->id,
+                    'department_name' => $first->department_name,
+                    'managers' => $deptManagers->filter(function($item) {
+                        return !is_null($item->manager_id);
+                    })->map(function($item) {
+                        return [
+                            'id' => $item->manager_id,
+                            'name' => $item->manager_name
+                        ];
+                    })->values()->toArray()
                 ];
+            })
+            ->values();
+
+        // Transform users for frontend with proper login mode
+        $networkNodes = $users->map(function($user) use ($raterCounts) {
+            $raterCount = $raterCounts->get($user->id, 0);
+            $raterStatus = $raterCount < 3 ? 'insufficient' : ($raterCount < 7 ? 'okay' : 'sufficient');
+            
+            // FIXED: Proper login mode handling
+            $loginModeText = match($user->login_mode) {
+                'email' => 'Email',
+                'google' => 'Google',
+                'microsoft' => 'Microsoft',
+                default => '—'
+            };
+            
+            return [
+                'id' => 'user_' . $user->id,
+                'user_id' => $user->id,
+                'label' => $user->name,
+                'email' => $user->email,
+                'type' => $user->type,
+                'login_mode_text' => $loginModeText, // ADDED
+                'department_id' => $user->department_id,
+                'department_name' => $user->department_name,
+                'managed_dept_id' => $user->managed_dept_id,
+                'managed_dept_name' => $user->managed_dept_name, // ADDED
+                'rater_count' => $raterCount,
+                'rater_status' => $raterStatus,
+                'is_manager' => !empty($user->managed_dept_id),
+            ];
+        });
+
+        // Transform relationships for frontend
+        $networkEdges = [];
+        $relationshipPairs = [];
+
+        foreach ($relations as $relation) {
+            $sourceId = 'user_' . $relation->user_id;
+            $targetId = 'user_' . $relation->target_id;
+            $pairKey = min($sourceId, $targetId) . '_' . max($sourceId, $targetId);
+            
+            if (!isset($relationshipPairs[$pairKey])) {
+                $relationshipPairs[$pairKey] = [
+                    'source' => $sourceId,
+                    'target' => $targetId,
+                    'types' => [],
+                    'bidirectional' => false
+                ];
+            }
+            
+            $relationshipPairs[$pairKey]['types'][] = $relation->type;
+            
+            // Check if we have the reverse relationship
+            $reverseExists = $relations->contains(function($r) use ($relation) {
+                return $r->user_id == $relation->target_id && $r->target_id == $relation->user_id;
             });
-
-            // Transform relationships for frontend
-            $networkEdges = [];
-            $relationshipPairs = [];
-
-            foreach ($relations as $relation) {
-                $sourceId = 'user_' . $relation->user_id;
-                $targetId = 'user_' . $relation->target_id;
-                $pairKey = min($sourceId, $targetId) . '_' . max($sourceId, $targetId);
-                
-                if (!isset($relationshipPairs[$pairKey])) {
-                    $relationshipPairs[$pairKey] = [
-                        'source' => $sourceId,
-                        'target' => $targetId,
-                        'types' => [],
-                        'bidirectional' => false
-                    ];
-                }
-                
-                $relationshipPairs[$pairKey]['types'][] = $relation->type;
-                
-                // Check if we have the reverse relationship
-                $reverseExists = $relations->contains(function($r) use ($relation) {
-                    return $r->user_id == $relation->target_id && $r->target_id == $relation->user_id;
-                });
-                
-                if ($reverseExists) {
-                    $relationshipPairs[$pairKey]['bidirectional'] = true;
-                }
+            
+            if ($reverseExists) {
+                $relationshipPairs[$pairKey]['bidirectional'] = true;
             }
-
-            // Create edges from relationship pairs
-            $edgeId = 0;
-            foreach ($relationshipPairs as $pair) {
-                $networkEdges[] = [
-                    'id' => 'edge_' . $edgeId++,
-                    'source' => $pair['source'],
-                    'target' => $pair['target'],
-                    'bidirectional' => $pair['bidirectional'],
-                    'types' => array_unique($pair['types']),
-                    'is_subordinate' => in_array('subordinate', $pair['types']) || in_array('superior', $pair['types'])
-                ];
-            }
-
-            return response()->json([
-                'nodes' => $networkNodes->values(),
-                'edges' => $networkEdges,
-                'departments' => $departments,
-                'organization_id' => $orgId
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Network data fetch failed', [
-                'organization_id' => $orgId,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'message' => 'Failed to fetch network data: ' . $e->getMessage(),
-            ], 500);
         }
+
+        // Create edges from relationship pairs
+        $edgeId = 0;
+        foreach ($relationshipPairs as $pair) {
+            // Determine the strongest relationship type
+            $types = $pair['types'];
+            $strongestType = 'colleague'; // default
+            
+            if (in_array('superior', $types)) {
+                $strongestType = 'superior';
+            } elseif (in_array('subordinate', $types)) {
+                $strongestType = 'subordinate';
+            } elseif (in_array('colleague', $types)) {
+                $strongestType = 'colleague';
+            }
+            
+            $networkEdges[] = [
+                'id' => 'edge_' . $edgeId++,
+                'source' => $pair['source'],
+                'target' => $pair['target'],
+                'type' => $strongestType,
+                'bidirectional' => $pair['bidirectional'],
+                'types' => array_unique($pair['types']),
+                'is_subordinate' => in_array('subordinate', $pair['types']) || in_array('superior', $pair['types'])
+            ];
+        }
+
+        return response()->json([
+            'nodes' => $networkNodes->values(),
+            'edges' => $networkEdges,
+            'departments' => $departments,
+            'organization_id' => $orgId
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Network data fetch failed', [
+            'organization_id' => $orgId,
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'message' => 'Failed to fetch network data: ' . $e->getMessage(),
+        ], 500);
     }
+}
 
 
 }

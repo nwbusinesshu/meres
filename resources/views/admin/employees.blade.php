@@ -21,13 +21,10 @@
         <div class="tile tile-button trigger-new-dept">
             <span><i class="fa fa-sitemap"></i> Új részleg</span>
         </div>
-    
-
-    <div class="tile tile-button network">
-        <span><i class="fa fa-project-diagram"></i> Cégkapcsolati háló</span>
-    </div>
+        <div class="tile tile-button network">
+            <span><i class="fa fa-project-diagram"></i> Cégkapcsolati háló</span>
+        </div>
     @endif
-
 </div>
 
 @if(!empty($enableMultiLevel))
@@ -38,88 +35,88 @@
                 @include('admin.partials.user-row', ['user' => $user])
             @endforeach
             @if(collect($ceos)->concat($unassigned)->isEmpty())
-                <div class="muted small px-2 py-1">Nincs megjeleníthető felhasználó ezen a szinten.</div>
+                <div class="tile tile-info">Nincs megjeleníthető felhasználó ezen a szinten.</div>
             @endif
         </div>
 
         {{-- === Részlegek listája === --}}
         @foreach($departments as $d)
-    <div class="userlist dept-block" data-dept-id="{{ $d->id }}">
-        {{-- Fejléc --}}
-        <div class="dept-header dept-header--dept " data-dept-id="{{ $d->id }}">
-            <div class="left js-dept-toggle">
-                <i class="fa fa-chevron-down caret "></i>
-                <span class="dept-title">{{ $d->department_name }}</span>
-                <span class="badge count">{{ $d->members->count() }}</span>
-                {{-- NEW: Show manager count --}}
-                <span class="badge count-managers" style="background-color: #28a745;">{{ $d->managers->count() }} vezető</span>
+        <div class="userlist dept-block" data-dept-id="{{ $d->id }}">
+            {{-- Fejléc --}}
+            <div class="dept-header dept-header--dept " data-dept-id="{{ $d->id }}">
+                <div class="left js-dept-toggle">
+                    <i class="fa fa-chevron-down caret "></i>
+                    <span class="dept-title">{{ $d->department_name }}</span>
+                    <span class="badge count">{{ $d->members->count() }}</span>
+                    {{-- NEW: Show manager count --}}
+                    <span class="badge count-managers" style="background-color: #28a745;">{{ $d->managers->count() }} vezető</span>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-outline-success dept-members" data-tippy-content="Tagok kezelése"><i class="fa fa-users"></i></button>
+                    <button class="btn btn-outline-primary dept-edit" data-tippy-content="Szerkesztés"><i class="fa fa-pen"></i></button>
+                    <button class="btn btn-outline-danger dept-remove" data-tippy-content="{{ $_('remove') }}"><i class="fa fa-trash-alt"></i></button>
+                </div>
             </div>
-            <div class="actions">
-                <button class="btn btn-outline-success dept-members" data-tippy-content="Tagok kezelése"><i class="fa fa-users"></i></button>
-                <button class="btn btn-outline-primary dept-edit" data-tippy-content="Szerkesztés"><i class="fa fa-pen"></i></button>
-                <button class="btn btn-outline-danger dept-remove" data-tippy-content="{{ $_('remove') }}"><i class="fa fa-trash-alt"></i></button>
-            </div>
-        </div>
 
-        {{-- Részleg tartalma (lenyitható) --}}
-        <div class="dept-body">
-            {{-- NEW: Multiple Managers Section --}}
-            @if($d->managers->isNotEmpty())
-                <div class="managers-section">
-                    <div class="section-header">
-                        <h6 class="text-success mb-2">
-                            <i class="fa fa-user-tie"></i> Vezetők ({{ $d->managers->count() }})
-                        </h6>
-                    </div>
-                    @foreach($d->managers as $manager)
-                        @php
-                          $managerUser = (object)[
-                            'id'              => $manager->id,
-                            'name'            => $manager->name,
-                            'email'           => $manager->email,
-                            'type'            => 'manager',
-                            'login_mode_text' => null, // Will be filled from organization_user if needed
-                            'bonusMalus'      => null,
-                            'rater_count'     => 0,
-                          ];
-                        @endphp
-                        <div class="manager-row">
-                            @include('admin.partials.user-row', [
-                              'user' => $managerUser,
-                              'lockDelete' => false,
-                              'isMultipleManager' => true,
-                              'assignedAt' => $manager->assigned_at
-                            ])
+            {{-- Részleg tartalma (lenyitható) --}}
+            <div class="dept-body">
+                {{-- NEW: Multiple Managers Section --}}
+                @if($d->managers->isNotEmpty())
+                    <div class="managers-section">
+                        <div class="section-header">
+                            <h6 class="text-success mb-2">
+                                <i class="fa fa-user-tie"></i> Vezetők ({{ $d->managers->count() }})
+                            </h6>
                         </div>
-                    @endforeach
-                </div>
-            @else
-                <div class="no-managers-warning">
-                    <div class="alert alert-warning small py-2">
-                        <i class="fa fa-exclamation-triangle"></i> 
-                        Nincs kijelölt vezető ehhez a részleghez.
+                        @foreach($d->managers as $manager)
+                            @php
+                              $managerUser = (object)[
+                                'id'              => $manager->id,
+                                'name'            => $manager->name,
+                                'email'           => $manager->email,
+                                'type'            => 'manager',
+                                'login_mode_text' => $manager->login_mode_text ?? '—',
+                                'bonusMalus'      => $manager->bonusMalus ?? null,
+                                'rater_count'     => $manager->rater_count ?? 0,
+                              ];
+                            @endphp
+                            <div class="manager-row">
+                                @include('admin.partials.user-row', [
+                                  'user' => $managerUser,
+                                  'lockDelete' => true,
+                                  'isMultipleManager' => true,
+                                  'assignedAt' => $manager->assigned_at ?? null
+                                ])
+                            </div>
+                        @endforeach
                     </div>
-                </div>
-            @endif
+                @else
+                    <div class="no-managers-warning">
+                        <div class="alert alert-warning small py-2">
+                            <i class="fa fa-exclamation-triangle"></i> 
+                            Nincs kijelölt vezető ehhez a részleghez.
+                        </div>
+                    </div>
+                @endif
 
-            {{-- Members Section --}}
-            @if($d->members->isNotEmpty())
-                <div class="members-section">
-                    <div class="section-header">
-                        <h6 class="text-primary mb-2">
-                            <i class="fa fa-users"></i> Tagok ({{ $d->members->count() }})
-                        </h6>
+                {{-- Members Section --}}
+                @if($d->members->isNotEmpty())
+                    <div class="members-section">
+                        <div class="section-header">
+                            <h6 class="text-primary mb-2">
+                                <i class="fa fa-users"></i> Tagok ({{ $d->members->count() }})
+                            </h6>
+                        </div>
+                        @foreach($d->members as $user)
+                            @include('admin.partials.user-row', ['user' => $user])
+                        @endforeach
                     </div>
-                    @foreach($d->members as $user)
-                        @include('admin.partials.user-row', ['user' => $user])
-                    @endforeach
-                </div>
-            @else
-                <div class="muted small px-2 py-1">Nincs tag a részlegben.</div>
-            @endif
+                @else
+                    <div class="tile tile-info">Nincs tag a részlegben.</div>
+                @endif
+            </div>
         </div>
-    </div>
-@endforeach
+        @endforeach
     </div>
 
 @else
@@ -130,9 +127,9 @@
                 <th>{{ __('global.name') }}</th>
                 <th>Értékelők</th>
                 <th>{{ __('global.type') }}</th>
-                
-                <th>@if(!empty($showBonusMalus)){{ __('global.bonusmalus') }}@endif</th>
-                
+                @if(!empty($showBonusMalus))
+                <th>{{ __('global.bonusmalus') }}</th>
+                @endif
                 <th>{{ $_('operations') }}</th>
             </thead>
             <tbody>
@@ -146,39 +143,47 @@
                         $raterClass = 'rater-okay';
                     }
                 @endphp
-                <tr data-id="{{ $user->id }}">
+                <tr class="user-row" data-id="{{ $user->id }}">
                     <td data-col="{{ __('global.name') }}">
-                        <div class="user-name">{{ $user->name }}</div>
-                        <div class="text-muted small user-details">
-                            <div>
-                                Belépési mód:
-                                <span class="login-mode">{{ $user->login_mode_text ?? '—' }}</span>
-                            </div>
-                            <div class="user-email">
-                                {{ $user->email }}
-                            </div>
+                        <div>
+                            <strong>{{ $user->name }}</strong>
+                            @if(!empty($user->email))
+                                <br><small class="text-muted">{{ $user->email }}</small>
+                            @endif
                         </div>
                     </td>
+                    
                     <td data-col="Értékelők">
                         <div class="rater-counter {{ $raterClass }}">
-                            <div class="rater-number">{{ $raterCount }}
-                            <span class="rater-label">értékelő</span></div>
-                            <div class="rater-bar">
-                                <div class="rater-progress" style="width: {{ min(100, ($raterCount / 10) * 100) }}%"></div>
-                            </div>
+                            {{ $raterCount }}
                         </div>
                     </td>
-                    <td data-col="{{ __('global.type') }}">{{ __('usertypes.' . $user->type) }}</td>
                     
+                    <td data-col="{{ __('global.type') }}">
+                        @if(isset($user->type))
+                            @if($user->type === 'ceo')
+                                {{ __('usertypes.ceo') }}
+                            @elseif($user->type === 'manager')
+                                {{ __('usertypes.manager') }}
+                            @elseif($user->type === 'normal')
+                                {{ __('usertypes.normal') }}
+                            @else
+                                {{ method_exists($user, 'getNameOfType') ? $user->getNameOfType() : ucfirst($user->type ?? '—') }}
+                            @endif
+                        @else
+                            —
+                        @endif
+                    </td>
+                    
+                    @if(!empty($showBonusMalus))
                     <td data-col="{{ __('global.bonusmalus') }}">
-                        @if(!empty($showBonusMalus))
                         @if(!empty($user->bonusMalus))
                             {{ __("global.bonus-malus.$user->bonusMalus") }}
                         @else
                             —
                         @endif
-                        @endif
                     </td>
+                    @endif
                     
                     <td data-col="{{ $_('operations') }}">
                         <div class="d-flex gap-1" style="gap:.25rem;">
