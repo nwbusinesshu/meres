@@ -1,186 +1,374 @@
 @if(!empty($enableMultiLevel) && $enableMultiLevel)
-<div class="modal fade modal-drawer" tabindex="-1" role="dialog" id="department-modal">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
+<div class="modal fade modal-drawer" id="department-modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Új részleg létrehozása</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger d-none" id="dept-error"></div>
+                
+                <div class="form-group">
+                    <label for="dept-name">Részleg neve <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control dept-name" id="dept-name" placeholder="Pl. IT Részleg">
+                </div>
 
-      <div class="modal-header">
-        <h5 class="modal-title">Új részleg létrehozása</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Bezárás">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
+                {{-- NEW: Multiple Managers Selection --}}
+                <div class="form-group">
+                    <label for="dept-managers">Vezetők kiválasztása <span class="text-danger">*</span></label>
+                    <div class="managers-selection">
+                        {{-- Selected managers display --}}
+                        <div class="selected-managers mb-3">
+                            <div class="selected-managers-header d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">Kiválasztott vezetők:</small>
+                                <button type="button" class="btn btn-sm btn-outline-secondary clear-all-managers">
+                                    <i class="fa fa-times"></i> Mindet töröl
+                                </button>
+                            </div>
+                            <div class="selected-managers-list" id="selected-managers-list">
+                                <div class="no-managers-selected text-muted small">Még nincs kiválasztott vezető</div>
+                            </div>
+                        </div>
 
-      <div class="modal-body">
+                        {{-- Available managers selection --}}
+                        <div class="available-managers">
+                            <label class="small text-muted">Elérhető vezetők:</label>
+                            <div class="available-managers-list" id="available-managers-list">
+                                {{-- This will be populated by JavaScript --}}
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-        {{-- HIBAHELY: ide írjuk a szerver oldali hibát, ha jön --}}
-        <div class="alert alert-danger d-none" id="dept-error"></div>
-
-        <div class="form-row">
-          <div class="form-group" style="width:100%;">
-            <label>Részleg neve</label>
-            <input type="text" class="form-control dept-name" maxlength="255" placeholder="Pl. Értékesítés">
-          </div>
+                <div class="form-group">
+                    <small class="text-muted">
+                        <i class="fa fa-info-circle"></i> 
+                        Egy részleghez több vezető is kijelölhető. A vezetők kezelhetik a részleg tagjait és látják az értékeléseket.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Mégse</button>
+                <button type="button" class="btn btn-primary trigger-submit-dept">Létrehozás</button>
+            </div>
         </div>
-
-        <div class="form-row">
-          <div class="form-group" style="width:100%;">
-            <label>Vezető</label>
-            <select class="form-control dept-manager">
-              <option value="">— válassz —</option>
-              @forelse($eligibleManagers as $m)
-                <option value="{{ $m->id }}">{{ $m->name }} @if($m->email) ({{ $m->email }}) @endif</option>
-              @empty
-                <option value="" disabled>Nincs választható manager</option>
-              @endforelse
-            </select>
-            <small class="form-text text-muted">
-              Csak olyan manager választható, aki még nem vezet részleget.
-            </small>
-          </div>
-        </div>
-
-        <div class="d-flex justify-content-end">
-          <button type="button" class="btn btn-light mr-2" data-dismiss="modal">Mégse</button>
-          <button type="button" class="btn btn-primary trigger-submit-dept">Létrehozás</button>
-        </div>
-      </div>
-
     </div>
-  </div>
-</div>
+    <style>
+.managers-selection {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+}
+
+.selected-managers-list {
+    min-height: 60px;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    background-color: white;
+}
+
+.available-managers-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    background-color: white;
+}
+
+.manager-item {
+    padding: 0.5rem;
+    margin-bottom: 0.25rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    background-color: white;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+}
+
+.manager-item:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.manager-item.selected {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+
+.selected-manager-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    margin-bottom: 0.25rem;
+    border: 1px solid #d1ecf1;
+    border-radius: 0.25rem;
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
+.selected-manager-item .remove-manager {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    padding: 0.25rem;
+}
+
+.selected-manager-item .remove-manager:hover {
+    color: #c82333;
+}
+</style>
 @endif
 @if(!empty($enableMultiLevel) && $enableMultiLevel)
 <script>
-  $(document).ready(function(){
+  // Replace the department-related JavaScript in your employees.blade.php with this updated version
 
-    // --- CREATE modal megnyitása marad, csak biztos ami biztos: töröljük az id-t és beállítjuk a feliratokat ---
-    $('.trigger-new-dept').on('click', function(){
-      $('#dept-error').addClass('d-none').text('');
-      $('#department-modal').attr('data-id', ''); // üres = CREATE mód
+// Global variables for manager selection
+let selectedManagerIds = [];
+let availableManagers = [];
 
-      $('#department-modal .modal-title').text('Új részleg létrehozása');
-      $('#department-modal .trigger-submit-dept').text('Létrehozás');
+// Initialize manager selection functionality
+function initManagerSelection() {
+    selectedManagerIds = [];
+    renderSelectedManagers();
+    renderAvailableManagers();
+}
 
-      $('#department-modal .dept-name').val('');
-      // manager lista a szerveroldalról jön renderkor; ha dinamikusan akarod frissíteni, lehet külön endpointra is húzni
-      $('#department-modal .dept-manager').val('');
-
-      var hasOption = $('#department-modal .dept-manager option[value!=""]').length > 0;
-      if (!hasOption) {
-        Swal.fire({ icon:'info', title:'Nincs választható vezető', text:'Előbb hozz létre legalább egy manager felhasználót.' });
+// Render selected managers list
+function renderSelectedManagers() {
+    const container = $('#selected-managers-list');
+    
+    if (selectedManagerIds.length === 0) {
+        container.html('<div class="no-managers-selected text-muted small">Még nincs kiválasztott vezető</div>');
         return;
-      }
-      $('#department-modal').modal();
-    });
+    }
 
-    // --- EDIT: prefill ---
-    $(document).on('click', '.dept-edit', function(){
-      const id = $(this).closest('tr').data('id');
-      if (!id) return;
+    const selectedManagers = availableManagers.filter(m => selectedManagerIds.includes(m.id));
+    const html = selectedManagers.map(manager => `
+        <div class="selected-manager-item" data-manager-id="${manager.id}">
+            <div>
+                <strong>${manager.name}</strong>
+                ${manager.email ? `<small class="text-muted d-block">${manager.email}</small>` : ''}
+            </div>
+            <button type="button" class="remove-manager" data-manager-id="${manager.id}">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+    `).join('');
+    
+    container.html(html);
+}
 
-      swal_loader.fire();
-      fetch("{{ route('admin.employee.department.get') }}", {
+// Render available managers list
+function renderAvailableManagers() {
+    const container = $('#available-managers-list');
+    
+    if (availableManagers.length === 0) {
+        container.html('<div class="text-muted small">Nincs elérhető vezető</div>');
+        return;
+    }
+
+    const html = availableManagers.map(manager => {
+        const isSelected = selectedManagerIds.includes(manager.id);
+        return `
+            <div class="manager-item ${isSelected ? 'selected' : ''}" data-manager-id="${manager.id}">
+                <strong>${manager.name}</strong>
+                ${manager.email ? `<small class="text-muted d-block">${manager.email}</small>` : ''}
+                ${isSelected ? '<small class="text-success"><i class="fa fa-check"></i> Kiválasztva</small>' : ''}
+            </div>
+        `;
+    }).join('');
+    
+    container.html(html);
+}
+
+// ---------- RÉSZLEG: ÚJ LÉTREHOZÁSA (CREATE MODAL) ----------
+$(document).on('click', '.trigger-new-dept', function(){
+    $('#dept-error').addClass('d-none').text('');
+    $('#department-modal').attr('data-id', ''); // üres = CREATE
+    $('#department-modal .modal-title').text('Új részleg létrehozása');
+    $('#department-modal .trigger-submit-dept').text('Létrehozás');
+    $('#department-modal .dept-name').val('');
+    
+    // Load available managers
+    swal_loader.fire();
+    fetch("{{ route('admin.employee.get-eligible-managers') }}", {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-CSRF-TOKEN': '{{ csrf_token() }}'
-        },
-        body: JSON.stringify({ id })
-      })
-      .then(async r => {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        }
+    })
+    .then(async r => {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
-      })
-      .then(data => {
-        // Cím + gomb
+    })
+    .then(data => {
+        availableManagers = data.managers || [];
+        if (availableManagers.length === 0) {
+            swal_loader.close();
+            Swal.fire({ 
+                icon:'info', 
+                title:'Nincs választható vezető', 
+                text:'Előbb hozz létre legalább egy manager felhasználót.' 
+            });
+            return;
+        }
+        
+        initManagerSelection();
+        swal_loader.close();
+        $('#department-modal').modal();
+    })
+    .catch(err => {
+        swal_loader.close();
+        Swal.fire({ icon:'error', title:'Hiba', text:'Nem sikerült betölteni a vezetők listáját.' });
+        console.error(err);
+    });
+});
+
+// ---------- RÉSZLEG: SZERKESZTÉS (PREFILL) ----------
+$(document).on('click', '.dept-edit', function(){
+    const id = getDeptIdFromAny(this);
+    if (!id) return;
+
+    swal_loader.fire();
+    fetch("{{ route('admin.employee.department.get') }}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ id })
+    })
+    .then(async r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    })
+    .then(data => {
         $('#department-modal .modal-title').text('Részleg szerkesztése');
         $('#department-modal .trigger-submit-dept').text('Mentés');
-
-        // ID beállítás: EDIT mód
         $('#department-modal').attr('data-id', String(data.department.id));
-
-        // Név
         $('#department-modal .dept-name').val(data.department.department_name);
 
-        // Manager lista FRISSÍTÉSE: (jelenlegi + többi elérhető)
-        const sel = $('#department-modal .dept-manager');
-        sel.empty();
-        sel.append($('<option>', { value: '', text: '— válassz —' }));
-        (data.eligibleManagers || []).forEach(function(m){
-          const txt = m.email ? (m.name + ' (' + m.email + ')') : m.name;
-          sel.append($('<option>', { value: m.id, text: txt }));
-        });
-        sel.val(String(data.department.manager_id));
-
+        // Set up manager selection
+        availableManagers = data.eligibleManagers || [];
+        selectedManagerIds = (data.currentManagers || []).map(m => m.id);
+        
+        initManagerSelection();
+        
         $('#dept-error').addClass('d-none').text('');
         swal_loader.close();
         $('#department-modal').modal();
-      })
-      .catch(err => {
+    })
+    .catch(err => {
         swal_loader.close();
         Swal.fire({ icon:'error', title:'Hiba', text:'Nem sikerült betölteni a részleg adatait.' });
         console.error(err);
-      });
     });
+});
 
-    // --- SUBMIT: create vagy update ---
-    $('.trigger-submit-dept').on('click', function(){
-      const id   = $('#department-modal').attr('data-id'); // ha van => update
-      const name = $('#department-modal .dept-name').val().trim();
-      const mid  = $('#department-modal .dept-manager').val();
+// ---------- MANAGER SELECTION EVENTS ----------
 
-      if (!name || !mid) {
-        $('#dept-error').removeClass('d-none').text('Add meg a részleg nevét és válassz vezetőt.');
+// Add manager to selection
+$(document).on('click', '.manager-item:not(.selected)', function(){
+    const managerId = parseInt($(this).data('manager-id'));
+    if (!selectedManagerIds.includes(managerId)) {
+        selectedManagerIds.push(managerId);
+        renderSelectedManagers();
+        renderAvailableManagers();
+    }
+});
+
+// Remove manager from selection
+$(document).on('click', '.remove-manager', function(e){
+    e.stopPropagation();
+    const managerId = parseInt($(this).data('manager-id'));
+    selectedManagerIds = selectedManagerIds.filter(id => id !== managerId);
+    renderSelectedManagers();
+    renderAvailableManagers();
+});
+
+// Clear all managers
+$(document).on('click', '.clear-all-managers', function(){
+    selectedManagerIds = [];
+    renderSelectedManagers();
+    renderAvailableManagers();
+});
+
+// ---------- RÉSZLEG: CREATE/UPDATE SUBMIT ----------
+$(document).on('click', '.trigger-submit-dept', function(){
+    const id   = $('#department-modal').attr('data-id');
+    const name = $('#department-modal .dept-name').val().trim();
+
+    if (!name) {
+        $('#dept-error').removeClass('d-none').text('Add meg a részleg nevét.');
         return;
-      }
+    }
 
-      const isEdit = !!id;
-      const url    = isEdit ? "{{ route('admin.employee.department.update') }}" : "{{ route('admin.employee.department.store') }}";
-      const title  = isEdit ? 'Változtatások mentése?' : 'Részleg létrehozása?';
-      const okText = isEdit ? 'Részleg frissítve.' : 'Részleg létrehozva.';
+    if (selectedManagerIds.length === 0) {
+        $('#dept-error').removeClass('d-none').text('Válassz ki legalább egy vezetőt.');
+        return;
+    }
 
-      swal_confirm.fire({
+    const isEdit = !!id;
+    const url    = isEdit ? "{{ route('admin.employee.department.update') }}" : "{{ route('admin.employee.department.store') }}";
+    const title  = isEdit ? 'Változtatások mentése?' : 'Részleg létrehozása?';
+    const okText = isEdit ? 'Részleg frissítve.' : 'Részleg létrehozva.';
+
+    swal_confirm.fire({
         title: title,
-        text: isEdit ? 'A kiválasztott vezetőre is ellenőrzünk (nem vezethet másik aktív részleget).' : 'A manager egy időben csak egy részleget vezethet.'
-      }).then((res) => {
+        text: `${selectedManagerIds.length} vezető lesz hozzárendelve a részleghez.`
+    }).then((res) => {
         if(!res.isConfirmed) return;
 
         swal_loader.fire();
         const payload = isEdit
-          ? { id: Number(id), department_name: name, manager_id: Number(mid) }
-          : { department_name: name, manager_id: Number(mid) };
+            ? { id: Number(id), department_name: name, manager_ids: selectedManagerIds }
+            : { department_name: name, manager_ids: selectedManagerIds };
 
         fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-          },
-          body: JSON.stringify(payload)
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify(payload)
         })
         .then(async r => {
-          if (!r.ok) {
-            const j = await r.json().catch(()=>({}));
-            throw new Error(j?.message || ('HTTP ' + r.status));
-          }
-          return r.json();
+            if (!r.ok) {
+                const j = await r.json().catch(()=>({}));
+                throw new Error(j?.message || ('HTTP ' + r.status));
+            }
+            return r.json();
         })
         .then(() => {
-          // a ti $.ajax helperetek helyett itt sima fetch van — adjunk visszajelzést és frissítsünk
-          Swal.fire({ icon:'success', title:'OK', text: okText }).then(() => {
-            window.location.reload();
-          });
+            Swal.fire({ icon:'success', title:'OK', text: okText }).then(() => window.location.reload());
         })
         .catch(err => {
-          swal_loader.close();
-          $('#dept-error').removeClass('d-none').text(String(err.message || err));
+            swal_loader.close();
+            $('#dept-error').removeClass('d-none').text(String(err.message || err));
         });
-      });
     });
+});
 
-  });
+// Helper function to get department ID (keep existing)
+function getDeptIdFromAny(element) {
+    const $el = $(element);
+    return $el.data('dept-id') || $el.closest('[data-dept-id]').data('dept-id') || null;
+}
 </script>
 
 @endif

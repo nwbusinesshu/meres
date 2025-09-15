@@ -30,210 +30,166 @@ class AdminEmployeeController extends Controller
     }
 
     public function index(Request $request)
-    {
-        $orgId = (int) session('org_id');
+{
+    $orgId = (int) session('org_id');
 
-        // ===== LEGACY (régi) lista adatai – változatlan =====
-        $users = \App\Services\UserService::getUsers()->map(function ($user) {
-            // bonusMalus feltöltése biztonságosan (nincs eager load, nincs created_at ordering)
-            $user['bonusMalus'] = $user->bonusMalus()->first()?->level ?? null;
-            return $user;
-        });
+    // ===== LEGACY (régi) lista adatai – változatlan =====
+    $users = \App\Services\UserService::getUsers()->map(function ($user) {
+        // bonusMalus feltöltése biztonságosan (nincs eager load, nincs created_at ordering)
+        $user['bonusMalus'] = $user->bonusMalus()->first()?->level ?? null;
+        return $user;
+    });
 
-        // Add rater counts to legacy users
-        $users = $this->addRaterCounts($users, $orgId);
+    // Add rater counts to legacy users
+    $users = $this->addRaterCounts($users, $orgId);
 
-        // multi-level flag
-        $enableMultiLevel = \App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false);
-        $showBonusMalus = \App\Services\OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
+    // multi-level flag
+    $enableMultiLevel = \App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false);
+    $showBonusMalus = \App\Services\OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
 
-        // Ha nincs multi-level: megy a régi nézet
-        if (!$enableMultiLevel) {
-            return view('admin.employees', [
-                'users' => $users,
-                'showBonusMalus' => $showBonusMalus,
-            ]);
-        }
-
-        // ===== MULTI-LEVEL STRUKTÚRA =====
-
-        // 1) CEO-k
-        $ceos = DB::table('organization_user as ou')
-            ->join('user as u', 'u.id', '=', 'ou.user_id')
-            ->where('ou.organization_id', $orgId)
-            ->whereNull('u.removed_at')
-            ->where('u.type', 'ceo')
-            ->orderBy('u.name')
-            ->get(['u.id', 'u.name', 'u.email', 'u.type']);
-
-        // 2) Be nem soroltak (nem admin/ceo, nincs department, és nem vezet aktív részleget)
-        $unassigned = DB::table('organization_user as ou')
-            ->join('user as u', 'u.id', '=', 'ou.user_id')
-            ->where('ou.organization_id', $orgId)
-            ->whereNull('u.removed_at')
-            ->whereNotIn('u.type', ['admin','ceo'])
-            ->whereNull('ou.department_id')
-            ->whereNotExists(function ($q) use ($orgId) {
-                $q->from('organization_departments as d')
-                  ->whereColumn('d.manager_id', 'u.id')
-                  ->where('d.organization_id', $orgId)
-                  ->whereNull('d.removed_at');
-            })
-            ->orderBy('u.type', 'desc')
-            ->orderBy('u.name')
-            ->get(['u.id', 'u.name', 'u.email', 'u.type']);
-
-        // 3) Részlegek + manager
-        $rawDepts = DB::table('organization_departments as d')
-            ->leftJoin('user as m', 'm.id', '=', 'd.manager_id')
-            ->where('d.organization_id', $orgId)
-            ->whereNull('d.removed_at')
-            ->orderBy('d.department_name')
-            ->get([
-                'd.id', 'd.department_name', 'd.created_at',
-                'd.manager_id',
-                'm.name as manager_name', 'm.email as manager_email',
-            ]);
-
-        // 4) Tagok dept-enként
-        $membersByDept = DB::table('organization_user as ou')
-            ->join('user as u', 'u.id', '=', 'ou.user_id')
-            ->where('ou.organization_id', $orgId)
-            ->whereNull('u.removed_at')
-            ->whereNotIn('u.type', ['admin','ceo'])
-            ->whereNotNull('ou.department_id')
-            ->orderBy('u.name')
-            ->get([
-                'ou.department_id',
-                'u.id', 'u.name', 'u.email', 'u.type',
-            ])
-            ->groupBy('department_id');
-
-        // ========= ENRICH: login_mode_text + bonusMalus + rater count minden érintett usernek =========
-
-        // Gyűjtsük össze az összes érintett user ID-t (CEO + unassigned + dept members + managerek)
-        $allIds = collect($ceos)->pluck('id')
-            ->merge($unassigned->pluck('id'))
-            ->merge($membersByDept->flatten()->pluck('id'))
-            ->merge($rawDepts->pluck('manager_id')->filter())
-            ->unique()
-            ->values();
-
-        // Lekérjük a modelleket Eloquenttel (nincs ordering trükk)
-        $userModels = \App\Models\User::whereIn('id', $allIds)->get();
-
-        // Get rater counts for all users in one query
-        $raterCounts = $this->getRaterCounts($allIds, $orgId);
-
-        // id -> meta (login_mode_text + bonusMalus + rater_count + opcionális type label)
-        $metaById = $userModels->mapWithKeys(function ($u) use ($raterCounts) {
-            $bm = $u->bonusMalus()->first()?->level ?? null;
-            $typeLabel = method_exists($u, 'getNameOfType') ? $u->getNameOfType() : ucfirst($u->type);
-            return [
-                $u->id => [
-                    'login_mode_text' => $u->login_mode_text, // accessor
-                    'bonusMalus'      => $bm,
-                    'type_label'      => $typeLabel,
-                    'rater_count'     => $raterCounts->get($u->id, 0), // Add rater count
-                ],
-            ];
-        });
-
-        // Helper: stdClass sorok dúsítása meta adatokkal
-        $enrich = function ($row) use ($metaById) {
-            if (!$row || !isset($row->id)) return $row;
-            $meta = $metaById->get($row->id, null);
-            $row->login_mode_text = $meta['login_mode_text'] ?? null;
-            $row->bonusMalus      = $meta['bonusMalus'] ?? null;
-            $row->rater_count     = $meta['rater_count'] ?? 0; // Add rater count
-            return $row;
-        };
-
-        // CEO-k és be nem soroltak dúsítása
-        $ceos = collect($ceos)->map($enrich);
-        $unassigned = collect($unassigned)->map($enrich);
-
-        // Részleg-objektumok összeállítása + tagok dúsítása + manager meta
-        $departments = collect();
-        $emptyDepartments = collect();
-
-        foreach ($rawDepts as $d) {
-            // tagok (manager nélkül – ha a manager tag is a dept-ben, kiszűrjük)
-            $members = collect($membersByDept->get($d->id, collect()))
-                ->filter(fn ($u) => (int)$u->id !== (int)$d->manager_id)
-                ->map($enrich)
-                ->values();
-
-            // manager meta külön (login mód + bonus/malus + rater count)
-            $manager_login_mode_text = null;
-            $manager_bonusMalus = null;
-            $manager_rater_count = 0;
-            if (!empty($d->manager_id)) {
-                $m = $metaById->get($d->manager_id);
-                if ($m) {
-                    $manager_login_mode_text = $m['login_mode_text'] ?? null;
-                    $manager_bonusMalus      = $m['bonusMalus'] ?? null;
-                    $manager_rater_count     = $m['rater_count'] ?? 0;
-                }
-            }
-
-            $deptData = (object)[
-                'id'                      => $d->id,
-                'department_name'         => $d->department_name,
-                'created_at'              => $d->created_at,
-                'manager_id'              => $d->manager_id,
-                'manager_name'            => $d->manager_name,
-                'manager_email'           => $d->manager_email,
-                // a Blade manager sorához:
-                'manager_login_mode_text' => $manager_login_mode_text,
-                'manager_bonusMalus'      => $manager_bonusMalus,
-                'manager_rater_count'     => $manager_rater_count, // Add manager rater count
-                'members'                 => $members,
-            ];
-
-            if ($members->isEmpty()) {
-                $emptyDepartments->push($deptData);
-            } else {
-                $departments->push($deptData);
-            }
-        }
-
-        // Lehetséges managerek a CREATE/EDIT modálhoz:
-        // (org tagjai, nem admin/ceo, és még nem vezetnek aktív részleget)
-        $eligibleManagers = DB::table('user as u')
-            ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
-            ->where('ou.organization_id', $orgId)
-            ->whereNull('u.removed_at')
-            ->where('u.type', 'manager')
-            ->whereNotExists(function ($q) use ($orgId) {
-                $q->from('organization_departments as d2')
-                  ->whereColumn('d2.manager_id', 'u.id')
-                  ->where('d2.organization_id', $orgId)
-                  ->whereNull('d2.removed_at');
-            })
-            ->orderBy('u.name')
-            ->get(['u.id', 'u.name']);
-
-        // Üres részlegek a végére
-        $departments = $departments->concat($emptyDepartments);
-
+    // Ha nincs multi-level: megy a régi nézet
+    if (!$enableMultiLevel) {
         return view('admin.employees', [
-            // LEGACY-hoz
-            'users'            => $users,
-
-            // MULTI-LEVEL adatok
-            'enableMultiLevel' => true,
-            'ceos'             => $ceos,
-            'unassigned'       => $unassigned,
-            'departments'      => $departments,
-
-            // modálokhoz
-            'eligibleManagers' => $eligibleManagers,
-            
-            // settings
-            'showBonusMalus'   => $showBonusMalus,
+            'users' => $users,
+            'showBonusMalus' => $showBonusMalus,
         ]);
     }
+
+    // ===== MULTI-LEVEL STRUKTÚRA WITH MULTIPLE MANAGERS =====
+
+    // 1) CEO-k
+    $ceos = DB::table('organization_user as ou')
+        ->join('user as u', 'u.id', '=', 'ou.user_id')
+        ->where('ou.organization_id', $orgId)
+        ->whereNull('u.removed_at')
+        ->where('u.type', 'ceo')
+        ->orderBy('u.name')
+        ->get(['u.id', 'u.name', 'u.email', 'u.type']);
+
+    // Add rater counts to CEOs  
+    $ceos = $this->addRaterCounts($ceos, $orgId);
+
+    // 2) Be nem soroltak (nem admin/ceo, nincs department, és nem vezet aktív részleget)
+    $unassigned = DB::table('organization_user as ou')
+        ->join('user as u', 'u.id', '=', 'ou.user_id')
+        ->where('ou.organization_id', $orgId)
+        ->whereNull('u.removed_at')
+        ->whereNotIn('u.type', ['admin', 'ceo'])
+        ->whereNull('ou.department_id') // nincs részleghez rendelve
+        ->whereNotExists(function ($q) use ($orgId) {
+            // UPDATED: nem vezet aktív részleget (multiple managers esetén)
+            $q->from('organization_department_managers as odm')
+              ->join('organization_departments as od', 'od.id', '=', 'odm.department_id')
+              ->whereColumn('odm.manager_id', 'u.id')
+              ->where('od.organization_id', $orgId)
+              ->whereNull('od.removed_at');
+        })
+        ->orderBy('u.name')
+        ->get(['u.id', 'u.name', 'u.email', 'u.type']);
+
+    // Add rater counts to unassigned
+    $unassigned = $this->addRaterCounts($unassigned, $orgId);
+
+    // 3) DEPARTMENTS WITH MULTIPLE MANAGERS
+    $departmentsRaw = DB::table('organization_departments as d')
+        ->where('d.organization_id', $orgId)
+        ->whereNull('d.removed_at')
+        ->orderBy('d.department_name')
+        ->get([
+            'd.id',
+            'd.department_name', 
+            'd.created_at'
+        ]);
+
+    $departments = collect();
+    $emptyDepartments = collect();
+
+    foreach ($departmentsRaw as $d) {
+        // UPDATED: Get multiple managers for this department
+        $managersRaw = DB::table('organization_department_managers as odm')
+            ->join('user as u', 'u.id', '=', 'odm.manager_id')
+            ->join('organization_user as ou', function($join) use ($orgId) {
+                $join->on('ou.user_id', '=', 'u.id')
+                     ->where('ou.organization_id', '=', $orgId);
+            })
+            ->where('odm.department_id', $d->id)
+            ->whereNull('u.removed_at')
+            ->orderBy('u.name')
+            ->get([
+                'u.id',
+                'u.name',
+                'u.email',
+                'u.type',
+                'odm.created_at as assigned_at'
+            ]);
+
+        // Add rater counts to managers
+        $managers = $this->addRaterCounts($managersRaw, $orgId);
+
+        // Get department members (non-managers)  
+        $membersRaw = DB::table('organization_user as ou')
+            ->join('user as u', 'u.id', '=', 'ou.user_id')
+            ->where('ou.organization_id', $orgId)
+            ->where('ou.department_id', $d->id)
+            ->whereNull('u.removed_at')
+            ->whereNotExists(function ($q) use ($d) {
+                // UPDATED: exclude users who are managers of this department
+                $q->from('organization_department_managers as odm')
+                  ->whereColumn('odm.manager_id', 'u.id')
+                  ->where('odm.department_id', $d->id);
+            })
+            ->orderBy('u.name')
+            ->get([
+                'u.id', 'u.name', 'u.email', 'u.type'
+            ]);
+
+        // Add rater counts to members
+        $members = $this->addRaterCounts($membersRaw, $orgId);
+
+        $deptData = (object)[
+            'id'                => $d->id,
+            'department_name'   => $d->department_name,
+            'created_at'        => $d->created_at,
+            'managers'          => $managers, // UPDATED: Multiple managers instead of single manager
+            'members'           => $members,
+        ];
+
+        if ($members->isEmpty() && $managers->isEmpty()) {
+            $emptyDepartments->push($deptData);
+        } else {
+            $departments->push($deptData);
+        }
+    }
+
+    // UPDATED: Get eligible managers for CREATE/EDIT modals (all managers, not just unused ones)
+    $eligibleManagers = DB::table('user as u')
+        ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+        ->where('ou.organization_id', $orgId)
+        ->whereNull('u.removed_at')
+        ->where('u.type', 'manager')
+        ->orderBy('u.name')
+        ->get(['u.id', 'u.name', 'u.email']);
+
+    // Üres részlegek a végére
+    $departments = $departments->concat($emptyDepartments);
+
+    return view('admin.employees', [
+        // LEGACY-hoz
+        'users'            => $users,
+
+        // MULTI-LEVEL adatok
+        'enableMultiLevel' => true,
+        'ceos'             => $ceos,
+        'unassigned'       => $unassigned,
+        'departments'      => $departments,
+
+        // modálokhoz
+        'eligibleManagers' => $eligibleManagers,
+        
+        // settings
+        'showBonusMalus'   => $showBonusMalus,
+    ]);
+}
 
     /**
      * Get rater counts for given user IDs in bulk
@@ -256,15 +212,56 @@ class AdminEmployeeController extends Controller
      * Add rater counts to a collection of users (for legacy view)
      */
     private function addRaterCounts($users, $orgId)
-    {
-        $userIds = $users->pluck('id');
-        $raterCounts = $this->getRaterCounts($userIds, $orgId);
-
-        return $users->map(function ($user) use ($raterCounts) {
-            $user->rater_count = $raterCounts->get($user->id, 0);
-            return $user;
-        });
+{
+    $userIds = $users->pluck('id')->toArray();
+    if (empty($userIds)) {
+        return $users;
     }
+
+    // Get rater counts for all users
+    $raterCounts = DB::table('user_relation as ur')
+        ->join('user as rater', 'rater.id', '=', 'ur.user_id')
+        ->whereIn('ur.target_id', $userIds)
+        ->where('ur.organization_id', $orgId)
+        ->whereNull('rater.removed_at')
+        ->groupBy('ur.target_id')
+        ->pluck(DB::raw('COUNT(*)'), 'ur.target_id');
+
+    // Add login_mode_text and rater counts to users
+    return $users->map(function ($user) use ($raterCounts, $orgId) {
+        $user = (object) $user; // Ensure it's an object
+        
+        // Add rater count
+        $user->rater_count = $raterCounts[$user->id] ?? 0;
+        
+        // Add login mode text
+        $loginMode = $user->login_mode ?? null;
+        $user->login_mode_text = match($loginMode) {
+            'email' => 'Email',
+            'google' => 'Google',
+            'microsoft' => 'Microsoft',
+            default => '—'
+        };
+
+        return $user;
+    });
+}
+    public function getEligibleManagers(Request $request)
+{
+    $orgId = (int) session('org_id');
+
+    $managers = DB::table('user as u')
+        ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+        ->where('ou.organization_id', $orgId)
+        ->whereNull('u.removed_at')
+        ->where('u.type', 'manager')
+        ->orderBy('u.name')
+        ->get(['u.id', 'u.name', 'u.email']);
+
+    return response()->json([
+        'managers' => $managers
+    ]);
+}
 
 
         public function getEmployee(Request $request)

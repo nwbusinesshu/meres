@@ -44,49 +44,82 @@
 
         {{-- === Részlegek listája === --}}
         @foreach($departments as $d)
-            <div class="userlist dept-block" data-dept-id="{{ $d->id }}">
-                {{-- Fejléc --}}
-                <div class="dept-header dept-header--dept " data-dept-id="{{ $d->id }}">
-                    <div class="left js-dept-toggle">
-                        <i class="fa fa-chevron-down caret "></i>
-                        <span class="dept-title">{{ $d->department_name }}</span>
-                        <span class="badge count">{{ $d->members->count() }}</span>
-                    </div>
-                    <div class="actions">
-                        <button class="btn btn-outline-success dept-members" data-tippy-content="Tagok kezelése"><i class="fa fa-users"></i></button>
-                        <button class="btn btn-outline-primary dept-edit" data-tippy-content="Szerkesztés"><i class="fa fa-pen"></i></button>
-                        <button class="btn btn-outline-danger dept-remove" data-tippy-content="{{ $_('remove') }}"><i class="fa fa-trash-alt"></i></button>
-                    </div>
-                </div>
-
-                {{-- Részleg tartalma (lenyitható) --}}
-                <div class="dept-body">
-                    {{-- Manager --}}
-                    @php
-                      $managerUser = (object)[
-                        'id'              => $d->manager_id,
-                        'name'            => $d->manager_name ?? '— nincs kijelölt manager —',
-                        'email'           => $d->manager_email ?? null,
-                        'type'            => 'manager',
-                        'login_mode_text' => $d->manager_login_mode_text ?? null,
-                        'bonusMalus'      => $d->manager_bonusMalus ?? null,
-                        'rater_count'     => $d->manager_rater_count ?? 0, // Add manager rater count
-                      ];
-                    @endphp
-                    @include('admin.partials.user-row', [
-                      'user' => $managerUser,
-                      'lockDelete' => !empty($d->manager_id)
-                    ])
-
-                    {{-- Tagok --}}
-                    @forelse($d->members as $user)
-                        @include('admin.partials.user-row', ['user' => $user])
-                    @empty
-                        <div class="muted small px-2 py-1">Nincs tag a részlegben.</div>
-                    @endforelse
-                </div>
+    <div class="userlist dept-block" data-dept-id="{{ $d->id }}">
+        {{-- Fejléc --}}
+        <div class="dept-header dept-header--dept " data-dept-id="{{ $d->id }}">
+            <div class="left js-dept-toggle">
+                <i class="fa fa-chevron-down caret "></i>
+                <span class="dept-title">{{ $d->department_name }}</span>
+                <span class="badge count">{{ $d->members->count() }}</span>
+                {{-- NEW: Show manager count --}}
+                <span class="badge count-managers" style="background-color: #28a745;">{{ $d->managers->count() }} vezető</span>
             </div>
-        @endforeach
+            <div class="actions">
+                <button class="btn btn-outline-success dept-members" data-tippy-content="Tagok kezelése"><i class="fa fa-users"></i></button>
+                <button class="btn btn-outline-primary dept-edit" data-tippy-content="Szerkesztés"><i class="fa fa-pen"></i></button>
+                <button class="btn btn-outline-danger dept-remove" data-tippy-content="{{ $_('remove') }}"><i class="fa fa-trash-alt"></i></button>
+            </div>
+        </div>
+
+        {{-- Részleg tartalma (lenyitható) --}}
+        <div class="dept-body">
+            {{-- NEW: Multiple Managers Section --}}
+            @if($d->managers->isNotEmpty())
+                <div class="managers-section">
+                    <div class="section-header">
+                        <h6 class="text-success mb-2">
+                            <i class="fa fa-user-tie"></i> Vezetők ({{ $d->managers->count() }})
+                        </h6>
+                    </div>
+                    @foreach($d->managers as $manager)
+                        @php
+                          $managerUser = (object)[
+                            'id'              => $manager->id,
+                            'name'            => $manager->name,
+                            'email'           => $manager->email,
+                            'type'            => 'manager',
+                            'login_mode_text' => null, // Will be filled from organization_user if needed
+                            'bonusMalus'      => null,
+                            'rater_count'     => 0,
+                          ];
+                        @endphp
+                        <div class="manager-row">
+                            @include('admin.partials.user-row', [
+                              'user' => $managerUser,
+                              'lockDelete' => false,
+                              'isMultipleManager' => true,
+                              'assignedAt' => $manager->assigned_at
+                            ])
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <div class="no-managers-warning">
+                    <div class="alert alert-warning small py-2">
+                        <i class="fa fa-exclamation-triangle"></i> 
+                        Nincs kijelölt vezető ehhez a részleghez.
+                    </div>
+                </div>
+            @endif
+
+            {{-- Members Section --}}
+            @if($d->members->isNotEmpty())
+                <div class="members-section">
+                    <div class="section-header">
+                        <h6 class="text-primary mb-2">
+                            <i class="fa fa-users"></i> Tagok ({{ $d->members->count() }})
+                        </h6>
+                    </div>
+                    @foreach($d->members as $user)
+                        @include('admin.partials.user-row', ['user' => $user])
+                    @endforeach
+                </div>
+            @else
+                <div class="muted small px-2 py-1">Nincs tag a részlegben.</div>
+            @endif
+        </div>
+    </div>
+@endforeach
     </div>
 
 @else
