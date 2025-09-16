@@ -47,7 +47,8 @@
             @endif
         @else
             —
-        @endif
+        @endif @php $pos = data_get($user, 'position'); @endphp
+    <br><small>{{ (is_string($pos) ? trim($pos) : $pos) ?: '—' }}</small>
     </div>
 
     {{-- Bonus/Malus (conditionally shown) --}}

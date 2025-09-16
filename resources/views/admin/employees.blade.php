@@ -78,6 +78,7 @@
                                 'login_mode_text' => $manager->login_mode_text ?? '—',
                                 'bonusMalus'      => $manager->bonusMalus ?? null,
                                 'rater_count'     => $manager->rater_count ?? 0,
+                                'position'        => $manager->position ?? '—',
                               ];
                             @endphp
                             <div class="manager-row">
@@ -172,7 +173,8 @@
                             @endif
                         @else
                             —
-                        @endif
+                        @endif@php $pos = data_get($user, 'position'); @endphp
+    <br><small>{{ (is_string($pos) ? trim($pos) : $pos) ?: '—' }}</small>
                     </td>
                     
                     @if(!empty($showBonusMalus))

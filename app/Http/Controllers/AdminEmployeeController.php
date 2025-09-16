@@ -47,6 +47,20 @@ class AdminEmployeeController extends Controller
     $enableMultiLevel = \App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false);
     $showBonusMalus = \App\Services\OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
 
+    if ($users->count() > 0) {
+    $userIds = $users->pluck('id')->all();
+
+    $positionsMap = DB::table('organization_user')
+        ->where('organization_id', $orgId)
+        ->whereIn('user_id', $userIds)
+        ->pluck('position', 'user_id'); // [user_id => position]
+
+    $users = $users->map(function ($u) use ($positionsMap) {
+        $u->position = $positionsMap[$u->id] ?? null;
+        return $u;
+    });
+}
+
     // Ha nincs multi-level: megy a régi nézet
     if (!$enableMultiLevel) {
         return view('admin.employees', [
@@ -64,7 +78,7 @@ class AdminEmployeeController extends Controller
         ->whereNull('u.removed_at')
         ->where('u.type', 'ceo')
         ->orderBy('u.name')
-        ->get(['u.id', 'u.name', 'u.email', 'u.type']);
+        ->get(['u.id', 'u.name', 'u.email', 'u.type', 'ou.position as position']);
 
     // Add rater counts to CEOs  
     $ceos = $this->addRaterCounts($ceos, $orgId);
@@ -85,10 +99,19 @@ class AdminEmployeeController extends Controller
               ->whereNull('od.removed_at');
         })
         ->orderBy('u.name')
-        ->get(['u.id', 'u.name', 'u.email', 'u.type']);
+        ->get(['u.id', 'u.name', 'u.email', 'u.type', 'ou.position as position']);
 
     // Add rater counts to unassigned
     $unassigned = $this->addRaterCounts($unassigned, $orgId);
+
+        // CEOs
+    $ceos = $this->addRaterCounts($ceos, $orgId);
+    $ceos = $this->attachBonusMalus($ceos);
+
+    // Unassigned
+    $unassigned = $this->addRaterCounts($unassigned, $orgId);
+    $unassigned = $this->attachBonusMalus($unassigned);
+
 
     // 3) DEPARTMENTS WITH MULTIPLE MANAGERS
     $departmentsRaw = DB::table('organization_departments as d')
@@ -120,11 +143,13 @@ class AdminEmployeeController extends Controller
                 'u.name',
                 'u.email',
                 'u.type',
-                'odm.created_at as assigned_at'
+                'odm.created_at as assigned_at',
+                'ou.position as position',
             ]);
 
         // Add rater counts to managers
         $managers = $this->addRaterCounts($managersRaw, $orgId);
+        $managers = $this->attachBonusMalus($managers);
 
         // Get department members (non-managers)  
         $membersRaw = DB::table('organization_user as ou')
@@ -140,11 +165,12 @@ class AdminEmployeeController extends Controller
             })
             ->orderBy('u.name')
             ->get([
-                'u.id', 'u.name', 'u.email', 'u.type'
+                'u.id', 'u.name', 'u.email', 'u.type', 'ou.position as position',
             ]);
 
         // Add rater counts to members
         $members = $this->addRaterCounts($membersRaw, $orgId);
+        $members = $this->attachBonusMalus($members);
 
         $deptData = (object)[
             'id'                => $d->id,
@@ -191,6 +217,28 @@ class AdminEmployeeController extends Controller
     ]);
 }
 
+// Hozzácsatolja a bonusMalus szintet tetszőleges user-collection-höz (id, name, email, ...)
+private function attachBonusMalus($users)
+{
+    $ids = collect($users)->pluck('id')->filter()->unique()->values()->all();
+    if (empty($ids)) {
+        return $users;
+    }
+
+    // 1 körben betöltjük a hozzájuk tartozó bonusMalus értéket
+    // (óvatos megoldás: per-user lekérés a reláción keresztül, stabil, nem találgat táblanevet)
+    $levels = [];
+    foreach (\App\Models\User::whereIn('id', $ids)->get() as $u) {
+        $levels[$u->id] = $u->bonusMalus()->first()?->level ?? null;
+    }
+
+    // Rárakjuk a mezőt a kapott objektumokra
+    return collect($users)->map(function ($u) use ($levels) {
+        $u = (object) $u;
+        $u->bonusMalus = $levels[$u->id] ?? null;
+        return $u;
+    });
+}
     /**
      * Get rater counts for given user IDs in bulk
      */
@@ -201,7 +249,7 @@ class AdminEmployeeController extends Controller
         return $users;
     }
 
-    // Get rater counts for all users
+    // Értékelők (rater) darabszáma célonként
     $raterCounts = DB::table('user_relation as ur')
         ->join('user as rater', 'rater.id', '=', 'ur.user_id')
         ->whereIn('ur.target_id', $userIds)
@@ -210,31 +258,30 @@ class AdminEmployeeController extends Controller
         ->groupBy('ur.target_id')
         ->pluck(DB::raw('COUNT(*)'), 'ur.target_id');
 
-    // FIXED: Get login modes for all users
-    $loginModes = DB::table('user')
+    // NINCS login_mode: vizsgáljuk, van-e jelszó a user táblában
+    // has_password: 1, ha password nem NULL és nem üres; különben 0
+    $hasPassword = DB::table('user')
         ->whereIn('id', $userIds)
         ->whereNull('removed_at')
-        ->pluck('login_mode', 'id');
+        ->select('id', DB::raw("(CASE WHEN password IS NULL OR password = '' THEN 0 ELSE 1 END) as has_password"))
+        ->pluck('has_password', 'id');
 
-    // Add login_mode_text and rater counts to users
-    return $users->map(function ($user) use ($raterCounts, $loginModes) {
-        $user = (object) $user; // Ensure it's an object
-        
-        // Add rater count
+    // login_mode_text + rater_count hozzárendelése
+    return $users->map(function ($user) use ($raterCounts, $hasPassword) {
+        $user = (object) $user; // biztosítsuk, hogy objektum legyen
+
+        // Rater count
         $user->rater_count = $raterCounts[$user->id] ?? 0;
-        
-        // FIXED: Add proper login mode text
-        $loginMode = $loginModes[$user->id] ?? null;
-        $user->login_mode_text = match($loginMode) {
-            'email' => 'Email',
-            'google' => 'Google',
-            'microsoft' => 'Microsoft',
-            default => '—'
-        };
+
+        // Login mód szöveg a jelszó megléte alapján
+        $user->login_mode_text = (!empty($hasPassword[$user->id]) && (int)$hasPassword[$user->id] === 1)
+            ? 'jelszó + OAuth'
+            : 'OAuth';
 
         return $user;
     });
 }
+
 
 /**
  * Get rater counts for given user IDs in bulk
@@ -306,6 +353,11 @@ private function getRaterCounts($userIds, $orgId)
         ->where('user_id', $u->id)
         ->value('department_id'); // NULL ha nincs részleghez rendelve
 
+    $position = DB::table('organization_user')
+    ->where('organization_id', $orgId)
+    ->where('user_id', $u->id)
+    ->value('position');
+
     return response()->json([
         'id'                => $u->id,
         'name'              => $u->name,
@@ -315,6 +367,7 @@ private function getRaterCounts($userIds, $orgId)
 
         'is_dept_manager'   => (bool) $isDeptManager,
         'is_in_department'  => !is_null($deptId),
+        'position' => $position,
         'department_id'     => $deptId,             // opcionális, but useful for UI
     ]);
 }
@@ -375,6 +428,7 @@ private function getRaterCounts($userIds, $orgId)
         ],
         'type'        => ['required', Rule::in(['normal', 'manager', 'ceo'])],
         'autoLevelUp' => ['required', Rule::in([0, 1])],
+        'position'    => ['nullable', 'string', 'max:255'],
     ];
 
     $attributes = [
@@ -472,6 +526,13 @@ if ($user) {
         // 2) ORG tagság (EZT KELL ELŐBB!)
         $user->organizations()->syncWithoutDetaching([$orgId]);
         Log::info('employee.save.step_ok', ['step' => 'attach_org', 'user_id' => $user->id, 'org_id' => $orgId]);
+
+        $position = trim((string) $request->input('position', ''));
+        DB::table('organization_user')->updateOrInsert(
+    ['organization_id' => $orgId, 'user_id' => $user->id],
+    ['position' => ($position !== '' ? $position : null)]
+);
+
 
         // 3) SELF relation – idempotens, az egyedi kulcsra szűrünk:
         UserRelation::updateOrCreate(
@@ -1246,7 +1307,6 @@ public function deleteDepartment(Request $request)
                 'u.name', 
                 'u.email',
                 'u.type',
-                'u.login_mode', // ADDED: Include login mode for proper display
                 'ou.department_id',
                 'd.department_name',
                 'managed_dept.id as managed_dept_id', // Department they manage
@@ -1320,13 +1380,7 @@ public function deleteDepartment(Request $request)
             $raterCount = $raterCounts->get($user->id, 0);
             $raterStatus = $raterCount < 3 ? 'insufficient' : ($raterCount < 7 ? 'okay' : 'sufficient');
             
-            // FIXED: Proper login mode handling
-            $loginModeText = match($user->login_mode) {
-                'email' => 'Email',
-                'google' => 'Google',
-                'microsoft' => 'Microsoft',
-                default => '—'
-            };
+            
             
             return [
                 'id' => 'user_' . $user->id,
@@ -1334,7 +1388,6 @@ public function deleteDepartment(Request $request)
                 'label' => $user->name,
                 'email' => $user->email,
                 'type' => $user->type,
-                'login_mode_text' => $loginModeText, // ADDED
                 'department_id' => $user->department_id,
                 'department_name' => $user->department_name,
                 'managed_dept_id' => $user->managed_dept_id,

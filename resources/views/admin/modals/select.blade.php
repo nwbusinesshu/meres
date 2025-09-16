@@ -129,7 +129,7 @@ $(document).ready(function(){
     updateSelectedItems();
   }
 
-  // Enhanced openSelectModal function
+  // Enhanced openSelectModal function with body padding fix
   window.openSelectModal = function({
     title, ajaxRoute,
     parentSelector = null,
@@ -208,15 +208,33 @@ $(document).ready(function(){
 
       swal_loader.close();
       
-      // UPDATED: Handle modal close event differently
+      // ENHANCED: Modal close event handler with body padding fix
       $("#select-modal").off('hidden.bs.modal');
-      if(parentSelector !== null){
-        $("#select-modal").on('hidden.bs.modal', function (e) {
-          // Reset z-index when select modal closes
+      $("#select-modal").on('hidden.bs.modal', function (e) {
+        // Reset z-index when select modal closes (existing functionality)
+        if(parentSelector !== null){
           $(parentSelector).css('z-index', '');
           $('#select-modal').css('z-index', '');
-        });
-      }
+        }
+        
+        // FIX: Force remove body padding-right that Bootstrap sometimes leaves behind
+        $('body').css('padding-right', '');
+        
+        // FIX: Ensure modal-open class is removed (safety check)
+        $('body').removeClass('modal-open');
+        
+        // FIX: Check if any other modals are still open
+        // If no other modals are open, ensure body is properly reset
+        setTimeout(function() {
+          if ($('.modal.show').length === 0) {
+            $('body').css({
+              'padding-right': '',
+              'overflow': ''
+            });
+            $('body').removeClass('modal-open');
+          }
+        }, 50); // Small delay to ensure Bootstrap has finished its cleanup
+      });
 
       // Handle item clicks
       $(document).undelegate('.select-modal-item','click');
@@ -256,6 +274,20 @@ $(document).ready(function(){
       $("#select-modal").modal();
     });
   };
+
+  // GLOBAL FIX: Add this general handler for all modals to prevent body padding issues
+  $(document).on('hidden.bs.modal', '.modal', function () {
+    // Only reset body styles if no other modals are open
+    setTimeout(function() {
+      if ($('.modal.show').length === 0) {
+        $('body').css({
+          'padding-right': '',
+          'overflow': ''
+        });
+        $('body').removeClass('modal-open');
+      }
+    }, 50); // Small delay to ensure Bootstrap has finished its cleanup
+  });
 });
 </script>
 

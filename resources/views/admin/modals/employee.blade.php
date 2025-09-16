@@ -37,6 +37,13 @@
              <small class="form-text text-muted type-help d-none"></small>
           </div>
         </div>
+        <div class="form-row">
+  <div class="form-group">
+    <label>Pozíció</label>
+    <input type="text" class="form-control position">
+  </div>
+</div>
+
         <button class="btn btn-primary trigger-submit"></button>
       </div>
     </div>
@@ -110,6 +117,7 @@
       $('#employee-modal .email').val('').prop('readonly', false);
       $('#employee-modal .type').val('normal');
       $('#employee-modal .auto-level-up').prop('checked', false);
+      $('#employee-modal .position').val('');
 
       clearTypeLocks();
 
@@ -133,6 +141,7 @@
         $('#employee-modal .email').val(response.email).prop('readonly', true);
         $('#employee-modal .type').val(response.type);
         $('#employee-modal .auto-level-up').prop('checked', response.has_auto_level_up == 1);
+        $('#employee-modal .position').val(response.position || '');
 
         // Üzleti tiltások (részlegvezető / részlegtag)
         applyTypeLocksFromResponse(response);
@@ -169,6 +178,7 @@
               name:  $('#employee-modal .name').val(),
               email: $('#employee-modal .email').val(),
               type:  $('#employee-modal .type').val(),
+              position: $('#employee-modal .position').val(),
               autoLevelUp:  $('#employee-modal .auto-level-up').is(':checked') ? 1 : 0,
               _token: "{{ csrf_token() }}"
             }
