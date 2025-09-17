@@ -22,11 +22,9 @@ use Illuminate\Routing\Middleware\ThrottleRequests;
 use App\Http\Controllers\PasswordSetupController;
 use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\AdminPaymentController;
+use Illuminate\Http\Request;
 
-
-
-
-// login
+// login routes
 Route::controller(LoginController::class)->middleware('auth:'.UserType::GUEST)->group(function () {
     Route::get('/{login?}', 'index')->where('login','|login')->name('login');
     Route::get('/trigger-login', 'triggerLogin')->name('trigger-login');
@@ -35,13 +33,12 @@ Route::controller(LoginController::class)->middleware('auth:'.UserType::GUEST)->
     Route::get('/trigger-microsoft-login', [LoginController::class, 'triggerMicrosoftLogin'])->name('trigger-microsoft-login');
     Route::get('/auth/microsoft/callback', [LoginController::class, 'attemptMicrosoftLogin'])->name('microsoft.callback');
 
-
     Route::post('/attempt-password-login', 'passwordLogin')
         ->name('attempt-password-login')
-        ->middleware('throttle:5,1'); // itt korlátozva
+        ->middleware('throttle:5,1');
 });
 
-// Jelszó-létrehozás (guest)
+// Password setup (guest)
 Route::controller(PasswordSetupController::class)
     ->middleware('auth:'.\App\Models\Enums\UserType::GUEST)
     ->group(function () {
@@ -49,7 +46,7 @@ Route::controller(PasswordSetupController::class)
         Route::post('/{org}/password-setup/{token}', 'store')->name('password-setup.store');
     });
 
-//logout
+// logout
 Route::controller(LoginController::class)->middleware('auth:'.UserType::NORMAL)->group(function () {
     Route::get('/logout', 'logout')->name('logout');
 });
@@ -61,9 +58,11 @@ Route::get('/home-redirect', function(Request $request){
     return redirect()->route($target);
 })->name('home-redirect')->middleware('auth:'.UserType::NORMAL);
 
-// admin
-Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'org'])->group(function(){
+// webhook (outside of auth)
+Route::match(['POST'], '/webhook/barion', [PaymentWebhookController::class, 'barion'])->name('webhook.barion');
 
+// ADMIN ROUTES
+Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'org'])->group(function(){
     Route::get('/home', [HomeController::class, 'admin'])->name('home');
 
     // assessment
@@ -139,12 +138,9 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         });
 });
 
-    Route::match(['POST'], '/webhook/barion', [PaymentWebhookController::class, 'barion'])->name('webhook.barion');
-
-
-// normal
-Route::controller(NormalController::class)->middleware(['auth:'.UserType::NORMAL, 'org'])->group(function () {
-    Route::get('/home', [HomeController::class,'normal'])->name('home');
+// NORMAL USER ROUTES (includes CEO and Manager access via middleware)
+Route::middleware(['auth:'.UserType::NORMAL, 'org'])->group(function () {
+    Route::get('/home', [HomeController::class, 'normal'])->name('home');
 
     // assessment
     Route::controller(AssessmentController::class)->name('assessment.')->prefix('/assessment')->group(function () {
@@ -152,18 +148,31 @@ Route::controller(NormalController::class)->middleware(['auth:'.UserType::NORMAL
         Route::post('/submit', 'submitAssessment')->name('submit');
     });
 
-    // ceorank
-    Route::controller(CeoRankController::class)->name('ceorank.')->prefix('/ceorank')->middleware('auth:'.UserType::CEO)->group(function () {
+    // results (NORMAL)
+    Route::get('/results/{assessmentId?}', [ResultsController::class, 'index'])->name('results.index');
+});
+
+// CEO RANKS (CEO only)
+Route::controller(CeoRankController::class)
+    ->name('ceorank.')
+    ->prefix('/ceorank')
+    ->middleware(['auth:'.UserType::CEO, 'org'])
+    ->group(function () {
         Route::get('/index', 'index')->name('index');
         Route::post('/submit', 'submitRanking')->name('submit');
     });
 
-    // results (NORMAL)
-    Route::get('/results/{assessmentId?}', [ResultsController::class, 'index'])
-    ->name('results.index');
-});
+// MANAGER RANKS (Manager only)
+Route::controller(CeoRankController::class)
+    ->name('ceorank.')
+    ->prefix('/ceorank')
+    ->middleware(['auth:'.UserType::MANAGER, 'org'])
+    ->group(function () {
+        Route::get('/index', 'index')->name('index.manager');
+        Route::post('/submit', 'submitRanking')->name('submit.manager');
+    });
 
-// dev
+// dev routes
 Route::controller(DevController::class)->name('dev.')->prefix('/dev')->group(function(){
     Route::get('/makeFullAssessment', 'makeFullAssessment')->name('makeFullAssessment');
     Route::get('/generateBonusMalus', 'generateBonusMalus')->name('generateBonusMalus');
@@ -179,7 +188,7 @@ Route::controller(OrganizationController::class)
         Route::post('/switch', 'switch')->name('switch');
     });
 
-// superadmin
+// SUPERADMIN ROUTES
 Route::middleware(['auth:' . UserType::SUPERADMIN, 'org'])
     ->prefix('superadmin')
     ->name('superadmin.')
@@ -192,12 +201,12 @@ Route::middleware(['auth:' . UserType::SUPERADMIN, 'org'])
     });
 
 Route::prefix('/superadmin')->name('superadmin.')->middleware(['auth:' . UserType::SUPERADMIN])->group(function () {
-        Route::get('/org/create', [SuperadminOrganizationController::class, 'create'])->name('org.create');
-        Route::post('/organization/store', [SuperadminOrganizationController::class, 'store'])->name('organization.store');
-    });
+    Route::get('/org/create', [SuperadminOrganizationController::class, 'create'])->name('org.create');
+    Route::post('/organization/store', [SuperadminOrganizationController::class, 'store'])->name('organization.store');
+});
 
 Route::get('/superadmin/exit-company', [SuperAdminController::class, 'exitCompany'])->name('superadmin.exit-company');
-    Route::get('/superadmin/org/{id}/data', [SuperAdminController::class, 'getOrgData'])->name('superadmin.org.data');
+Route::get('/superadmin/org/{id}/data', [SuperAdminController::class, 'getOrgData'])->name('superadmin.org.data');
 
 Route::prefix('superadmin/competency')
     ->name('superadmin.competency.')
@@ -205,10 +214,8 @@ Route::prefix('superadmin/competency')
     ->controller(GlobalCompetencyController::class)
     ->group(function () {
         Route::get('/index', 'index')->name('index');
-
         Route::post('/save', 'saveCompetency')->name('save');
         Route::post('/remove', 'removeCompetency')->name('remove');
-
         Route::get('/question/get', 'getCompetencyQuestion')->name('question.get');
         Route::post('/question/save', 'saveCompetencyQuestion')->name('question.save');
         Route::post('/question/remove', 'removeCompetencyQuestion')->name('question.remove');
@@ -220,19 +227,3 @@ Route::post('/flash-success', function (\Illuminate\Http\Request $request) {
     session()->flash('success', $request->input('message'));
     return response()->json(['ok' => true]);
 })->name('flash.success');
-
-Route::prefix('superadmin/competency')
-    ->middleware('auth:'.UserType::SUPERADMIN)
-    ->name('superadmin.competency.')
-    ->group(function () {
-        Route::get('/index',   [GlobalCompetencyController::class, 'index'])->name('index');
-
-        // Kompetencia
-        Route::post('/save',   [GlobalCompetencyController::class, 'saveCompetency'])->name('save');
-        Route::post('/remove', [GlobalCompetencyController::class, 'removeCompetency'])->name('remove');
-
-        // Kérdés
-        Route::get('/q/get',     [GlobalCompetencyController::class, 'getCompetencyQuestion'])->name('q.get');
-        Route::post('/q/save',   [GlobalCompetencyController::class, 'saveCompetencyQuestion'])->name('q.save');
-        Route::post('/q/remove', [GlobalCompetencyController::class, 'removeCompetencyQuestion'])->name('q.remove');
-    });
