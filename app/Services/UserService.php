@@ -14,6 +14,10 @@ class UserService
 {
     const DEFAULT_BM = 5;
 
+    /**
+     * AKTÍV felhasználók az AKTUÁLIS szervezetből.
+     * (Régi viselkedés – hagyjuk meg más helyekre.)
+     */
     public static function getUsers() {
         $orgId = session('org_id');
 
@@ -31,51 +35,75 @@ class UserService
     }
 
     /**
+     * ZÁRT assessment résztvevői SNAPSHOT alapján.
+     * Akkor is visszaadja a résztvevőket, ha azóta eltávolították őket az orgból.
+     */
+    public static function getAssessmentParticipants(int $assessmentId): \Illuminate\Support\Collection
+    {
+        $snap = self::loadAssessmentSnapshot($assessmentId);
+        if (!$snap) {
+            return collect(); // nincs snapshot → üres lista, nem dobunk hibát
+        }
+
+        $snapUserMap = [];
+        foreach ($snap['users'] ?? [] as $u) {
+            $snapUserMap[(int)$u['id']] = $u;
+        }
+
+        $ids = array_keys($snap['_index']['user_ids'] ?? []);
+        if (empty($ids)) return collect();
+
+        // Megpróbálunk DB-ből is adatot, de ha már törölve van, fallback a snapshot.
+        $dbUsers = \App\Models\User::withTrashed()
+            ->whereIn('id', $ids)
+            ->get(['id','name','email','type','removed_at'])
+            ->keyBy('id');
+
+        return collect($ids)->map(function ($id) use ($dbUsers, $snapUserMap) {
+            $db   = $dbUsers->get($id);
+            $srow = $snapUserMap[$id] ?? null;
+            return (object)[
+                'id'         => $id,
+                'name'       => $db->name ?? ($srow['name'] ?? 'Ismeretlen felhasználó'),
+                'email'      => $db->email ?? ($srow['email'] ?? null),
+                'user_type'  => $db->type ?? ($srow['user_type'] ?? null),
+                'removed'    => $db?->removed_at !== null,
+                'is_ceo'     => (bool)($srow['is_ceo'] ?? false),
+                'org_role'   => $srow['org_role'] ?? null,
+                'department' => $srow['department_id'] ?? null,
+            ];
+        });
+    }
+
+    /**
      * EREDETI INTERFÉSZ: (Assessment, User) -> stdClass
      * Visszatér: total (0..100), selfTotal (0..100),
      *            colleague(s)Total (0..150), bossTotal (0..150), ceoTotal (0..100), sum (0..500)
      */
     public static function calculateUserPoints(Assessment $assessment, User $user): \stdClass
-{
-    $d = self::calculateUserPointsDetailedByIds($assessment->id, $user->id);
+    {
+        $d = self::calculateUserPointsDetailedByIds($assessment->id, $user->id);
 
-    // Normalizálás 150 -> 100 a megjelenítéshez
-    $colleague100 = (int) max(0, min(100, round($d['colleague_points'] * 100 / 150)));
-    $boss100      = (int) max(0, min(100, round($d['boss_points']      * 100 / 150)));
+        // Normalizálás 150 -> 100 a megjelenítéshez
+        $colleague100 = (int) max(0, min(100, round($d['colleague_points'] * 100 / 150)));
+        $boss100      = (int) max(0, min(100, round($d['boss_points']      * 100 / 150)));
 
-    return (object) [
-        // Végső pont (0..100)
-        'total'            => $d['final_0_100'],
-
-        // Self (0..100) – már eleve 0..100
-        'selfTotal'        => $d['self_points'],
-
-        // KOLLÉGA: megjelenítéshez 0..100
-        'colleagueTotal'   => $colleague100,
-        // (kompat: ha máshol a 0..150 kell, itt hagyjuk meg)
-        'colleaguesTotal'  => $d['colleague_points'], // 0..150
-
-        // FELETTES: megjelenítéshez 0..100
-        'managersTotal'    => $boss100,
-        // (kompat: régi név 0..150 skálán)
-        'bossTotal'        => $d['boss_points'],      // 0..150
-
-        // CEO rank komponens maga a rank (0..100)
-        'ceoTotal'         => $d['ceo_points'],       // 0..100
-
-        // Összeg 0..500 (self 100 + coll 150 + boss 150 + ceo 100)
-        'sum'              => $d['sum_0_500'],
-
-        // opcionális aliasok, ha bárhol így hivatkoztatok
-        'peersTotal'       => $colleague100,          // 0..100 alias
-        'leadersTotal'     => $boss100,               // 0..100 alias
-        'leaderTotal'      => $boss100,               // 0..100 alias
-        'rankTotal'        => $d['ceo_points'],       // 0..100 alias
-
-        // ha később használnátok
-        'complete'         => $d['complete'] ?? true,
-    ];
-}
+        return (object) [
+            'total'            => $d['final_0_100'],
+            'selfTotal'        => $d['self_points'],
+            'colleagueTotal'   => $colleague100,
+            'colleaguesTotal'  => $d['colleague_points'], // 0..150
+            'managersTotal'    => $boss100,
+            'bossTotal'        => $d['boss_points'],      // 0..150
+            'ceoTotal'         => $d['ceo_points'],       // 0..100
+            'sum'              => $d['sum_0_500'],
+            'peersTotal'       => $colleague100,
+            'leadersTotal'     => $boss100,
+            'leaderTotal'      => $boss100,
+            'rankTotal'        => $d['ceo_points'],
+            'complete'         => $d['complete'] ?? true,
+        ];
+    }
 
     /** Ha valahol csak a 0..100-as végső érték kell. */
     public static function calculateUserPointsValue($a, $b): int
@@ -97,11 +125,13 @@ class UserService
     }
 
     /**
-     * ÚJ pontszámítási mag – org-szűrt, telemetria-súlyozott, CEO-rank fallback.
-     * - csak az aktuális org-ban (rater és target is),
+     * ÚJ pontszámítási mag – SNAPSHOT alapú stabil szűrés.
+     * - NINCS organization_user join → múltbeli újraszámítás stabil marad.
      * - telemetry_ai ha VAN → súlyozás, ha NINCS → súly=1.0,
-     * - 4 komponens kötelező; hiányzó komponens fallback = CEO rank arányosítása,
+     * - 4 komponens; ha CEO hiányzik → üres eredmény (complete=false),
      * - vissza: komponensek + végső 0..100.
+     *
+     * Ha NINCS snapshot → NEM dobunk hibát, hanem emptyResult(false).
      *
      * @return array{
      *   final_0_100:int, sum_0_500:int, self_points:int, colleague_points:int, boss_points:int, ceo_points:int, complete:bool
@@ -109,32 +139,34 @@ class UserService
      */
     public static function calculateUserPointsDetailedByIds(int $assessmentId, int $userId): array
     {
-
-        // Assessment → org_id
-        $orgId = DB::table('assessment')->where('id', $assessmentId)->value('organization_id');
-        if (!$orgId) {
-            return self::emptyResult();
+        // 1) Snapshot betöltése – kötelező a stabil történelmi számításhoz
+        $snap = self::loadAssessmentSnapshot($assessmentId);
+        if (!$snap) {
+            // Kifejezett kérés: nincs snapshot → ne 500, hanem nullák
+            return self::emptyResult(false);
         }
 
-        // target legyen org-tag
-        $isTargetInOrg = DB::table('organization_user')
-            ->where('organization_id', $orgId)
-            ->where('user_id', $userId)
-            ->exists();
-        if (!$isTargetInOrg) {
-            return self::emptyResult();
+        $orgId = (int)($snap['_index']['org_id'] ?? 0);
+        if ($orgId <= 0) {
+            return self::emptyResult(false);
         }
 
-        // CEO rank (kötelező komponens)
+        // 2) Target jogosultság: az assessment indításakor az org része volt?
+        if (empty($snap['_index']['user_ids'][$userId])) {
+            return self::emptyResult(false);
+        }
+
+        // 3) CEO rank (kötelező komponens) – szűrés SNAPSHOT CEO-kra
+        $snapCeoIds = array_keys($snap['_index']['ceo_ids'] ?? []);
+        if (empty($snapCeoIds)) {
+            return self::emptyResult(false);
+        }
+
         $ceoRank = DB::table('user_ceo_rank as r')
-          ->join('organization_user as ou_target', 'ou_target.user_id', '=', 'r.user_id')
-          ->join('organization_user as ou_ceo', 'ou_ceo.user_id', '=', 'r.ceo_id') // NEW
-          ->where('ou_target.organization_id', $orgId)
-          ->where('ou_ceo.organization_id', $orgId) // NEW
-          ->where('r.assessment_id', $assessmentId)
-          ->where('r.user_id', $userId)
-          ->avg('r.value');
-
+            ->where('r.assessment_id', $assessmentId)
+            ->where('r.user_id', $userId)
+            ->whereIn('r.ceo_id', $snapCeoIds)
+            ->avg('r.value');
 
         if ($ceoRank === null) {
             // nincs CEO rank → nincs teljes pont
@@ -142,44 +174,48 @@ class UserService
         }
         $ceoRank = (float) $ceoRank; // 0..100
 
-        // SELF (0..100) – ha nincs, fallback = CEO rank
+        // 4) SELF (0..100) – ha nincs, fallback = CEO rank
+        $snapUserIds = array_keys($snap['_index']['user_ids'] ?? []);
         $selfAvg = DB::table('competency_submit as cs')
-            ->join('organization_user as ou_target', 'ou_target.user_id', '=', 'cs.target_id')
-            ->join('organization_user as ou_rater',  'ou_rater.user_id',  '=', 'cs.user_id')
-            ->where('ou_target.organization_id', $orgId)
-            ->where('ou_rater.organization_id',  $orgId)
             ->where('cs.assessment_id', $assessmentId)
             ->where('cs.target_id', $userId)
             ->where('cs.user_id', $userId)
+            ->whereIn('cs.user_id', $snapUserIds)
+            ->whereIn('cs.target_id', $snapUserIds)
             ->avg('cs.value');
 
         $selfPoints = (int) round(($selfAvg !== null ? (float)$selfAvg : $ceoRank)); // 0..100
 
-        // KOLLÉGA (0..150) – trust-súlyozott átlag (ha van telemetry_ai)
+        // 5) KOLLÉGA (0..150) – trust-súlyozott átlag (telemetry_ai)
         $colleaguePoints = self::weightedCategoryPoints(
             assessmentId: $assessmentId,
             orgId: $orgId,
             targetId: $userId,
-            typesOrWeights: ['colleague' => 1.0,'peer'=> 1.0],
+            typesOrWeights: ['colleague' => 1.0, 'peer' => 1.0],
             fallbackFromCeoRank: $ceoRank,
-            maxPoints: 150
+            maxPoints: 150,
+            wMin: 0.5,
+            wMax: 1.5,
+            snapshot: $snap
         );
 
-        // FELETTES(ek) (0..150) – rugalmas típusok, trust-súlyozott átlag
+        // 6) FELETTES(ek) (0..150) – rugalmas típusok, trust-súlyozott átlag
         $bossPoints = self::weightedCategoryPoints(
-          assessmentId: $assessmentId,
-          orgId: $orgId,
-          targetId: $userId,
-          typesOrWeights: ['subordinate' => 1.0, 'ceo' => 0.5], // CEO kérdőív fél súllyal
-          fallbackFromCeoRank: $ceoRank,
-          maxPoints: 150
-      );
+            assessmentId: $assessmentId,
+            orgId: $orgId,
+            targetId: $userId,
+            typesOrWeights: ['subordinate' => 1.0, 'ceo' => 0.5], // CEO kérdőív fél súllyal
+            fallbackFromCeoRank: $ceoRank,
+            maxPoints: 150,
+            wMin: 0.5,
+            wMax: 1.5,
+            snapshot: $snap
+        );
 
-
-        // CEO rank komponens (0..100)
+        // 7) CEO komponens (0..100)
         $rankPoints = (int) round($ceoRank);
 
-        // Összeg (0..500) → /5 = végső (0..100)
+        // 8) Összeg (0..500) → /5 = végső (0..100)
         $sum500 = $selfPoints + $colleaguePoints + $bossPoints + $rankPoints;
         $final  = (int) round($sum500 / 5);
         if ($final < 0)   $final = 0;
@@ -213,115 +249,140 @@ class UserService
     /**
      * Kategória pontok (0..$maxPoints): kérdőívenkénti átlag + telemetry_ai trust súly.
      * Ha nincs érvényes adat → fallback = CEO rank arányos pont.
+     * SNAPSHOT alapú szűréssel (nincs organization_user join).
      */
     private static function weightedCategoryPoints(
-    int $assessmentId,
-    int $orgId,
-    int $targetId,
-    array $typesOrWeights,       // lehet ['colleague'] VAGY ['subordinate'=>1.0,'ceo'=>0.5]
-    float $fallbackFromCeoRank,  // 0..100
-    int $maxPoints = 150,
-    float $wMin = 0.5,
-    float $wMax = 1.5
-): int {
-    // 0) Típuslista + szorzók előkészítése
-    $types = [];
-    $typeWeights = [];
-    foreach ($typesOrWeights as $k => $v) {
-        if (is_string($k)) { $types[] = $k; $typeWeights[$k] = (float)$v; }
-        else               { $types[] = $v; $typeWeights[$v] = 1.0; }
+        int $assessmentId,
+        int $orgId,
+        int $targetId,
+        array $typesOrWeights,       // pl. ['colleague'] VAGY ['subordinate'=>1.0,'ceo'=>0.5]
+        float $fallbackFromCeoRank,  // 0..100
+        int $maxPoints = 150,
+        float $wMin = 0.5,
+        float $wMax = 1.5,
+        ?array $snapshot = null
+    ): int {
+        // 0) Típuslista + szorzók előkészítése
+        $types = [];
+        $typeWeights = [];
+        foreach ($typesOrWeights as $k => $v) {
+            if (is_string($k)) { $types[] = $k; $typeWeights[$k] = (float)$v; }
+            else               { $types[] = $v; $typeWeights[$v] = 1.0; }
+        }
+
+        // Ha nincs snapshot → nincs stabil történelmi nézet → fallback
+        if (!$snapshot) {
+            return (int) round($fallbackFromCeoRank * $maxPoints / 100.0);
+        }
+
+        $snapUserIds = array_keys($snapshot['_index']['user_ids'] ?? []);
+        if (empty($snapUserIds) || empty($snapshot['_index']['user_ids'][(int)$targetId])) {
+            return (int) round($fallbackFromCeoRank * $maxPoints / 100.0);
+        }
+
+        $q = DB::table('competency_submit as cs')
+            ->join('user_competency_submit as ucs', function ($join) {
+                $join->on('ucs.assessment_id', '=', 'cs.assessment_id')
+                     ->on('ucs.user_id',       '=', 'cs.user_id')
+                     ->on('ucs.target_id',     '=', 'cs.target_id');
+            })
+            ->where('cs.assessment_id', $assessmentId)
+            ->where('cs.target_id', $targetId)
+            ->whereIn('cs.type', $types)
+            // SNAPSHOT stabilitás: csak az assessment-kori org user készletből
+            ->whereIn('cs.user_id', $snapUserIds)
+            ->whereIn('cs.target_id', $snapUserIds)
+            ->groupBy('cs.assessment_id', 'cs.user_id', 'cs.target_id', 'ucs.telemetry_ai', 'cs.type')
+            ->selectRaw('AVG(cs.value) as questionnaire_avg')
+            ->addSelect('ucs.telemetry_ai', 'cs.type', 'cs.user_id', 'cs.target_id');
+
+        $rows = $q->get();
+        if ($rows->isEmpty()) {
+            return (int) round($fallbackFromCeoRank * $maxPoints / 100.0);
+        }
+
+        // 1) (opcionális, de ajánlott) reláció validáció a SNAPSHOT szerint (rater-target-type)
+        $filtered = [];
+        foreach ($rows as $row) {
+            $raterId = (int)$row->user_id;
+            $targId  = (int)$row->target_id;
+            $type    = (string)$row->type;
+            if (self::relationAllowed($snapshot, $raterId, $targId, $type)) {
+                $filtered[] = $row;
+            }
+        }
+
+        if (empty($filtered)) {
+            return (int) round($fallbackFromCeoRank * $maxPoints / 100.0);
+        }
+
+        // 2) Súlyok (telemetria × type-szorzó)
+        $items = [];
+        $sumW  = 0.0;
+        foreach ($filtered as $row) {
+            $avg = (float) $row->questionnaire_avg; // 0..100
+            $w   = self::trustWeightFromTelemetry($row->telemetry_ai, $wMin, $wMax);
+            $tw  = $typeWeights[$row->type] ?? 1.0;
+            $w  *= $tw;
+            if (!is_finite($w) || $w <= 0) $w = 1.0;
+            $items[] = ['avg' => $avg, 'w' => $w];
+            $sumW   += $w;
+        }
+
+        // 3) Átlag-normalizálás (tw-vel együtt): mean(w) = 1.0
+        $meanW = $sumW > 0 ? ($sumW / count($items)) : 1.0;
+        if (!is_finite($meanW) || $meanW <= 0) $meanW = 1.0;
+
+        $num = 0.0; $den = 0.0;
+        foreach ($items as $it) {
+            $w = $it['w'] / $meanW;
+            $num += $it['avg'] * $w;
+            $den += $w;
+        }
+
+        if ($den <= 0.0) {
+            return (int) round($fallbackFromCeoRank * $maxPoints / 100.0);
+        }
+
+        $weightedAvg = $num / $den; // 0..100
+        return (int) round($weightedAvg * $maxPoints / 100.0);
     }
-
-    $rows = DB::table('competency_submit as cs')
-        ->join('user_competency_submit as ucs', function ($join) {
-            $join->on('ucs.assessment_id', '=', 'cs.assessment_id')
-                 ->on('ucs.user_id',       '=', 'cs.user_id')
-                 ->on('ucs.target_id',     '=', 'cs.target_id');
-        })
-        ->join('organization_user as ou_target', 'ou_target.user_id', '=', 'cs.target_id')
-        ->join('organization_user as ou_rater',  'ou_rater.user_id',  '=', 'cs.user_id')
-        ->where('ou_target.organization_id', $orgId)
-        ->where('ou_rater.organization_id',  $orgId)
-        ->where('cs.assessment_id', $assessmentId)
-        ->where('cs.target_id', $targetId)
-        ->whereIn('cs.type', $types)
-        ->groupBy('cs.assessment_id', 'cs.user_id', 'cs.target_id', 'ucs.telemetry_ai', 'cs.type')
-        ->selectRaw('AVG(cs.value) as questionnaire_avg')
-        ->addSelect('ucs.telemetry_ai', 'cs.type')
-        ->get();
-
-    if ($rows->isEmpty()) {
-        return (int) round($fallbackFromCeoRank * $maxPoints / 100.0);
-    }
-
-    // 1) Súlyok (telemetria × type-szorzó)
-    $items = [];
-    $sumW  = 0.0;
-    foreach ($rows as $row) {
-        $avg = (float) $row->questionnaire_avg; // 0..100
-        $w   = self::trustWeightFromTelemetry($row->telemetry_ai, $wMin, $wMax);
-        $tw  = $typeWeights[$row->type] ?? 1.0;
-        $w  *= $tw;
-        if (!is_finite($w) || $w <= 0) $w = 1.0;
-        $items[] = ['avg' => $avg, 'w' => $w];
-        $sumW   += $w;
-    }
-
-    // 2) Átlag-normalizálás (a tw-vel együtt): mean(w) = 1.0
-    $meanW = $sumW > 0 ? ($sumW / count($items)) : 1.0;
-    if (!is_finite($meanW) || $meanW <= 0) $meanW = 1.0;
-
-    $num = 0.0; $den = 0.0;
-    foreach ($items as $it) {
-        $w = $it['w'] / $meanW;
-        $num += $it['avg'] * $w;
-        $den += $w;
-    }
-
-    if ($den <= 0.0) {
-        return (int) round($fallbackFromCeoRank * $maxPoints / 100.0);
-    }
-
-    $weightedAvg = $num / $den; // 0..100
-    return (int) round($weightedAvg * $maxPoints / 100.0);
-}
-
-
 
     /**
-     * telemetry_ai JSON → trust súly (0..1).
-     * - Ha NINCS telemetry_ai → 1.0 (histórikus pontok nem változnak).
-     * - trust_score 0..20; ha <5 → 0.0; különben (ts/20)^gamma.
-     *   (trust_index, ha van, 0..1: extra szorzóként bevehető; most nem kötelező.)
+     * telemetry_ai JSON → trust súly (0.5 .. 1.5).
+     * - Ha NINCS telemetry_ai → 1.0 (neutrális).
+     * - trust_score 0..20 és lineáris leképezés wMin..wMax (alap 0.5..1.5),
+     *   ts=10 → 1.0.
      */
     private static function trustWeightFromTelemetry(?string $telemetryJson, float $wMin = 0.5, float $wMax = 1.5): float
-{
-    // Nincs telemetria → neutrális 1.0
-    if (!$telemetryJson) return 1.0;
+    {
+        if (!$telemetryJson) return 1.0;
 
-    $data = json_decode($telemetryJson, true);
-    if (json_last_error() !== JSON_ERROR_NONE || !is_array($data)) {
-        return 1.0;
+        $data = json_decode($telemetryJson, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($data)) {
+            return 1.0;
+        }
+
+        if (!array_key_exists('trust_score', $data)) {
+            return 1.0;
+        }
+
+        $ts = (float) $data['trust_score'];           // elvárt tartomány: 0..20
+        if (!is_finite($ts)) $ts = 10.0;
+        $ts = max(0.0, min(20.0, $ts));
+
+        // Lineáris, szimmetrikus leképezés: ts=10 -> 1.0
+        // Feltétel legyen: (wMin + wMax) / 2 == 1.0  → pl. 0.5 és 1.5
+        $w = $wMin + ($ts / 20.0) * ($wMax - $wMin);
+
+        if (!is_finite($w)) $w = 1.0;
+        return max(0.0, min($wMax, $w));
     }
 
-    // Csak a trust_score-t használjuk; a trust_index-et NEM (az számolódhat belőle később, de itt nincs rá szükség)
-    if (!array_key_exists('trust_score', $data)) {
-        return 1.0;
-    }
-
-    $ts = (float) $data['trust_score'];           // elvárt tartomány: 0..20
-    if (!is_finite($ts)) $ts = 10.0;
-    $ts = max(0.0, min(20.0, $ts));
-
-    // Lineáris, szimmetrikus leképezés: ts=10 -> 1.0
-    // Feltétel legyen: (wMin + wMax) / 2 == 1.0  → pl. 0.5 és 1.5
-    $w = $wMin + ($ts / 20.0) * ($wMax - $wMin);
-
-    // Végső clamp (védőkorlát)
-    if (!is_finite($w)) $w = 1.0;
-    return max(0.0, min($wMax, $w));
-}
-
+    /**
+     * Havi Bonus/Malus karbantartás (változatlanul hagyva).
+     * FIGYELEM: lehet benne null-access kockázat, de most nem módosítom kérésed szerint.
+     */
     public static function handleNewMonthLevels(){
         User::whereNot('type', UserType::ADMIN)->get()->each(function($user){
             $bonusMalus = $user->bonusMalus()->first();
@@ -339,5 +400,69 @@ class UserService
                 "level"   => $bonusMalus->level
             ]);
         });
+    }
+
+    /* =======================
+       SNAPSHOT SEGÉDEK (ÚJ)
+       ======================= */
+
+    /**
+     * Assessment.org_snapshot betöltése és gyors indexek építése.
+     * Ha nincs (vagy hibás), null-t ad vissza (felsőbb szint kezeli).
+     */
+    private static function loadAssessmentSnapshot(int $assessmentId): ?array
+    {
+        $row = DB::table('assessment')->where('id', $assessmentId)->select('org_snapshot')->first();
+        if (!$row || empty($row->org_snapshot)) return null;
+
+        $snap = json_decode($row->org_snapshot, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($snap)) return null;
+
+        // Indexek
+        $userIds = [];
+        $ceoIds  = [];
+        if (!empty($snap['users'])) {
+            foreach ($snap['users'] as $u) {
+                $uid = (int)($u['id'] ?? 0);
+                if ($uid > 0) {
+                    $userIds[$uid] = true;
+                    if (!empty($u['is_ceo'])) $ceoIds[$uid] = true;
+                }
+            }
+        }
+
+        // "rater:target" → {type => true}
+        $relIndex = [];
+        if (!empty($snap['relations'])) {
+            foreach ($snap['relations'] as $r) {
+                $ru = (int)($r['user_id']   ?? 0);
+                $rt = (int)($r['target_id'] ?? 0);
+                $tp = (string)($r['type']   ?? '');
+                if ($ru > 0 && $rt > 0 && $tp !== '') {
+                    $k = $ru . ':' . $rt;
+                    $relIndex[$k] ??= [];
+                    $relIndex[$k][$tp] = true;
+                }
+            }
+        }
+
+        $snap['_index'] = [
+            'user_ids'  => $userIds,
+            'ceo_ids'   => $ceoIds,
+            'rel_index' => $relIndex,
+            'org_id'    => (int)($snap['organization']['id'] ?? 0),
+        ];
+
+        return $snap;
+    }
+
+    /**
+     * A snapshot relációk közti jogosultság ellenőrzése.
+     */
+    private static function relationAllowed(array $snapshot, int $raterId, int $targetId, string $type): bool
+    {
+        $rel = $snapshot['_index']['rel_index'] ?? [];
+        $k = $raterId . ':' . $targetId;
+        return !empty($rel[$k][$type]);
     }
 }
