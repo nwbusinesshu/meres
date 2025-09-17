@@ -718,7 +718,7 @@ public function PasswordReset(Request $request)
         $request->validate([
             'id' => 'required|integer|exists:user,id',
             'relations' => 'required|array|min:1',
-            'relations.*.target' => 'required|integer|exists:user,id',
+            'relations.*.target_id' => 'required|integer|exists:user,id',
             'relations.*.type' => 'required|string|in:self,colleague,subordinate,superior',
         ]);
 
@@ -730,27 +730,45 @@ public function PasswordReset(Request $request)
 
         try {
             AjaxService::DBTransaction(function () use ($relations, $user, $organizationId) {
-                // korábbi kapcsolatok törlése
-                $user->allRelations()
-                    ->where('organization_id', $organizationId)
-                    ->delete();
 
+    // 1) CSAK a nem-SELF típusok törlése az adott usernél, explicit query-vel
+    DB::table('user_relation')
+        ->where('user_id', $user->id)
+        ->where('organization_id', $organizationId)
+        ->whereIn('type', ['colleague','subordinate','superior'])
+        ->delete();
 
-                $relations->each(function ($item) use ($user, $organizationId) {
-                    Log::info('Creating relation', [
-                        'user' => $user->id,
-                        'target' => $item['target'],
-                        'type' => $item['type'],
-                        'organization_id' => $organizationId,
-                    ]);
+    // 2) SELF kapcsolat garantálása (idempotens)
+    DB::table('user_relation')->insertOrIgnore([
+        'user_id'         => $user->id,
+        'target_id'       => $user->id,
+        'organization_id' => $organizationId,
+        'type'            => 'self',
+    ]);
 
-                    $user->relations()->create([
-                        'target_id' => $item['target'],
-                        'type' => $item['type'],
-                        'organization_id' => $organizationId,
-                    ]);
-                });
-            });
+    // 3) Payload tisztítása: SELF kihagyása, önmagára mutató nem-SELF tiltása, duplikátumok kiszűrése
+    $rows = $relations
+        ->map(function ($item) use ($user, $organizationId) {
+            return [
+                'user_id'         => $user->id,
+                'target_id'       => (int)($item['target_id'] ?? $item['target'] ?? 0),
+                'organization_id' => $organizationId,
+                'type'            => $item['type'] ?? null,
+            ];
+        })
+        ->filter(function ($r) use ($user) {
+            return in_array($r['type'], ['colleague','subordinate','superior'], true)
+                && $r['target_id'] > 0
+                && $r['target_id'] !== $user->id;
+        })
+        ->unique(fn($r) => $r['user_id'].'-'.$r['target_id'].'-'.$r['organization_id'].'-'.$r['type'])
+        ->values()
+        ->all();
+
+    if (!empty($rows)) {
+        DB::table('user_relation')->insertOrIgnore($rows);
+    }
+});
 
             return response()->json(['message' => 'Sikeres mentés.']);
         } catch (\Throwable $e) {

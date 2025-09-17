@@ -84,10 +84,9 @@ class AdminAssessmentController extends Controller
 
         if ($alreadyRunning && is_null($assessment)) {
             // HIBA: ugyanaz a minta, mint a régi kódban
-            return response()->json([
-                'message' => 'Már van folyamatban értékelési időszak.',
-                'errors'  => ['assessment' => ['Már van folyamatban értékelési időszak.']]
-            ], 422);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'assessment' => ['Már van folyamatban értékelési időszak.']
+            ]);
         }
 
         if (is_null($assessment)) {
@@ -96,44 +95,38 @@ class AdminAssessmentController extends Controller
             $thresholds = app(\App\Services\ThresholdService::class);
             $init = $thresholds->buildInitialThresholdsForStart($orgId);
 
-              // === ÚJ: snapshot összeállítása induláskor ===
-            /** @var SnapshotService $snap */
-            $snap = app(SnapshotService::class);
-            $snapshotArr = $snap->buildOrgSnapshot($orgId); // itt gyűjtünk mindent
+            // === ÚJ: snapshot összeállítása induláskor ===
+            /** @var \App\Services\SnapshotService $snap */
+            $snap = app(\App\Services\SnapshotService::class);
+            $snapshotArr  = $snap->buildOrgSnapshot($orgId); // itt gyűjtünk mindent (multi-managerrel együtt)
             $snapshotJson = json_encode($snapshotArr, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-            Assessment::create([
+            // Assessment létrehozása – MOST már org_snapshot-tal együtt
+            $assessment = Assessment::create([
                 'organization_id'     => $orgId,
-                'started_at'          => date('Y-m-d H:i:s'),
+                'started_at'          => now(),
                 'due_at'              => $request->due,
                 'closed_at'           => null,
-                'threshold_method'    => $init['threshold_method'],
-                // FIXED/HYBRID: konkrét számok; DYNAMIC/SUGGESTED: NULL
-                'normal_level_up'     => $init['normal_level_up'],
-                'normal_level_down'   => $init['normal_level_down'],
-                // havi küszöb marad configból (üzletileg nem változott)
-                'monthly_level_down'  => $init['monthly_level_down'],
+                'threshold_method'    => $init['threshold_method'] ?? null,
+                'normal_level_up'     => $init['normal_level_up'] ?? null,
+                'normal_level_down'   => $init['normal_level_down'] ?? null,
+                'monthly_level_down'  => $init['monthly_level_down'] ?? null,
+                'org_snapshot'        => $snapshotJson,   // <-- LÉNYEG: snapshot mentése
             ]);
 
-            // Siker esetén NINCS return → követjük a régi viselkedést
-            // TODO: kiosztások/ívek generálása, ha itt szokott történni
+            // (opcionális) ha szeretnél: snapshot verziót is tehetsz a JSON-ba már beépítve (buildOrgSnapshot tartalmazhatja), külön oszlophoz nem nyúlunk.
 
+            // Billing – a te logikád szerint
             $employeeCount = DB::table('organization_user')
                 ->where('organization_id', $orgId)
                 ->count();
 
             $amountHuf = (int) ($employeeCount * 950);
 
-            // Frissen létrehozott assessment ID-ja
-            $createdAssessment = DB::table('assessment')
-                ->where('organization_id', $orgId)
-                ->orderByDesc('id')
-                ->first();
-
-            if ($createdAssessment && $amountHuf > 0) {
+            if ($assessment && $amountHuf > 0) {
                 DB::table('payments')->insert([
                     'organization_id' => $orgId,
-                    'assessment_id'   => $createdAssessment->id,
+                    'assessment_id'   => $assessment->id, // <-- közvetlenül a létrejött rekordból
                     'amount_huf'      => $amountHuf,
                     'status'          => 'pending',
                     'created_at'      => now(),
@@ -141,17 +134,18 @@ class AdminAssessmentController extends Controller
                 ]);
             }
 
+            // TODO: kiosztások/ívek generálása, ha itt szokott történni
+
         } else {
             // Meglévő assessment → csak due_at frissítés (régi viselkedés)
             $assessment->due_at = $request->due;
             $assessment->save();
-
-            // Siker esetén itt sincs return → marad a régi viselkedés
         }
     });
 
-    // NINCS explicit válasz → marad a régi minta (a frontend ezt várja)
+    // NINCS explicit JSON válasz → marad a régi minta (a frontend ezt várja)
 }
+
 
 
      public function closeAssessment(Request $request)
