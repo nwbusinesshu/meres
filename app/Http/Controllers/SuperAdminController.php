@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Organization;
 use App\Models\Assessment;
+use Illuminate\Validation\Rule;
 
 class SuperAdminController extends Controller
 {
@@ -32,22 +33,45 @@ public function dashboard()
 
 public function store(Request $request)
 {
+
+    $country = strtoupper($request->input('country_code', 'HU'));
+
     $request->validate([
         'org_name'           => 'required|string|max:255',
         'admin_name'         => 'required|string|max:255',
         'admin_email'        => 'required|email|max:255',
-        'tax_number'         => 'nullable|string|max:50',
-        'billing_address'    => 'nullable|string|max:255',
-        'subscription_type'  => 'nullable|string|max:50',
+
+        'country_code'       => 'required|string|size:2',
+        'postal_code'        => 'nullable|string|max:16',
+        'region'             => 'nullable|string|max:64',
+        'city'               => 'nullable|string|max:64',
+        'street'             => 'nullable|string|max:128',
+        'house_number'       => 'nullable|string|max:32',
+
+        // HU esetén kötelező és mintás, más ország esetén nem kötelező
+        'tax_number'         => [
+            'nullable','string','max:50',
+            Rule::requiredIf($country === 'HU'),
+            'regex:/^\d{8}-\d-\d{2}$/'
+        ],
+
+        // nem-HU esetén kötelező, HU esetén opcionális
+        'eu_vat_number'      => [
+            'nullable','string','max:32',
+            Rule::requiredIf($country !== 'HU'),
+            'regex:/^[A-Z]{2}[A-Za-z0-9]{2,12}$/'
+        ],
+
+        'subscription_type'  => 'nullable|in:free,pro',
     ]);
 
-    // 1. Szervezet létrehozása
+    // 1) Szervezet
     $org = \App\Models\Organization::create([
-        'name' => $request->org_name,
+        'name'       => $request->org_name,
         'created_at' => now(),
     ]);
 
-    // 2. Admin user létrehozása vagy visszakeresése
+    // 2) Admin user
     $user = \App\Models\User::firstOrCreate(
         ['email' => $request->admin_email],
         [
@@ -56,23 +80,26 @@ public function store(Request $request)
         ]
     );
 
-    // 3. Kapcsolat létrehozása a szervezet és user között
-    $org->users()->attach($user->id, [
-        'role' => 'admin',
-    ]);
+    // 3) Kapcsolat
+    $org->users()->attach($user->id, ['role' => 'admin']);
 
-    // 4. OrganizationProfile létrehozása
+    // 4) Profil
     \App\Models\OrganizationProfile::create([
         'organization_id'   => $org->id,
+        'country_code'      => $country,
+        'postal_code'       => $request->postal_code,
+        'region'            => $request->region,
+        'city'              => $request->city,
+        'street'            => $request->street,
+        'house_number'      => $request->house_number,
         'tax_number'        => $request->tax_number,
-        'billing_address'   => $request->billing_address,
+        'eu_vat_number'     => strtoupper((string) $request->eu_vat_number),
         'subscription_type' => $request->subscription_type,
         'created_at'        => now(),
     ]);
 
-    // 5. Alap CEO rangok másolása az új céghez
+    // 5) Alap CEO rangok
     $defaultRanks = \App\Models\CeoRank::whereNull('organization_id')->get();
-
     foreach ($defaultRanks as $rank) {
         \App\Models\CeoRank::create([
             'organization_id' => $org->id,
@@ -87,41 +114,68 @@ public function store(Request $request)
     return response()->json(['success' => true]);
 }
 
+
 public function update(Request $request)
 {
+
     \Log::info('Update route hit with method: ' . $request->method());
+
+    $country = strtoupper($request->input('country_code', 'HU'));
 
     $request->validate([
         'org_id'            => 'required|exists:organization,id',
         'org_name'          => 'required|string|max:255',
+
         'admin_name'        => 'nullable|string|max:255',
         'admin_email'       => 'nullable|email|max:255',
         'admin_remove'      => 'nullable|in:0,1',
-        'tax_number'        => 'nullable|string|max:50',
-        'billing_address'   => 'nullable|string|max:255',
+
+        'country_code'      => 'required|string|size:2',
+        'postal_code'       => 'nullable|string|max:16',
+        'region'            => 'nullable|string|max:64',
+        'city'              => 'nullable|string|max:64',
+        'street'            => 'nullable|string|max:128',
+        'house_number'      => 'nullable|string|max:32',
+
+        'tax_number'        => [
+            'nullable','string','max:50',
+            Rule::requiredIf($country === 'HU'),
+            'regex:/^\d{8}-\d-\d{2}$/'
+        ],
+        'eu_vat_number'     => [
+            'nullable','string','max:32',
+            Rule::requiredIf($country !== 'HU'),
+            'regex:/^[A-Z]{2}[A-Za-z0-9]{2,12}$/'
+        ],
+
         'subscription_type' => 'nullable|in:free,pro',
     ]);
 
-    $org = \App\Models\Organization::findOrFail($request->org_id);
+    $org   = \App\Models\Organization::findOrFail($request->org_id);
     $admin = $org->users()->wherePivot('role', 'admin')->first();
 
-    // Szervezet neve frissítése
+    // szervezet név
     $org->name = $request->org_name;
     $org->save();
 
-    // Profil frissítése vagy létrehozása
+    // profil
     $profile = \App\Models\OrganizationProfile::firstOrNew(['organization_id' => $org->id]);
-    $profile->tax_number = $request->tax_number;
-    $profile->billing_address = $request->billing_address;
+    $profile->country_code      = $country;
+    $profile->postal_code       = $request->postal_code;
+    $profile->region            = $request->region;
+    $profile->city              = $request->city;
+    $profile->street            = $request->street;
+    $profile->house_number      = $request->house_number;
+    $profile->tax_number        = $request->tax_number;
+    $profile->eu_vat_number     = strtoupper((string) $request->eu_vat_number);
     $profile->subscription_type = $request->subscription_type;
-    $profile->updated_at = now();
+    $profile->updated_at        = now();
     $profile->save();
 
-    // Admin törlés logika
-    if ($request->admin_remove == '1') {
+    // admin törlés
+    if ($request->admin_remove === '1') {
         if ($admin) {
             $org->users()->detach($admin->id);
-
             if ($admin->organizations()->count() === 0) {
                 $admin->removed_at = now();
                 $admin->save();
@@ -129,7 +183,7 @@ public function update(Request $request)
         }
     }
 
-    // Új admin hozzáadása
+    // admin csere
     if ($request->filled('admin_name') && $request->filled('admin_email')) {
         $existing = \App\Models\User::where('email', $request->admin_email)
             ->where('id', '!=', optional($admin)->id)
@@ -138,7 +192,7 @@ public function update(Request $request)
         if ($existing) {
             return response()->json([
                 'success' => false,
-                'errors' => [
+                'errors'  => [
                     'admin_email' => ['Ez az e-mail cím már létezik egy másik felhasználónál. Csak új admin regisztrálható.']
                 ]
             ], 422);
@@ -151,13 +205,12 @@ public function update(Request $request)
             'created_at' => now(),
         ]);
 
-        $org->users()->attach($newAdmin->id, [
-            'role' => 'admin',
-        ]);
+        $org->users()->attach($newAdmin->id, ['role' => 'admin']);
     }
 
     return response()->json(['success' => true]);
 }
+
 
 
 public function delete(Request $request)
@@ -201,21 +254,30 @@ public function exitCompany(Request $request)
 
 public function getOrgData($orgId)
 {
-    $org = Organization::where('id', $orgId)->whereNull('removed_at')->firstOrFail();
-
+    $org = \App\Models\Organization::where('id', $orgId)->whereNull('removed_at')->firstOrFail();
     $profile = $org->profile; // lehet null
-
     $admin = $org->users()->wherePivot('role', 'admin')->first();
 
     return response()->json([
-        'org_name' => $org->name,
-        'tax_number' => $profile?->tax_number ?? '',
-        'billing_address' => $profile?->billing_address ?? '',
+        'org_name'          => $org->name,
+
+        // számlázási adatok (új, struktúrált)
+        'country_code'      => $profile?->country_code ?? 'HU',
+        'postal_code'       => $profile?->postal_code ?? '',
+        'region'            => $profile?->region ?? '',
+        'city'              => $profile?->city ?? '',
+        'street'            => $profile?->street ?? '',
+        'house_number'      => $profile?->house_number ?? '',
+        'tax_number'        => $profile?->tax_number ?? '',
+        'eu_vat_number'     => $profile?->eu_vat_number ?? '',
         'subscription_type' => $profile?->subscription_type ?? '',
-        'admin_name' => $admin?->name ?? '',
-        'admin_email' => $admin?->email ?? '',
+
+        // admin adatok
+        'admin_name'        => $admin?->name ?? '',
+        'admin_email'       => $admin?->email ?? '',
     ]);
 }
+
 
 
 }

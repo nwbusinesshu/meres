@@ -20,6 +20,9 @@ use App\Http\Controllers\SuperadminOrganizationController;
 use App\Http\Controllers\GlobalCompetencyController;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use App\Http\Controllers\PasswordSetupController;
+use App\Http\Controllers\PaymentWebhookController;
+use App\Http\Controllers\AdminPaymentController;
+
 
 
 
@@ -60,6 +63,7 @@ Route::get('/home-redirect', function(Request $request){
 
 // admin
 Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'org'])->group(function(){
+
     Route::get('/home', [HomeController::class, 'admin'])->name('home');
 
     // assessment
@@ -86,16 +90,20 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         Route::post('/department', 'storeDepartment')->name('department.store');
         Route::post('/department/get', 'getDepartment')->name('department.get');
         Route::post('/department/update', 'updateDepartment')->name('department.update');
-        Route::post('/department/members', 'getDepartmentMembers')->name('department.members');          // lista (prefill)
-        Route::post('/department/eligible', 'getEligibleForDepartment')->name('department.eligible');    // választhatók a select-modalhoz
-        Route::post('/department/members/save', 'saveDepartmentMembers')->name('department.members.save'); // mentés (set)
+        Route::post('/department/members', 'getDepartmentMembers')->name('department.members');
+        Route::post('/department/eligible', 'getEligibleForDepartment')->name('department.eligible');
+        Route::post('/department/members/save', 'saveDepartmentMembers')->name('department.members.save');
         Route::post('/department/delete', 'deleteDepartment')->name('department.delete');
         Route::post('/network', 'getNetworkData')->name('network');
         Route::post('/get-eligible-managers', [AdminEmployeeController::class, 'getEligibleManagers'])->name('get-eligible-managers');
+    });
 
-
-
-
+    // payments
+    Route::controller(AdminPaymentController::class)->name('payments.')->prefix('/payments')->group(function () {
+        Route::get('/index', 'index')->name('index');
+        Route::post('/start', 'start')->name('start');
+        Route::get('/invoice/{id}', 'invoice')->name('invoice');
+        Route::post('/refresh', 'refresh')->name('refresh');
     });
 
     // competency
@@ -118,20 +126,21 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
     });
 
     // results
-    Route::get('/results/{assessmentId?}', [AdminResultsController::class, 'index'])
-     ->name('results.index');
+    Route::get('/results/{assessmentId?}', [AdminResultsController::class, 'index'])->name('results.index');
 
-     // settings (admin)
-Route::controller(\App\Http\Controllers\AdminSettingsController::class)
-    ->name('settings.')
-    ->prefix('/settings')
-    ->group(function () {
-        Route::get('/index', 'index')->name('index');          // GET  /admin/settings/index
-        Route::post('/toggle', 'toggle')->name('toggle');      // POST /admin/settings/toggle
-        Route::post('/thresholds', 'saveThresholds')->name('save'); // POST /admin/settings/thresholds
-    });
-
+    // settings (admin)
+    Route::controller(\App\Http\Controllers\AdminSettingsController::class)
+        ->name('settings.')
+        ->prefix('/settings')
+        ->group(function () {
+            Route::get('/index', 'index')->name('index');
+            Route::post('/toggle', 'toggle')->name('toggle');
+            Route::post('/thresholds', 'saveThresholds')->name('save');
+        });
 });
+
+    Route::match(['POST'], '/webhook/barion', [PaymentWebhookController::class, 'barion'])->name('webhook.barion');
+
 
 // normal
 Route::controller(NormalController::class)->middleware(['auth:'.UserType::NORMAL, 'org'])->group(function () {

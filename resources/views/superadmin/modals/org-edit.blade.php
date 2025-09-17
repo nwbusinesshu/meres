@@ -1,4 +1,4 @@
-<div class="modal fade" id="modal-org-edit">
+<div class="modal fade modal-drawer" id="modal-org-edit">
   <div class="modal-dialog">
     <div class="modal-content">
 
@@ -20,16 +20,44 @@
             <input type="text" name="org_name" id="edit-org-name" class="form-control" required>
           </div>
 
-          {{-- Adószám --}}
+          {{-- Számlázási adatok (strukturált) --}}
           <div class="form-group">
-            <label for="edit-tax-number">{{ __('global.tax-number') }}</label>
-            <input type="text" name="tax_number" id="edit-tax-number" class="form-control">
+            <label>Számlázási adatok</label>
+            <div class="form-row">
+              <div class="col-md-3">
+                <select name="country_code" id="edit-country-code" class="form-control"></select>
+              </div>
+              <div class="col-md-3">
+                <input type="text" name="postal_code" id="edit-postal-code" class="form-control" placeholder="Irányítószám">
+              </div>
+              <div class="col-md-6">
+                <input type="text" name="region" id="edit-region" class="form-control" placeholder="Megye (nem kötelező)">
+              </div>
+            </div>
+            <div class="form-row mt-2">
+              <div class="col-md-4">
+                <input type="text" name="city" id="edit-city" class="form-control" placeholder="Város">
+              </div>
+              <div class="col-md-5">
+                <input type="text" name="street" id="edit-street" class="form-control" placeholder="Közterület">
+              </div>
+              <div class="col-md-3">
+                <input type="text" name="house_number" id="edit-house-number" class="form-control" placeholder="Házszám">
+              </div>
+            </div>
           </div>
 
-          {{-- Számlázási cím --}}
+          {{-- Adóazonosítók --}}
           <div class="form-group">
-            <label for="edit-billing-address">{{ __('global.billing-address') }}</label>
-            <input type="text" name="billing_address" id="edit-billing-address" class="form-control">
+            <label>Adóadatok</label>
+            <div class="form-row">
+              <div class="col-md-6">
+                <input type="text" name="tax_number" id="edit-tax-number" class="form-control" placeholder="Adószám (pl. 12345678-2-42)">
+              </div>
+              <div class="col-md-6">
+                <input type="text" name="eu_vat_number" id="edit-eu-vat-number" class="form-control" placeholder="EU adószám (pl. HU12345678)">
+              </div>
+            </div>
           </div>
 
           {{-- Előfizetés típus --}}

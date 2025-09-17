@@ -38,6 +38,7 @@
       'admin.competency.index',
       'admin.ceoranks.index',
       'admin.settings.index',
+      'admin.payments.index',
     ];
     $isOnConfigChild = request()->routeIs($configChildRoutes);
   @endphp
@@ -165,7 +166,9 @@
   <i class="fa fa-sliders"></i>
   <span>Beállítások</span>
 </a>
-
+  <a class="menuitem {{ request()->routeIs('admin.payments.index') ? 'active' : '' }}" href="{{ route('admin.payments.index') }}" data-route="admin.payments.index">
+    <i class="fas fa-credit-card"></i> <span>Fizetések</span>
+  </a>
   </div>
 @endif
 

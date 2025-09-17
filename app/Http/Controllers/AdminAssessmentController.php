@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\SuggestedThresholdService;
 use App\Services\SnapshotService;
+use Illuminate\Validation\ValidationException;
 
 
 
@@ -117,6 +118,29 @@ class AdminAssessmentController extends Controller
             // Siker esetén NINCS return → követjük a régi viselkedést
             // TODO: kiosztások/ívek generálása, ha itt szokott történni
 
+            $employeeCount = DB::table('organization_user')
+                ->where('organization_id', $orgId)
+                ->count();
+
+            $amountHuf = (int) ($employeeCount * 950);
+
+            // Frissen létrehozott assessment ID-ja
+            $createdAssessment = DB::table('assessment')
+                ->where('organization_id', $orgId)
+                ->orderByDesc('id')
+                ->first();
+
+            if ($createdAssessment && $amountHuf > 0) {
+                DB::table('payments')->insert([
+                    'organization_id' => $orgId,
+                    'assessment_id'   => $createdAssessment->id,
+                    'amount_huf'      => $amountHuf,
+                    'status'          => 'pending',
+                    'created_at'      => now(),
+                    'updated_at'      => now(),
+                ]);
+            }
+
         } else {
             // Meglévő assessment → csak due_at frissítés (régi viselkedés)
             $assessment->due_at = $request->due;
@@ -139,6 +163,17 @@ class AdminAssessmentController extends Controller
     if ($orgId !== (int) session('org_id')) {
         throw ValidationException::withMessages([
             'assessment' => 'Nem jogosult szervezet.',
+        ]);
+    }
+
+    $hasPaid = DB::table('payments')
+        ->where('assessment_id', $assessment->id)
+        ->where('status', 'paid')
+        ->exists();
+
+    if (!$hasPaid) {
+        throw ValidationException::withMessages([
+            'payment' => 'A mérés zárása nem lehetséges: a díj még nincs rendezve. Kérjük, fizesd ki a tartozást a Fizetések oldalon.',
         ]);
     }
 

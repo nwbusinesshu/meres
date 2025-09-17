@@ -49,9 +49,43 @@
 
           <td data-col="{{ __('global.profile') }}">
             @if ($org->profile)
-              <div class="profile-block"><span class="profile-label">Adószám:</span> {{ $org->profile->tax_number ?? '-' }}</div>
-              <div class="profile-block"><span class="profile-label">Számlázási cím:</span> {{ $org->profile->billing_address ?? '-' }}</div>
-              <div class="profile-block"><span class="profile-label">Előfizetés:</span> {{ ucfirst($org->profile->subscription_type ?? '-') }}</div>
+              @php
+                $cc     = $org->profile->country_code ?? null;
+                $pc     = $org->profile->postal_code ?? null;
+                $city   = $org->profile->city ?? null;
+                $region = $org->profile->region ?? null; // opcionális, zárójelben jelezzük
+                $street = $org->profile->street ?? null;
+                $house  = $org->profile->house_number ?? null;
+
+                // Címsorok összerakása: "HU-6500 Baja, Dózsa György u. 12"
+                $line1 = trim(implode(' ', array_filter([
+                  ($cc ? ($cc . '-') : null) . ($pc ?? ''),
+                  $city,
+                ])));
+                $line2 = trim(implode(' ', array_filter([$street, $house])));
+                $fullAddress = trim(implode(', ', array_filter([$line1, $line2])));
+                if ($region) { $fullAddress .= ' (' . $region . ')'; }
+              @endphp
+
+              <div class="profile-block">
+                <span class="profile-label">Adószám:</span>
+                {{ $org->profile->tax_number ?: '-' }}
+              </div>
+
+              <div class="profile-block">
+                <span class="profile-label">EU adószám:</span>
+                {{ $org->profile->eu_vat_number ?: '-' }}
+              </div>
+
+              <div class="profile-block">
+                <span class="profile-label">Számlázási cím:</span>
+                {{ $fullAddress !== '' ? $fullAddress : '-' }}
+              </div>
+
+              <div class="profile-block">
+                <span class="profile-label">Előfizetés:</span>
+                {{ $org->profile->subscription_type ? ucfirst($org->profile->subscription_type) : '-' }}
+              </div>
             @else
               <span class="text-muted">Nincs megadva</span>
             @endif
