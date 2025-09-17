@@ -279,59 +279,60 @@ public function start(Request $request, \App\Services\BarionService $barion)
  * Billingo számla kiállítása – ugyanaz a logika, mint a webhookban
  * $paymentArr: DB-ből kiolvasott payments sor (array-ként)
  */
-private function issueBillingoInvoice(array $paymentArr, \App\Services\BillingoService $billingo): void
-{
-    $orgId = (int) $paymentArr['organization_id'];
-    $payId = (int) $paymentArr['id'];
+    private function issueBillingoInvoice(array $paymentArr, BillingoService $billingo): void
+    {
+        $orgId = (int) $paymentArr['organization_id'];
+        $payId = (int) $paymentArr['id'];
 
-    $org     = \DB::table('organization')->where('id', $orgId)->first();
-    $profile = \DB::table('organization_profiles')->where('organization_id', $orgId)->first();
+        $org     = DB::table('organization')->where('id', $orgId)->first();
+        $profile = DB::table('organization_profiles')->where('organization_id', $orgId)->first();
 
-    $adminEmail = \DB::table('user as u')
-        ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
-        ->where('ou.organization_id', $orgId)
-        ->where('ou.role', 'admin')
-        ->value('u.email');
+        // Admin e-mail partnerhez
+        $adminEmail = DB::table('user as u')
+            ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+            ->where('ou.organization_id', $orgId)
+            ->where('ou.role', 'admin')
+            ->value('u.email');
 
-    // Partner payload (egyszerű)
-    $partnerPayload = [
-        'name'    => $org->name,
-        'address' => [
-            'country_code' => $profile->country_code ?? 'HU',
-            'post_code'    => $profile->postal_code ?? '',
-            'city'         => $profile->city ?? '',
-            'address'      => trim(($profile->street ?? '') . ' ' . ($profile->house_number ?? '')),
-        ],
-        'emails'  => array_filter([$adminEmail]),
-        'taxcode' => $profile->tax_number ?: ($profile->eu_vat_number ?? ''),
-    ];
-    $partnerId = $billingo->createPartner($partnerPayload);
+        // Partner létrehozása/frissítése
+        $partnerPayload = [
+            'name'    => $org->name,
+            'address' => [
+                'country_code' => $profile->country_code ?? 'HU',
+                'post_code'    => $profile->postal_code ?? '',
+                'city'         => $profile->city ?? '',
+                'address'      => trim(($profile->street ?? '') . ' ' . ($profile->house_number ?? '')),
+            ],
+            'emails'  => array_filter([$adminEmail]),
+            'taxcode' => $profile->tax_number ?: ($profile->eu_vat_number ?? ''),
+        ];
 
-    // Mennyiség (950 Ft egységárból)
-    $qty = max(1, (int) ceil(((int) ($paymentArr['amount_huf'] ?? 0)) / 950));
+        $partnerId = $billingo->createPartner($partnerPayload);
 
-    // Számla létrehozása (paid=true)
-    $docId = $billingo->createInvoice(
-        partnerId: $partnerId,
-        quantity:  $qty,
-        comment:   '360° értékelés – mérés #'.$paymentArr['assessment_id'].' – '.$org->name,
-        paid:      true
-    );
+        // Tétel mennyisége a 950 Ft egységárból
+        $qty = max(1, (int) ceil(((int) ($paymentArr['amount_huf'] ?? 0)) / 950));
 
-    // Számla részletek (számlaszám + kiállítás dátuma)
-    $doc = $billingo->getDocument((int) $docId);
-    $invoiceNumber = $doc['invoice_number'] ?? null;
-    // Billingo-ban a kiállítás dátuma jellemzően 'invoice_date' (fallback: 'fulfillment_date')
-    $issueDate = $doc['invoice_date'] ?? ($doc['fulfillment_date'] ?? null);
-    $issueDate = $issueDate ? substr($issueDate, 0, 10) : null;
+        $docId = $billingo->createInvoice(
+            partnerId: $partnerId,
+            quantity:  $qty,
+            comment:   '360° értékelés – mérés #'.$paymentArr['assessment_id'].' – '.$org->name,
+            paid:      true
+        );
 
-    \DB::table('payments')->where('id', $payId)->update([
-        'billingo_document_id'   => $docId,
-        'billingo_invoice_number'=> $invoiceNumber,
-        'billingo_issue_date'    => $issueDate,
-        'updated_at'             => now(),
-    ]);
-}
+        $doc  = $billingo->getDocument((int) $docId);
+        $meta = $billingo->extractInvoiceMeta($doc);
+
+        $invoiceNumber = $meta['number'] ?? null;
+        $issueDate     = $meta['issueDate'] ?? null;
+        $issueDate     = $issueDate ? substr($issueDate, 0, 10) : null;
+
+        DB::table('payments')->where('id', $payId)->update([
+            'billingo_document_id'    => $docId,
+            'billingo_invoice_number' => $invoiceNumber,
+            'billingo_issue_date'     => $issueDate,
+            'updated_at'              => now(),
+        ]);
+    }
 
 
 }
