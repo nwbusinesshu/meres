@@ -203,7 +203,7 @@ class CeoRankController extends Controller
             }
 
             $users = User::whereIn('id', $targetIds)
-                ->where('type', UserType::NORMAL)
+                ->whereIn('type', [UserType::NORMAL, UserType::MANAGER])
                 ->whereNull('removed_at')
                 ->orderBy('name')
                 ->get(['id', 'name']);
