@@ -9,7 +9,16 @@
     <div class="tile tile-warning">
       <p>{{ $_('assessment-running') }}</p>
       <p>{{ formatDateTime($assessment->started_at) }} - {{ formatDateTime($assessment->due_at) }}</p>
-      <button class="btn {{ $assessed == $neededAssessment ? "btn-success" : "btn-outline-danger" }} close-assessment" data-id="{{ $assessment->id }}">{{ $_('close-assessment') }}</button>
+      @if($hasOpenPayments)
+    <a href="{{ route('admin.payments.index') }}" class="btn btn-warning">
+        {{ $_('pay-before-closing') }}
+    </a>
+@else
+    <button class="btn {{ $assessed == $neededAssessment ? "btn-success" : "btn-outline-danger" }} close-assessment"
+            data-id="{{ $assessment->id }}">
+        {{ $_('close-assessment') }}
+    </button>
+@endif
     </div>
     <div class="tile tile-button modify-assessment" data-id="{{ $assessment->id }}">
       <span><i class="fa fa-file-pen"></i>{{ $_('change-due') }}</span>

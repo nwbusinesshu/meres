@@ -152,24 +152,14 @@ Route::middleware(['auth:'.UserType::NORMAL, 'org'])->group(function () {
     Route::get('/results/{assessmentId?}', [ResultsController::class, 'index'])->name('results.index');
 });
 
-// CEO RANKS (CEO only)
+// CEO + MANAGER RANKS (egységes route és név; jogosultságot a controller intézi)
 Route::controller(CeoRankController::class)
     ->name('ceorank.')
     ->prefix('/ceorank')
-    ->middleware(['auth:'.UserType::CEO, 'org'])
+    ->middleware(['auth:' . UserType::NORMAL, 'org']) // bármely bejelentkezett user
     ->group(function () {
         Route::get('/index', 'index')->name('index');
         Route::post('/submit', 'submitRanking')->name('submit');
-    });
-
-// MANAGER RANKS (Manager only)
-Route::controller(CeoRankController::class)
-    ->name('ceorank.')
-    ->prefix('/ceorank')
-    ->middleware(['auth:'.UserType::MANAGER, 'org'])
-    ->group(function () {
-        Route::get('/index', 'index')->name('index.manager');
-        Route::post('/submit', 'submitRanking')->name('submit.manager');
     });
 
 // dev routes
@@ -208,6 +198,7 @@ Route::prefix('/superadmin')->name('superadmin.')->middleware(['auth:' . UserTyp
 Route::get('/superadmin/exit-company', [SuperAdminController::class, 'exitCompany'])->name('superadmin.exit-company');
 Route::get('/superadmin/org/{id}/data', [SuperAdminController::class, 'getOrgData'])->name('superadmin.org.data');
 
+// SUPERADMIN COMPETENCY ROUTES - FIXED: Added proper route aliases for JavaScript compatibility
 Route::prefix('superadmin/competency')
     ->name('superadmin.competency.')
     ->middleware(['auth:' . UserType::SUPERADMIN])
@@ -219,10 +210,16 @@ Route::prefix('superadmin/competency')
         Route::get('/question/get', 'getCompetencyQuestion')->name('question.get');
         Route::post('/question/save', 'saveCompetencyQuestion')->name('question.save');
         Route::post('/question/remove', 'removeCompetencyQuestion')->name('question.remove');
+        
+        // FIXED: Add aliases for JavaScript compatibility
+        Route::post('/question/remove', 'removeCompetencyQuestion')->name('q.remove'); // Alias for JS
+        Route::post('/question/save', 'saveCompetencyQuestion')->name('q.save');      // Alias for JS  
+        Route::get('/question/get', 'getCompetencyQuestion')->name('q.get');          // Alias for JS
     });
     
 Route::get('/superadmin/global-competencies', [GlobalCompetencyController::class, 'index'])->name('superadmin.global-competencies');
 
+// Flash message route
 Route::post('/flash-success', function (\Illuminate\Http\Request $request) {
     session()->flash('success', $request->input('message'));
     return response()->json(['ok' => true]);

@@ -14,9 +14,9 @@ return [
 
   "no-more-to-assess" => "Köszönjük! Minden kérdőívet kitöltöttél.",
 
-  "ceo-rank" => "Ügyvezetői rangsorolás",
+  "ceo-rank" => "Vezetői rangsorolás",
 
-  "do-ceo-rank" => "Alkalmazottak rangsorolása",
+  "do-ceo-rank" => "Beosztottak rangsorolása",
 
   "ceo-rank-done" => "Köszönjük! Rangsoroltad az alkalmazottakat.",
   

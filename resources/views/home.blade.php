@@ -18,7 +18,7 @@
     <p>{{ $_('due') }}: <span>{{ formatDateTime($assessment->due_at) }}</span></p>
   </div>
 </div>
-@if(MyAuth::isAuthorized(UserType::CEO))
+@if(MyAuth::isAuthorized(UserType::CEO) || MyAuth::isAuthorized(UserType::MANAGER))
 <h2>{{ $_('ceo-rank') }}</h2>
 @if (!$madeCeoRank)
 <div class="tile tile-button rank-users">

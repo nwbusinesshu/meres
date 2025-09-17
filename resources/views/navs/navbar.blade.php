@@ -75,6 +75,15 @@
             <span>Konfiguráció</span>
           </div>
         @endif
+          {{-- ÚJ: ha fut a mérés és van nyitott tartozás, tegyük ki fent a Fizetések menüt is --}}
+  @if (AssessmentService::isAssessmentRunning())
+    <a class="menuitem {{ request()->routeIs('admin.payments.index') ? 'active' : '' }}"
+       href="{{ route('admin.payments.index') }}" data-route="admin.payments.index">
+      <i class="fas fa-credit-card"></i>
+      <span>Fizetések</span>
+    </a>
+  @endif
+
       @else
         @if (Route::currentRouteName() == "assessment.index")
           <a class="menuitem disabled" href="#" data-route="assessment.index">

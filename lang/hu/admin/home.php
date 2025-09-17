@@ -36,7 +36,8 @@
 
     "assessment-stat" => "Eddig kitöltött értékelések",
     
-    "ceo-stat" => "Eddigi ügyvezetői rangsorolások",
+    "ceo-stat" => "Eddigi vezetői rangsorolások",
     
     "employees-detailed" => "Alkalmazottak részletesen",
+    "pay-before-closing" => "Lezárás előtt fizetés",
   ];
