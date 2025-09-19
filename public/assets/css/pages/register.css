@@ -1,0 +1,125 @@
+/* Minimal kiegészítés a login.css-hez – lépés animációk és rácsok */
+.register-tile { border-left: 4px solid var(--pelorous); paading: 20px; }
+.reg-step { animation: fadeIn .25s ease; }
+.form-row.two { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.tile.inner { display:flex; align-items:center; justify-content:space-between; margin:.75rem 0; padding:.75rem 1rem; }
+.step-actions { display:flex; gap:.5rem; justify-content:flex-end; margin-top:1rem; }
+.summary dt { font-weight:600; }
+.summary dd { margin:0 0 .5rem 0; }
+
+@keyframes fadeIn { from { opacity:0; transform: translateY(6px);} to { opacity:1; transform:none; } }
+
+@media (max-width:768px){
+  .form-row.two { grid-template-columns: 1fr; }
+}
+.page-container {
+  background: radial-gradient(circle at 20% 30%, #f5d6d6 0%, transparent 40%),
+              radial-gradient(circle at 100% 20%, #d6e4f5 0%, transparent 40%),
+              radial-gradient(circle at 50% 100%, #d6f5e1 0%, transparent 40%),
+              #eee;
+}
+
+.main-content{
+  margin-top: calc(5em + 1rem);
+  align-items: center;
+}
+.tile{
+  width: 100%;
+  max-width: 500px;
+  border-left: 4px solid var(--pelorous);
+  padding: 20px;
+}
+.quarma-360{
+  max-width: 250px;
+  margin-bottom: 1rem;
+  padding-top: 2rem;
+}
+.nwb-logo{
+  margin-top: 2rem;
+  max-height: 2em;
+  margin-bottom: 1rem;
+}
+h2{
+  margin-top: 0rem;
+  margin-bottom: 3rem;
+  font-size: min(8vw, 1.5em);
+}
+
+.google-login {
+  background: #fff;
+  color: #444;
+  border: 1px solid #ddd;
+  font-weight: 500;
+}
+
+.google-login i {
+  color: #4285F4; /* Google kék */
+}
+
+.microsoft-login {
+  background: #fff;
+  color: #444;
+  border: 1px solid #ddd;
+  font-weight: 500;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.google-login i {
+  margin-left: 8px;
+}
+
+.ms-logo {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  width: 14px;
+  height: 14px;
+  margin-left: 10px;
+}
+
+.ms-logo span {
+  display: block;
+}
+
+@media (max-width: 768px){
+  .main-content {
+  margin-top: 20px!important; }
+}
+
+/* ---- Wizard animációk a teljes .tile mozgatásával ---- */
+.tile.register-tile {
+  position: relative;
+  will-change: transform;
+}
+
+@keyframes slideForward {
+  0%   { transform: translateX(0);    opacity: 1; }
+  30%  { transform: translateX(-1500px); opacity: 0; }
+  31%  { transform: translateX(1500px);  opacity: 0; } /* átlendülés */
+  100% { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes slideBack {
+  0%   { transform: translateX(0);    opacity: 1; }
+  30%  { transform: translateX(1500px);  opacity: 0; }
+  60%  { transform: translateX(-1500px); opacity: 0; }
+  100% { transform: translateX(0);    opacity: 1; }
+}
+
+.tile.register-tile.anim-next { animation: slideForward 3s ease both; }
+.tile.register-tile.anim-prev { animation: slideBack   3s ease both; }
+
+/* űrlap elrendezés és hibák */
+.form-row.two { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+@media (max-width: 768px) {
+  .form-row.two { grid-template-columns: 1fr; }
+}
+.is-invalid { border-color: #dc3545 !important; }
+.invalid-feedback { color: #dc3545; font-size: .9rem; margin-top: .25rem; }
+.step-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
+.tile.register-tile.anim-next,
+.tile.register-tile.anim-prev {
+  animation-fill-mode: both; /* fontos! a félidős állapot megtartásához */
+}
