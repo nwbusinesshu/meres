@@ -22,7 +22,12 @@ use Illuminate\Routing\Middleware\ThrottleRequests;
 use App\Http\Controllers\PasswordSetupController;
 use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\AdminPaymentController;
+use App\Http\Controllers\RegistrationController;
 use Illuminate\Http\Request;
+use App\Http\Controllers\LocaleController;
+
+
+Route::post('/locale', [LocaleController::class, 'set'])->name('locale.set');
 
 // login routes
 Route::controller(LoginController::class)->middleware('auth:'.UserType::GUEST)->group(function () {
@@ -50,6 +55,15 @@ Route::controller(PasswordSetupController::class)
 Route::controller(LoginController::class)->middleware('auth:'.UserType::NORMAL)->group(function () {
     Route::get('/logout', 'logout')->name('logout');
 });
+
+// OPEN REGISTRATION ROUTES
+Route::controller(RegistrationController::class)
+    ->middleware('auth:' . \App\Models\Enums\UserType::GUEST)
+    ->group(function () {
+        Route::get('/register', 'show')->name('register.show');
+        Route::post('/register', 'register')->name('register.perform');
+        Route::post('/register/validate-step', 'validateStepAjax')->name('register.validate-step');
+    });
 
 // home redirect
 Route::get('/home-redirect', function(Request $request){
