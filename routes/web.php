@@ -24,6 +24,10 @@ use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\AdminPaymentController;
 use App\Http\Controllers\RegistrationController;
 use Illuminate\Http\Request;
+use App\Http\Controllers\LocaleController;
+
+
+Route::post('/locale', [LocaleController::class, 'set'])->name('locale.set');
 
 // login routes
 Route::controller(LoginController::class)->middleware('auth:'.UserType::GUEST)->group(function () {
@@ -60,7 +64,7 @@ Route::controller(RegistrationController::class)
         Route::post('/register', 'register')->name('register.perform');
         Route::post('/register/validate-step', 'validateStepAjax')->name('register.validate-step');
     });
-    
+
 // home redirect
 Route::get('/home-redirect', function(Request $request){
     $target = Auth::isAuthorized(UserType::ADMIN) ? 'admin.home' : 'home';

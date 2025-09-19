@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Mewoassessment'),
+    'name' => env('APP_NAME', 'QUARMA360-DEV'),
 
     /*
     |--------------------------------------------------------------------------

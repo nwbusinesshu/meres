@@ -42,10 +42,12 @@ document.addEventListener('DOMContentLoaded', function () {
     tile.addEventListener('animationend', onEnd);
   }
 
-  function showStep(i) {
+    function showStep(i) {
     steps.forEach((s, idx) => s.hidden = (idx !== i));
     current = i;
+    updateAside(i);
   }
+
 
   // --- Validáció (lépésenként) ---
   function markInvalid(input, on) {
@@ -299,4 +301,34 @@ document.addEventListener('DOMContentLoaded', function () {
   // indulás
   showStep(0);
 });
+
+  // Setup guide lépéscímek
+  const flowTitle = document.getElementById('flow-title');
+  const flowSubtitle = document.getElementById('flow-subtitle');
+  const STEP_TEXTS = [
+    {
+      title: 'Regisztráljon egy admin felhasználót!',
+      sub:   'Az admin mindent kezel: felhasználók, értékelések, beállítások. Adja meg az admin nevét és e-mail címét.'
+    },
+    {
+      title: 'Adja meg a céges és számlázási adatokat',
+      sub:   'A számlázáshoz kérjük a címadatokat és adóazonosítót. EU-s ország esetén EU ÁFA-szám szükséges.'
+    },
+    {
+      title: 'Válassza ki az alapbeállításokat',
+      sub:   'AI telemetria, multi-level részlegkezelés és Bonus/Malus megjelenítés. Ezek később módosíthatók (a multi-level nem).'
+    },
+    {
+      title: 'Ellenőrizze és véglegesítse',
+      sub:   'Nézze át az összegzést. A befejezés után e-mailben kap linket a jelszó beállításához.'
+    }
+  ];
+  function updateAside(i){
+    if (!flowTitle || !flowSubtitle) return;
+    const t = STEP_TEXTS[i] || STEP_TEXTS[0];
+    flowTitle.textContent = t.title;
+    flowSubtitle.textContent = t.sub;
+  }
+
+
 </script>

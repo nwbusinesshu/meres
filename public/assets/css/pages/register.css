@@ -1,125 +1,89 @@
-/* Minimal kiegészítés a login.css-hez – lépés animációk és rácsok */
-.register-tile { border-left: 4px solid var(--pelorous); paading: 20px; }
-.reg-step { animation: fadeIn .25s ease; }
-.form-row.two { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
-.tile.inner { display:flex; align-items:center; justify-content:space-between; margin:.75rem 0; padding:.75rem 1rem; }
-.step-actions { display:flex; gap:.5rem; justify-content:flex-end; margin-top:1rem; }
-.summary dt { font-weight:600; }
-.summary dd { margin:0 0 .5rem 0; }
+/* =========================
+   Register – Setup Guide UI
+   ========================= */
 
-@keyframes fadeIn { from { opacity:0; transform: translateY(6px);} to { opacity:1; transform:none; } }
-
-@media (max-width:768px){
-  .form-row.two { grid-template-columns: 1fr; }
-}
+/* Háttér + alap elrendezés (ha kell a register oldalon) */
 .page-container {
-  background: radial-gradient(circle at 20% 30%, #f5d6d6 0%, transparent 40%),
-              radial-gradient(circle at 100% 20%, #d6e4f5 0%, transparent 40%),
-              radial-gradient(circle at 50% 100%, #d6f5e1 0%, transparent 40%),
-              #eee;
+  background:
+    radial-gradient(circle at 20% 30%, #f5d6d6 0%, transparent 40%),
+    radial-gradient(circle at 100% 20%, #d6e4f5 0%, transparent 40%),
+    radial-gradient(circle at 50% 100%, #d6f5e1 0%, transparent 40%),
+    #eee;
 }
+.main-content { margin-top: calc(5em + 1rem); align-items: center; }
+@media (max-width: 768px){ .main-content { margin-top: 20px !important; } }
 
-.main-content{
-  margin-top: calc(5em + 1rem);
-  align-items: center;
-}
-.tile{
-  width: 100%;
-  max-width: 500px;
-  border-left: 4px solid var(--pelorous);
-  padding: 20px;
-}
-.quarma-360{
-  max-width: 250px;
-  margin-bottom: 1rem;
-  padding-top: 2rem;
-}
-.nwb-logo{
-  margin-top: 2rem;
-  max-height: 2em;
-  margin-bottom: 1rem;
-}
-h2{
-  margin-top: 0rem;
-  margin-bottom: 3rem;
-  font-size: min(8vw, 1.5em);
-}
-
-.google-login {
-  background: #fff;
-  color: #444;
-  border: 1px solid #ddd;
-  font-weight: 500;
-}
-
-.google-login i {
-  color: #4285F4; /* Google kék */
-}
-
-.microsoft-login {
-  background: #fff;
-  color: #444;
-  border: 1px solid #ddd;
-  font-weight: 500;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.google-login i {
-  margin-left: 8px;
-}
-
-.ms-logo {
-  display: inline-grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px;
-  width: 14px;
-  height: 14px;
-  margin-left: 10px;
-}
-
-.ms-logo span {
-  display: block;
-}
-
-@media (max-width: 768px){
-  .main-content {
-  margin-top: 20px!important; }
-}
-
-/* ---- Wizard animációk a teljes .tile mozgatásával ---- */
+/* A tile: csak a registerhez célzottan, ne írjuk felül a login alap-stílusait */
 .tile.register-tile {
   position: relative;
-  will-change: transform;
+  width: 100%;
+  max-width: 900px;        /* szélesebb a setup élményhez */
+  border-left: 4px solid var(--pelorous);
+  padding: 24px 28px;
+  will-change: transform, filter; /* animációkhoz */
 }
 
-@keyframes slideForward {
-  0%   { transform: translateX(0);    opacity: 1; }
-  30%  { transform: translateX(-1500px); opacity: 0; }
-  31%  { transform: translateX(1500px);  opacity: 0; } /* átlendülés */
-  100% { transform: translateX(0);    opacity: 1; }
+/* Brand/logók */
+.quarma-360 { max-width: 250px; margin: 0 0 1rem 0; padding-top: 2rem; }
+.nwb-logo   { margin-top: 2rem; max-height: 2em; margin-bottom: 1rem; }
+
+/* Setup guide: két oszlop */
+.setup-grid {
+  display: grid;
+  grid-template-columns: 500px 1.2fr; /* bal: brand + leírás; jobb: űrlap */
+  gap: 24px;
+  align-items: start;
+  margin-top: 2rem;
 }
-
-@keyframes slideBack {
-  0%   { transform: translateX(0);    opacity: 1; }
-  30%  { transform: translateX(1500px);  opacity: 0; }
-  60%  { transform: translateX(-1500px); opacity: 0; }
-  100% { transform: translateX(0);    opacity: 1; }
+.setup-aside .brand {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
 }
+.setup-aside .brand img.quarma-360 { max-width: 180px; padding: 0; margin: 0; }
+.setup-aside .flow-title    { font-size: 1.15rem; font-weight: 600; margin: 8px 0 4px; }
+.setup-aside .flow-subtitle { color: #555; line-height: 1.4; font-size: .95rem; }
 
-.tile.register-tile.anim-next { animation: slideForward 3s ease both; }
-.tile.register-tile.anim-prev { animation: slideBack   3s ease both; }
+.setup-form h3 { margin-top: 0; }
 
-/* űrlap elrendezés és hibák */
+/* Mezők rácsa + akciók */
 .form-row.two { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
-@media (max-width: 768px) {
-  .form-row.two { grid-template-columns: 1fr; }
-}
+.step-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
+
+/* Hibajelzés */
 .is-invalid { border-color: #dc3545 !important; }
 .invalid-feedback { color: #dc3545; font-size: .9rem; margin-top: .25rem; }
-.step-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
+
+/* Lépések beúszása (finom) az első rendernél */
+.reg-step { animation: fadeIn .25s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Összegzés tipográfia */
+.summary dt { font-weight: 600; }
+.summary dd { margin: 0 0 .5rem 0; }
+
+/* ---- Finomított slide animáció a TELJES .tile mozgatásával ---- */
+@keyframes slideForwardSoft {
+  0%   { transform: translateX(0)   scale(1);    filter: blur(0);   opacity: 1; }
+  40%  { transform: translateX(-6%) scale(.995); filter: blur(1px); opacity: .95; }
+  800%  { transform: translateX(8%)  scale(.997); filter: blur(1.2px); opacity: .95; } /* átlendül */
+  100% { transform: translateX(0)   scale(1);    filter: blur(0);   opacity: 1; }
+}
+@keyframes slideBackSoft {
+  0%   { transform: translateX(0)   scale(1);    filter: blur(0);   opacity: 1; }
+  40%  { transform: translateX(6%)  scale(.995); filter: blur(1px); opacity: .95; }
+  80%  { transform: translateX(-8%) scale(.997); filter: blur(1.2px); opacity: .95; }
+  100% { transform: translateX(0)   scale(1);    filter: blur(0);   opacity: 1; }
+}
+.tile.register-tile.anim-next { animation: slideForwardSoft 700ms cubic-bezier(.22,.61,.36,1) both; }
+.tile.register-tile.anim-prev { animation: slideBackSoft   700ms cubic-bezier(.22,.61,.36,1) both; }
 .tile.register-tile.anim-next,
-.tile.register-tile.anim-prev {
-  animation-fill-mode: both; /* fontos! a félidős állapot megtartásához */
+.tile.register-tile.anim-prev { animation-fill-mode: both; } /* félidős állapot megtartása */
+
+/* Responsív töréspontok */
+@media (max-width: 900px){
+  .setup-grid { grid-template-columns: 1fr; }
+  .setup-aside .brand { justify-content: left; }
+  .setup-aside .flow-title, .setup-aside .flow-subtitle { text-align: left; }
+}
+@media (max-width: 768px){
+  .form-row.two { grid-template-columns: 1fr; }
 }

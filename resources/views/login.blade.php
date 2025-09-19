@@ -5,12 +5,15 @@
 
 @section('content')
 <div class="tile">
+ 
+    
 
-  <img class="quarma-360" src="{{ asset('assets/logo/quarma360.svg') }}" alt="chaos-360">
 
   {{-- Email + jelszó belépés --}}
   <form method="POST" action="{{ route('attempt-password-login') }}" class="w-100" style="max-width:420px;margin:0 auto;">
     @csrf
+
+    <img class="quarma-360" src="{{ asset('assets/logo/quarma360.svg') }}" alt="chaos-360">
 
     <div class="form-group">
       <label for="login-email">{{ $_('email') }}</label>

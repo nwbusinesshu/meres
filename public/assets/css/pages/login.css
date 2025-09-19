@@ -14,11 +14,16 @@
   max-width: 500px;
   border-left: 4px solid var(--pelorous);
 }
+
+
 .quarma-360{
   max-width: 250px;
+  min-width: 150px;
   margin-bottom: 1rem;
   padding-top: 2rem;
+  align-self: flex-start;
 }
+
 .nwb-logo{
   margin-top: 2rem;
   max-height: 2em;
