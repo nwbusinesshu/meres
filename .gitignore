@@ -10,3 +10,4 @@
 /.idea/
 /.vscode/
 composer.lock
+/composer.phar
