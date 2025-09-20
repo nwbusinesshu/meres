@@ -25,9 +25,21 @@ use App\Http\Controllers\AdminPaymentController;
 use App\Http\Controllers\RegistrationController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\CookieConsentController;
 
 
+//locale
 Route::post('/locale', [LocaleController::class, 'set'])->name('locale.set');
+
+//cookie-banner
+Route::prefix('cookie-consent')->name('cookie-consent.')->group(function () {
+    Route::post('/store', [CookieConsentController::class, 'store'])->name('store');
+    Route::post('/accept-all', [CookieConsentController::class, 'acceptAll'])->name('accept-all');
+    Route::post('/accept-necessary', [CookieConsentController::class, 'acceptNecessary'])->name('accept-necessary');
+    Route::get('/status', [CookieConsentController::class, 'status'])->name('status');
+    Route::get('/policy', [CookieConsentController::class, 'policy'])->name('policy');
+    Route::get('/preferences', [CookieConsentController::class, 'preferences'])->name('preferences');
+});
 
 // login routes
 Route::controller(LoginController::class)->middleware('auth:'.UserType::GUEST)->group(function () {

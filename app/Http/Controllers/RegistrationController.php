@@ -12,6 +12,8 @@ use App\Models\User;
 use App\Models\Enums\UserType;
 use App\Services\OrgConfigService;
 use App\Services\PasswordSetupService;
+use Illuminate\Support\Facades\Schema;
+
 
 class RegistrationController extends Controller
 {
@@ -93,15 +95,23 @@ if (in_array($country, $EU, true)) {
                 'created_at' => now(),
             ]);
 
-            // 2) Admin user (ha létezik e-mail, nem hozzuk létre újra)
-            $user = User::firstOrCreate(
-                ['email' => $request->input('admin_email')],
-                [
-                    'name'       => $request->input('admin_name'),
-                    'type'       => UserType::ADMIN,
-                    'created_at' => now(),
-                ]
-            );
+            // 2) Admin user létrehozása – aktív duplikátum ellenőrzés, töröltet NEM vesszük figyelembe
+            $existingActive = \App\Models\User::where('email', $request->input('admin_email'))
+                ->when(Schema::hasColumn('user','removed_at'), fn($q) => $q->whereNull('removed_at'))
+                ->when(Schema::hasColumn('user','deleted_at'), fn($q) => $q->whereNull('deleted_at'))
+                ->first();
+
+            if ($existingActive) {
+                return back()->withErrors(['admin_email' => 'Ezzel az e-mail címmel már van aktív felhasználó.'])->withInput();
+            }
+
+            // új, tiszta user rekord — akkor is, ha létezett már TÖRÖLT példány ugyanazzal az e-maillel
+            $user = \App\Models\User::create([
+                'name'       => $request->input('admin_name'),
+                'email'      => $request->input('admin_email'),
+                'type'       => \App\Models\Enums\UserType::ADMIN,
+                'created_at' => now(),
+            ]);
 
             // 3) Kapcsolás (pivot) – admin szerep
             $org->users()->attach($user->id, ['role' => 'admin']);

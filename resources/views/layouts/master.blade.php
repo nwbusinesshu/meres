@@ -29,6 +29,12 @@
 
       @include('layouts.footer')
 
+      {{-- Global Cookie Modals (always available) --}}
+      @include('components.global-cookie-modals')
+
+      {{-- Cookie Consent Banner (shows when needed) --}}
+      @include('components.cookie-banner')
+
       <a href="#" class="floating-help-btn" title="Súgó">
         <span class="icon">?</span>
         <span class="help-label">Súgóközpont</span>

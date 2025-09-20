@@ -83,10 +83,6 @@
                 <option value="SI">Szlovénia (SI)</option>
                 <option value="ES">Spanyolország (ES)</option>
                 <option value="SE">Svédország (SE)</option>
-                <option value="GB">Egyesült Királyság (GB)</option>
-                <option value="CH">Svájc (CH)</option>
-                <option value="NO">Norvégia (NO)</option>
-                <option value="US">USA (US)</option>
               </select>
             </div>
             <div class="form-group">
@@ -123,12 +119,12 @@
           </div>
 
           <div class="form-row two">
-            <div class="form-group non-eu-only">
+            <div class="form-group hu-only">
               <label>Adószám</label>
-              <input type="text" name="tax_number" class="form-control">
+              <input type="text" name="tax_number" class="form-control" placeholder="pl. 12345678-1-12">
             </div>
-            <div class="form-group eu-only">
-              <label>EU ÁFA-szám</label>
+            <div class="form-group eu-vat">
+              <label>EU VAT</label>
               <input type="text" name="eu_vat_number" class="form-control" placeholder="pl. DE123456789">
             </div>
           </div>

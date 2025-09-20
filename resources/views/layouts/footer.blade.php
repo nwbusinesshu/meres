@@ -5,6 +5,9 @@
       <a href="#">Impresszum</a>
       <a href="#">Adatkezelés</a>
       <a href="#">Kapcsolat</a>
+      <a href="#" id="footer-cookie-settings" title="Süti beállítások">
+        <i class="fa fa-cookie-bite"></i> Süti beállítások
+      </a>
     </div>
   {{-- NYELVVÁLASZTÓ --}}
     <form method="POST" action="{{ route('locale.set') }}" id="footer-locale-form" class="footer-lang">
@@ -15,7 +18,6 @@
         <option value="en" @selected(app()->getLocale()==='en')>EN</option>
       </select>
     </form>
-  </div>
   </div>
 
   {{-- KIS JS: change-re elküldi a formot --}}

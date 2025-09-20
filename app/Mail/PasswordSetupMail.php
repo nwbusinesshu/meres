@@ -6,6 +6,8 @@ use App\Models\PasswordSetup;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
+use App\Models\Organization;
+use App\Models\User
 
 class PasswordSetupMail extends Mailable
 {

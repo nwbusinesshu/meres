@@ -13,8 +13,33 @@
   width: 100%;
   max-width: 500px;
   border-left: 4px solid var(--pelorous);
+  animation: slideInFromRight 0.5s ease-in-out forwards;
+  animation-delay: 500ms;
+  opacity: 0;
+  box-shadow: 0px 5px 10px #bbb;
 }
 
+/* Keyframe animation for slide-in with blur */
+@keyframes slideInFromRight {
+  0% {
+    transform: translateX(800px);
+    filter: blur(5px);
+    opacity: 0;
+  }
+  50% {
+    filter: blur(2px);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateX(0);
+    filter: blur(0px);
+    opacity: 1;
+  }
+}
+
+.tile-login .btn-primary {
+  max-width: 100px;
+  }
 
 .quarma-360{
   max-width: 250px;
@@ -75,4 +100,9 @@ h1{
 @media (max-width: 768px){
   .main-content {
   margin-top: 20px!important; }
+  .tile {
+    padding: 1rem!important;
+    gap: 0.5em!important;
+  }
+
 }

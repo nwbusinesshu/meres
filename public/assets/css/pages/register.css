@@ -21,6 +21,7 @@
   border-left: 4px solid var(--pelorous);
   padding: 24px 28px;
   will-change: transform, filter; /* animációkhoz */
+  box-shadow: 0px 5px 10px #bbb;
 }
 
 /* Brand/logók */

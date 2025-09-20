@@ -13,15 +13,38 @@ document.addEventListener('DOMContentLoaded', function () {
   let current = 0;
 
   // --- EU/HU logika (mezők mutatása/elrejtése) ---
-  const EU_CC = ['AT','DE','RO','SK','SI','CZ','HU']; // egyszerűsített lista
-  function isEU(cc) { return EU_CC.includes((cc || '').toUpperCase()); }
+  const EU_CC = [
+  'AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR',
+  'DE','GR','IE','IT','LV','LT','LU','MT','NL','PL',
+  'PT','RO','SK','SI','ES','SE','HU'
+];
+function isEU(cc) {
+  return EU_CC.includes((cc || '').toUpperCase());
+}
 
   function toggleTaxFields() {
-    const cc = (countrySel?.value || 'HU').toUpperCase();
-    const eu = isEU(cc);
-    if (euOnly) euOnly.style.display = eu ? '' : 'none';
-    if (nonEuOnly) nonEuOnly.style.display = eu ? 'none' : '';
+  const cc = (countrySel?.value || 'HU').toUpperCase();
+  const isHu = (cc === 'HU');
+  const eu = isEU(cc);
+
+  const huOnly = form.querySelector('.hu-only');
+  const euVat  = form.querySelector('.eu-vat');
+
+  if (huOnly) huOnly.style.display = isHu ? '' : 'none';
+
+  if (euVat) {
+    // magyarországnál opcionális (megjelenik, de nem kötelező)
+    // más EU országnál kötelező
+    // EU-n kívül is opcionális
+    euVat.style.display = (isHu || eu) ? '' : 'none';
+    if (eu && !isHu) {
+      euVat.querySelector('input').setAttribute('required', 'required');
+    } else {
+      euVat.querySelector('input').removeAttribute('required');
+    }
   }
+}
+
 
   countrySel?.addEventListener('change', toggleTaxFields);
   toggleTaxFields();
@@ -90,40 +113,48 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function validateTaxNumbers(stepEl) {
-    const cc = (countrySel?.value || 'HU').toUpperCase();
-    const eu = isEU(cc);
-    const taxInput = stepEl.querySelector('[name="tax_number"]');
-    const euInput  = stepEl.querySelector('[name="eu_vat_number"]');
+  const cc = (countrySel?.value || 'HU').toUpperCase();
+  const isHu = (cc === 'HU');
+  const eu = isEU(cc);
 
-    let ok = true;
-    if (eu) {
-      // EU eset: EU ÁFA szám kötelező
-      if (euInput) {
-        const euVal = (euInput.value || '').trim().toUpperCase();
-        // nagyon laza minta: 2 betű + 2..12 alfanumerikus
-        const good = /^[A-Z]{2}[A-Za-z0-9]{2,12}$/.test(euVal);
-        markInvalid(euInput, !good);
-        if (!good) {
-          ok = false;
-          addErrorBelow(euInput, 'Érvényes EU ÁFA-szám szükséges (pl. DE123456789).');
-        }
-      }
-      if (taxInput) markInvalid(taxInput, false); // sima adószám nem kötelező EU esetén
-    } else {
-      // Nem EU: sima adószám kötelező (engedékeny mintával)
-      if (taxInput) {
-        const val = (taxInput.value || '').trim();
-        const good = val.length >= 6;
-        markInvalid(taxInput, !good);
-        if (!good) {
-          ok = false;
-          addErrorBelow(taxInput, 'Érvényes adószám szükséges.');
-        }
-      }
-      if (euInput) markInvalid(euInput, false);
+  const taxInput = stepEl.querySelector('[name="tax_number"]');
+  const euInput  = stepEl.querySelector('[name="eu_vat_number"]');
+  let ok = true;
+
+  if (isHu) {
+    // HU: kötelező adószám
+    if (taxInput) {
+      const val = (taxInput.value || '').trim();
+      const good = val.length >= 6;
+      markInvalid(taxInput, !good);
+      if (!good) { ok = false; addErrorBelow(taxInput, 'Érvényes adószám szükséges.'); }
     }
-    return ok;
+    // EU VAT opcionális: ha van, ellenőrizzük formátumát
+    if (euInput && euInput.value.trim() !== '') {
+      const good = /^[A-Z]{2}[A-Za-z0-9]{2,12}$/.test(euInput.value.trim());
+      markInvalid(euInput, !good);
+      if (!good) { ok = false; addErrorBelow(euInput, 'Érvényes EU VAT szám szükséges.'); }
+    }
+  } else if (eu) {
+    // EU, de nem HU: kötelező EU VAT
+    if (euInput) {
+      const val = (euInput.value || '').trim();
+      const good = /^[A-Z]{2}[A-Za-z0-9]{2,12}$/.test(val);
+      markInvalid(euInput, !good);
+      if (!good) { ok = false; addErrorBelow(euInput, 'Érvényes EU VAT szám szükséges.'); }
+    }
+  } else {
+    // EU-n kívül: EU VAT opcionális
+    if (euInput && euInput.value.trim() !== '') {
+      const good = /^[A-Z]{2}[A-Za-z0-9]{2,12}$/.test(euInput.value.trim());
+      markInvalid(euInput, !good);
+      if (!good) { ok = false; addErrorBelow(euInput, 'Érvényes EU VAT szám szükséges.'); }
+    }
   }
+
+  return ok;
+}
+
 
   function validateStep(idx) {
     const stepEl = steps[idx];

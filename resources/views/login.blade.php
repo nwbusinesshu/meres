@@ -4,7 +4,7 @@
 @endsection
 
 @section('content')
-<div class="tile">
+<div class="tile tile-login">
  
     
 
@@ -37,7 +37,7 @@
              autocomplete="current-password">
     </div>
 
-    <button type="submit" class="btn btn-primary btn-block mt-3">
+    <button type="submit" class="btn btn-primary mt-3">
       {{ $_('login_button') }}
     </button>
 
@@ -65,7 +65,11 @@
    <div><p>A bejelentkezéssel elfogadod az Adatvédelmi Irányelveinket.</p></div>
 
   <img class="nwb-logo" src="{{ asset('assets/logo/nwb_logo.svg') }}" alt="">
-</div>
+
+<div class="footnote">
+    Nincs még fiókja? <a href="{{ route('register.show') }}">Regisztráció</a>
+  </div>
+  </div>
 @endsection
 
 @section('scripts')
