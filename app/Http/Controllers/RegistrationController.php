@@ -128,7 +128,7 @@ if (in_array($country, $EU, true)) {
                 'phone'             => $request->input('phone'), // ÚJ mező
                 'tax_number'        => $request->input('tax_number'),
                 'eu_vat_number'     => strtoupper((string) $request->input('eu_vat_number')),
-                'subscription_type' => null,
+                'subscription_type' => "pro",
                 'created_at'        => now(),
             ]);
 

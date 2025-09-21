@@ -24,8 +24,16 @@ class GlobalCompetencyController extends Controller
             ->orderBy('name')
             ->get();
 
+        // Get language context for the view
+        $availableLanguages = LanguageService::getAvailableLanguages();
+        $languageNames = LanguageService::getLanguageNames();
+        $currentLocale = LanguageService::getCurrentLocale();
+
         return view('superadmin.global-competencies', [
             'globals' => $globals,
+            'availableLanguages' => $availableLanguages,
+            'languageNames' => $languageNames,
+            'currentLocale' => $currentLocale,
         ]);
     }
 
@@ -62,6 +70,106 @@ class GlobalCompetencyController extends Controller
         });
 
         return response()->json(['ok' => true, 'id' => $comp->id ?? null]);
+    }
+
+    public function removeCompetency(Request $request)
+    {
+        $comp = Competency::findOrFail($request->id);
+        
+        if (!is_null($comp->organization_id)) {
+            abort(403);
+        }
+        
+        AjaxService::DBTransaction(function() use ($comp) {
+            $comp->update(['removed_at' => now()]);
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function getCompetencyQuestion(Request $request)
+    {
+        return CompetencyQuestion::findOrFail($request->id);
+    }
+
+    public function saveCompetencyQuestion(Request $request)
+    {
+        $comp = Competency::findOrFail($request->competency_id);
+        $q = CompetencyQuestion::find($request->id);
+        
+        if (!is_null($comp->organization_id)) {
+            abort(403);
+        }
+        
+        $this->validate($request, [
+            'question' => ['required'],
+            'question_self' => ['required'],
+            'min_label' => ['required'],
+            'max_label' => ['required'],
+            'scale' => ['required', 'numeric', 'min:3', 'max:10']
+        ]);
+
+        AjaxService::DBTransaction(function() use ($request, &$q, $comp) {
+            if (is_null($q)) {
+                $q = CompetencyQuestion::create([
+                    'competency_id' => $comp->id,
+                    'organization_id' => null, // Global question
+                    'question' => $request->question,
+                    'question_self' => $request->question_self,
+                    'min_label' => $request->min_label,
+                    'max_label' => $request->max_label,
+                    'max_value' => $request->scale,
+                    'original_language' => LanguageService::getCurrentLocale(),
+                    'available_languages' => [LanguageService::getCurrentLocale()],
+                ]);
+                
+                // Set initial translations
+                $q->setTranslation(LanguageService::getCurrentLocale(), [
+                    'question' => $request->question,
+                    'question_self' => $request->question_self,
+                    'min_label' => $request->min_label,
+                    'max_label' => $request->max_label,
+                ]);
+                $q->save();
+            } else {
+                if (!is_null($q->organization_id)) {
+                    abort(403);
+                }
+                
+                // Update translation for current language
+                $currentLocale = LanguageService::getCurrentLocale();
+                $q->setTranslation($currentLocale, [
+                    'question' => $request->question,
+                    'question_self' => $request->question_self,
+                    'min_label' => $request->min_label,
+                    'max_label' => $request->max_label,
+                ]);
+                
+                $q->question = $request->question;
+                $q->question_self = $request->question_self;
+                $q->min_label = $request->min_label;
+                $q->max_label = $request->max_label;
+                $q->max_value = $request->scale;
+                $q->save();
+            }
+        });
+
+        return response()->json(['ok' => true, 'id' => $q->id ?? null]);
+    }
+
+    public function removeCompetencyQuestion(Request $request)
+    {
+        $q = CompetencyQuestion::findOrFail($request->id);
+        
+        if (!is_null($q->organization_id)) {
+            abort(403);
+        }
+        
+        AjaxService::DBTransaction(function() use ($q) {
+            $q->update(['removed_at' => now()]);
+        });
+
+        return response()->json(['ok' => true]);
     }
 
     // NEW TRANSLATION ENDPOINTS FOR GLOBAL COMPETENCIES
@@ -110,34 +218,27 @@ class GlobalCompetencyController extends Controller
         }
 
         $translations = $request->translations ?? [];
-        
-        // Validate translations
-        foreach ($translations as $language => $translation) {
-            if (!LanguageService::isValidLanguage($language)) {
-                return response()->json(['error' => "Invalid language: {$language}"], 422);
-            }
-            
-            if (empty($translation) && $language === $competency->original_language) {
-                return response()->json(['error' => 'Original language translation cannot be empty'], 422);
-            }
-        }
 
-        AjaxService::DBTransaction(function() use ($competency, $translations) {
-            foreach ($translations as $language => $translation) {
-                if (empty($translation)) {
-                    $competency->removeTranslation($language);
+        try {
+            foreach ($translations as $language => $name) {
+                if (!empty(trim($name))) {
+                    $competency->setTranslation($language, trim($name));
                 } else {
-                    $competency->setTranslation($language, $translation);
+                    $competency->removeTranslation($language);
                 }
             }
+            
             $competency->save();
-        });
+        } catch (\Exception $e) {
+            \Log::error('Failed to save global competency translations: ' . $e->getMessage());
+            return response()->json(['error' => 'Please try again later.'], 500);
+        }
 
         return response()->json(['success' => true]);
     }
 
     /**
-     * Translate global competency using AI
+     * Translate global competency with AI
      */
     public function translateCompetencyWithAI(Request $request)
     {
@@ -149,23 +250,13 @@ class GlobalCompetencyController extends Controller
         }
 
         $targetLanguages = $request->languages ?? [];
-        
-        // Validate target languages
-        foreach ($targetLanguages as $language) {
-            if (!LanguageService::isValidLanguage($language)) {
-                return response()->json(['error' => "Invalid language: {$language}"], 422);
-            }
-        }
-
-        if (empty($targetLanguages)) {
-            return response()->json(['error' => 'No target languages specified'], 422);
-        }
 
         // Call AI translation service
-        $translations = CompetencyTranslationService::translateCompetencyName($competency, $targetLanguages);
-
-        if ($translations === null) {
-            return response()->json(['error' => 'AI translation failed. Please try again later.'], 500);
+        try {
+            $translations = CompetencyTranslationService::translateCompetencyName($competency, $targetLanguages);
+        } catch (\Exception $e) {
+            \Log::error('AI translation failed for global competency: ' . $e->getMessage());
+            return response()->json(['error' => 'Please try again later.'], 500);
         }
 
         return response()->json([
@@ -224,72 +315,25 @@ class GlobalCompetencyController extends Controller
         }
 
         $translations = $request->translations ?? [];
-        
-        // Validate translations (same logic as admin controller)
-        $errors = [];
-        foreach ($translations as $language => $languageData) {
-            if (!LanguageService::isValidLanguage($language)) {
-                $errors[] = "Invalid language: {$language}";
-                continue;
-            }
-            
-            if (!is_array($languageData)) {
-                $errors[] = "Invalid data format for language: {$language}";
-                continue;
-            }
 
-            // Check for partial translations
-            $fields = ['question', 'question_self', 'min_label', 'max_label'];
-            $filledFields = [];
-            $emptyFields = [];
-            
-            foreach ($fields as $field) {
-                if (isset($languageData[$field]) && !empty($languageData[$field])) {
-                    $filledFields[] = $field;
-                } else {
-                    $emptyFields[] = $field;
+        try {
+            foreach ($translations as $language => $fields) {
+                if (is_array($fields)) {
+                    $question->setTranslation($language, $fields);
                 }
             }
             
-            if (!empty($filledFields) && !empty($emptyFields)) {
-                $errors[] = "Incomplete translation for {$language}: missing " . implode(', ', $emptyFields);
-            }
-            
-            if ($language === $question->original_language && empty($filledFields)) {
-                $errors[] = 'Original language translation cannot be completely empty';
-            }
-        }
-
-        if (!empty($errors)) {
-            return response()->json(['errors' => $errors], 422);
-        }
-
-        AjaxService::DBTransaction(function() use ($question, $translations) {
-            foreach ($translations as $language => $languageData) {
-                $fields = ['question', 'question_self', 'min_label', 'max_label'];
-                $hasAnyContent = false;
-                
-                foreach ($fields as $field) {
-                    if (isset($languageData[$field]) && !empty($languageData[$field])) {
-                        $hasAnyContent = true;
-                        break;
-                    }
-                }
-                
-                if (!$hasAnyContent) {
-                    $question->removeTranslation($language);
-                } else {
-                    $question->setTranslation($language, $languageData);
-                }
-            }
             $question->save();
-        });
+        } catch (\Exception $e) {
+            \Log::error('Failed to save global question translations: ' . $e->getMessage());
+            return response()->json(['error' => 'Please try again later.'], 500);
+        }
 
         return response()->json(['success' => true]);
     }
 
     /**
-     * Translate global question using AI
+     * Translate global question with AI
      */
     public function translateQuestionWithAI(Request $request)
     {
@@ -301,142 +345,17 @@ class GlobalCompetencyController extends Controller
         }
 
         $targetLanguages = $request->languages ?? [];
-        
-        // Validate target languages
-        foreach ($targetLanguages as $language) {
-            if (!LanguageService::isValidLanguage($language)) {
-                return response()->json(['error' => "Invalid language: {$language}"], 422);
-            }
-        }
 
-        if (empty($targetLanguages)) {
-            return response()->json(['error' => 'No target languages specified'], 422);
-        }
-
-        // Call AI translation service
-        $translations = CompetencyTranslationService::translateCompetencyQuestion($question, $targetLanguages);
-
-        if ($translations === null) {
-            return response()->json(['error' => 'AI translation failed. Please try again later.'], 500);
+        try {
+            $translations = CompetencyTranslationService::translateCompetencyQuestion($question, $targetLanguages);
+        } catch (\Exception $e) {
+            \Log::error('AI question translation failed for global competency: ' . $e->getMessage());
+            return response()->json(['error' => 'Please try again later.'], 500);
         }
 
         return response()->json([
             'success' => true,
             'translations' => $translations
         ]);
-    }
-
-    // EXISTING METHODS (updated to handle new structure)
-
-    public function removeCompetency(Request $request)
-    {
-        $comp = Competency::findOrFail($request->id);
-
-        if (!is_null($comp->organization_id)) {
-            abort(403);
-        }
-
-        AjaxService::DBTransaction(function () use (&$comp) {
-            $comp->users()->detach();
-            $comp->removed_at = date('Y-m-d H:i:s');
-            $comp->save();
-        });
-
-        return response()->json(['ok' => true]);
-    }
-
-    public function getCompetencyQuestion(Request $request)
-    {
-        $question = CompetencyQuestion::findOrFail($request->id);
-
-        if (!is_null($question->organization_id)) {
-            abort(403);
-        }
-
-        return $question;
-    }
-
-    public function saveCompetencyQuestion(Request $request)
-    {
-        $question = CompetencyQuestion::find($request->id);
-
-        $request->validate([
-            'question' => ['required', 'string', 'max:1024'],
-            'questionSelf' => ['required', 'string', 'max:1024'],
-            'minLabel' => ['required', 'string', 'max:255'],
-            'maxLabel' => ['required', 'string', 'max:255'],
-            'scale' => ['required', 'numeric', 'min:3', 'max:10'],
-            'compId' => ['required', 'exists:competency,id'],
-        ]);
-
-        AjaxService::DBTransaction(function () use ($request, &$question) {
-            $comp = Competency::findOrFail($request->compId);
-
-            if (!is_null($comp->organization_id)) {
-                abort(403);
-            }
-
-            $currentLocale = LanguageService::getCurrentLocale();
-
-            if (is_null($question)) {
-                $question = $comp->questions()->create([
-                    'question' => $request->question,
-                    'question_self' => $request->questionSelf,
-                    'min_label' => $request->minLabel,
-                    'max_label' => $request->maxLabel,
-                    'max_value' => $request->scale,
-                    'organization_id' => null,
-                    'original_language' => $currentLocale,
-                    'available_languages' => [$currentLocale],
-                ]);
-                
-                // Set initial translation
-                $question->setTranslation($currentLocale, [
-                    'question' => $request->question,
-                    'question_self' => $request->questionSelf,
-                    'min_label' => $request->minLabel,
-                    'max_label' => $request->maxLabel,
-                ]);
-                $question->save();
-            } else {
-                if (!is_null($question->organization_id)) {
-                    abort(403);
-                }
-
-                $question->question = $request->question;
-                $question->question_self = $request->questionSelf;
-                $question->min_label = $request->minLabel;
-                $question->max_label = $request->maxLabel;
-                $question->max_value = $request->scale;
-                $question->competency_id = $comp->id;
-                
-                // Update translation for current language
-                $question->setTranslation($currentLocale, [
-                    'question' => $request->question,
-                    'question_self' => $request->questionSelf,
-                    'min_label' => $request->minLabel,
-                    'max_label' => $request->maxLabel,
-                ]);
-                $question->save();
-            }
-        });
-
-        return response()->json(['ok' => true, 'id' => $question->id ?? null]);
-    }
-
-    public function removeCompetencyQuestion(Request $request)
-    {
-        $question = CompetencyQuestion::findOrFail($request->id);
-
-        if (!is_null($question->organization_id)) {
-            abort(403);
-        }
-
-        AjaxService::DBTransaction(function () use (&$question) {
-            $question->removed_at = date('Y-m-d H:i:s');
-            $question->save();
-        });
-
-        return response()->json(['ok' => true]);
     }
 }
