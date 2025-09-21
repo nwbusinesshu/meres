@@ -148,6 +148,13 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         Route::post('/question/save', 'saveCompetencyQuestion')->name('question.save');
         Route::post('/question/get', 'getCompetencyQuestion')->name('question.get');
         Route::post('/question/remove', 'removeCompetencyQuestion')->name('question.remove');
+        Route::post('/translations/get', 'getCompetencyTranslations')->name('translations.get');
+        Route::post('/translations/save', 'saveCompetencyTranslations')->name('translations.save');
+        Route::post('/translations/ai', 'translateCompetencyWithAI')->name('translations.ai');
+        Route::post('/question/translations/get', 'getQuestionTranslations')->name('question.translations.get');
+        Route::post('/question/translations/save', 'saveQuestionTranslations')->name('question.translations.save');
+        Route::post('/question/translations/ai', 'translateQuestionWithAI')->name('question.translations.ai');
+
     });
 
     // ceoranks
@@ -249,6 +256,12 @@ Route::prefix('superadmin/competency')
         Route::post('/question/remove', 'removeCompetencyQuestion')->name('q.remove'); // Alias for JS
         Route::post('/question/save', 'saveCompetencyQuestion')->name('q.save');      // Alias for JS  
         Route::get('/question/get', 'getCompetencyQuestion')->name('q.get');          // Alias for JS
+        Route::post('/translations/get', 'getCompetencyTranslations')->name('translations.get');
+        Route::post('/translations/save', 'saveCompetencyTranslations')->name('translations.save');
+        Route::post('/translations/ai', 'translateCompetencyWithAI')->name('translations.ai');
+        Route::post('/question/translations/get', 'getQuestionTranslations')->name('question.translations.get');
+        Route::post('/question/translations/save', 'saveQuestionTranslations')->name('question.translations.save');
+        Route::post('/question/translations/ai', 'translateQuestionWithAI')->name('question.translations.ai');
     });
     
 Route::get('/superadmin/global-competencies', [GlobalCompetencyController::class, 'index'])->name('superadmin.global-competencies');
