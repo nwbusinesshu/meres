@@ -9,6 +9,7 @@ use App\Services\AjaxService;
 use App\Services\CompetencyTranslationService;
 use App\Services\LanguageService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class GlobalCompetencyController extends Controller
 {
@@ -94,7 +95,7 @@ class GlobalCompetencyController extends Controller
 
     public function saveCompetencyQuestion(Request $request)
     {
-        $comp = Competency::findOrFail($request->competency_id);
+        $comp = Competency::findOrFail($request->compId);
         $q = CompetencyQuestion::find($request->id);
         
         if (!is_null($comp->organization_id)) {
@@ -172,8 +173,6 @@ class GlobalCompetencyController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    // NEW TRANSLATION ENDPOINTS FOR GLOBAL COMPETENCIES
-
     /**
      * Get translations for a global competency
      */
@@ -230,7 +229,7 @@ class GlobalCompetencyController extends Controller
             
             $competency->save();
         } catch (\Exception $e) {
-            \Log::error('Failed to save global competency translations: ' . $e->getMessage());
+            Log::error('Failed to save global competency translations: ' . $e->getMessage());
             return response()->json(['error' => 'Please try again later.'], 500);
         }
 
@@ -255,7 +254,7 @@ class GlobalCompetencyController extends Controller
         try {
             $translations = CompetencyTranslationService::translateCompetencyName($competency, $targetLanguages);
         } catch (\Exception $e) {
-            \Log::error('AI translation failed for global competency: ' . $e->getMessage());
+            Log::error('AI translation failed for global competency: ' . $e->getMessage());
             return response()->json(['error' => 'Please try again later.'], 500);
         }
 
@@ -304,6 +303,7 @@ class GlobalCompetencyController extends Controller
 
     /**
      * Save translations for a global competency question
+     * FIXED: Use setTranslation() method instead of setQuestionTranslation()
      */
     public function saveQuestionTranslations(Request $request)
     {
@@ -319,13 +319,14 @@ class GlobalCompetencyController extends Controller
         try {
             foreach ($translations as $language => $fields) {
                 if (is_array($fields)) {
+                    // FIXED: Use the correct method name setTranslation()
                     $question->setTranslation($language, $fields);
                 }
             }
             
             $question->save();
         } catch (\Exception $e) {
-            \Log::error('Failed to save global question translations: ' . $e->getMessage());
+            Log::error('Failed to save global question translations: ' . $e->getMessage());
             return response()->json(['error' => 'Please try again later.'], 500);
         }
 
@@ -349,7 +350,7 @@ class GlobalCompetencyController extends Controller
         try {
             $translations = CompetencyTranslationService::translateCompetencyQuestion($question, $targetLanguages);
         } catch (\Exception $e) {
-            \Log::error('AI question translation failed for global competency: ' . $e->getMessage());
+            Log::error('AI question translation failed for global competency: ' . $e->getMessage());
             return response()->json(['error' => 'Please try again later.'], 500);
         }
 

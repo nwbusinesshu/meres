@@ -1,66 +1,6 @@
 @extends('layouts.master')
 
 @section('head-extra')
-<style>
-.competency-translation-status {
-  display: flex;
-  gap: 0.25rem;
-  margin-left: auto;
-  margin-right: 1rem;
-}
-
-.language-indicator {
-  display: inline-block;
-  padding: 0.2rem 0.4rem;
-  font-size: 0.7rem;
-  font-weight: bold;
-  border-radius: 3px;
-  cursor: pointer;
-  min-width: 2rem;
-  text-align: center;
-}
-
-.language-indicator.original {
-  background-color: #007bff;
-  color: white;
-}
-
-.language-indicator.available {
-  background-color: #28a745;
-  color: white;
-}
-
-.language-indicator.missing {
-  background-color: #6c757d;
-  color: white;
-  opacity: 0.6;
-}
-
-.language-indicator.partial {
-  background-color: #ffc107;
-  color: black;
-}
-
-.current-language-info {
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 0.25rem;
-  padding: 0.5rem;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-}
-
-.competency-item .bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.competency-item .bar > span {
-  cursor: pointer;
-  flex: 1;
-}
-</style>
 @endsection
 
 @section('content')
@@ -102,42 +42,40 @@
               $hasTranslation = $comp->hasTranslation($lang);
               $isOriginal = $lang === $comp->original_language;
               $statusClass = $isOriginal ? 'original' : ($hasTranslation ? 'available' : 'missing');
-              $tooltip = $isOriginal ? __('translations.original') : 
-                        ($hasTranslation ? __('translations.available') : __('translations.missing'));
+              $tooltip = $isOriginal ? 
+                __('translations.original-language') . ': ' . ($languageNames[$lang] ?? strtoupper($lang)) :
+                ($hasTranslation ? 
+                  __('translations.translated-to') . ': ' . ($languageNames[$lang] ?? strtoupper($lang)) :
+                  __('translations.missing-translation') . ': ' . ($languageNames[$lang] ?? strtoupper($lang))
+                );
             @endphp
             <span class="language-indicator {{ $statusClass }}" 
-                  data-tippy-content="{{ $tooltip }} ({{ $languageNames[$lang] ?? strtoupper($lang) }})">
+                  data-tippy-content="{{ $tooltip }}">
               {{ strtoupper($lang) }}
             </span>
           @endforeach
         </div>
         
-        <div class="competency-actions" style="display: flex; gap: 0.5rem;">
-          {{-- Translation Management Button --}}
-          <button class="btn btn-outline-info btn-sm manage-translations" 
+        <div>
+          <button class="btn btn-outline-primary btn-sm manage-translations" 
                   data-competency-id="{{ $comp->id }}"
                   data-tippy-content="{{ __('translations.manage-translations') }}">
-            <i class="fas fa-language"></i>
+            <i class="fa fa-language"></i>
           </button>
-          
-          <button class="btn btn-outline-danger remove-competency" 
-                  data-tippy-content="{{ __('admin/competencies.remove-competency') }}">
-            <i class="fa fa-trash-alt"></i>
-          </button>
-          <button class="btn btn-outline-warning modify-competency" 
-                  data-tippy-content="{{ __('admin/competencies.modify-competency') }}">
-            <i class="fa fa-file-pen"></i>
-          </button>
+          <button class="btn btn-outline-danger remove-competency" data-tippy-content="{{ __('admin/competencies.remove-competency') }}"><i class="fa fa-trash-alt"></i></button>
+          <button class="btn btn-outline-warning modify-competency" data-tippy-content="{{ __('admin/competencies.modify-competency') }}"><i class="fa fa-file-pen"></i></button>
         </div>
       </div>
 
       <div class="questions hidden">
-        <div class="tile tile-button create-question">{{ __('admin/competencies.create-question') }}</div>
+        <div class="create-question tile tile-button">
+          <span><i class="fa fa-circle-plus"></i>{{ __('admin/competencies.create-question') }}</span>
+        </div>
 
         @foreach ($comp->questions as $q)
-          <div class="question-item" data-id="{{ $q->id }}">
-            <div class="question-header">
-              <span>{{ __('admin/competencies.question') }} #{{ $loop->index+1 }}</span>
+          <div class="question-item tile" data-id="{{ $q->id }}">
+            <div class="bar">
+              <span>{{ $q->getTranslatedQuestion() }}</span>
               
               {{-- Question Translation Status --}}
               <div class="question-translation-status">
@@ -145,27 +83,33 @@
                   @php
                     $hasTranslation = $q->hasTranslation($lang);
                     $isOriginal = $lang === $q->original_language;
-                    $isComplete = $q->isTranslationComplete($lang);
                     $isPartial = $q->hasPartialTranslation($lang);
-                    
-                    if ($isOriginal) {
-                      $statusClass = 'original';
-                    } elseif ($isComplete) {
-                      $statusClass = 'available'; 
-                    } elseif ($isPartial) {
-                      $statusClass = 'partial';
-                    } else {
-                      $statusClass = 'missing';
-                    }
+                    $statusClass = $isOriginal ? 'original' : 
+                                  ($hasTranslation ? 'available' : 
+                                   ($isPartial ? 'partial' : 'missing'));
+                    $tooltip = $isOriginal ? 
+                      __('translations.original-language') . ': ' . ($languageNames[$lang] ?? strtoupper($lang)) :
+                      ($hasTranslation ? 
+                        __('translations.complete-translation') . ': ' . ($languageNames[$lang] ?? strtoupper($lang)) :
+                        ($isPartial ?
+                          __('translations.partial-translation') . ': ' . ($languageNames[$lang] ?? strtoupper($lang)) :
+                          __('translations.missing-translation') . ': ' . ($languageNames[$lang] ?? strtoupper($lang))
+                        )
+                      );
                   @endphp
                   <span class="language-indicator {{ $statusClass }}" 
-                        data-tippy-content="{{ $tooltip }} ({{ $languageNames[$lang] ?? strtoupper($lang) }})">
+                        data-tippy-content="{{ $tooltip }}">
                     {{ strtoupper($lang) }}
                   </span>
                 @endforeach
               </div>
               
               <div>
+                <button class="btn btn-outline-primary btn-sm manage-question-translations" 
+                        data-question-id="{{ $q->id }}"
+                        data-tippy-content="{{ __('translations.manage-question-translations') }}">
+                  <i class="fa fa-language"></i>
+                </button>
                 <button class="btn btn-outline-danger remove-question" 
                         data-tippy-content="{{ __('admin/competencies.remove-question') }}">
                   <i class="fa fa-trash-alt"></i>
@@ -214,6 +158,23 @@
   </div>
 </div>
 
+{{-- Question Translation Management Modal --}}
+<div class="modal fade" id="question-translation-modal" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ __('translations.manage-question-translations') }}</h5>
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="question-translation-content">
+          <!-- Content will be loaded dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 @endsection
 
 @section('modals')
@@ -222,169 +183,35 @@
 @endsection
 
 @section('scripts')
-@include('js.superadmin.global-competencies')
-
 <script>
-// Translation management functions for superadmin
-function openCompetencyTranslationModal(competencyId) {
-  swal_loader.fire();
-  
-  $.ajax({
-    url: "{{ route('superadmin.competency.translations.get') }}",
-    method: 'POST',
-    data: { id: competencyId },
-    success: function(response) {
-      buildTranslationManagementContent(response);
-      $('#translation-management-modal').modal('show');
-      swal_loader.close();
-    },
-    error: function(xhr) {
-      swal_loader.close();
-      alert(xhr.responseJSON?.error || '{{ __('global.error-occurred') }}');
-    }
-  });
-}
+// Pass data to JavaScript
+window.availableLanguages = @json($availableLanguages);
+window.languageNames = @json($languageNames);
+window.currentLocale = @json($currentLocale);
 
-function buildTranslationManagementContent(data) {
-  const availableLanguages = {!! json_encode($availableLanguages) !!};
-  const languageNames = {!! json_encode($languageNames) !!};
-  
-  let content = `
-    <div class="competency-translation-manager">
-      <h6>{{ __('admin/competencies.competency-translations') }}</h6>
-      <div class="translation-grid">
-  `;
-  
-  availableLanguages.forEach(lang => {
-    const translation = data.translations[lang] || {};
-    const isOriginal = lang === data.original_language;
-    const langName = languageNames[lang] || lang.toUpperCase();
-    
-    content += `
-      <div class="form-group">
-        <label>
-          ${langName}
-          ${isOriginal ? '<span class="badge badge-primary ml-1">{{ __('translations.original') }}</span>' : ''}
-        </label>
-        <input type="text" 
-               class="form-control translation-input" 
-               data-language="${lang}"
-               value="${translation.name || ''}"
-               ${isOriginal ? 'required' : ''}>
-        ${!isOriginal ? '<small class="form-text text-muted">{{ __('translations.leave-empty-to-remove') }}</small>' : ''}
-      </div>
-    `;
-  });
-  
-  content += `
-      </div>
-      <div class="mt-3">
-        <button class="btn btn-primary btn-sm" onclick="saveCompetencyTranslations(${data.competency_id || 'null'})">
-          {{ __('translations.save') }}
-        </button>
-        <button class="btn btn-info btn-sm ml-2" onclick="translateCompetencyWithAI(${data.competency_id || 'null'})">
-          <i class="fa fa-robot"></i> {{ __('translations.translate-with-ai') }}
-        </button>
-      </div>
-    </div>
-  `;
-  
-  $('#translation-content').html(content);
-}
+// Define routes for JavaScript
+window.routes = {
+  superadmin_competency_remove: "{{ route('superadmin.competency.remove') }}",
+  superadmin_competency_q_remove: "{{ route('superadmin.competency.q.remove') }}",
+  superadmin_competency_translations_get: "{{ route('superadmin.competency.translations.get') }}",
+  superadmin_competency_translations_save: "{{ route('superadmin.competency.translations.save') }}",
+  superadmin_competency_translations_ai: "{{ route('superadmin.competency.translations.ai') }}",
+  superadmin_competency_question_translations_get: "{{ route('superadmin.competency.question.translations.get') }}",
+  superadmin_competency_question_translations_save: "{{ route('superadmin.competency.question.translations.save') }}",
+  superadmin_competency_question_translations_ai: "{{ route('superadmin.competency.question.translations.ai') }}"
+};
+</script>
+<script src="{{ asset('assets/js/superadmin/global-competencies.js') }}"></script>
 
-function saveCompetencyTranslations(competencyId) {
-  const translations = {};
-  
-  $('.translation-input').each(function() {
-    const lang = $(this).data('language');
-    const value = $(this).val().trim();
-    if (value) {
-      translations[lang] = value;
-    }
-  });
-  
-  swal_loader.fire();
-  
-  $.ajax({
-    url: "{{ route('superadmin.competency.translations.save') }}",
-    method: 'POST',
-    data: {
-      id: competencyId,
-      translations: translations
-    },
-    success: function(response) {
-      if (response.success) {
-        $('#translation-management-modal').modal('hide');
-        swal_success.fire({
-          title: '{{ __('translations.translations-saved') }}'
-        }).then(() => {
-          location.reload();
-        });
-      }
-    },
-    error: function(xhr) {
-      swal_loader.close();
-      alert(xhr.responseJSON?.error || '{{ __('global.error-occurred') }}');
-    }
-  });
-}
-
-function translateCompetencyWithAI(competencyId) {
-  const missingLanguages = [];
-  $('.translation-input').each(function() {
-    const lang = $(this).data('language');
-    const value = $(this).val().trim();
-    const isOriginal = $(this).prop('required');
-    if (!value && !isOriginal) {
-      missingLanguages.push(lang);
-    }
-  });
-  
-  if (missingLanguages.length === 0) {
-    alert('{{ __('translations.no-missing-translations') }}');
-    return;
-  }
-  
-  swal_loader.fire();
-  
-  $.ajax({
-    url: "{{ route('superadmin.competency.translations.ai') }}",
-    method: 'POST',
-    data: {
-      id: competencyId,
-      languages: missingLanguages
-    },
-    success: function(response) {
-      if (response.success && response.translations) {
-        // Apply AI translations to inputs
-        Object.keys(response.translations).forEach(lang => {
-          $(`.translation-input[data-language="${lang}"]`).val(response.translations[lang]);
-        });
-        
-        swal_success.fire({
-          title: '{{ __('translations.ai-translation-complete') }}'
-        });
-      } else {
-        swal_loader.close();
-        alert(response.error || '{{ __('translations.ai-translation-failed') }}');
-      }
-    },
-    error: function(xhr) {
-      swal_loader.close();
-      alert(xhr.responseJSON?.error || '{{ __('translations.ai-translation-failed') }}');
-    }
-  });
-}
-
-// Bind translation management button click
+{{-- Additional event handlers for question translations --}}
+<script>
 $(document).ready(function() {
-  $(document).on('click', '.manage-translations', function() {
-    const competencyId = $(this).data('competency-id');
-    openCompetencyTranslationModal(competencyId);
+  // Question translation management
+  $(document).on('click', '.manage-question-translations', function(e) {
+    e.stopPropagation();
+    const questionId = $(this).data('question-id');
+    openQuestionTranslationModal(questionId);
   });
-  
-  // Initialize tooltips for language indicators
-  tippy('.language-indicator[data-tippy-content]');
 });
 </script>
 @endsection

@@ -173,3 +173,200 @@
     text-align: justify;
   }
 }
+
+/* Global Competencies Styles */
+
+/* Translation Status Indicators */
+.competency-translation-status {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+  margin-right: 1rem;
+}
+
+.language-indicator {
+  display: inline-block;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.7rem;
+  font-weight: bold;
+  border-radius: 3px;
+  cursor: pointer;
+  min-width: 2rem;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.language-indicator:hover {
+  transform: scale(1.1);
+}
+
+.language-indicator.original {
+  background-color: #007bff;
+  color: white;
+}
+
+.language-indicator.available {
+  background-color: #28a745;
+  color: white;
+}
+
+.language-indicator.missing {
+  background-color: #6c757d;
+  color: white;
+  opacity: 0.6;
+}
+
+.language-indicator.partial {
+  background-color: #ffc107;
+  color: black;
+}
+
+/* Current Language Info */
+.current-language-info {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+/* Competency Item Layout */
+.competency-item .bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.competency-item .bar > span {
+  cursor: pointer;
+  flex: 1;
+}
+
+.competency-item .bar > span:hover {
+  color: #007bff;
+}
+
+/* Question Items */
+.question-item {
+  margin-bottom: 0.5rem;
+  border-left: 3px solid #e9ecef;
+  padding-left: 1rem;
+}
+
+.question-item .bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.question-details {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: #f8f9fa;
+  border-radius: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.question-details p {
+  margin-bottom: 0.5rem;
+}
+
+.question-details .scale-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Translation Management Modal */
+.competency-translation-manager {
+  padding: 1rem;
+}
+
+.translation-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.translation-input {
+  margin-bottom: 0.5rem;
+}
+
+.ai-translate-button {
+  margin-top: 0.5rem;
+}
+
+/* Button Groups */
+.manage-translations {
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .competency-translation-status {
+    margin-right: 0.5rem;
+    gap: 0.15rem;
+  }
+  
+  .language-indicator {
+    min-width: 1.5rem;
+    padding: 0.15rem 0.3rem;
+    font-size: 0.6rem;
+  }
+  
+  .current-language-info {
+    font-size: 0.8rem;
+  }
+}
+
+/* Animation for expanding competencies */
+.questions {
+  transition: all 0.3s ease;
+}
+
+.questions.hidden {
+  display: none;
+}
+
+/* Loading states */
+.translation-loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Success/Error states */
+.translation-success {
+  border-color: #28a745;
+  box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+}
+
+.translation-error {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+/* Special styling for global competencies view */
+.competency-list--global-crud .competency-item {
+  border-left: 4px solid #007bff;
+}
+
+.competency-list--global .competency-item {
+  border-left: 4px solid #6c757d;
+  opacity: 0.8;
+}
+
+/* Question translation status */
+.question-translation-status {
+  display: flex;
+  gap: 0.15rem;
+  margin-left: auto;
+}
+
+.question-translation-status .language-indicator {
+  font-size: 0.6rem;
+  min-width: 1.2rem;
+  padding: 0.1rem 0.2rem;
+}

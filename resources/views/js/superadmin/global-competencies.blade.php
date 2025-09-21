@@ -1,7 +1,11 @@
 <script>
+// Global Competencies JavaScript
+// This file handles all translation functionality for superadmin global competencies
+
 $(document).ready(function(){
   const url = new URL(window.location.href);
 
+  // Basic competency management
   $('.create-competency').click(function(){
     openCompetencyModal();
   });
@@ -12,9 +16,8 @@ $(document).ready(function(){
     openCompetencyModal(id, name);
   });
 
-  // FIXED: Arrow toggle functionality with event delegation and improved selector
+  // Arrow toggle functionality with event delegation
   $(document).on('click', '.competency-item .bar > span', function(e){
-    // Prevent bubbling to buttons
     e.stopPropagation();
     
     const $competencyItem = $(this).closest('.competency-item');
@@ -43,6 +46,7 @@ $(document).ready(function(){
     $('.competency-item[data-id="'+openId+'"] .bar > span').trigger('click');
   }
 
+  // Question management
   $('.create-question').click(function(){
     const compId = $(this).closest('.competency-item').attr('data-id');
     openCompetencyQModal(null, compId);
@@ -54,6 +58,7 @@ $(document).ready(function(){
     openCompetencyQModal(id, compId);
   });
 
+  // Search functionality
   $('.competency-search-input').keyup(function(e){
     if(e.keyCode != 13) return;
 
@@ -91,17 +96,18 @@ $(document).ready(function(){
     $('.competency-search-input').val('').trigger(jQuery.Event('keyup', { keyCode: 13 }));
   });
 
+  // Remove handlers
   $('.remove-question').click(function(){
     const id = $(this).closest('.question-item').attr('data-id');
     swal_confirm.fire({
-      title: '{{ __("admin/competencies.question-remove-confirm") }}'
+      title: 'Are you sure you want to remove this question?'
     }).then((result) => {
       if (result.isConfirmed) {
         swal_loader.fire();
         $.ajax({
-          url: "{{ route('superadmin.competency.q.remove') }}",
+          url: window.routes.superadmin_competency_q_remove,
           data: { id: id },
-          successMessage: "{{ __('admin/competencies.question-remove-success') }}",
+          successMessage: "Question removed successfully",
         });
       }
     });
@@ -110,20 +116,20 @@ $(document).ready(function(){
   $('.remove-competency').click(function(){
     const id = $(this).closest('.competency-item').attr('data-id');
     swal_confirm.fire({
-      title: '{{ __("admin/competencies.remove-competency-confirm") }}'
+      title: 'Are you sure you want to remove this competency?'
     }).then((result) => {
       if (result.isConfirmed) {
         swal_loader.fire();
         $.ajax({
-          url: "{{ route('superadmin.competency.remove') }}",
+          url: window.routes.superadmin_competency_remove,
           data: { id: id },
-          successMessage: "{{ __('admin/competencies.remove-competency-success') }}",
+          successMessage: "Competency removed successfully",
         });
       }
     });
   });
 
-  // FIXED: Translation management button handler with event delegation
+  // Translation management button handler with event delegation
   $(document).on('click', '.manage-translations', function(e) {
     e.stopPropagation();
     const competencyId = $(this).data('competency-id');
@@ -138,16 +144,16 @@ $(document).ready(function(){
   }, 100);
 });
 
-// FIXED: Translation management functions with proper loader handling
+// Translation management functions for superadmin
 function openCompetencyTranslationModal(competencyId) {
   swal_loader.fire();
   
   $.ajax({
-    url: "{{ route('superadmin.competency.translations.get') }}",
+    url: window.routes.superadmin_competency_translations_get,
     method: 'POST',
     data: { 
       id: competencyId,
-      _token: '{{ csrf_token() }}'
+      _token: $('meta[name="csrf-token"]').attr('content')
     },
     success: function(response) {
       buildTranslationManagementContent(response);
@@ -157,18 +163,19 @@ function openCompetencyTranslationModal(competencyId) {
     error: function(xhr) {
       swal_loader.close();
       console.error('Translation load failed:', xhr);
-      alert(xhr.responseJSON?.error || '{{ __('global.error-occurred') }}');
+      alert(xhr.responseJSON?.error || 'An error occurred');
     }
   });
 }
 
 function buildTranslationManagementContent(data) {
-  const availableLanguages = {!! json_encode($availableLanguages ?? ['hu', 'en']) !!};
-  const languageNames = {!! json_encode($languageNames ?? ['hu' => 'Magyar', 'en' => 'English']) !!};
+  // Get language data from window object or use defaults
+  const availableLanguages = window.availableLanguages || ['hu', 'en'];
+  const languageNames = window.languageNames || {'hu': 'Magyar', 'en': 'English'};
   
   let content = `
     <div class="competency-translation-manager">
-      <h6>{{ __('admin/competencies.competency-translations') }}</h6>
+      <h6>Competency Translations</h6>
       <div class="translation-grid">
   `;
   
@@ -181,125 +188,377 @@ function buildTranslationManagementContent(data) {
       <div class="form-group">
         <label>
           ${langName}
-          ${isOriginal ? '<span class="badge badge-primary ml-1">{{ __('translations.original') }}</span>' : ''}
+          ${isOriginal ? '<span class="badge badge-primary ml-1">Original</span>' : ''}
         </label>
         <input type="text" 
                class="form-control translation-input" 
                data-language="${lang}"
                value="${translation.name || ''}"
                ${isOriginal ? 'required' : ''}>
-        ${!isOriginal ? '<small class="form-text text-muted">{{ __('translations.leave-empty-to-remove') }}</small>' : ''}
+        ${!isOriginal ? `
+          <button class="btn btn-sm btn-info ai-translate-button" 
+                  data-target-language="${lang}">
+            <i class="fa fa-robot"></i> AI Translate
+          </button>
+        ` : ''}
       </div>
     `;
   });
   
   content += `
       </div>
-      <div class="mt-3">
-        <button class="btn btn-primary btn-sm" onclick="saveCompetencyTranslations(${data.competency_id || 'null'})">
-          {{ __('translations.save') }}
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button class="btn btn-info" id="bulk-ai-translate">
+          <i class="fa fa-robot"></i> Translate All Missing
         </button>
-        <button class="btn btn-info btn-sm ml-2" onclick="translateCompetencyWithAI(${data.competency_id || 'null'})">
-          <i class="fa fa-robot"></i> {{ __('translations.translate-with-ai') }}
-        </button>
+        <button class="btn btn-primary" id="save-translations">Save</button>
       </div>
     </div>
   `;
   
   $('#translation-content').html(content);
+  
+  // Bind events for this modal
+  bindTranslationEvents(data);
 }
 
-function saveCompetencyTranslations(competencyId) {
-  const translations = {};
-  
-  $('.translation-input').each(function() {
-    const lang = $(this).data('language');
-    const value = $(this).val().trim();
-    if (value) {
-      translations[lang] = value;
-    }
+function bindTranslationEvents(data) {
+  // Save translations
+  $('#save-translations').click(function() {
+    const translations = {};
+    $('.translation-input').each(function() {
+      const lang = $(this).data('language');
+      const value = $(this).val().trim();
+      if (value) {
+        translations[lang] = value;
+      }
+    });
+    
+    saveCompetencyTranslations(data.competency_id || $('.modal').data('competency-id'), translations);
   });
   
+  // Individual AI translation
+  $('.ai-translate-button').click(function() {
+    const targetLang = $(this).data('target-language');
+    const competencyId = data.competency_id || $('.modal').data('competency-id');
+    translateCompetencyWithAI(competencyId, [targetLang]);
+  });
+  
+  // Bulk AI translation
+  $('#bulk-ai-translate').click(function() {
+    const missingLanguages = [];
+    $('.translation-input').each(function() {
+      const lang = $(this).data('language');
+      const value = $(this).val().trim();
+      if (!value && lang !== data.original_language) {
+        missingLanguages.push(lang);
+      }
+    });
+    
+    if (missingLanguages.length > 0) {
+      const competencyId = data.competency_id || $('.modal').data('competency-id');
+      translateCompetencyWithAI(competencyId, missingLanguages);
+    } else {
+      alert('No missing translations found');
+    }
+  });
+}
+
+function saveCompetencyTranslations(competencyId, translations) {
   swal_loader.fire();
   
   $.ajax({
-    url: "{{ route('superadmin.competency.translations.save') }}",
+    url: window.routes.superadmin_competency_translations_save,
     method: 'POST',
     data: {
       id: competencyId,
       translations: translations,
-      _token: '{{ csrf_token() }}'
+      _token: $('meta[name="csrf-token"]').attr('content')
     },
-    success: function(response) {
-      if (response.success) {
-        $('#translation-management-modal').modal('hide');
-        swal_success.fire({
-          title: '{{ __('translations.translations-saved') }}'
-        }).then(() => {
-          location.reload();
-        });
-      } else {
-        swal_loader.close();
-        alert(response.error || '{{ __('global.error-occurred') }}');
-      }
+    success: function() {
+      swal_loader.close();
+      $('#translation-management-modal').modal('hide');
+      swal_success.fire({
+        title: 'Translations saved successfully'
+      }).then(() => {
+        location.reload();
+      });
     },
     error: function(xhr) {
       swal_loader.close();
-      console.error('Translation save failed:', xhr);
-      alert(xhr.responseJSON?.error || '{{ __('global.error-occurred') }}');
+      alert(xhr.responseJSON?.error || 'Failed to save translations');
     }
   });
 }
 
-// FIXED: AI translation with proper loader handling
-function translateCompetencyWithAI(competencyId) {
-  const missingLanguages = [];
-  $('.translation-input').each(function() {
-    const lang = $(this).data('language');
-    const value = $(this).val().trim();
-    const isOriginal = $(this).prop('required');
-    if (!value && !isOriginal) {
-      missingLanguages.push(lang);
-    }
-  });
-  
-  if (missingLanguages.length === 0) {
-    alert('{{ __('translations.no-missing-translations') }}');
-    return;
-  }
-  
+function translateCompetencyWithAI(competencyId, targetLanguages) {
   swal_loader.fire();
   
   $.ajax({
-    url: "{{ route('superadmin.competency.translations.ai') }}",
+    url: window.routes.superadmin_competency_translations_ai,
     method: 'POST',
     data: {
       id: competencyId,
-      languages: missingLanguages,
-      _token: '{{ csrf_token() }}'
+      languages: targetLanguages,
+      _token: $('meta[name="csrf-token"]').attr('content')
     },
     success: function(response) {
-      // Always close loader first
       swal_loader.close();
       
       if (response.success && response.translations) {
-        // Apply AI translations to inputs
+        // Update the input fields with AI translations
         Object.keys(response.translations).forEach(lang => {
-          $(`.translation-input[data-language="${lang}"]`).val(response.translations[lang]);
+          const input = $(`.translation-input[data-language="${lang}"]`);
+          if (input.length && response.translations[lang]) {
+            input.val(response.translations[lang]);
+            input.addClass('translation-success');
+            setTimeout(() => input.removeClass('translation-success'), 2000);
+          }
         });
         
         swal_success.fire({
-          title: '{{ __('translations.ai-translation-complete') }}'
+          title: 'AI translation completed'
         });
       } else {
-        alert(response.error || '{{ __('translations.ai-translation-failed') }}');
+        alert('AI translation failed');
       }
     },
     error: function(xhr) {
-      // Always close loader on error
       swal_loader.close();
-      console.error('AI translation failed:', xhr);
-      alert(xhr.responseJSON?.error || '{{ __('translations.ai-translation-failed') }}');
+      alert(xhr.responseJSON?.error || 'AI translation failed');
+    }
+  });
+}
+
+// Question translation functions
+function openQuestionTranslationModal(questionId) {
+  swal_loader.fire();
+  
+  $.ajax({
+    url: window.routes.superadmin_competency_question_translations_get,
+    method: 'POST',
+    data: { 
+      id: questionId,
+      _token: $('meta[name="csrf-token"]').attr('content')
+    },
+    success: function(response) {
+      buildQuestionTranslationContent(response);
+      $('#question-translation-modal').modal('show');
+      swal_loader.close();
+    },
+    error: function(xhr) {
+      swal_loader.close();
+      console.error('Question translation load failed:', xhr);
+      alert(xhr.responseJSON?.error || 'An error occurred');
+    }
+  });
+}
+
+function buildQuestionTranslationContent(data) {
+  const availableLanguages = window.availableLanguages || ['hu', 'en'];
+  const languageNames = window.languageNames || {'hu': 'Magyar', 'en': 'English'};
+  
+  let content = `
+    <div class="question-translation-manager">
+      <h6>Question Translations</h6>
+      <div class="translation-tabs">
+  `;
+  
+  // Build language tabs
+  availableLanguages.forEach((lang, index) => {
+    const isActive = index === 0;
+    const isOriginal = lang === data.original_language;
+    const translation = data.translations[lang] || {};
+    const isComplete = translation.is_complete || false;
+    const langName = languageNames[lang] || lang.toUpperCase();
+    
+    let badgeClass = 'badge-secondary';
+    if (isOriginal) badgeClass = 'badge-primary';
+    else if (isComplete) badgeClass = 'badge-success';
+    else if (translation.is_partial) badgeClass = 'badge-warning';
+    
+    content += `
+      <a class="nav-link ${isActive ? 'active' : ''}" 
+         data-toggle="tab" 
+         href="#question-lang-${lang}">
+        ${langName}
+        <span class="badge ${badgeClass} ml-1">
+          ${isOriginal ? 'ORIG' : (isComplete ? 'OK' : (translation.is_partial ? 'PART' : 'MISS'))}
+        </span>
+      </a>
+    `;
+  });
+  
+  content += `
+      </div>
+      <div class="tab-content">
+  `;
+  
+  // Build language content
+  availableLanguages.forEach((lang, index) => {
+    const isActive = index === 0;
+    const translation = data.translations[lang] || {};
+    
+    content += `
+      <div class="tab-pane ${isActive ? 'active' : ''}" id="question-lang-${lang}">
+        <div class="form-group">
+          <label>Question (for rating others)</label>
+          <textarea class="form-control question-translated" 
+                    data-field="question" 
+                    rows="2">${translation.question || ''}</textarea>
+        </div>
+        <div class="form-group">
+          <label>Question (for self-rating)</label>
+          <textarea class="form-control question-self-translated" 
+                    data-field="question_self" 
+                    rows="2">${translation.question_self || ''}</textarea>
+        </div>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group">
+              <label>Minimum Label</label>
+              <input type="text" 
+                     class="form-control min-label-translated" 
+                     data-field="min_label"
+                     value="${translation.min_label || ''}">
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label>Maximum Label</label>
+              <input type="text" 
+                     class="form-control max-label-translated" 
+                     data-field="max_label"
+                     value="${translation.max_label || ''}">
+            </div>
+          </div>
+        </div>
+        ${lang !== data.original_language ? `
+          <button class="btn btn-info btn-sm ai-translate-question" 
+                  data-target-language="${lang}">
+            <i class="fa fa-robot"></i> AI Translate This Language
+          </button>
+        ` : ''}
+      </div>
+    `;
+  });
+  
+  content += `
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" id="save-question-translations">Save</button>
+      </div>
+    </div>
+  `;
+  
+  $('#question-translation-content').html(content);
+  bindQuestionTranslationEvents(data);
+}
+
+function bindQuestionTranslationEvents(data) {
+  // Save question translations
+  $('#save-question-translations').click(function() {
+    const translations = {};
+    
+    $('.tab-pane').each(function() {
+      const lang = $(this).attr('id').replace('question-lang-', '');
+      const fields = {};
+      
+      $(this).find('[data-field]').each(function() {
+        const field = $(this).data('field');
+        const value = $(this).val().trim();
+        if (value) {
+          fields[field] = value;
+        }
+      });
+      
+      if (Object.keys(fields).length > 0) {
+        translations[lang] = fields;
+      }
+    });
+    
+    saveQuestionTranslations(data.question_id, translations);
+  });
+  
+  // AI translation for individual languages
+  $('.ai-translate-question').click(function() {
+    const targetLang = $(this).data('target-language');
+    const questionId = data.question_id;
+    translateQuestionWithAI(questionId, [targetLang]);
+  });
+}
+
+function saveQuestionTranslations(questionId, translations) {
+  swal_loader.fire();
+  
+  $.ajax({
+    url: window.routes.superadmin_competency_question_translations_save,
+    method: 'POST',
+    data: {
+      id: questionId,
+      translations: translations,
+      _token: $('meta[name="csrf-token"]').attr('content')
+    },
+    success: function() {
+      swal_loader.close();
+      $('#question-translation-modal').modal('hide');
+      swal_success.fire({
+        title: 'Question translations saved successfully'
+      }).then(() => {
+        location.reload();
+      });
+    },
+    error: function(xhr) {
+      swal_loader.close();
+      alert(xhr.responseJSON?.error || 'Failed to save question translations');
+    }
+  });
+}
+
+function translateQuestionWithAI(questionId, targetLanguages) {
+  swal_loader.fire();
+  
+  $.ajax({
+    url: window.routes.superadmin_competency_question_translations_ai,
+    method: 'POST',
+    data: {
+      id: questionId,
+      languages: targetLanguages,
+      _token: $('meta[name="csrf-token"]').attr('content')
+    },
+    success: function(response) {
+      swal_loader.close();
+      
+      if (response.success && response.translations) {
+        // Update the input fields with AI translations
+        Object.keys(response.translations).forEach(lang => {
+          const tabPane = $(`#question-lang-${lang}`);
+          const langData = response.translations[lang];
+          
+          if (tabPane.length && langData) {
+            Object.keys(langData).forEach(field => {
+              const input = tabPane.find(`[data-field="${field}"]`);
+              if (input.length && langData[field]) {
+                input.val(langData[field]);
+                input.addClass('translation-success');
+                setTimeout(() => input.removeClass('translation-success'), 2000);
+              }
+            });
+          }
+        });
+        
+        swal_success.fire({
+          title: 'AI question translation completed'
+        });
+      } else {
+        alert('AI question translation failed');
+      }
+    },
+    error: function(xhr) {
+      swal_loader.close();
+      alert(xhr.responseJSON?.error || 'AI question translation failed');
     }
   });
 }

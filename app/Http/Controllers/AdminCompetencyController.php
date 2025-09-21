@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Controller;
 use App\Models\Competency;
 use App\Models\CompetencyQuestion;
 use App\Services\AjaxService;
-use App\Services\AssessmentService;
 use App\Services\CompetencyTranslationService;
 use App\Services\LanguageService;
 use Illuminate\Http\Request;
@@ -13,32 +13,26 @@ use Illuminate\Support\Facades\Log;
 
 class AdminCompetencyController extends Controller
 {
-    public function __construct()
-    {
-        if (AssessmentService::isAssessmentRunning()) {
-            return abort(403);
-        }
-    }
-
     public function index(Request $request)
     {
         $orgId = session('org_id');
-
-        // Separate org-specific and global competencies
-        $orgCompetencies = Competency::whereNull('removed_at')
+        
+        // Organization-specific competencies
+        $competencies = Competency::query()
+            ->whereNull('removed_at')
             ->where('organization_id', $orgId)
-            ->with(['questions' => function($q) use ($orgId) {
-                $q->whereNull('removed_at')
-                  ->where('organization_id', $orgId);
+            ->with(['questions' => function ($q) use ($orgId) {
+                $q->whereNull('removed_at')->where('organization_id', $orgId);
             }])
             ->orderBy('name')
             ->get();
 
-        $globals = Competency::whereNull('removed_at')
+        // Global competencies (read-only)
+        $globals = Competency::query()
+            ->whereNull('removed_at')
             ->whereNull('organization_id')
-            ->with(['questions' => function($q) {
-                $q->whereNull('removed_at')
-                  ->whereNull('organization_id');
+            ->with(['questions' => function ($q) {
+                $q->whereNull('removed_at')->whereNull('organization_id');
             }])
             ->orderBy('name')
             ->get();
@@ -49,7 +43,7 @@ class AdminCompetencyController extends Controller
         $currentLocale = LanguageService::getCurrentLocale();
 
         return view('admin.competencies', [
-            'orgCompetencies' => $orgCompetencies,
+            'competencies' => $competencies,
             'globals' => $globals,
             'availableLanguages' => $availableLanguages,
             'languageNames' => $languageNames,
@@ -57,28 +51,16 @@ class AdminCompetencyController extends Controller
         ]);
     }
 
-    public function getAllCompetency(Request $request)
-    {
-        $orgId = session('org_id');
-
-        return Competency::whereNull('removed_at')
-            ->where(function($q) use ($orgId) {
-                $q->whereNull('organization_id')
-                  ->orWhere('organization_id', $orgId);
-            })
-            ->orderBy('name')
-            ->get();
-    }
-
     public function saveCompetency(Request $request)
     {
         $comp = Competency::find($request->id);
-        $this->validate($request, ['name' => ['required']], [], ['name' => __('global.name')]);
-
         $orgId = session('org_id');
 
-        AjaxService::DBTransaction(function() use ($request, &$comp, $orgId) {
+        $request->validate(['name' => ['required', 'string', 'max:255']]);
+
+        AjaxService::DBTransaction(function () use ($request, &$comp, $orgId) {
             if (is_null($comp)) {
+                // NEW: Organization-specific
                 $comp = Competency::create([
                     'name' => $request->name,
                     'organization_id' => $orgId,
@@ -86,14 +68,19 @@ class AdminCompetencyController extends Controller
                     'available_languages' => [LanguageService::getCurrentLocale()],
                 ]);
                 
-                // Also set the JSON version for consistency
+                // Set initial translation
                 $comp->setTranslation(LanguageService::getCurrentLocale(), $request->name);
                 $comp->save();
             } else {
-                // Update the translation for current language
+                // Check permissions
+                if ($comp->organization_id !== $orgId) {
+                    abort(403);
+                }
+                
+                // Update translation for current language
                 $currentLocale = LanguageService::getCurrentLocale();
                 $comp->setTranslation($currentLocale, $request->name);
-                $comp->name = $request->name; // Keep backward compatibility
+                $comp->name = $request->name;
                 $comp->save();
             }
         });
@@ -101,7 +88,116 @@ class AdminCompetencyController extends Controller
         return response()->json(['success' => true, 'id' => $comp->id]);
     }
 
-    // NEW TRANSLATION ENDPOINTS
+    public function removeCompetency(Request $request)
+    {
+        $comp = Competency::findOrFail($request->id);
+        $orgId = session('org_id');
+        
+        if ($comp->organization_id !== $orgId) {
+            abort(403);
+        }
+        
+        AjaxService::DBTransaction(function() use ($comp) {
+            $comp->update(['removed_at' => now()]);
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function getCompetencyQuestion(Request $request)
+    {
+        $question = CompetencyQuestion::findOrFail($request->id);
+        $orgId = session('org_id');
+        
+        if ($question->competency->organization_id !== $orgId) {
+            abort(403);
+        }
+        
+        return $question;
+    }
+
+    public function saveCompetencyQuestion(Request $request)
+    {
+        $comp = Competency::findOrFail($request->compId);
+        $q = CompetencyQuestion::find($request->id);
+        $orgId = session('org_id');
+        
+        if ($comp->organization_id !== $orgId) {
+            abort(403);
+        }
+        
+        $this->validate($request, [
+            'question' => ['required'],
+            'question_self' => ['required'],
+            'min_label' => ['required'],
+            'max_label' => ['required'],
+            'scale' => ['required', 'numeric', 'min:3', 'max:10']
+        ]);
+
+        AjaxService::DBTransaction(function() use ($request, &$q, $comp, $orgId) {
+            if (is_null($q)) {
+                $q = CompetencyQuestion::create([
+                    'competency_id' => $comp->id,
+                    'organization_id' => $orgId,
+                    'question' => $request->question,
+                    'question_self' => $request->question_self,
+                    'min_label' => $request->min_label,
+                    'max_label' => $request->max_label,
+                    'max_value' => $request->scale,
+                    'original_language' => LanguageService::getCurrentLocale(),
+                    'available_languages' => [LanguageService::getCurrentLocale()],
+                ]);
+                
+                // Set initial translations
+                $q->setTranslation(LanguageService::getCurrentLocale(), [
+                    'question' => $request->question,
+                    'question_self' => $request->question_self,
+                    'min_label' => $request->min_label,
+                    'max_label' => $request->max_label,
+                ]);
+                $q->save();
+            } else {
+                // Check permissions
+                if ($q->competency->organization_id !== $orgId) {
+                    abort(403);
+                }
+                
+                // Update translation for current language
+                $currentLocale = LanguageService::getCurrentLocale();
+                $q->setTranslation($currentLocale, [
+                    'question' => $request->question,
+                    'question_self' => $request->question_self,
+                    'min_label' => $request->min_label,
+                    'max_label' => $request->max_label,
+                ]);
+                
+                $q->question = $request->question;
+                $q->question_self = $request->question_self;
+                $q->min_label = $request->min_label;
+                $q->max_label = $request->max_label;
+                $q->max_value = $request->scale;
+                $q->save();
+            }
+        });
+
+        return response()->json(['ok' => true, 'id' => $q->id ?? null]);
+    }
+
+    public function removeCompetencyQuestion(Request $request)
+    {
+        $q = CompetencyQuestion::findOrFail($request->id);
+        $orgId = session('org_id');
+        
+        if ($q->competency->organization_id !== $orgId) {
+            abort(403);
+        }
+        
+        AjaxService::DBTransaction(function() use ($q) {
+            $q->update(['removed_at' => now()]);
+        });
+
+        return response()->json(['ok' => true]);
+    }
 
     /**
      * Get translations for a competency
@@ -109,9 +205,9 @@ class AdminCompetencyController extends Controller
     public function getCompetencyTranslations(Request $request)
     {
         $competency = Competency::findOrFail($request->id);
+        $orgId = session('org_id');
         
         // Check permissions - can only edit org competencies
-        $orgId = session('org_id');
         if ($competency->organization_id !== $orgId) {
             return abort(403, 'Cannot edit global competencies from admin panel');
         }
@@ -141,9 +237,9 @@ class AdminCompetencyController extends Controller
     public function saveCompetencyTranslations(Request $request)
     {
         $competency = Competency::findOrFail($request->id);
+        $orgId = session('org_id');
         
         // Check permissions
-        $orgId = session('org_id');
         if ($competency->organization_id !== $orgId) {
             return abort(403, 'Cannot edit global competencies from admin panel');
         }
@@ -174,9 +270,9 @@ class AdminCompetencyController extends Controller
     public function translateCompetencyWithAI(Request $request)
     {
         $competency = Competency::findOrFail($request->id);
+        $orgId = session('org_id');
         
         // Check permissions
-        $orgId = session('org_id');
         if ($competency->organization_id !== $orgId) {
             return abort(403, 'Cannot edit global competencies from admin panel');
         }
@@ -203,9 +299,9 @@ class AdminCompetencyController extends Controller
     public function getQuestionTranslations(Request $request)
     {
         $question = CompetencyQuestion::findOrFail($request->id);
+        $orgId = session('org_id');
         
         // Check permissions through competency
-        $orgId = session('org_id');
         if ($question->competency->organization_id !== $orgId) {
             return abort(403, 'Cannot edit questions for global competencies from admin panel');
         }
@@ -237,13 +333,14 @@ class AdminCompetencyController extends Controller
 
     /**
      * Save translations for a competency question
+     * FIXED: Use setTranslation() method instead of setQuestionTranslation()
      */
     public function saveQuestionTranslations(Request $request)
     {
         $question = CompetencyQuestion::findOrFail($request->id);
+        $orgId = session('org_id');
         
         // Check permissions
-        $orgId = session('org_id');
         if ($question->competency->organization_id !== $orgId) {
             return abort(403, 'Cannot edit questions for global competencies from admin panel');
         }
@@ -253,6 +350,7 @@ class AdminCompetencyController extends Controller
         try {
             foreach ($translations as $language => $fields) {
                 if (is_array($fields)) {
+                    // FIXED: Use the correct method name setTranslation()
                     $question->setTranslation($language, $fields);
                 }
             }
@@ -272,9 +370,9 @@ class AdminCompetencyController extends Controller
     public function translateQuestionWithAI(Request $request)
     {
         $question = CompetencyQuestion::findOrFail($request->id);
+        $orgId = session('org_id');
         
         // Check permissions
-        $orgId = session('org_id');
         if ($question->competency->organization_id !== $orgId) {
             return abort(403, 'Cannot edit questions for global competencies from admin panel');
         }
@@ -292,109 +390,5 @@ class AdminCompetencyController extends Controller
             'success' => true,
             'translations' => $translations
         ]);
-    }
-
-    public function removeCompetency(Request $request)
-    {
-        $comp = Competency::findOrFail($request->id);
-        
-        // Check permissions
-        $orgId = session('org_id');
-        if ($comp->organization_id !== $orgId) {
-            return abort(403, 'Cannot remove global competencies from admin panel');
-        }
-        
-        AjaxService::DBTransaction(function() use ($comp) {
-            $comp->update(['removed_at' => now()]);
-        });
-
-        return response()->json(['ok' => true]);
-    }
-
-    public function getCompetencyQuestion(Request $request)
-    {
-        return CompetencyQuestion::findOrFail($request->id);
-    }
-
-    public function saveCompetencyQuestion(Request $request)
-    {
-        $comp = Competency::findOrFail($request->competency_id);
-        $q = CompetencyQuestion::find($request->id);
-        
-        $orgId = session('org_id');
-        
-        $this->validate($request, [
-            'question' => ['required'],
-            'question_self' => ['required'],
-            'min_label' => ['required'],
-            'max_label' => ['required'],
-            'scale' => ['required', 'numeric', 'min:3', 'max:10']
-        ], [], [
-            'question' => __('admin/competencies.question'),
-            'question_self' => __('admin/competencies.question-self'),
-            'min_label' => __('admin/competencies.min-label'),
-            'max_label' => __('admin/competencies.max-label'),
-            'scale' => __('admin/competencies.scale')
-        ]);
-
-        AjaxService::DBTransaction(function() use ($request, &$q, $comp, $orgId) {
-            if (is_null($q)) {
-                $q = CompetencyQuestion::create([
-                    'competency_id' => $comp->id,
-                    'organization_id' => $orgId,
-                    'question' => $request->question,
-                    'question_self' => $request->question_self,
-                    'min_label' => $request->min_label,
-                    'max_label' => $request->max_label,
-                    'max_value' => $request->scale,
-                    'original_language' => LanguageService::getCurrentLocale(),
-                    'available_languages' => [LanguageService::getCurrentLocale()],
-                ]);
-                
-                // Set initial translations
-                $q->setTranslation(LanguageService::getCurrentLocale(), [
-                    'question' => $request->question,
-                    'question_self' => $request->question_self,
-                    'min_label' => $request->min_label,
-                    'max_label' => $request->max_label,
-                ]);
-                $q->save();
-            } else {
-                // Update translation for current language
-                $currentLocale = LanguageService::getCurrentLocale();
-                $q->setTranslation($currentLocale, [
-                    'question' => $request->question,
-                    'question_self' => $request->question_self,
-                    'min_label' => $request->min_label,
-                    'max_label' => $request->max_label,
-                ]);
-                
-                $q->question = $request->question;
-                $q->question_self = $request->question_self;
-                $q->min_label = $request->min_label;
-                $q->max_label = $request->max_label;
-                $q->max_value = $request->scale;
-                $q->save();
-            }
-        });
-
-        return response()->json(['ok' => true, 'id' => $q->id]);
-    }
-
-    public function removeCompetencyQuestion(Request $request)
-    {
-        $q = CompetencyQuestion::findOrFail($request->id);
-        
-        // Check permissions through competency
-        $orgId = session('org_id');
-        if ($q->competency->organization_id !== $orgId) {
-            return abort(403, 'Cannot remove questions for global competencies from admin panel');
-        }
-        
-        AjaxService::DBTransaction(function() use ($q) {
-            $q->update(['removed_at' => now()]);
-        });
-
-        return response()->json(['ok' => true]);
     }
 }

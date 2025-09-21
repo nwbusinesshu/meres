@@ -142,19 +142,19 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
     // competency
     Route::controller(AdminCompetencyController::class)->name('competency.')->prefix('/competency')->group(function () {
         Route::get('/index', 'index')->name('index');
-        Route::post('/all', 'getAllCompetency')->name('all');
         Route::post('/save', 'saveCompetency')->name('save');
         Route::post('/remove', 'removeCompetency')->name('remove');
+        Route::get('/question/get', 'getCompetencyQuestion')->name('question.get');
         Route::post('/question/save', 'saveCompetencyQuestion')->name('question.save');
-        Route::post('/question/get', 'getCompetencyQuestion')->name('question.get');
         Route::post('/question/remove', 'removeCompetencyQuestion')->name('question.remove');
+        
+        // Translation routes for admin competencies
         Route::post('/translations/get', 'getCompetencyTranslations')->name('translations.get');
         Route::post('/translations/save', 'saveCompetencyTranslations')->name('translations.save');
         Route::post('/translations/ai', 'translateCompetencyWithAI')->name('translations.ai');
         Route::post('/question/translations/get', 'getQuestionTranslations')->name('question.translations.get');
         Route::post('/question/translations/save', 'saveQuestionTranslations')->name('question.translations.save');
         Route::post('/question/translations/ai', 'translateQuestionWithAI')->name('question.translations.ai');
-
     });
 
     // ceoranks
@@ -178,6 +178,11 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
             Route::post('/thresholds', 'saveThresholds')->name('save');
         });
 });
+
+// Admin competencies direct route (alternative access)
+Route::get('/admin/competencies', [AdminCompetencyController::class, 'index'])
+    ->name('admin.competencies')
+    ->middleware(['auth:' . UserType::ADMIN, 'org']);
 
 // NORMAL USER ROUTES (includes CEO and Manager access via middleware)
 Route::middleware(['auth:'.UserType::NORMAL, 'org'])->group(function () {
@@ -239,10 +244,10 @@ Route::prefix('/superadmin')->name('superadmin.')->middleware(['auth:' . UserTyp
 Route::get('/superadmin/exit-company', [SuperAdminController::class, 'exitCompany'])->name('superadmin.exit-company');
 Route::get('/superadmin/org/{id}/data', [SuperAdminController::class, 'getOrgData'])->name('superadmin.org.data');
 
-// SUPERADMIN COMPETENCY ROUTES - FIXED: Added proper route aliases for JavaScript compatibility
-Route::prefix('superadmin/competency')
+// SUPERADMIN COMPETENCY ROUTES - FIXED: Added 'org' middleware for consistency
+Route::prefix('/superadmin/competency')
     ->name('superadmin.competency.')
-    ->middleware(['auth:' . UserType::SUPERADMIN])
+    ->middleware(['auth:' . UserType::SUPERADMIN, 'org'])  // FIXED: Added 'org' middleware
     ->controller(GlobalCompetencyController::class)
     ->group(function () {
         Route::get('/index', 'index')->name('index');
@@ -252,10 +257,12 @@ Route::prefix('superadmin/competency')
         Route::post('/question/save', 'saveCompetencyQuestion')->name('question.save');
         Route::post('/question/remove', 'removeCompetencyQuestion')->name('question.remove');
         
-        // FIXED: Add aliases for JavaScript compatibility
-        Route::post('/question/remove', 'removeCompetencyQuestion')->name('q.remove'); // Alias for JS
-        Route::post('/question/save', 'saveCompetencyQuestion')->name('q.save');      // Alias for JS  
-        Route::get('/question/get', 'getCompetencyQuestion')->name('q.get');          // Alias for JS
+        // Aliases for JavaScript compatibility (backward compatibility)
+        Route::post('/question/remove-alias', 'removeCompetencyQuestion')->name('q.remove');
+        Route::post('/question/save-alias', 'saveCompetencyQuestion')->name('q.save');
+        Route::get('/question/get-alias', 'getCompetencyQuestion')->name('q.get');
+        
+        // Translation routes for global competencies
         Route::post('/translations/get', 'getCompetencyTranslations')->name('translations.get');
         Route::post('/translations/save', 'saveCompetencyTranslations')->name('translations.save');
         Route::post('/translations/ai', 'translateCompetencyWithAI')->name('translations.ai');
@@ -263,9 +270,12 @@ Route::prefix('superadmin/competency')
         Route::post('/question/translations/save', 'saveQuestionTranslations')->name('question.translations.save');
         Route::post('/question/translations/ai', 'translateQuestionWithAI')->name('question.translations.ai');
     });
-    
-Route::get('/superadmin/global-competencies', [GlobalCompetencyController::class, 'index'])->name('superadmin.global-competencies');
 
+// Superadmin global competencies direct route (alternative access)
+Route::get('/superadmin/global-competencies', [GlobalCompetencyController::class, 'index'])
+    ->name('superadmin.global-competencies')
+    ->middleware(['auth:' . UserType::SUPERADMIN, 'org']);  // FIXED: Added 'org' middleware
+    
 // Flash message route
 Route::post('/flash-success', function (\Illuminate\Http\Request $request) {
     session()->flash('success', $request->input('message'));
