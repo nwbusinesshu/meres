@@ -2,7 +2,7 @@
 
 @section('head-extra')
   {{-- opcionális saját CSS a laphoz; ha még nincs, maradhat így is --}}
-  <link rel="stylesheet" href="{{ assets('css/pages/password-setup.css') }}">
+  <link rel="stylesheet" href="{{ asset('assets/css/pages/password-setup.css') }}">
 @endsection
 
 @section('content')
@@ -12,7 +12,7 @@
 
   {{-- Jelszó beállítás --}}
   <form method="POST"
-        action="{{ route('password-setup.store', ['org' => $org->slug, 'token' => $token]) }}"
+        action="{{ route('password-setup.store', ['token' => $token]) }}"
         class="w-100"
         style="max-width:420px;margin:0 auto;">
     @csrf
@@ -78,7 +78,6 @@
   </a>
   <a href="{{ route('trigger-microsoft-login') }}" role="button" class="btn btn-outline-secondary btn-block trigger-microsoft-login" style="max-width:420px;margin:0 auto;">
     Belépés Microsofttal <i class="fa-brands fa-microsoft"></i> </a>
-
 
   <img class="mewocont-logo" src="{{ asset('assets/logo/nwb_logo.svg') }}" alt="">
 </div>

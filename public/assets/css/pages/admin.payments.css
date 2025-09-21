@@ -1,3 +1,102 @@
 .payments-section { margin-top: 24px; }
 .payments-table th, .payments-table td { vertical-align: middle; }
 .empty-note { padding: 12px 16px; background: #f8f9fa; border: 1px dashed #cfd8dc; border-radius: 8px; color: #607d8b; }
+@media (max-width: 768px) {
+  .payment-table {
+    display: none;
+  }
+  
+  .payment-mobile-cards {
+    display: block;
+    width: 95%;
+  }
+  
+  .payment-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  }
+  
+  .payment-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 0.5rem;
+  }
+  
+  .payment-card-amount {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: #28a745;
+  }
+  
+  .payment-card-details {
+    margin-bottom: 1rem;
+  }
+  
+  .payment-card-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+  }
+  
+  .payment-card-label {
+    font-weight: 600;
+    color: #6c757d;
+    min-width: 120px;
+  }
+  
+  .payment-card-value {
+    text-align: right;
+    flex: 1;
+  }
+  
+  .payment-card-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  
+  .payment-card-actions .btn {
+    flex: 1;
+    min-height: 44px; /* Touch-friendly size */
+  }
+  
+  .payment-empty-mobile {
+    text-align: center;
+    padding: 2rem;
+    color: #6c757d;
+    font-style: italic;
+  }
+}
+
+@media (min-width: 769px) {
+  .payment-mobile-cards {
+    display: none;
+  }
+  
+  .payment-table {
+    display: table;
+  }
+}
+
+/* Ensure badges look good on mobile */
+.badge {
+  font-size: 0.875rem;
+  padding: 0.375rem 0.75rem;
+}
+
+/* Make buttons more touch-friendly */
+@media (max-width: 768px) {
+  .btn-sm {
+    min-height: 40px;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+}

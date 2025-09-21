@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
-
 class PasswordSetupService
 {
     // MEGLÉVŐ createAndSend(...) maradhat, de küldjön setup levelet:
@@ -49,8 +48,8 @@ class PasswordSetupService
             'used_at'         => null,
         ]);
 
-        // URL összeállítás
-        $url = url(sprintf('/%s/password-setup/%s', $org->slug, $plainToken));
+        // FIXED: URL generation without org slug - matches the GET route
+        $url = route('password-setup.show', ['token' => $plainToken]);
 
         // A megfelelőt küldjük
         if ($purpose === 'reset') {
@@ -64,6 +63,7 @@ class PasswordSetupService
             'org_id'  => $org->id,
             'user_id' => $user->id,
             'to'      => $user->email,
+            'url'     => $url, // Log the generated URL for debugging
         ]);
 
         return $plainToken;

@@ -14,10 +14,10 @@ class PasswordSetupController extends Controller
 {
     public function show(Request $request, string $token)
     {
-
         $row = DB::table('password_setup as ps')
             ->join('user as u', 'u.id', '=', 'ps.user_id')
-            ->select('ps.id as ps_id', 'ps.expires_at', 'ps.used_at', 'u.id as user_id')
+            ->join('organization as o', 'o.id', '=', 'ps.organization_id')
+            ->select('ps.id as ps_id', 'ps.expires_at', 'ps.used_at', 'ps.organization_id', 'u.id as user_id', 'o.slug as org_slug')
             ->whereNull('ps.used_at')
             ->where('ps.expires_at', '>', now())
             ->where('ps.token_hash', hash('sha256', $token))
@@ -29,6 +29,7 @@ class PasswordSetupController extends Controller
         }
 
         $user = User::findOrFail($row->user_id);
+        $organization = Organization::findOrFail($row->organization_id);
 
         if (!$user || !is_null($user->removed_at)) {
             return redirect()->route('login')->with('error', 'A felhasználói fiók nem aktív.');
@@ -38,23 +39,28 @@ class PasswordSetupController extends Controller
             'email' => $user->email,
             'token' => $token,
             'user'  => $user,
+            'org'   => $organization, // Pass organization to view
         ]);
     }
 
-    public function store(Request $request, string $org, string $token)
+    public function store(Request $request, string $token)
     {
-        $organization = Organization::where('slug', $org)->firstOrFail();
-
-        $ps = PasswordSetup::where('organization_id', $organization->id)
-            ->where('token_hash', hash('sha256', $token))
-            ->whereNull('used_at')
+        // FIXED: Look up organization from password_setup table instead of URL parameter
+        $ps = DB::table('password_setup as ps')
+            ->join('organization as o', 'o.id', '=', 'ps.organization_id')
+            ->select('ps.*', 'o.slug as org_slug')
+            ->where('ps.token_hash', hash('sha256', $token))
+            ->whereNull('ps.used_at')
             ->first();
 
         if (!$ps || now()->greaterThan($ps->expires_at)) {
             return redirect()->route('login')->with('error', 'A jelszó beállító link érvénytelen vagy lejárt.');
         }
 
-        $user = $ps->user;
+        $organization = Organization::findOrFail($ps->organization_id);
+        $passwordSetup = PasswordSetup::findOrFail($ps->id);
+        $user = $passwordSetup->user;
+
         if (!$user || !is_null($user->removed_at)) {
             return redirect()->route('login')->with('error', 'A felhasználói fiók nem aktív.');
         }
@@ -71,8 +77,8 @@ class PasswordSetupController extends Controller
         $user->save();
 
         // token lezárása
-        $ps->used_at = now();
-        $ps->save();
+        $passwordSetup->used_at = now();
+        $passwordSetup->save();
 
         // beléptetés + session
         $request->session()->regenerate();
@@ -91,6 +97,8 @@ class PasswordSetupController extends Controller
             $user->logins()->create([
                 'logged_in_at' => now()->format('Y-m-d H:i:s'),
                 'token'        => session()->getId(),
+                'ip'           => $request->ip(),
+                'user_agent'   => substr($request->userAgent(), 0, 255),
             ]);
         } catch (\Throwable $e) {
             // csendben tovább; ha később bővítjük a táblát ip/ua-val, itt írjuk hozzá

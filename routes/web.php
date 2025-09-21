@@ -53,6 +53,14 @@ Route::controller(LoginController::class)->middleware('auth:'.UserType::GUEST)->
     Route::post('/attempt-password-login', 'passwordLogin')
         ->name('attempt-password-login')
         ->middleware('throttle:5,1');
+
+    Route::post('/verify-2fa-code', 'verify2faCode')
+        ->name('verify-2fa-code')
+        ->middleware('throttle:10,1');
+    
+    Route::post('/resend-2fa-code', 'resend2faCode')
+        ->name('resend-2fa-code')
+        ->middleware('throttle:5,1');
 });
 
 // Password setup (guest)
@@ -60,7 +68,7 @@ Route::controller(PasswordSetupController::class)
     ->middleware('auth:'.\App\Models\Enums\UserType::GUEST)
     ->group(function () {
         Route::get('/password-setup/{token}', 'show')->name('password-setup.show');
-        Route::post('/{org}/password-setup/{token}', 'store')->name('password-setup.store');
+        Route::post('/password-setup/{token}', 'store')->name('password-setup.store');
     });
 
 // logout
