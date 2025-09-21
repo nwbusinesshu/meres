@@ -59,7 +59,7 @@ Route::controller(LoginController::class)->middleware('auth:'.UserType::GUEST)->
 Route::controller(PasswordSetupController::class)
     ->middleware('auth:'.\App\Models\Enums\UserType::GUEST)
     ->group(function () {
-        Route::get('/{org}/password-setup/{token}', 'show')->name('password-setup.show');
+        Route::get('/password-setup/{token}', 'show')->name('password-setup.show');
         Route::post('/{org}/password-setup/{token}', 'store')->name('password-setup.store');
     });
 

@@ -12,14 +12,12 @@ use App\Models\User;
 
 class PasswordSetupController extends Controller
 {
-    public function show(Request $request, string $org, string $token)
+    public function show(Request $request, string $token)
     {
-        $organization = Organization::where('slug', $org)->firstOrFail();
 
         $row = DB::table('password_setup as ps')
             ->join('user as u', 'u.id', '=', 'ps.user_id')
             ->select('ps.id as ps_id', 'ps.expires_at', 'ps.used_at', 'u.id as user_id')
-            ->where('ps.organization_id', $organization->id)
             ->whereNull('ps.used_at')
             ->where('ps.expires_at', '>', now())
             ->where('ps.token_hash', hash('sha256', $token))
@@ -37,7 +35,6 @@ class PasswordSetupController extends Controller
         }
 
         return view('password-setup', [
-            'org'   => $organization,
             'email' => $user->email,
             'token' => $token,
             'user'  => $user,

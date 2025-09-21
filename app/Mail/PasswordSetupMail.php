@@ -7,7 +7,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use App\Models\Organization;
-use App\Models\User
+use App\Models\User;
 
 class PasswordSetupMail extends Mailable
 {
@@ -29,7 +29,7 @@ class PasswordSetupMail extends Mailable
     public function build()
     {
         return $this->subject('Jelszó beállítása – 360 értékelés')
-            ->view('emails.password_setup', [
+            ->view('emails.password.setup', [
                 'url'        => $this->url,
                 'email'      => $this->user->email,
                 'org'        => $this->org->name,
