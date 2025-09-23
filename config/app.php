@@ -97,6 +97,21 @@ return [
 
     'fallback_locale' => 'en',
 
+    /**
+     * A rendszer által támogatott nyelvek (ISO kódok).
+     * Ezt a listát használjuk a nyelvválasztóhoz és a fordítási cél-nyelvekhez.
+     * BŐVÍTSD SZABADON (pl. 'de', 'ro', 'sk', 'cs', 'pl', stb.)
+     */
+    'available_locales' => [
+        'hu' => 'Magyar',
+        'en' => 'English',
+        // 'de' => 'Deutsch',
+        // 'ro' => 'Română',
+        // 'sk' => 'Slovenčina',
+        // 'cs' => 'Čeština',
+        // 'pl' => 'Polski',
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Faker Locale

@@ -7,24 +7,45 @@
 @section('content')
 <h1>{{ __('admin/competencies.title') }}</h1>
 
+@php
+  // A támogatott nyelvek a configból, és az aktuális locale
+  $availableLocales = config('app.available_locales', ['hu' => 'Magyar', 'en' => 'English']);
+  $currentLocale = app()->getLocale();
+
+  // A kiválasztott (fordítási) nyelvek – ha később lesz per-user/per-org mentés, innen lehet betölteni
+  // Most induló érték: minden elérhető nyelv
+  $selectedLanguageCodes = array_keys($availableLocales);
+@endphp
+
+<div id="competency-page"
+     data-route-get-question="{{ route('admin.competency.question.get') }}"
+     data-route-get-competency="{{ route('admin.competency.get') }}"
+     data-route-save-competency="{{ route('admin.competency.save') }}"
+     data-route-save-question="{{ route('admin.competency.question.save') }}"
+     data-current-locale="{{ $currentLocale }}"
+     data-original-locale="{{ $currentLocale }}"
+     data-selected-languages='@json($selectedLanguageCodes)'
+     data-available-locales='@json($availableLocales)'>
+
 {{-- Language Setup Tile --}}
 <div class="fixed-row">
   <div class="tile tile-info language-setup">
     <div class="language-setup-content">
-      <span>{{ __('admin/competencies.selected-languages') }}</span>
-      <div class="selected-languages">
-        @foreach($selectedLanguages as $lang)
-          <span class="language-badge" data-lang="{{ $lang }}">
-            {{ $languageNames[$lang] ?? strtoupper($lang) }}
-            @if($lang !== $currentLocale)
-              <i class="fa fa-times remove-language" data-lang="{{ $lang }}"></i>
-            @endif
-          </span>
-        @endforeach
-      </div>
-      <button class="btn btn-sm btn-outline-primary manage-languages">
-        <i class="fa fa-cog"></i> {{ __('admin/competencies.manage-languages') }}
-      </button>
+      <span>{{ __('admin/competencies.language_setup') }}</span>
+        <div class="language-setup-content">
+          <div class="selected-languages" id="selected-languages">
+            @foreach($selectedLanguageCodes as $code)
+              <span class="language-badge" data-code="{{ $code }}">
+                {{ $availableLocales[$code] ?? strtoupper($code) }}
+              </span>
+            @endforeach
+          </div>
+          <button type="button"
+                  class="btn btn-outline-primary manage-languages"
+                  data-tippy-content="{{ __('admin/competencies.manage_languages') }}">
+            <i class="fa fa-language"></i> {{ __('admin/competencies.manage_languages') }}
+          </button>
+        </div>
     </div>
   </div>
 </div>
