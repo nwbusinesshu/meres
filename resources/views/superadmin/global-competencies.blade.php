@@ -1,217 +1,98 @@
 @extends('layouts.master')
 
 @section('head-extra')
+<link rel="stylesheet" href="{{ asset('assets/css/pages/admin.competencies.css') }}">
 @endsection
 
 @section('content')
-<h1>{{ __('admin/competencies.global-competencies') }}</h1>
+<h1>{{ __('superadmin/global-competencies.title') }}</h1>
 
-{{-- Language Context Information --}}
-<div class="current-language-info">
-  <i class="fas fa-info-circle"></i>
-  <strong>{{ __('translations.current-language') }}:</strong> 
-  {{ $languageNames[$currentLocale] ?? strtoupper($currentLocale) }}
-  <small class="text-muted ml-2">
-    {{ __('translations.viewing-in-language', ['language' => $languageNames[$currentLocale] ?? strtoupper($currentLocale)]) }}
+{{-- Global competencies note --}}
+<div class="alert alert-info">
+  <i class="fa fa-globe"></i>
+  {{ __('superadmin/global-competencies.global-note') }}
+  <small class="d-block mt-1">
+    {{ __('superadmin/global-competencies.current-language') }}: {{ $languageNames[$currentLocale] ?? strtoupper($currentLocale) }}
   </small>
 </div>
 
 <div class="fixed-row">
   <div class="tile tile-info competency-search">
-    <span>{{ __('admin/competencies.search') }}</span>
+    <span>{{ __('superadmin/global-competencies.search') }}</span>
     <div>
-      <input type="text" class="form-control competency-search-input" placeholder="{{ __('admin/competencies.search') }}...">
-      <i class="fa fa-ban competency-clear-search" data-tippy-content="{{ __('admin/competencies.search-clear') }}"></i>
+      <input type="text" class="form-control competency-search-input">
+      <i class="fa fa-ban competency-clear-search" data-tippy-content="{{ __('superadmin/global-competencies.search-clear') }}"></i>
     </div>
   </div>
-  <div class="tile tile-button create-competency">
-    <span><i class="fa fa-circle-plus"></i>{{ __('admin/competencies.create-competency') }}</span>
-  </div>
+  <div class="tile tile-button create-competency"><span><i class="fa fa-circle-plus"></i>{{ __('superadmin/global-competencies.create-competency') }}</span></div>
 </div>
 
-<div class="competency-list competency-list--global-crud">
-  @forelse ($globals as $comp)
-    <div class="tile competency-item" data-id="{{ $comp->id }}" data-name="{{ $comp->getTranslatedName() }}">
-      <div class="bar">
-        <span><i class="fa fa-caret-down"></i>{{ $comp->getTranslatedName() }}</span>
-        
-        {{-- Translation Status Indicators --}}
-        <div class="competency-translation-status">
-          @foreach($availableLanguages as $lang)
-            @php
-              $hasTranslation = $comp->hasTranslation($lang);
-              $isOriginal = $lang === $comp->original_language;
-              $statusClass = $isOriginal ? 'original' : ($hasTranslation ? 'available' : 'missing');
-              $tooltip = $isOriginal ? 
-                __('translations.original-language') . ': ' . ($languageNames[$lang] ?? strtoupper($lang)) :
-                ($hasTranslation ? 
-                  __('translations.translated-to') . ': ' . ($languageNames[$lang] ?? strtoupper($lang)) :
-                  __('translations.missing-translation') . ': ' . ($languageNames[$lang] ?? strtoupper($lang))
-                );
-            @endphp
-            <span class="language-indicator {{ $statusClass }}" 
-                  data-tippy-content="{{ $tooltip }}">
-              {{ strtoupper($lang) }}
-            </span>
-          @endforeach
-        </div>
-        
-        <div>
-          <button class="btn btn-outline-primary btn-sm manage-translations" 
-                  data-competency-id="{{ $comp->id }}"
-                  data-tippy-content="{{ __('translations.manage-translations') }}">
-            <i class="fa fa-language"></i>
-          </button>
-          <button class="btn btn-outline-danger remove-competency" data-tippy-content="{{ __('admin/competencies.remove-competency') }}"><i class="fa fa-trash-alt"></i></button>
-          <button class="btn btn-outline-warning modify-competency" data-tippy-content="{{ __('admin/competencies.modify-competency') }}"><i class="fa fa-file-pen"></i></button>
-        </div>
-      </div>
-
-      <div class="questions hidden">
-        <div class="create-question tile tile-button">
-          <span><i class="fa fa-circle-plus"></i>{{ __('admin/competencies.create-question') }}</span>
-        </div>
-
-        @foreach ($comp->questions as $q)
-          <div class="question-item tile" data-id="{{ $q->id }}">
-            <div class="bar">
-              <span>{{ $q->getTranslatedQuestion() }}</span>
-              
-              {{-- Question Translation Status --}}
-              <div class="question-translation-status">
-                @foreach($availableLanguages as $lang)
-                  @php
-                    $hasTranslation = $q->hasTranslation($lang);
-                    $isOriginal = $lang === $q->original_language;
-                    $isPartial = $q->hasPartialTranslation($lang);
-                    $statusClass = $isOriginal ? 'original' : 
-                                  ($hasTranslation ? 'available' : 
-                                   ($isPartial ? 'partial' : 'missing'));
-                    $tooltip = $isOriginal ? 
-                      __('translations.original-language') . ': ' . ($languageNames[$lang] ?? strtoupper($lang)) :
-                      ($hasTranslation ? 
-                        __('translations.complete-translation') . ': ' . ($languageNames[$lang] ?? strtoupper($lang)) :
-                        ($isPartial ?
-                          __('translations.partial-translation') . ': ' . ($languageNames[$lang] ?? strtoupper($lang)) :
-                          __('translations.missing-translation') . ': ' . ($languageNames[$lang] ?? strtoupper($lang))
-                        )
-                      );
-                  @endphp
-                  <span class="language-indicator {{ $statusClass }}" 
-                        data-tippy-content="{{ $tooltip }}">
-                    {{ strtoupper($lang) }}
-                  </span>
-                @endforeach
-              </div>
-              
-              <div>
-                <button class="btn btn-outline-primary btn-sm manage-question-translations" 
-                        data-question-id="{{ $q->id }}"
-                        data-tippy-content="{{ __('translations.manage-question-translations') }}">
-                  <i class="fa fa-language"></i>
-                </button>
-                <button class="btn btn-outline-danger remove-question" 
-                        data-tippy-content="{{ __('admin/competencies.remove-question') }}">
-                  <i class="fa fa-trash-alt"></i>
-                </button>
-                <button class="btn btn-outline-warning modify-question" 
-                        data-tippy-content="{{ __('admin/competencies.modify-question') }}">
-                  <i class="fa fa-file-pen"></i>
-                </button>
-              </div>
-            </div>
-
-            <div class="question-details">
-              <p><strong>{{ __('admin/competencies.question') }}:</strong> {{ $q->getTranslatedQuestion() }}</p>
-              <p><strong>{{ __('admin/competencies.question-self') }}:</strong> {{ $q->getTranslatedQuestionSelf() }}</p>
-              <div class="scale-info">
-                <span class="badge badge-info">{{ $q->getTranslatedMinLabel() }}</span>
-                <span class="mx-2">1 - {{ $q->max_value }}</span>
-                <span class="badge badge-success">{{ $q->getTranslatedMaxLabel() }}</span>
-              </div>
-            </div>
-          </div>
+<div class="competency-list">
+@foreach ($globals as $comp)
+<div class="tile competency-item" data-id="{{ $comp->id }}" data-name="{{ $comp->getTranslatedName() }}">
+  <div class="bar">
+    <span>
+      {{-- Warning icon for missing translations --}}
+      @if(!$comp->hasCompleteTranslations($availableLanguages))
+        <i class="fa fa-exclamation-triangle warning-icon" data-tippy-content="{{ __('superadmin/global-competencies.missing-translations') }}"></i>
+      @endif
+      <i class="fa fa-caret-down"></i>{{ $comp->getTranslatedName() }}
+      
+      {{-- Language indicators --}}
+      <div class="translation-indicators">
+        @foreach($availableLanguages as $lang)
+          <span class="lang-indicator {{ $comp->hasTranslation($lang) ? 'available' : 'missing' }} {{ $lang === $comp->original_language ? 'original' : '' }}" 
+                data-tippy-content="{{ $languageNames[$lang] ?? strtoupper($lang) }} - {{ $comp->hasTranslation($lang) ? __('superadmin/global-competencies.available') : __('superadmin/global-competencies.missing') }}">
+            {{ strtoupper($lang) }}
+          </span>
         @endforeach
       </div>
-    </div>
-  @empty
-    <div class="tile no-competency">
-      <span>{{ __('admin/competencies.no-competencies') }}</span>
-    </div>
-  @endforelse
-</div>
-
-{{-- Translation Management Modal --}}
-<div class="modal fade" id="translation-management-modal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">{{ __('translations.manage-translations') }}</h5>
-        <button type="button" class="close" data-dismiss="modal">&times;</button>
+    </span>
+    <button class="btn btn-outline-info manage-translations" data-id="{{ $comp->id }}" data-tippy-content="{{ __('superadmin/global-competencies.manage-translations') }}"><i class="fa fa-language"></i></button>
+    <button class="btn btn-outline-danger remove-competency" data-tippy-content="{{ __('superadmin/global-competencies.remove-competency') }}"><i class="fa fa-trash-alt"></i></button>
+    <button class="btn btn-outline-warning modify-competency" data-tippy-content="{{ __('superadmin/global-competencies.modify-competency') }}"><i class="fa fa-file-pen"></i></button>
+  </div>
+  <div class="questions hidden">
+    <div class="tile tile-button create-question">{{ __('superadmin/global-competencies.create-question') }}</div>
+    @foreach ($comp->questions as $q)
+    <div class="question-item" data-id="{{ $q->id }}">
+      <div>
+        <span>{{ __('superadmin/global-competencies.question') }} #{{ $loop->index+1 }}</span>
+        <div>
+          <button class="btn btn-outline-info manage-question-translations" data-id="{{ $q->id }}" data-tippy-content="{{ __('superadmin/global-competencies.manage-translations') }}"><i class="fa fa-language"></i></button>
+          <button class="btn btn-outline-danger remove-question" data-tippy-content="{{ __('superadmin/global-competencies.question-remove') }}"><i class="fa fa-trash-alt"></i></button>
+          <button class="btn btn-outline-warning modify-question" data-tippy-content="{{ __('superadmin/global-competencies.question-modify') }}"><i class="fa fa-file-pen"></i></button>
+        </div>
       </div>
-      <div class="modal-body">
-        <div id="translation-content">
-          <!-- Content will be loaded dynamically -->
+      <div>
+        <p>{{ $q->getTranslatedQuestion() }}</p>
+        <p>{{ $q->getTranslatedQuestionSelf() }}</p>
+      </div>
+      <div>
+        <p>{{ __('superadmin/global-competencies.min-label') }}<span>{{ $q->getTranslatedMinLabel() }}</span></p>
+        <p>{{ __('superadmin/global-competencies.max-label') }}<span>{{ $q->getTranslatedMaxLabel() }}</span></p>
+        <p>{{ __('superadmin/global-competencies.scale') }}<span>{{ $q->max_value }}</span></p>
+        
+        {{-- Question translation indicators --}}
+        <div class="question-translation-indicators">
+          @foreach($availableLanguages as $lang)
+            @if(!$q->hasCompleteTranslation($lang))
+              <i class="fa fa-exclamation-triangle warning-icon small" data-tippy-content="{{ __('superadmin/global-competencies.missing-translation-for') }} {{ $languageNames[$lang] ?? strtoupper($lang) }}"></i>
+            @endif
+          @endforeach
         </div>
       </div>
     </div>
+    @endforeach
   </div>
 </div>
-
-{{-- Question Translation Management Modal --}}
-<div class="modal fade" id="question-translation-modal" tabindex="-1">
-  <div class="modal-dialog modal-xl">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">{{ __('translations.manage-question-translations') }}</h5>
-        <button type="button" class="close" data-dismiss="modal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div id="question-translation-content">
-          <!-- Content will be loaded dynamically -->
-        </div>
-      </div>
-    </div>
-  </div>
+@endforeach
+<div class="no-competency @if(!$globals->isEmpty()) hidden @endif"><p>{{ __('superadmin/global-competencies.no-competency') }}</p></div>
 </div>
 
-@endsection
-
-@section('modals')
-  @include('admin.modals.competency')
-  @include('admin.modals.competencyq')
 @endsection
 
 @section('scripts')
-<script>
-// Pass data to JavaScript
-window.availableLanguages = @json($availableLanguages);
-window.languageNames = @json($languageNames);
-window.currentLocale = @json($currentLocale);
-
-// Define routes for JavaScript
-window.routes = {
-  superadmin_competency_remove: "{{ route('superadmin.competency.remove') }}",
-  superadmin_competency_q_remove: "{{ route('superadmin.competency.q.remove') }}",
-  superadmin_competency_translations_get: "{{ route('superadmin.competency.translations.get') }}",
-  superadmin_competency_translations_save: "{{ route('superadmin.competency.translations.save') }}",
-  superadmin_competency_translations_ai: "{{ route('superadmin.competency.translations.ai') }}",
-  superadmin_competency_question_translations_get: "{{ route('superadmin.competency.question.translations.get') }}",
-  superadmin_competency_question_translations_save: "{{ route('superadmin.competency.question.translations.save') }}",
-  superadmin_competency_question_translations_ai: "{{ route('superadmin.competency.question.translations.ai') }}"
-};
-</script>
-<script src="{{ asset('assets/js/superadmin/global-competencies.js') }}"></script>
-
-{{-- Additional event handlers for question translations --}}
-<script>
-$(document).ready(function() {
-  // Question translation management
-  $(document).on('click', '.manage-question-translations', function(e) {
-    e.stopPropagation();
-    const questionId = $(this).data('question-id');
-    openQuestionTranslationModal(questionId);
-  });
-});
-</script>
+@include('admin.modals.competency')
+@include('admin.modals.competencyq')
 @endsection

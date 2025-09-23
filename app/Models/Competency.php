@@ -18,6 +18,10 @@ class Competency extends Model
         'available_languages' => 'array',
     ];
 
+    // ================================
+    // RELATIONSHIPS
+    // ================================
+
     public function questions()
     {
         return $this->hasMany(CompetencyQuestion::class, 'competency_id')
@@ -29,6 +33,10 @@ class Competency extends Model
         return $this->belongsToMany(User::class, 'user_competency', 'competency_id', 'user_id', 'id', 'id');
     }
 
+    // ================================
+    // SCOPES
+    // ================================
+
     public function scopeGlobal($q)
     {
         return $q->whereNull('organization_id');
@@ -38,6 +46,10 @@ class Competency extends Model
     {
         return $q->where('organization_id', $orgId);
     }
+
+    // ================================
+    // TRANSLATION METHODS
+    // ================================
 
     /**
      * Get the translated name for the specified locale, with fallback
@@ -50,19 +62,25 @@ class Competency extends Model
 
         // If we have JSON translations, use them
         if ($this->name_json && is_array($this->name_json)) {
-            // Try the requested locale
-            if (isset($this->name_json[$locale])) {
+            // Try the requested locale (with empty string check)
+            if (isset($this->name_json[$locale]) && !empty(trim($this->name_json[$locale]))) {
                 return $this->name_json[$locale];
             }
 
-            // Fallback to original language
-            if (isset($this->name_json[$this->original_language])) {
+            // Fallback to original language (with empty string check)
+            if ($this->original_language && 
+                isset($this->name_json[$this->original_language]) && 
+                !empty(trim($this->name_json[$this->original_language]))) {
                 return $this->name_json[$this->original_language];
             }
 
-            // Fallback to first available translation
-            if (!empty($this->name_json)) {
-                return array_values($this->name_json)[0];
+            // Fallback to first available non-empty translation
+            $availableTranslations = array_filter($this->name_json, function($value) {
+                return !empty(trim($value));
+            });
+            
+            if (!empty($availableTranslations)) {
+                return array_values($availableTranslations)[0];
             }
         }
 
@@ -76,7 +94,7 @@ class Competency extends Model
     public function setTranslation(string $locale, string $name): void
     {
         $translations = $this->name_json ?? [];
-        $translations[$locale] = $name;
+        $translations[$locale] = trim($name); // Trim whitespace
         $this->name_json = $translations;
 
         // Update available languages
@@ -106,8 +124,50 @@ class Competency extends Model
      */
     public function hasTranslation(string $locale): bool
     {
-        return isset($this->name_json[$locale]) && !empty($this->name_json[$locale]);
+        return isset($this->name_json[$locale]) && !empty(trim($this->name_json[$locale]));
     }
+
+    /**
+     * Check if the competency has complete translations for a language
+     * (For competency, this is the same as hasTranslation since there's only one field)
+     */
+    public function isTranslationComplete(string $locale): bool
+    {
+        return $this->hasTranslation($locale);
+    }
+
+    /**
+     * Check if competency has complete translations for all given languages
+     */
+    public function hasCompleteTranslations(array $languages): bool
+    {
+        foreach ($languages as $language) {
+            if (!$this->hasTranslation($language)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Check if competency has any incomplete translations in given languages
+     */
+    public function hasMissingTranslations(array $languages): bool
+    {
+        return !$this->hasCompleteTranslations($languages);
+    }
+
+    /**
+     * Check if this competency needs translation warning
+     */
+    public function needsTranslationWarning(array $selectedLanguages): bool
+    {
+        return $this->hasMissingTranslations($selectedLanguages);
+    }
+
+    // ================================
+    // TRANSLATION INFO
+    // ================================
 
     /**
      * Get all available languages for this competency
@@ -115,14 +175,6 @@ class Competency extends Model
     public function getAvailableLanguages(): array
     {
         return $this->available_languages ?? [];
-    }
-
-    /**
-     * Check if the competency has complete translations for a language
-     */
-    public function isTranslationComplete(string $locale): bool
-    {
-        return $this->hasTranslation($locale);
     }
 
     /**
@@ -134,6 +186,38 @@ class Competency extends Model
         $availableLanguages = $this->getAvailableLanguages();
         return array_diff($systemLanguages, $availableLanguages);
     }
+
+    /**
+     * Get count of missing translations for given languages
+     */
+    public function getMissingTranslationCount(array $languages): int
+    {
+        $missing = 0;
+        foreach ($languages as $language) {
+            if (!$this->hasTranslation($language)) {
+                $missing++;
+            }
+        }
+        return $missing;
+    }
+
+    /**
+     * Get languages where translation exists (non-empty)
+     */
+    public function getTranslatedLanguages(): array
+    {
+        if (!$this->name_json) {
+            return [];
+        }
+        
+        return array_keys(array_filter($this->name_json, function($value) {
+            return !empty(trim($value));
+        }));
+    }
+
+    // ================================
+    // AUTO-ACCESSOR (Backward Compatibility)
+    // ================================
 
     /**
      * Auto-accessor for name - returns translated name for current locale

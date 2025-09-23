@@ -1,6 +1,6 @@
 {{-- Competency Question Modal --}}
 <div class="modal fade" id="competencyq-modal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-xl modal-drawer">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">{{ __('admin/competencies.create-question') }}</h5>
@@ -42,464 +42,579 @@
             <div class="col-md-4">
               <div class="form-group">
                 <label>{{ __('admin/competencies.scale') }} <span class="text-danger">*</span></label>
-                <select class="form-control scale" required>
-                  <option value="">{{ __('admin/competencies.select-scale') }}</option>
-                  @for($i = 3; $i <= 10; $i++)
-                    <option value="{{ $i }}" @if($i == 7) selected @endif>1 - {{ $i }}</option>
-                  @endfor
-                </select>
+                <input type="number" class="form-control scale" value="7" min="2" max="10" required>
               </div>
             </div>
           </div>
-        </div>
 
-        {{-- Multi Language Mode (Translation Mode) --}}
-        <div class="multi-language-mode" style="display: none;">
+          <small class="form-text text-muted mb-3">
+            {{ __('admin/competencies.current-language') }}: {{ $languageNames[$currentLocale] ?? strtoupper($currentLocale) }}
+          </small>
           
-          {{-- Language Tabs --}}
+          {{-- Add Translations Button (appears when fields are filled) --}}
+          <div class="add-translations-section" style="display: none;">
+            <button type="button" class="btn btn-outline-info btn-sm add-question-translations">
+              <i class="fa fa-plus"></i> {{ __('admin/competencies.add-translations') }}
+            </button>
+          </div>
+        </div>
+
+        {{-- Multi-Language Mode (Hidden by default) --}}
+        <div class="multi-language-mode" style="display: none;">
+          {{-- Language tabs --}}
           <div class="language-tabs">
-            <ul class="nav nav-tabs" id="question-language-nav">
-              {{-- Language tabs will be generated dynamically --}}
-            </ul>
+            {{-- Tabs will be populated via JavaScript --}}
           </div>
 
-          {{-- Tab Content --}}
-          <div class="tab-content" id="question-language-content">
-            {{-- Language content will be generated dynamically --}}
+          {{-- Translation fields for each language --}}
+          <div class="translation-content">
+            {{-- Content will be populated via JavaScript --}}
           </div>
 
-          {{-- Shared Scale Field --}}
-          <div class="form-group mt-3">
-            <label>{{ __('admin/competencies.scale') }} <span class="text-danger">*</span></label>
-            <select class="form-control scale-shared" required>
-              <option value="">{{ __('admin/competencies.select-scale') }}</option>
-              @for($i = 3; $i <= 10; $i++)
-                <option value="{{ $i }}" @if($i == 7) selected @endif>1 - {{ $i }}</option>
-              @endfor
-            </select>
-          </div>
-
-          {{-- Translation Warnings --}}
-          <div class="translation-warnings mt-3" style="display: none;">
-            <div class="alert alert-warning">
-              <ul id="translation-warning-list"></ul>
+          {{-- AI Translate Section --}}
+          <div class="ai-translate-section">
+            <hr>
+            <div class="text-center">
+              <button type="button" class="btn btn-info ai-translate-all-questions">
+                <i class="fa fa-robot"></i> {{ __('admin/competencies.ai-translate-all') }}
+              </button>
+              <p class="small text-muted mt-2">{{ __('admin/competencies.ai-translate-help') }}</p>
             </div>
+          </div>
+
+          {{-- Back to simple mode --}}
+          <div class="text-center mt-3">
+            <button type="button" class="btn btn-sm btn-outline-secondary back-to-simple-question">
+              <i class="fa fa-arrow-left"></i> {{ __('admin/competencies.back-to-simple') }}
+            </button>
           </div>
         </div>
 
-        {{-- Translation Controls --}}
-        <div class="translation-controls mt-3">
-          <div class="row">
-            <div class="col-md-6">
-              <button type="button" class="btn btn-outline-info btn-sm" id="create-question-translations-btn">
-                <i class="fa fa-language"></i> {{ __('translations.create-translations') }}
-              </button>
-            </div>
-            <div class="col-md-6 text-right">
-              <button type="button" class="btn btn-outline-primary btn-sm" id="translate-question-ai-btn">
-                <i class="fa fa-robot"></i> {{ __('translations.ai-translate') }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {{-- Language Selection Interface --}}
-        <div class="question-language-selection mt-3" style="display: none;">
-          <h6>{{ __('translations.select-languages-to-create') }}</h6>
-          <div class="row" id="question-language-checkboxes">
-            {{-- Language checkboxes will be generated dynamically --}}
-          </div>
-          <div class="row mt-3">
-            <div class="col-md-6">
-              <button class="btn btn-secondary btn-sm" id="cancel-question-language-selection">
-                {{ __('global.cancel') }}
-              </button>
-            </div>
-            <div class="col-md-6 text-right">
-              <button class="btn btn-primary btn-sm" id="confirm-question-language-selection">
-                {{ __('global.confirm') }}
-              </button>
-              <button class="btn btn-info btn-sm ml-1" id="confirm-and-translate-question">
-                <i class="fa fa-robot"></i> {{ __('translations.confirm-and-translate') }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {{-- Action Buttons --}}
-        <div class="action-buttons mt-4">
-          <button class="btn btn-primary save-competencyq">{{ __('admin/competencies.question-save') }}</button>
-        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+          {{ __('global.cancel') }}
+        </button>
+        <button type="button" class="btn btn-primary save-competencyq">
+          {{ __('admin/competencies.question-save') }}
+        </button>
       </div>
     </div>
   </div>
 </div>
 
-{{-- JavaScript for Competency Question Modal --}}
 <script>
-// Global variables for competency question modal
-let questionModalData = {
-  id: null,
-  competencyId: null,
-  isEditMode: false,
-  currentLanguage: 'hu',
-  availableLanguages: ['hu', 'en'],
-  languageNames: { 'hu': 'Magyar', 'en': 'English' },
-  translations: {},
-  originalLanguage: 'hu',
-  isTranslationMode: false,
-  maxValue: 7
-};
+// Competency Question Modal JavaScript
+$(document).ready(function() {
+  let questionModalData = {
+    id: null,
+    competencyId: null,
+    isEditMode: false,
+    isMultiLanguageMode: false,
+    selectedLanguages: @json($selectedLanguages ?? [$currentLocale]),
+    currentLocale: '{{ $currentLocale }}',
+    translations: {}
+  };
 
-// Helper functions
-function isInSuperAdminContext() {
-  return window.location.pathname.includes('/superadmin');
-}
-
-function getCurrentAppLocale() {
-  return window.currentLocale || 'hu';
-}
-
-function getSystemLanguages() {
-  return window.availableLanguages || ['hu', 'en'];
-}
-
-// Main modal functions
-function openCompetencyQModal(id = null, compId = null) {
-  swal_loader.fire();
-  
-  // Reset modal state
-  questionModalData.id = id;
-  questionModalData.competencyId = compId;
-  questionModalData.isEditMode = id !== null;
-  questionModalData.isTranslationMode = false;
-  questionModalData.translations = {};
-  questionModalData.availableLanguages = getSystemLanguages();
-  questionModalData.languageNames = window.languageNames || {'hu': 'Magyar', 'en': 'English'};
-  
-  // Set modal title
-  $('#competencyq-modal .modal-title').html(
-    id == null ? '{{ __('admin/competencies.create-question') }}' : '{{ __('admin/competencies.modify-question') }}'
-  );
-  
-  // Set data attributes
-  $('#competencyq-modal').attr('data-id', id ?? 0);
-  $('#competencyq-modal').attr('data-compid', compId ?? 0);
-  
-  if (questionModalData.isEditMode) {
-    // Load existing question
-    loadQuestionData(id);
-  } else {
-    // New question - show simple form
-    showQuestionSingleLanguageMode();
-    clearQuestionForm();
-    questionModalData.currentLanguage = getCurrentAppLocale();
-    swal_loader.close();
-    $('#competencyq-modal').modal();
-  }
-}
-
-function loadQuestionData(questionId) {
-  // Try to load with translations first, fallback to simple load
-  const routeName = isInSuperAdminContext() ? 
-    window.routes?.superadmin_competency_question_translations_get : 
-    window.routes?.admin_competency_question_translations_get;
+  // Initialize question modal
+  function openCompetencyQModal(id = null, compId = null) {
+    // Reset modal state
+    questionModalData.id = id;
+    questionModalData.competencyId = compId;
+    questionModalData.isEditMode = id !== null;
+    questionModalData.isMultiLanguageMode = false;
+    questionModalData.translations = {};
     
-  if (routeName) {
+    // Set modal title
+    const title = id ? '{{ __('admin/competencies.modify-question') }}' : '{{ __('admin/competencies.create-question') }}';
+    $('#competencyq-modal .modal-title').text(title);
+    
+    // Set data attributes for compatibility
+    $('#competencyq-modal').attr('data-id', id || 0);
+    $('#competencyq-modal').attr('data-compid', compId || 0);
+    
+    // Reset modal display
+    showQuestionSingleLanguageMode();
+    
+    if (id) {
+      // Load existing question
+      loadQuestionData(id);
+    } else {
+      // New question - clear form
+      clearQuestionForm();
+      $('#competencyq-modal').modal('show');
+    }
+  }
+
+  function loadQuestionData(id) {
+    swal_loader.fire();
+    
     $.ajax({
-      url: routeName,
+      url: '{{ route('admin.competency.question.translations.get') }}',
       method: 'POST',
-      data: { 
-        id: questionId,
+      data: {
+        id: id,
         _token: $('meta[name="csrf-token"]').attr('content')
       },
       success: function(response) {
         questionModalData.translations = response.translations;
-        questionModalData.originalLanguage = response.original_language;
         
-        // Check if we have multiple languages to show
-        const hasMultipleLanguages = Object.keys(response.translations).filter(lang => 
+        // Check if we have multiple languages
+        const hasMultipleTranslations = Object.keys(response.translations).filter(lang => 
           response.translations[lang].exists
         ).length > 1;
         
-        if (hasMultipleLanguages) {
-          showQuestionMultiLanguageMode();
+        if (hasMultipleTranslations) {
+          showQuestionMultiLanguageMode(response);
         } else {
-          showQuestionSingleLanguageMode();
+          // Show in simple mode
           loadQuestionIntoSimpleForm(response.translations);
         }
         
         swal_loader.close();
-        $('#competencyq-modal').modal();
+        $('#competencyq-modal').modal('show');
       },
       error: function() {
-        // Fallback - load question data the old way
-        loadQuestionFallback(questionId);
+        // Fallback to old method
+        loadQuestionFallback(id);
       }
     });
-  } else {
-    loadQuestionFallback(questionId);
   }
-}
 
-function loadQuestionFallback(questionId) {
-  const routeName = isInSuperAdminContext() ? 
-    window.routes?.superadmin_competency_q_get : 
-    window.routes?.admin_competency_question_get;
-    
-  if (routeName) {
+  function loadQuestionFallback(id) {
     $.ajax({
-      url: routeName,
+      url: '{{ route('admin.competency.question.get') }}',
       method: 'GET',
-      data: { id: questionId },
+      data: { id: id },
       success: function(question) {
-        showQuestionSingleLanguageMode();
-        $('#competencyq-modal .question').val(question.question);
-        $('#competencyq-modal .question-self').val(question.question_self);
-        $('#competencyq-modal .min-label').val(question.min_label);
-        $('#competencyq-modal .max-label').val(question.max_label);
-        $('#competencyq-modal .scale').val(question.max_value);
-        questionModalData.maxValue = question.max_value;
-        
+        loadSimpleQuestionData(question);
         swal_loader.close();
-        $('#competencyq-modal').modal();
+        $('#competencyq-modal').modal('show');
       },
       error: function() {
         swal_loader.close();
-        alert('{{ __('global.error-occurred') }}');
+        swal_error.fire({
+          title: '{{ __('global.error-occurred') }}'
+        });
       }
     });
-  } else {
-    swal_loader.close();
-    alert('Route not configured');
   }
-}
 
-function loadQuestionIntoSimpleForm(translations) {
-  const currentLang = getCurrentAppLocale();
-  const translation = translations[currentLang] || translations[questionModalData.originalLanguage] || {};
-  
-  $('#competencyq-modal .question').val(translation.question || '');
-  $('#competencyq-modal .question-self').val(translation.question_self || '');
-  $('#competencyq-modal .min-label').val(translation.min_label || '');
-  $('#competencyq-modal .max-label').val(translation.max_label || '');
-  $('#competencyq-modal .scale').val(questionModalData.maxValue || 7);
-}
-
-function showQuestionSingleLanguageMode() {
-  $('.single-language-mode').show();
-  $('.multi-language-mode').hide();
-  $('.language-tabs').hide();
-  $('.translation-controls').show();
-  $('.translation-warnings').hide();
-  questionModalData.isTranslationMode = false;
-}
-
-function showQuestionMultiLanguageMode() {
-  $('.single-language-mode').hide();
-  $('.multi-language-mode').show();
-  $('.language-tabs').show();
-  $('.translation-controls').show();
-  questionModalData.isTranslationMode = true;
-  
-  buildQuestionLanguageTabs();
-  buildQuestionLanguageContent();
-  validateAllTranslations();
-}
-
-function clearQuestionForm() {
-  $('#competencyq-modal input, #competencyq-modal textarea, #competencyq-modal select').val('');
-  $('#competencyq-modal .scale').val('7');
-}
-
-function buildQuestionLanguageTabs() {
-  const navContainer = $('#question-language-nav');
-  navContainer.empty();
-  
-  questionModalData.availableLanguages.forEach((lang, index) => {
-    const isActive = index === 0;
-    const isOriginal = lang === questionModalData.originalLanguage;
-    const translation = questionModalData.translations[lang] || {};
-    const isComplete = translation.is_complete || false;
-    const isPartial = translation.is_partial || false;
-    const langName = questionModalData.languageNames[lang] || lang.toUpperCase();
+  function loadQuestionIntoSimpleForm(translations) {
+    const currentTranslation = translations[questionModalData.currentLocale] || 
+                              Object.values(translations).find(t => t.exists) || {};
     
-    let badgeClass = 'badge-secondary';
-    let badgeText = 'MISS';
+    $('.question').val(currentTranslation.question || '');
+    $('.question-self').val(currentTranslation.question_self || '');
+    $('.min-label').val(currentTranslation.min_label || '');
+    $('.max-label').val(currentTranslation.max_label || '');
+    $('.scale').val(currentTranslation.max_value || 7);
+  }
+
+  function loadSimpleQuestionData(question) {
+    $('.question').val(question.question);
+    $('.question-self').val(question.question_self);
+    $('.min-label').val(question.min_label);
+    $('.max-label').val(question.max_label);
+    $('.scale').val(question.max_value);
+  }
+
+  function clearQuestionForm() {
+    $('.question').val('');
+    $('.question-self').val('');
+    $('.min-label').val('');
+    $('.max-label').val('');
+    $('.scale').val(7);
+  }
+
+  function showQuestionSingleLanguageMode() {
+    $('.single-language-mode').show();
+    $('.multi-language-mode').hide();
+    $('.add-translations-section').hide();
+    questionModalData.isMultiLanguageMode = false;
+  }
+
+  function showQuestionMultiLanguageMode(data = null) {
+    $('.single-language-mode').hide();
+    $('.multi-language-mode').show();
+    questionModalData.isMultiLanguageMode = true;
     
-    if (isOriginal) {
-      badgeClass = 'badge-primary';
-      badgeText = 'ORIG';
-    } else if (isComplete) {
-      badgeClass = 'badge-success';
-      badgeText = 'OK';
-    } else if (isPartial) {
-      badgeClass = 'badge-warning';
-      badgeText = 'PART';
+    if (data) {
+      populateQuestionTabs(data.translations, data.original_language);
+      populateQuestionTranslationContent(data.translations, data.original_language);
+    } else {
+      // Creating translations from simple mode
+      const originalData = collectOriginalQuestionData();
+      const emptyTranslations = {};
+      
+      questionModalData.selectedLanguages.forEach(lang => {
+        if (lang === questionModalData.currentLocale) {
+          emptyTranslations[lang] = {
+            ...originalData,
+            exists: true
+          };
+        } else {
+          emptyTranslations[lang] = {
+            question: '',
+            question_self: '',
+            min_label: '',
+            max_label: '',
+            exists: false
+          };
+        }
+      });
+      
+      populateQuestionTabs(emptyTranslations, questionModalData.currentLocale);
+      populateQuestionTranslationContent(emptyTranslations, questionModalData.currentLocale);
+    }
+  }
+
+  function collectOriginalQuestionData() {
+    return {
+      question: $('.question').val(),
+      question_self: $('.question-self').val(),
+      min_label: $('.min-label').val(),
+      max_label: $('.max-label').val(),
+      max_value: $('.scale').val()
+    };
+  }
+
+  function populateQuestionTabs(translations, originalLang) {
+    const $tabs = $('.language-tabs');
+    $tabs.empty();
+    
+    questionModalData.selectedLanguages.forEach((lang, index) => {
+      const langName = window.languageNames[lang] || lang.toUpperCase();
+      const isOriginal = lang === originalLang;
+      const isActive = index === 0;
+      
+      $tabs.append(`
+        <div class="language-tab ${isActive ? 'active' : ''} ${isOriginal ? 'original' : ''}" data-lang="${lang}">
+          ${langName} ${isOriginal ? '({{ __('admin/competencies.original') }})' : ''}
+        </div>
+      `);
+    });
+  }
+
+  function populateQuestionTranslationContent(translations, originalLang) {
+    const $content = $('.translation-content');
+    $content.empty();
+    
+    questionModalData.selectedLanguages.forEach((lang, index) => {
+      const isActive = index === 0;
+      const isOriginal = lang === originalLang;
+      const translation = translations[lang] || {};
+      
+      $content.append(`
+        <div class="question-fields ${isActive ? '' : 'hidden'}" data-lang="${lang}">
+          <div class="form-group">
+            <label>{{ __('admin/competencies.question') }} <span class="text-danger">*</span></label>
+            <textarea class="form-control" data-field="question" rows="2" ${isOriginal ? 'readonly' : ''}>${translation.question || ''}</textarea>
+          </div>
+          <div class="form-group">
+            <label>{{ __('admin/competencies.question-self') }} <span class="text-danger">*</span></label>
+            <textarea class="form-control" data-field="question_self" rows="2" ${isOriginal ? 'readonly' : ''}>${translation.question_self || ''}</textarea>
+          </div>
+          <div class="row">
+            <div class="col-md-4">
+              <div class="form-group">
+                <label>{{ __('admin/competencies.min-label') }} <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" data-field="min_label" value="${translation.min_label || ''}" ${isOriginal ? 'readonly' : ''}>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="form-group">
+                <label>{{ __('admin/competencies.max-label') }} <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" data-field="max_label" value="${translation.max_label || ''}" ${isOriginal ? 'readonly' : ''}>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="form-group">
+                <label>{{ __('admin/competencies.scale') }} <span class="text-danger">*</span></label>
+                <input type="number" class="form-control" data-field="max_value" value="${translation.max_value || 7}" min="2" max="10" readonly>
+              </div>
+            </div>
+          </div>
+        </div>
+      `);
+    });
+  }
+
+  // Event handlers
+  $(document).on('input', '.question, .question-self, .min-label, .max-label', function() {
+    const hasContent = $('.question').val().trim() && 
+                      $('.question-self').val().trim() && 
+                      $('.min-label').val().trim() && 
+                      $('.max-label').val().trim();
+    $('.add-translations-section').toggle(hasContent && !questionModalData.isEditMode);
+  });
+
+  $(document).on('click', '.add-question-translations', function() {
+    showQuestionMultiLanguageMode();
+  });
+
+  $(document).on('click', '.back-to-simple-question', function() {
+    showQuestionSingleLanguageMode();
+  });
+
+  $(document).on('click', '.language-tab', function() {
+    const lang = $(this).data('lang');
+    
+    // Update tab appearance
+    $('.language-tab').removeClass('active');
+    $(this).addClass('active');
+    
+    // Show corresponding form
+    $('.question-fields').addClass('hidden');
+    $(`.question-fields[data-lang="${lang}"]`).removeClass('hidden');
+  });
+
+  $(document).on('click', '.ai-translate-all-questions', function() {
+    const originalData = collectCurrentOriginalData();
+    const targetLanguages = questionModalData.selectedLanguages.filter(lang => 
+      lang !== questionModalData.currentLocale
+    );
+    
+    if (!validateOriginalData(originalData)) {
+      alert('{{ __('admin/competencies.please-fill-all-fields') }}');
+      return;
     }
     
-    const tab = $(`
-      <li class="nav-item">
-        <a class="nav-link ${isActive ? 'active' : ''}" 
-           data-toggle="tab" 
-           href="#question-lang-${lang}">
-          ${langName}
-          <span class="badge ${badgeClass} ml-1">${badgeText}</span>
-        </a>
-      </li>
-    `);
+    if (targetLanguages.length === 0) {
+      alert('{{ __('admin/competencies.no-target-languages') }}');
+      return;
+    }
     
-    navContainer.append(tab);
+    // Create temporary question for AI translation if in create mode
+    if (!questionModalData.isEditMode) {
+      createTempQuestionForTranslation(originalData, targetLanguages);
+    } else {
+      translateExistingQuestion(questionModalData.id, targetLanguages);
+    }
   });
-}
 
-function buildQuestionLanguageContent() {
-  const contentContainer = $('#question-language-content');
-  contentContainer.empty();
-  
-  questionModalData.availableLanguages.forEach((lang, index) => {
-    const isActive = index === 0;
-    const translation = questionModalData.translations[lang] || {};
-    
-    const content = $(`
-      <div class="tab-pane ${isActive ? 'active' : ''}" id="question-lang-${lang}">
-        <div class="form-group">
-          <label>{{ __('admin/competencies.question') }} <span class="text-danger">*</span></label>
-          <textarea class="form-control question-translated" 
-                    data-field="question" 
-                    rows="2">${translation.question || ''}</textarea>
-        </div>
-        <div class="form-group">
-          <label>{{ __('admin/competencies.question-self') }} <span class="text-danger">*</span></label>
-          <textarea class="form-control question-self-translated" 
-                    data-field="question_self" 
-                    rows="2">${translation.question_self || ''}</textarea>
-        </div>
-        <div class="row">
-          <div class="col-md-6">
-            <div class="form-group">
-              <label>{{ __('admin/competencies.min-label') }} <span class="text-danger">*</span></label>
-              <input type="text" 
-                     class="form-control min-label-translated" 
-                     data-field="min_label"
-                     value="${translation.min_label || ''}">
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-group">
-              <label>{{ __('admin/competencies.max-label') }} <span class="text-danger">*</span></label>
-              <input type="text" 
-                     class="form-control max-label-translated" 
-                     data-field="max_label"
-                     value="${translation.max_label || ''}">
-            </div>
-          </div>
-        </div>
-      </div>
-    `);
-    
-    contentContainer.append(content);
-  });
-}
-
-function validateAllTranslations() {
-  // Validation logic will be implemented based on needs
-  return true;
-}
-
-// Save functions
-function saveQuestionSimple() {
-  const question = $('#competencyq-modal .question').val().trim();
-  const questionSelf = $('#competencyq-modal .question-self').val().trim();
-  const minLabel = $('#competencyq-modal .min-label').val().trim();
-  const maxLabel = $('#competencyq-modal .max-label').val().trim();
-  const scale = $('#competencyq-modal .scale').val();
-  
-  if (!question || !questionSelf || !minLabel || !maxLabel || !scale) {
-    alert('{{ __('admin/competencies.all-fields-required') }}');
-    return;
+  function collectCurrentOriginalData() {
+    if (questionModalData.isMultiLanguageMode) {
+      const originalLangData = $(`.question-fields[data-lang="${questionModalData.currentLocale}"]`);
+      return {
+        question: originalLangData.find('[data-field="question"]').val(),
+        question_self: originalLangData.find('[data-field="question_self"]').val(),
+        min_label: originalLangData.find('[data-field="min_label"]').val(),
+        max_label: originalLangData.find('[data-field="max_label"]').val(),
+        max_value: originalLangData.find('[data-field="max_value"]').val()
+      };
+    } else {
+      return collectOriginalQuestionData();
+    }
   }
-  
-  swal_confirm.fire({
-    title: '{{ __('admin/competencies.question-save-confirm') }}'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      swal_loader.fire();
-      const routeName = isInSuperAdminContext() ? 
-        window.routes?.superadmin_competency_q_save : 
-        window.routes?.admin_competency_question_save;
+
+  function validateOriginalData(data) {
+    return data.question.trim() && data.question_self.trim() && 
+           data.min_label.trim() && data.max_label.trim();
+  }
+
+  function createTempQuestionForTranslation(originalData, targetLanguages) {
+    swal_loader.fire();
+    
+    // First create the question
+    $.ajax({
+      url: '{{ route('admin.competency.question.save') }}',
+      method: 'POST',
+      data: {
+        competency_id: questionModalData.competencyId,
+        question: originalData.question,
+        question_self: originalData.question_self,
+        min_label: originalData.min_label,
+        max_label: originalData.max_label,
+        max_value: originalData.max_value,
+        _token: $('meta[name="csrf-token"]').attr('content')
+      },
+      success: function(response) {
+        questionModalData.id = response.id;
+        questionModalData.isEditMode = true;
         
-      if (routeName) {
-        $.ajax({
-          url: routeName,
-          method: 'POST',
-          data: {
-            id: questionModalData.id,
-            compId: questionModalData.competencyId,
-            question: question,
-            questionSelf: questionSelf,
-            minLabel: minLabel,
-            maxLabel: maxLabel,
-            scale: scale,
-            _token: $('meta[name="csrf-token"]').attr('content')
-          },
-          success: function(response) {
-            swal_loader.close();
-            $('#competencyq-modal').modal('hide');
-            swal_success.fire({
-              title: "{{ __('admin/competencies.question-save-success') }}"
-            }).then(() => {
-              location.reload();
-            });
-          },
-          error: function() {
-            swal_loader.close();
-            alert('{{ __('global.error-occurred') }}');
-          }
-        });
-      } else {
+        // Now translate it
+        translateExistingQuestion(response.id, targetLanguages);
+      },
+      error: function() {
         swal_loader.close();
-        alert('Route not configured');
+        swal_error.fire({
+          title: '{{ __('global.error-occurred') }}'
+        });
       }
-    }
-  });
-}
+    });
+  }
 
-function saveQuestionWithTranslations() {
-  // This function will handle saving with translations
-  // Implementation depends on the specific requirements
-  alert('Translation save function not yet implemented');
-}
+  function translateExistingQuestion(questionId, targetLanguages) {
+    $.ajax({
+      url: '{{ route('admin.competency.question.translations.ai') }}',
+      method: 'POST',
+      data: {
+        id: questionId,
+        languages: targetLanguages,
+        _token: $('meta[name="csrf-token"]').attr('content')
+      },
+      success: function(response) {
+        swal_loader.close();
+        
+        if (response.translations) {
+          // Update the translation input fields
+          Object.keys(response.translations).forEach(lang => {
+            const fields = response.translations[lang];
+            Object.keys(fields).forEach(field => {
+              const $input = $(`.question-fields[data-lang="${lang}"] [data-field="${field}"]`);
+              if (field !== 'max_value') { // Don't update max_value as it's readonly
+                $input.val(fields[field]);
+                $input.addClass('translation-success');
+                setTimeout(() => $input.removeClass('translation-success'), 2000);
+              }
+            });
+          });
+          
+          swal_success.fire({
+            title: '{{ __('admin/competencies.ai-translation-complete') }}'
+          });
+        }
+      },
+      error: function(xhr) {
+        swal_loader.close();
+        swal_error.fire({
+          title: xhr.responseJSON?.error || '{{ __('global.error-occurred') }}'
+        });
+      }
+    });
+  }
 
-// Event handlers
-$(document).ready(function() {
-  
-  // Save question (updated to handle translations)
-  $('#competencyq-modal .save-competencyq').click(function() {
-    if (questionModalData.isTranslationMode) {
+  $(document).on('click', '.save-competencyq', function() {
+    if (questionModalData.isMultiLanguageMode) {
       saveQuestionWithTranslations();
     } else {
-      saveQuestionSimple();
+      saveSingleLanguageQuestion();
     }
   });
-  
-  // Create translations button
-  $('#create-question-translations-btn').click(function() {
-    if (questionModalData.isEditMode) {
-      // For existing questions, show language selection
-      alert('Translation creation for existing questions not yet implemented');
+
+  function saveSingleLanguageQuestion() {
+    const data = collectOriginalQuestionData();
+    
+    if (!validateOriginalData(data)) {
+      alert('{{ __('admin/competencies.please-fill-all-fields') }}');
+      return;
+    }
+    
+    swal_loader.fire();
+    
+    $.ajax({
+      url: '{{ route('admin.competency.question.save') }}',
+      method: 'POST',
+      data: {
+        id: questionModalData.id,
+        competency_id: questionModalData.competencyId,
+        question: data.question,
+        question_self: data.question_self,
+        min_label: data.min_label,
+        max_label: data.max_label,
+        max_value: data.max_value,
+        _token: $('meta[name="csrf-token"]').attr('content')
+      },
+      success: function() {
+        swal_loader.close();
+        $('#competencyq-modal').modal('hide');
+        swal_success.fire({
+          title: '{{ __('admin/competencies.question-saved') }}'
+        }).then(() => {
+          location.reload();
+        });
+      },
+      error: function() {
+        swal_loader.close();
+        swal_error.fire({
+          title: '{{ __('global.error-occurred') }}'
+        });
+      }
+    });
+  }
+
+  function saveQuestionWithTranslations() {
+    const translations = {};
+    const maxValue = $('.question-fields [data-field="max_value"]').first().val();
+    
+    questionModalData.selectedLanguages.forEach(lang => {
+      const $fields = $(`.question-fields[data-lang="${lang}"]`);
+      translations[lang] = {
+        question: $fields.find('[data-field="question"]').val().trim(),
+        question_self: $fields.find('[data-field="question_self"]').val().trim(),
+        min_label: $fields.find('[data-field="min_label"]').val().trim(),
+        max_label: $fields.find('[data-field="max_label"]').val().trim(),
+        max_value: maxValue
+      };
+    });
+    
+    // Validate original language data
+    const originalData = translations[questionModalData.currentLocale];
+    if (!validateOriginalData(originalData)) {
+      alert('{{ __('admin/competencies.please-fill-all-fields') }}');
+      return;
+    }
+    
+    swal_loader.fire();
+    
+    if (!questionModalData.isEditMode) {
+      $.ajax({
+        url: '{{ route('admin.competency.question.save') }}',
+        method: 'POST',
+        data: {
+          competency_id: questionModalData.competencyId,
+          question: originalData.question,
+          question_self: originalData.question_self,
+          min_label: originalData.min_label,
+          max_label: originalData.max_label,
+          max_value: originalData.max_value,
+          _token: $('meta[name="csrf-token"]').attr('content')
+        },
+        success: function(response) {
+          questionModalData.id = response.id;
+          saveQuestionTranslations(translations);
+        },
+        error: function() {
+          swal_loader.close();
+          swal_error.fire({
+            title: '{{ __('global.error-occurred') }}'
+          });
+        }
+      });
     } else {
-      // For new questions, switch to translation mode immediately
-      questionModalData.isTranslationMode = true;
-      showQuestionMultiLanguageMode();
-      // Initialize empty translations logic here
+      saveQuestionTranslations(translations);
     }
-  });
-  
-  // AI translation button
-  $('#translate-question-ai-btn').click(function() {
-    alert('AI translation not yet implemented');
-  });
-  
+  }
+
+  function saveQuestionTranslations(translations) {
+    $.ajax({
+      url: '{{ route('admin.competency.question.translations.save') }}',
+      method: 'POST',
+      data: {
+        id: questionModalData.id,
+        translations: translations,
+        _token: $('meta[name="csrf-token"]').attr('content')
+      },
+      success: function() {
+        swal_loader.close();
+        $('#competencyq-modal').modal('hide');
+        swal_success.fire({
+          title: '{{ __('admin/competencies.question-saved') }}'
+        }).then(() => {
+          location.reload();
+        });
+      },
+      error: function() {
+        swal_loader.close();
+        swal_error.fire({
+          title: '{{ __('global.error-occurred') }}'
+        });
+      }
+    });
+  }
+
+  // Make function globally available
+  window.openCompetencyQModal = openCompetencyQModal;
 });
 </script>

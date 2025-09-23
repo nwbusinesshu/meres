@@ -149,6 +149,7 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         Route::post('/question/remove', 'removeCompetencyQuestion')->name('question.remove');
         
         // Translation routes for admin competencies
+        Route::post('/save-language-selection', 'saveLanguageSelection')->name('save-language-selection');
         Route::post('/translations/get', 'getCompetencyTranslations')->name('translations.get');
         Route::post('/translations/save', 'saveCompetencyTranslations')->name('translations.save');
         Route::post('/translations/ai', 'translateCompetencyWithAI')->name('translations.ai');
@@ -244,10 +245,10 @@ Route::prefix('/superadmin')->name('superadmin.')->middleware(['auth:' . UserTyp
 Route::get('/superadmin/exit-company', [SuperAdminController::class, 'exitCompany'])->name('superadmin.exit-company');
 Route::get('/superadmin/org/{id}/data', [SuperAdminController::class, 'getOrgData'])->name('superadmin.org.data');
 
-// SUPERADMIN COMPETENCY ROUTES - FIXED: Added 'org' middleware for consistency
+// SUPERADMIN COMPETENCY ROUTES - FIXED NAMING
 Route::prefix('/superadmin/competency')
     ->name('superadmin.competency.')
-    ->middleware(['auth:' . UserType::SUPERADMIN, 'org'])  // FIXED: Added 'org' middleware
+    ->middleware(['auth:' . UserType::SUPERADMIN, 'org'])
     ->controller(GlobalCompetencyController::class)
     ->group(function () {
         Route::get('/index', 'index')->name('index');
@@ -257,12 +258,12 @@ Route::prefix('/superadmin/competency')
         Route::post('/question/save', 'saveCompetencyQuestion')->name('question.save');
         Route::post('/question/remove', 'removeCompetencyQuestion')->name('question.remove');
         
-        // Aliases for JavaScript compatibility (backward compatibility)
+        // Aliases for JavaScript compatibility (backward compatibility) - FIXED NAMES
         Route::post('/question/remove-alias', 'removeCompetencyQuestion')->name('q.remove');
         Route::post('/question/save-alias', 'saveCompetencyQuestion')->name('q.save');
         Route::get('/question/get-alias', 'getCompetencyQuestion')->name('q.get');
         
-        // Translation routes for global competencies
+        // Translation routes for global competencies - FIXED NAMES
         Route::post('/translations/get', 'getCompetencyTranslations')->name('translations.get');
         Route::post('/translations/save', 'saveCompetencyTranslations')->name('translations.save');
         Route::post('/translations/ai', 'translateCompetencyWithAI')->name('translations.ai');

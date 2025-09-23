@@ -1,504 +1,432 @@
-<div class="modal fade modal-drawer" tabindex="-1" role="dialog" id="competency-modal">
-  <div class="modal-dialog modal-lg" role="document">
+{{-- Competency Modal --}}
+<div class="modal fade" id="competency-modal" tabindex="-1">
+  <div class="modal-dialog modal-drawer">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title"></h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
+        <h5 class="modal-title">{{ __('admin/competencies.create-competency') }}</h5>
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
       </div>
       <div class="modal-body">
         
-        <!-- Language Tabs -->
-        <div class="language-tabs" style="display: none;">
-          <nav class="nav nav-pills nav-fill mb-3" id="language-nav">
-            <!-- Language tabs will be populated dynamically -->
-          </nav>
-        </div>
-
-        <!-- Single Language Mode (default) -->
+        {{-- Single Language Mode (Default) --}}
         <div class="single-language-mode">
-          <div class="form-row">
-            <div class="form-group">
-              <label>{{ __('global.name') }}</label>
-              <input type="text" class="form-control competency-name" >
-            </div>
+          <div class="form-group">
+            <label>{{ __('admin/competencies.competency-name') }} <span class="text-danger">*</span></label>
+            <input type="text" class="form-control competency-name" required 
+                   placeholder="{{ __('admin/competencies.competency-name-placeholder') }}">
+            <small class="form-text text-muted">
+              {{ __('admin/competencies.current-language') }}: {{ $languageNames[$currentLocale] ?? strtoupper($currentLocale) }}
+            </small>
+          </div>
+          
+          {{-- Add Translations Button (appears when name is filled) --}}
+          <div class="add-translations-section" style="display: none;">
+            <button type="button" class="btn btn-outline-info btn-sm add-translations">
+              <i class="fa fa-plus"></i> {{ __('admin/competencies.add-translations') }}
+            </button>
           </div>
         </div>
 
-        <!-- Multi Language Mode -->
+        {{-- Multi-Language Mode (Hidden by default) --}}
         <div class="multi-language-mode" style="display: none;">
-          <div class="tab-content" id="language-content">
-            <!-- Language content will be populated dynamically -->
+          <div class="form-group">
+            <label>{{ __('admin/competencies.competency-name') }} <span class="text-danger">*</span></label>
+            <input type="text" class="form-control competency-name-original" readonly>
+            <small class="form-text text-muted">
+              {{ __('admin/competencies.original-language') }}: <span class="original-language-name"></span>
+            </small>
+          </div>
+
+          {{-- Translation fields --}}
+          <div class="translation-fields">
+            {{-- Fields will be populated via JavaScript --}}
+          </div>
+
+          {{-- AI Translate Section --}}
+          <div class="ai-translate-section">
+            <hr>
+            <div class="text-center">
+              <button type="button" class="btn btn-info ai-translate-all">
+                <i class="fa fa-robot"></i> {{ __('admin/competencies.ai-translate-all') }}
+              </button>
+              <p class="small text-muted mt-2">{{ __('admin/competencies.ai-translate-help') }}</p>
+            </div>
+          </div>
+
+          {{-- Back to simple mode --}}
+          <div class="text-center mt-3">
+            <button type="button" class="btn btn-sm btn-outline-secondary back-to-simple">
+              <i class="fa fa-arrow-left"></i> {{ __('admin/competencies.back-to-simple') }}
+            </button>
           </div>
         </div>
 
-        <!-- Translation Controls -->
-        <div class="translation-controls" style="display: none;">
-          <div class="form-row">
-            <div class="col-md-6">
-              <button class="btn btn-outline-primary btn-sm" id="create-translations-btn">
-                <i class="fa fa-language"></i> {{ __('translations.create-translations') }}
-              </button>
-            </div>
-            <div class="col-md-6 text-right">
-              <button class="btn btn-outline-info btn-sm" id="translate-ai-btn" style="display: none;">
-                <i class="fa fa-robot"></i> {{ __('translations.translate-with-ai') }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Language Selection Modal for New Translations -->
-        <div class="language-selection" style="display: none;">
-          <h6>{{ __('translations.select-languages') }}</h6>
-          <div class="form-check-list" id="language-checkboxes">
-            <!-- Checkboxes will be populated dynamically -->
-          </div>
-          <div class="form-row mt-2">
-            <div class="col-md-6">
-              <button class="btn btn-secondary btn-sm" id="cancel-language-selection">
-                {{ __('global.cancel') }}
-              </button>
-            </div>
-            <div class="col-md-6 text-right">
-              <button class="btn btn-primary btn-sm" id="confirm-language-selection">
-                {{ __('global.confirm') }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="action-buttons">
-          <button class="btn btn-primary save-competency"></button>
-        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+          {{ __('global.cancel') }}
+        </button>
+        <button type="button" class="btn btn-primary save-competency">
+          {{ __('global.save') }}
+        </button>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-// Global variables for competency modal
-let competencyModalData = {
-  id: null,
-  isEditMode: false,
-  currentLanguage: 'hu',
-  availableLanguages: ['hu', 'en'],
-  languageNames: { 'hu': 'Magyar', 'en': 'English' },
-  translations: {},
-  originalLanguage: 'hu',
-  isTranslationMode: false
-};
-
-function openCompetencyModal(id = null, name = null) {
-  swal_loader.fire();
-  
-  // Reset modal state
-  competencyModalData.id = id;
-  competencyModalData.isEditMode = id !== null;
-  competencyModalData.isTranslationMode = false;
-  competencyModalData.translations = {};
-  
-  // Set modal title and button text
-  $('#competency-modal .modal-title').html(
-    id == null ? '{{ __('admin/competencies.create-competency') }}' : '{{ __('admin/competencies.modify-competency') }}'
-  );
-  $('#competency-modal .save-competency').html('{{ __('admin/competencies.save-competency') }}');
-  
-  if (competencyModalData.isEditMode) {
-    // Load existing competency with translations
-    loadCompetencyTranslations(id, name);
-  } else {
-    // New competency - show simple form
-    showSingleLanguageMode();
-    $('#competency-modal .competency-name').val('');
-    competencyModalData.currentLanguage = getCurrentAppLocale();
-    swal_loader.close();
-    $('#competency-modal').modal();
-  }
-}
-
-function loadCompetencyTranslations(competencyId, fallbackName) {
-  const routeName = isInSuperAdminContext() ? 
-    '{{ route('superadmin.competency.translations.get') }}' : 
-    '{{ route('admin.competency.translations.get') }}';
-    
-  $.ajax({
-    url: routeName,
-    method: 'POST',
-    data: { id: competencyId },
-    success: function(response) {
-      competencyModalData.translations = response.translations;
-      competencyModalData.originalLanguage = response.original_language;
-      competencyModalData.availableLanguages = getSystemLanguages();
-      
-      // Check if we have multiple languages to show
-      const hasMultipleLanguages = Object.keys(response.translations).filter(lang => 
-        response.translations[lang].exists
-      ).length > 1;
-      
-      if (hasMultipleLanguages) {
-        showMultiLanguageMode();
-      } else {
-        showSingleLanguageMode();
-        // Set the name in current language or fallback
-        const currentLang = getCurrentAppLocale();
-        const nameToShow = response.translations[currentLang]?.name || 
-                          response.translations[competencyModalData.originalLanguage]?.name || 
-                          fallbackName;
-        $('#competency-modal .competency-name').val(nameToShow);
-      }
-      
-      swal_loader.close();
-      $('#competency-modal').modal();
-    },
-    error: function() {
-      // Fallback to simple mode
-      showSingleLanguageMode();
-      $('#competency-modal .competency-name').val(fallbackName || '');
-      swal_loader.close();
-      $('#competency-modal').modal();
-    }
-  });
-}
-
-function showSingleLanguageMode() {
-  $('.single-language-mode').show();
-  $('.multi-language-mode').hide();
-  $('.language-tabs').hide();
-  $('.translation-controls').show();
-  competencyModalData.isTranslationMode = false;
-}
-
-function showMultiLanguageMode() {
-  $('.single-language-mode').hide();
-  $('.multi-language-mode').show();
-  $('.language-tabs').show();
-  $('.translation-controls').show();
-  competencyModalData.isTranslationMode = true;
-  
-  buildLanguageTabs();
-  buildLanguageContent();
-}
-
-function buildLanguageTabs() {
-  const navContainer = $('#language-nav');
-  navContainer.empty();
-  
-  competencyModalData.availableLanguages.forEach((lang, index) => {
-    const isActive = index === 0;
-    const isOriginal = lang === competencyModalData.originalLanguage;
-    const hasTranslation = competencyModalData.translations[lang]?.exists || false;
-    const langName = competencyModalData.languageNames[lang] || lang.toUpperCase();
-    
-    let badgeClass = 'badge-secondary';
-    if (isOriginal) badgeClass = 'badge-primary';
-    else if (hasTranslation) badgeClass = 'badge-success';
-    
-    const tab = $(`
-      <a class="nav-link ${isActive ? 'active' : ''}" 
-         id="lang-${lang}-tab" 
-         data-toggle="pill" 
-         href="#lang-${lang}" 
-         role="tab" 
-         data-language="${lang}">
-        ${langName}
-        <span class="badge ${badgeClass} ml-1">
-          ${isOriginal ? 'ORIG' : (hasTranslation ? 'OK' : 'MISS')}
-        </span>
-      </a>
-    `);
-    
-    navContainer.append(tab);
-  });
-}
-
-function buildLanguageContent() {
-  const contentContainer = $('#language-content');
-  contentContainer.empty();
-  
-  competencyModalData.availableLanguages.forEach((lang, index) => {
-    const isActive = index === 0;
-    const translation = competencyModalData.translations[lang] || {};
-    const isOriginal = lang === competencyModalData.originalLanguage;
-    
-    const content = $(`
-      <div class="tab-pane fade ${isActive ? 'show active' : ''}" 
-           id="lang-${lang}" 
-           role="tabpanel">
-        <div class="form-group">
-          <label>
-            {{ __('global.name') }}
-            ${isOriginal ? '<span class="badge badge-primary ml-1">{{ __('translations.original') }}</span>' : ''}
-          </label>
-          <input type="text" 
-                 class="form-control competency-name-translated" 
-                 data-language="${lang}"
-                 value="${translation.name || ''}"
-                 ${isOriginal ? 'required' : ''}>
-          ${!isOriginal ? '<small class="form-text text-muted">{{ __('translations.leave-empty-to-remove') }}</small>' : ''}
-        </div>
-      </div>
-    `);
-    
-    contentContainer.append(content);
-  });
-}
-
-// Event handlers
+// Competency Modal JavaScript
 $(document).ready(function() {
-  
-  // Save competency (updated to handle translations)
-  $('#competency-modal .save-competency').click(function() {
-    if (competencyModalData.isTranslationMode) {
-      saveCompetencyWithTranslations();
-    } else {
-      saveCompetencySimple();
-    }
-  });
-  
-  // Create translations button
-  $('#create-translations-btn').click(function() {
-    if (competencyModalData.isEditMode) {
-      showLanguageSelection();
-    } else {
-      // For new competencies, switch to translation mode immediately
-      competencyModalData.isTranslationMode = true;
-      showMultiLanguageMode();
-      initializeEmptyTranslations();
-    }
-  });
-  
-  // AI translation button
-  $('#translate-ai-btn').click(function() {
-    showLanguageSelectionForAI();
-  });
-  
-  // Language selection handlers
-  $('#confirm-language-selection').click(function() {
-    const selectedLanguages = getSelectedLanguages();
-    if (selectedLanguages.length > 0) {
-      createTranslationsForLanguages(selectedLanguages);
-    }
-  });
-  
-  $('#cancel-language-selection').click(function() {
-    $('.language-selection').hide();
-    $('.action-buttons').show();
-  });
-  
-});
+  let competencyModalData = {
+    id: null,
+    isEditMode: false,
+    isMultiLanguageMode: false,
+    selectedLanguages: @json($selectedLanguages ?? [$currentLocale]),
+    currentLocale: '{{ $currentLocale }}',
+    translations: {}
+  };
 
-function saveCompetencySimple() {
-  const name = $('#competency-modal .competency-name').val().trim();
-  if (!name) {
-    alert('{{ __('validation.required', ['attribute' => __('global.name')]) }}');
-    return;
+  // Initialize competency modal
+  function openCompetencyModal(id = null, name = null) {
+    // Reset modal state
+    competencyModalData.id = id;
+    competencyModalData.isEditMode = id !== null;
+    competencyModalData.isMultiLanguageMode = false;
+    competencyModalData.translations = {};
+    
+    // Set modal title
+    const title = id ? '{{ __('admin/competencies.modify-competency') }}' : '{{ __('admin/competencies.create-competency') }}';
+    $('#competency-modal .modal-title').text(title);
+    
+    // Reset modal display
+    showSingleLanguageMode();
+    
+    if (id) {
+      // Load existing competency
+      loadCompetencyData(id);
+    } else {
+      // New competency
+      $('.competency-name').val('');
+      $('#competency-modal').modal('show');
+    }
   }
-  
-  swal_confirm.fire({
-    title: '{{ __('admin/competencies.save-competency-confirm') }}'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      swal_loader.fire();
-      const routeName = isInSuperAdminContext() ? 
-        '{{ route('superadmin.competency.save') }}' : 
-        '{{ route('admin.competency.save') }}';
+
+  function loadCompetencyData(id) {
+    swal_loader.fire();
+    
+    $.ajax({
+      url: '{{ route('admin.competency.translations.get') }}',
+      method: 'POST',
+      data: {
+        id: id,
+        _token: $('meta[name="csrf-token"]').attr('content')
+      },
+      success: function(response) {
+        competencyModalData.translations = response.translations;
         
-      $.ajax({
-        url: routeName,
-        method: 'POST',
-        data: {
-          id: competencyModalData.id,
-          name: name
-        },
-        successMessage: "{{ __('admin/competencies.save-competency-success') }}",
-      });
-    }
-  });
-}
-
-function saveCompetencyWithTranslations() {
-  // Collect all translations
-  const translations = {};
-  $('.competency-name-translated').each(function() {
-    const lang = $(this).data('language');
-    const value = $(this).val().trim();
-    if (value) {
-      translations[lang] = value;
-    }
-  });
-  
-  // Validate original language
-  if (!translations[competencyModalData.originalLanguage]) {
-    alert('{{ __('translations.original-language-required') }}');
-    return;
-  }
-  
-  swal_confirm.fire({
-    title: '{{ __('admin/competencies.save-competency-confirm') }}'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      swal_loader.fire();
-      
-      if (competencyModalData.isEditMode) {
-        // Save translations for existing competency
-        const routeName = isInSuperAdminContext() ? 
-          '{{ route('superadmin.competency.translations.save') }}' : 
-          '{{ route('admin.competency.translations.save') }}';
-          
-        $.ajax({
-          url: routeName,
-          method: 'POST',
-          data: {
-            id: competencyModalData.id,
-            translations: translations
-          },
-          successMessage: "{{ __('admin/competencies.save-competency-success') }}",
-        });
-      } else {
-        // Create new competency with translation
-        const routeName = isInSuperAdminContext() ? 
-          '{{ route('superadmin.competency.save') }}' : 
-          '{{ route('admin.competency.save') }}';
-          
-        $.ajax({
-          url: routeName,
-          method: 'POST',
-          data: {
-            name: translations[competencyModalData.originalLanguage]
-          },
-          success: function(response) {
-            if (response.success || response.ok) {
-              // Now save additional translations if any
-              const additionalTranslations = {...translations};
-              delete additionalTranslations[competencyModalData.originalLanguage];
-              
-              if (Object.keys(additionalTranslations).length > 0) {
-                const translationRoute = isInSuperAdminContext() ? 
-                  '{{ route('superadmin.competency.translations.save') }}' : 
-                  '{{ route('admin.competency.translations.save') }}';
-                  
-                $.ajax({
-                  url: translationRoute,
-                  method: 'POST',
-                  data: {
-                    id: response.id,
-                    translations: additionalTranslations
-                  },
-                  successMessage: "{{ __('admin/competencies.save-competency-success') }}",
-                });
-              } else {
-                // Just show success and reload
-                swal_success.fire({
-                  title: "{{ __('admin/competencies.save-competency-success') }}"
-                }).then(() => location.reload());
-              }
-            }
-          },
-          error: function() {
-            swal_loader.close();
-            alert('{{ __('global.error-occurred') }}');
-          }
+        // Check if we have multiple languages
+        const hasMultipleTranslations = Object.keys(response.translations).filter(lang => 
+          response.translations[lang].exists
+        ).length > 1;
+        
+        if (hasMultipleTranslations) {
+          showMultiLanguageMode(response);
+        } else {
+          // Show in simple mode with the translated name for current locale
+          const currentTranslation = response.translations[competencyModalData.currentLocale];
+          $('.competency-name').val(currentTranslation?.name || Object.values(response.translations)[0]?.name || '');
+        }
+        
+        swal_loader.close();
+        $('#competency-modal').modal('show');
+      },
+      error: function() {
+        swal_loader.close();
+        swal_error.fire({
+          title: '{{ __('global.error-occurred') }}'
         });
       }
+    });
+  }
+
+  function showSingleLanguageMode() {
+    $('.single-language-mode').show();
+    $('.multi-language-mode').hide();
+    $('.add-translations-section').hide();
+    competencyModalData.isMultiLanguageMode = false;
+  }
+
+  function showMultiLanguageMode(data = null) {
+    $('.single-language-mode').hide();
+    $('.multi-language-mode').show();
+    competencyModalData.isMultiLanguageMode = true;
+    
+    if (data) {
+      // Populate original language field
+      const originalLang = data.original_language;
+      const originalName = data.translations[originalLang]?.name || '';
+      $('.competency-name-original').val(originalName);
+      $('.original-language-name').text(window.languageNames[originalLang] || originalLang.toUpperCase());
+      
+      // Populate translation fields
+      populateTranslationFields(data.translations, originalLang);
+    } else {
+      // Creating translations from simple mode
+      const originalName = $('.competency-name').val();
+      $('.competency-name-original').val(originalName);
+      $('.original-language-name').text(window.languageNames[competencyModalData.currentLocale] || competencyModalData.currentLocale.toUpperCase());
+      
+      // Create empty translation fields
+      const emptyTranslations = {};
+      competencyModalData.selectedLanguages.forEach(lang => {
+        emptyTranslations[lang] = {
+          name: lang === competencyModalData.currentLocale ? originalName : '',
+          exists: lang === competencyModalData.currentLocale
+        };
+      });
+      
+      populateTranslationFields(emptyTranslations, competencyModalData.currentLocale);
     }
-  });
-}
+  }
 
-// Utility functions
-function getCurrentAppLocale() {
-  return document.documentElement.lang || 'hu';
-}
-
-function getSystemLanguages() {
-  return ['hu', 'en']; // This should be dynamic based on LanguageService
-}
-
-function isInSuperAdminContext() {
-  return window.location.href.includes('/superadmin/');
-}
-
-function showLanguageSelection() {
-  $('.action-buttons').hide();
-  $('.language-selection').show();
-  
-  // Build language checkboxes
-  const container = $('#language-checkboxes');
-  container.empty();
-  
-  const availableLanguages = getSystemLanguages();
-  const existingLanguages = Object.keys(competencyModalData.translations).filter(lang => 
-    competencyModalData.translations[lang].exists
-  );
-  
-  availableLanguages.forEach(lang => {
-    if (!existingLanguages.includes(lang)) {
-      const langName = competencyModalData.languageNames[lang] || lang.toUpperCase();
-      const checkbox = $(`
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" value="${lang}" id="lang-check-${lang}">
-          <label class="form-check-label" for="lang-check-${lang}">
-            ${langName}
-          </label>
+  function populateTranslationFields(translations, originalLang) {
+    const $container = $('.translation-fields');
+    $container.empty();
+    
+    competencyModalData.selectedLanguages.forEach(lang => {
+      if (lang === originalLang) return; // Skip original language
+      
+      const langName = window.languageNames[lang] || lang.toUpperCase();
+      const value = translations[lang]?.name || '';
+      
+      $container.append(`
+        <div class="form-group">
+          <label>${langName}</label>
+          <input type="text" class="form-control translation-input" data-lang="${lang}" value="${value}">
         </div>
       `);
-      container.append(checkbox);
+    });
+  }
+
+  // Event handlers
+  $(document).on('input', '.competency-name', function() {
+    const hasContent = $(this).val().trim().length > 0;
+    $('.add-translations-section').toggle(hasContent && !competencyModalData.isEditMode);
+  });
+
+  $(document).on('click', '.add-translations', function() {
+    showMultiLanguageMode();
+  });
+
+  $(document).on('click', '.back-to-simple', function() {
+    showSingleLanguageMode();
+  });
+
+  $(document).on('click', '.ai-translate-all', function() {
+    const originalName = $('.competency-name-original').val();
+    const targetLanguages = competencyModalData.selectedLanguages.filter(lang => 
+      lang !== competencyModalData.currentLocale
+    );
+    
+    if (!originalName.trim()) {
+      alert('{{ __('admin/competencies.please-enter-name-first') }}');
+      return;
+    }
+    
+    if (targetLanguages.length === 0) {
+      alert('{{ __('admin/competencies.no-target-languages') }}');
+      return;
+    }
+    
+    // Create temporary competency for AI translation if in create mode
+    if (!competencyModalData.isEditMode) {
+      createTempCompetencyForTranslation(originalName, targetLanguages);
+    } else {
+      translateExistingCompetency(competencyModalData.id, targetLanguages);
     }
   });
-}
 
-function getSelectedLanguages() {
-  const selected = [];
-  $('#language-checkboxes input:checked').each(function() {
-    selected.push($(this).val());
-  });
-  return selected;
-}
+  function createTempCompetencyForTranslation(name, targetLanguages) {
+    swal_loader.fire();
+    
+    // First create the competency
+    $.ajax({
+      url: '{{ route('admin.competency.save') }}',
+      method: 'POST',
+      data: {
+        name: name,
+        _token: $('meta[name="csrf-token"]').attr('content')
+      },
+      success: function(response) {
+        competencyModalData.id = response.id;
+        competencyModalData.isEditMode = true;
+        
+        // Now translate it
+        translateExistingCompetency(response.id, targetLanguages);
+      },
+      error: function() {
+        swal_loader.close();
+        swal_error.fire({
+          title: '{{ __('global.error-occurred') }}'
+        });
+      }
+    });
+  }
 
-function createTranslationsForLanguages(languages) {
-  // Add empty translations for selected languages
-  languages.forEach(lang => {
-    if (!competencyModalData.translations[lang]) {
-      competencyModalData.translations[lang] = {
-        name: '',
-        exists: false,
-        is_original: false
-      };
+  function translateExistingCompetency(competencyId, targetLanguages) {
+    $.ajax({
+      url: '{{ route('admin.competency.translations.ai') }}',
+      method: 'POST',
+      data: {
+        id: competencyId,
+        languages: targetLanguages,
+        _token: $('meta[name="csrf-token"]').attr('content')
+      },
+      success: function(response) {
+        swal_loader.close();
+        
+        if (response.translations) {
+          // Update the translation input fields
+          Object.keys(response.translations).forEach(lang => {
+            const $input = $(`.translation-input[data-lang="${lang}"]`);
+            $input.val(response.translations[lang]);
+            $input.addClass('translation-success');
+            setTimeout(() => $input.removeClass('translation-success'), 2000);
+          });
+          
+          swal_success.fire({
+            title: '{{ __('admin/competencies.ai-translation-complete') }}'
+          });
+        }
+      },
+      error: function(xhr) {
+        swal_loader.close();
+        swal_error.fire({
+          title: xhr.responseJSON?.error || '{{ __('global.error-occurred') }}'
+        });
+      }
+    });
+  }
+
+  $(document).on('click', '.save-competency', function() {
+    if (competencyModalData.isMultiLanguageMode) {
+      saveCompetencyWithTranslations();
+    } else {
+      saveSingleLanguageCompetency();
     }
   });
-  
-  // Switch to multi-language mode
-  competencyModalData.isTranslationMode = true;
-  showMultiLanguageMode();
-  
-  // Hide language selection and show AI button
-  $('.language-selection').hide();
-  $('.action-buttons').show();
-  $('#translate-ai-btn').show();
-}
 
-function initializeEmptyTranslations() {
-  const currentLang = getCurrentAppLocale();
-  const currentName = $('#competency-modal .competency-name').val();
-  
-  competencyModalData.originalLanguage = currentLang;
-  competencyModalData.translations = {};
-  
-  getSystemLanguages().forEach(lang => {
-    competencyModalData.translations[lang] = {
-      name: lang === currentLang ? currentName : '',
-      exists: lang === currentLang,
-      is_original: lang === currentLang
-    };
-  });
-}
+  function saveSingleLanguageCompetency() {
+    const name = $('.competency-name').val().trim();
+    
+    if (!name) {
+      alert('{{ __('admin/competencies.please-enter-name') }}');
+      return;
+    }
+    
+    swal_loader.fire();
+    
+    $.ajax({
+      url: '{{ route('admin.competency.save') }}',
+      method: 'POST',
+      data: {
+        id: competencyModalData.id,
+        name: name,
+        _token: $('meta[name="csrf-token"]').attr('content')
+      },
+      success: function() {
+        swal_loader.close();
+        $('#competency-modal').modal('hide');
+        swal_success.fire({
+          title: '{{ __('admin/competencies.competency-saved') }}'
+        }).then(() => {
+          location.reload();
+        });
+      },
+      error: function() {
+        swal_loader.close();
+        swal_error.fire({
+          title: '{{ __('global.error-occurred') }}'
+        });
+      }
+    });
+  }
 
-// Show language selection for AI translation
-function showLanguageSelectionForAI() {
-  // Similar to showLanguageSelection but for AI translation
-  // This would trigger the AI translation process
-  // Implementation would be similar but call the AI endpoint
-}
+  function saveCompetencyWithTranslations() {
+    const translations = {};
+    
+    // Include original language
+    translations[competencyModalData.currentLocale] = $('.competency-name-original').val().trim();
+    
+    // Include other translations
+    $('.translation-input').each(function() {
+      const lang = $(this).data('lang');
+      const value = $(this).val().trim();
+      if (value) {
+        translations[lang] = value;
+      }
+    });
+    
+    if (!translations[competencyModalData.currentLocale]) {
+      alert('{{ __('admin/competencies.please-enter-name') }}');
+      return;
+    }
+    
+    swal_loader.fire();
+    
+    
+    if (!competencyModalData.isEditMode) {
+      $.ajax({
+        url: '{{ route('admin.competency.save') }}',
+        method: 'POST',
+        data: {
+          name: translations[competencyModalData.currentLocale],
+          _token: $('meta[name="csrf-token"]').attr('content')
+        },
+        success: function(response) {
+          competencyModalData.id = response.id;
+          saveTranslations(translations);
+        },
+        error: function() {
+          swal_loader.close();
+          swal_error.fire({
+            title: '{{ __('global.error-occurred') }}'
+          });
+        }
+      });
+    } else {
+      saveTranslations(translations);
+    }
+  }
+
+  function saveTranslations(translations) {
+    $.ajax({
+      url: '{{ route('admin.competency.translations.save') }}',
+      method: 'POST',
+      data: {
+        id: competencyModalData.id,
+        translations: translations,
+        _token: $('meta[name="csrf-token"]').attr('content')
+      },
+      success: function() {
+        swal_loader.close();
+        $('#competency-modal').modal('hide');
+        swal_success.fire({
+          title: '{{ __('admin/competencies.competency-saved') }}'
+        }).then(() => {
+          location.reload();
+        });
+      },
+      error: function() {
+        swal_loader.close();
+        swal_error.fire({
+          title: '{{ __('global.error-occurred') }}'
+        });
+      }
+    });
+  }
+
+  // Make function globally available
+  window.openCompetencyModal = openCompetencyModal;
+});
 </script>
