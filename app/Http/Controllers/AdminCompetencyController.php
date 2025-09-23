@@ -80,14 +80,53 @@ class AdminCompetencyController extends Controller
     }
 
     /**
+     * Get translations for a competency
+     * FIXED: Ensure proper data structure is returned
+     */
+    public function getCompetencyTranslations(Request $request)
+    {
+        try {
+            $competency = Competency::findOrFail($request->id);
+            $orgId = session('org_id');
+            
+            // Check permissions
+            if ($competency->organization_id !== $orgId) {
+                return response()->json(['error' => 'Cannot edit global competencies from admin panel'], 403);
+            }
+
+            $availableLanguages = LanguageService::getAvailableLanguages();
+            $translations = [];
+            
+            foreach ($availableLanguages as $language) {
+                $translations[$language] = [
+                    'name' => $competency->hasTranslation($language) ? $competency->getTranslatedName($language) : '',
+                    'exists' => $competency->hasTranslation($language),
+                    'is_original' => $language === $competency->original_language,
+                ];
+            }
+
+            return response()->json([
+                'translations' => $translations,
+                'original_language' => $competency->original_language ?? 'hu',
+                'available_languages' => $competency->getAvailableLanguages(),
+                'missing_languages' => $competency->getMissingLanguages(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to get competency translations: ' . $e->getMessage());
+            return response()->json(['error' => 'Error loading translations'], 500);
+        }
+    }
+
+    /**
      * Save competency (create or update)
+     * FIXED: Added proper error handling
      */
     public function saveCompetency(Request $request)
     {
-        $orgId = session('org_id');
-        $currentLocale = LanguageService::getCurrentLocale();
-        
         try {
+            $orgId = session('org_id');
+            $currentLocale = LanguageService::getCurrentLocale();
+            
             if ($request->id) {
                 // Update existing competency
                 $competency = Competency::where('id', $request->id)
@@ -148,39 +187,55 @@ class AdminCompetencyController extends Controller
     }
 
     /**
-     * Get competency question data
+     * Get competency question
+     * FIXED: Added proper error handling and data structure
      */
     public function getCompetencyQuestion(Request $request)
     {
-        $orgId = session('org_id');
-        
         try {
+            $orgId = session('org_id');
+            
             $question = CompetencyQuestion::with('competency')
                 ->where('id', $request->id)
                 ->whereNull('removed_at')
                 ->firstOrFail();
             
-            // Check that the question belongs to an organization competency
+            // Check permissions
             if ($question->competency->organization_id !== $orgId) {
-                return abort(403, 'Unauthorized access to question');
+                return response()->json(['error' => 'Unauthorized access to question'], 403);
             }
             
-            return response()->json($question);
+            $currentLocale = LanguageService::getCurrentLocale();
+            
+            // Return the question data with safe structure
+            return response()->json([
+                'success' => true,
+                'id' => $question->id,
+                'competency_id' => $question->competency_id,
+                'question' => $question->getTranslatedQuestion($currentLocale),
+                'question_self' => $question->getTranslatedQuestionSelf($currentLocale),
+                'min_label' => $question->getTranslatedMinLabel($currentLocale),
+                'max_label' => $question->getTranslatedMaxLabel($currentLocale),
+                'max_value' => $question->max_value,
+                'original_language' => $question->original_language ?? 'hu',
+                'available_languages' => $question->getAvailableLanguages(),
+            ]);
             
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Question not found'], 404);
+            Log::error('Failed to get question: ' . $e->getMessage());
+            return response()->json(['error' => 'Error loading question'], 500);
         }
     }
 
     /**
-     * Save competency question (create or update)
+     * Save competency question
      */
     public function saveCompetencyQuestion(Request $request)
     {
-        $orgId = session('org_id');
-        $currentLocale = LanguageService::getCurrentLocale();
-        
         try {
+            $orgId = session('org_id');
+            $currentLocale = LanguageService::getCurrentLocale();
+            
             if ($request->id) {
                 // Update existing question
                 $question = CompetencyQuestion::with('competency')
@@ -190,18 +245,8 @@ class AdminCompetencyController extends Controller
                 
                 // Check permissions
                 if ($question->competency->organization_id !== $orgId) {
-                    return abort(403, 'Unauthorized access to question');
+                    return response()->json(['error' => 'Unauthorized access to question'], 403);
                 }
-                
-                // Update translations for current locale
-                $question->setTranslation($currentLocale, [
-                    'question' => $request->question,
-                    'question_self' => $request->question_self,
-                    'min_label' => $request->min_label,
-                    'max_label' => $request->max_label,
-                    'max_value' => $request->max_value,
-                ]);
-                
             } else {
                 // Create new question
                 $competency = Competency::where('id', $request->competency_id)
@@ -209,8 +254,8 @@ class AdminCompetencyController extends Controller
                     ->firstOrFail();
                 
                 $question = new CompetencyQuestion();
+                $question->competency_id = $competency->id;
                 $question->organization_id = $orgId;
-                $question->competency_id = $request->competency_id;
                 $question->original_language = $currentLocale;
                 $question->max_value = $request->max_value;
                 
@@ -259,7 +304,7 @@ class AdminCompetencyController extends Controller
             
             // Check permissions
             if ($question->competency->organization_id !== $orgId) {
-                return abort(403, 'Unauthorized access to question');
+                return response()->json(['error' => 'Unauthorized access to question'], 403);
             }
             
             // Soft delete
@@ -275,53 +320,21 @@ class AdminCompetencyController extends Controller
     }
 
     /**
-     * Get translations for a competency
-     */
-    public function getCompetencyTranslations(Request $request)
-    {
-        $competency = Competency::findOrFail($request->id);
-        $orgId = session('org_id');
-        
-        // Check permissions
-        if ($competency->organization_id !== $orgId) {
-            return abort(403, 'Cannot edit global competencies from admin panel');
-        }
-
-        $availableLanguages = LanguageService::getAvailableLanguages();
-        $translations = [];
-        
-        foreach ($availableLanguages as $language) {
-            $translations[$language] = [
-                'name' => $competency->hasTranslation($language) ? $competency->getTranslatedName($language) : '',
-                'exists' => $competency->hasTranslation($language),
-                'is_original' => $language === $competency->original_language,
-            ];
-        }
-
-        return response()->json([
-            'translations' => $translations,
-            'original_language' => $competency->original_language,
-            'available_languages' => $competency->getAvailableLanguages(),
-            'missing_languages' => $competency->getMissingLanguages(),
-        ]);
-    }
-
-    /**
      * Save translations for a competency
      */
     public function saveCompetencyTranslations(Request $request)
     {
-        $competency = Competency::findOrFail($request->id);
-        $orgId = session('org_id');
-        
-        // Check permissions
-        if ($competency->organization_id !== $orgId) {
-            return abort(403, 'Cannot edit global competencies from admin panel');
-        }
-
-        $translations = $request->translations ?? [];
-
         try {
+            $competency = Competency::findOrFail($request->id);
+            $orgId = session('org_id');
+            
+            // Check permissions
+            if ($competency->organization_id !== $orgId) {
+                return response()->json(['error' => 'Cannot edit global competencies from admin panel'], 403);
+            }
+
+            $translations = $request->translations ?? [];
+
             foreach ($translations as $language => $name) {
                 if (!empty(trim($name))) {
                     $competency->setTranslation($language, trim($name));
@@ -331,12 +344,12 @@ class AdminCompetencyController extends Controller
             }
             
             $competency->save();
+            
+            return response()->json(['success' => true]);
         } catch (\Exception $e) {
             Log::error('Failed to save competency translations: ' . $e->getMessage());
             return response()->json(['error' => 'Please try again later.'], 500);
         }
-
-        return response()->json(['success' => true]);
     }
 
     /**
@@ -344,28 +357,28 @@ class AdminCompetencyController extends Controller
      */
     public function translateCompetencyWithAI(Request $request)
     {
-        $competency = Competency::findOrFail($request->id);
-        $orgId = session('org_id');
-        
-        // Check permissions
-        if ($competency->organization_id !== $orgId) {
-            return abort(403, 'Cannot edit global competencies from admin panel');
-        }
-
-        $targetLanguages = $request->languages ?? [];
-
-        // Call AI translation service
         try {
+            $competency = Competency::findOrFail($request->id);
+            $orgId = session('org_id');
+            
+            // Check permissions
+            if ($competency->organization_id !== $orgId) {
+                return response()->json(['error' => 'Cannot edit global competencies from admin panel'], 403);
+            }
+
+            $targetLanguages = $request->languages ?? [];
+
+            // Call AI translation service
             $translations = CompetencyTranslationService::translateCompetencyName($competency, $targetLanguages);
+            
+            return response()->json([
+                'success' => true,
+                'translations' => $translations
+            ]);
         } catch (\Exception $e) {
             Log::error('AI translation failed: ' . $e->getMessage());
             return response()->json(['error' => 'Please try again later.'], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'translations' => $translations
-        ]);
     }
 
     /**
@@ -373,37 +386,42 @@ class AdminCompetencyController extends Controller
      */
     public function getQuestionTranslations(Request $request)
     {
-        $question = CompetencyQuestion::findOrFail($request->id);
-        $orgId = session('org_id');
-        
-        // Check permissions through competency
-        if ($question->competency->organization_id !== $orgId) {
-            return abort(403, 'Cannot edit questions for global competencies from admin panel');
-        }
+        try {
+            $question = CompetencyQuestion::findOrFail($request->id);
+            $orgId = session('org_id');
+            
+            // Check permissions through competency
+            if ($question->competency->organization_id !== $orgId) {
+                return response()->json(['error' => 'Cannot edit questions for global competencies from admin panel'], 403);
+            }
 
-        $availableLanguages = LanguageService::getAvailableLanguages();
-        $translations = [];
-        
-        foreach ($availableLanguages as $language) {
-            $translations[$language] = [
-                'question' => $question->hasTranslation($language) ? $question->getTranslatedQuestion($language) : '',
-                'question_self' => $question->hasTranslation($language) ? $question->getTranslatedQuestionSelf($language) : '',
-                'min_label' => $question->hasTranslation($language) ? $question->getTranslatedMinLabel($language) : '',
-                'max_label' => $question->hasTranslation($language) ? $question->getTranslatedMaxLabel($language) : '',
-                'exists' => $question->hasTranslation($language),
-                'is_complete' => $question->isTranslationComplete($language),
-                'is_partial' => $question->hasPartialTranslation($language),
-                'missing_fields' => $question->getMissingFields($language),
-                'is_original' => $language === $question->original_language,
-            ];
-        }
+            $availableLanguages = LanguageService::getAvailableLanguages();
+            $translations = [];
+            
+            foreach ($availableLanguages as $language) {
+                $translations[$language] = [
+                    'question' => $question->hasTranslation($language) ? $question->getTranslatedQuestion($language) : '',
+                    'question_self' => $question->hasTranslation($language) ? $question->getTranslatedQuestionSelf($language) : '',
+                    'min_label' => $question->hasTranslation($language) ? $question->getTranslatedMinLabel($language) : '',
+                    'max_label' => $question->hasTranslation($language) ? $question->getTranslatedMaxLabel($language) : '',
+                    'exists' => $question->hasTranslation($language),
+                    'is_complete' => $question->isTranslationComplete($language),
+                    'is_partial' => $question->hasPartialTranslation($language),
+                    'missing_fields' => $question->getMissingFields($language),
+                    'is_original' => $language === $question->original_language,
+                ];
+            }
 
-        return response()->json([
-            'translations' => $translations,
-            'original_language' => $question->original_language,
-            'available_languages' => $question->getAvailableLanguages(),
-            'missing_languages' => $question->getMissingLanguages(),
-        ]);
+            return response()->json([
+                'translations' => $translations,
+                'original_language' => $question->original_language ?? 'hu',
+                'available_languages' => $question->getAvailableLanguages(),
+                'missing_languages' => $question->getMissingLanguages(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to get question translations: ' . $e->getMessage());
+            return response()->json(['error' => 'Error loading question translations'], 500);
+        }
     }
 
     /**
@@ -411,17 +429,17 @@ class AdminCompetencyController extends Controller
      */
     public function saveQuestionTranslations(Request $request)
     {
-        $question = CompetencyQuestion::findOrFail($request->id);
-        $orgId = session('org_id');
-        
-        // Check permissions
-        if ($question->competency->organization_id !== $orgId) {
-            return abort(403, 'Cannot edit questions for global competencies from admin panel');
-        }
-
-        $translations = $request->translations ?? [];
-
         try {
+            $question = CompetencyQuestion::findOrFail($request->id);
+            $orgId = session('org_id');
+            
+            // Check permissions
+            if ($question->competency->organization_id !== $orgId) {
+                return response()->json(['error' => 'Cannot edit questions for global competencies from admin panel'], 403);
+            }
+
+            $translations = $request->translations ?? [];
+
             foreach ($translations as $language => $fields) {
                 if (is_array($fields)) {
                     $question->setTranslation($language, $fields);
@@ -429,12 +447,12 @@ class AdminCompetencyController extends Controller
             }
             
             $question->save();
+            
+            return response()->json(['success' => true]);
         } catch (\Exception $e) {
             Log::error('Failed to save question translations: ' . $e->getMessage());
             return response()->json(['error' => 'Please try again later.'], 500);
         }
-
-        return response()->json(['success' => true]);
     }
 
     /**
@@ -442,27 +460,27 @@ class AdminCompetencyController extends Controller
      */
     public function translateQuestionWithAI(Request $request)
     {
-        $question = CompetencyQuestion::findOrFail($request->id);
-        $orgId = session('org_id');
-        
-        // Check permissions
-        if ($question->competency->organization_id !== $orgId) {
-            return abort(403, 'Cannot edit questions for global competencies from admin panel');
-        }
-
-        $targetLanguages = $request->languages ?? [];
-
-        // Call AI translation service
         try {
-            $translations = CompetencyTranslationService::translateCompetencyQuestion($question, $targetLanguages);
+            $question = CompetencyQuestion::findOrFail($request->id);
+            $orgId = session('org_id');
+            
+            // Check permissions
+            if ($question->competency->organization_id !== $orgId) {
+                return response()->json(['error' => 'Cannot edit questions for global competencies from admin panel'], 403);
+            }
+
+            $targetLanguages = $request->languages ?? [];
+
+            // Call AI translation service
+            $translations = CompetencyTranslationService::translateQuestionFields($question, $targetLanguages);
+            
+            return response()->json([
+                'success' => true,
+                'translations' => $translations
+            ]);
         } catch (\Exception $e) {
-            Log::error('AI translation failed: ' . $e->getMessage());
+            Log::error('AI translation failed for question: ' . $e->getMessage());
             return response()->json(['error' => 'Please try again later.'], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'translations' => $translations
-        ]);
     }
 }

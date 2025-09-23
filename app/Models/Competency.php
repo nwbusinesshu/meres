@@ -182,9 +182,10 @@ class Competency extends Model
      */
     public function getMissingLanguages(): array
     {
-        $systemLanguages = LanguageService::getAvailableLanguages();
-        $availableLanguages = $this->getAvailableLanguages();
-        return array_diff($systemLanguages, $availableLanguages);
+        $availableLanguages = LanguageService::getAvailableLanguages();
+        $competencyLanguages = $this->available_languages ?? [];
+        
+        return array_values(array_diff($availableLanguages, $competencyLanguages));
     }
 
     /**
@@ -230,5 +231,50 @@ class Competency extends Model
         }
 
         return $this->getTranslatedName();
+    }
+
+    // ================================
+    // JSON ATTRIBUTE CASTING (FIXED - No Duplicates)
+    // ================================
+
+    /**
+     * Cast JSON fields properly
+     */
+    protected function getNameJsonAttribute($value)
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            return $decoded ?? [];
+        }
+        
+        return $value ?? [];
+    }
+
+    protected function setNameJsonAttribute($value)
+    {
+        if (is_array($value)) {
+            $this->attributes['name_json'] = json_encode($value, JSON_UNESCAPED_UNICODE);
+        } else {
+            $this->attributes['name_json'] = $value;
+        }
+    }
+
+    protected function getAvailableLanguagesAttribute($value)
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            return $decoded ?? [];
+        }
+        
+        return $value ?? [];
+    }
+
+    protected function setAvailableLanguagesAttribute($value)
+    {
+        if (is_array($value)) {
+            $this->attributes['available_languages'] = json_encode($value, JSON_UNESCAPED_UNICODE);
+        } else {
+            $this->attributes['available_languages'] = $value;
+        }
     }
 }

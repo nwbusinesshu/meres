@@ -1,14 +1,20 @@
 <script>
-// Superadmin Global Competencies JavaScript with Translation Support
+// Superadmin Global Competencies JavaScript with Translation Support - FIXED VERSION
 // This file handles all global competency management and translation functionality
 
 $(document).ready(function(){
   const url = new URL(window.location.href);
 
-  // For superadmin - all available languages are always used
-  let availableLanguages = @json($availableLanguages);
+  // Initialize languages for superadmin
+  let availableLanguages = @json($availableLanguages ?? ['hu', 'en']);
+  let languageNames = @json($languageNames ?? ['hu' => 'Magyar', 'en' => 'English']);
   let currentLocale = '{{ $currentLocale }}';
   
+  // Make sure window.languageNames is available
+  window.languageNames = languageNames;
+  
+  console.log('Superadmin initialized with:', { availableLanguages, currentLocale, languageNames });
+
   // Basic competency management
   $('.create-competency').click(function(){
     openCompetencyModal();
@@ -20,7 +26,7 @@ $(document).ready(function(){
     openCompetencyModal(id, name);
   });
 
-  // Arrow toggle functionality
+  // Arrow toggle functionality  
   $(document).on('click', '.competency-item .bar > span', function(e){
     e.stopPropagation();
     
@@ -52,24 +58,24 @@ $(document).ready(function(){
 
   // Question management
   $(document).on('click', '.create-question', function(){
-    const compId = $(this).closest('.competency-item').attr('data-id');
+    const compId = $(this).closest('.competency-item').attr('data-id')*1;
     openCompetencyQModal(null, compId);
   });
 
   $(document).on('click', '.modify-question', function(){
-    const id = $(this).closest('.question-item').attr('data-id');
-    const compId = $(this).closest('.competency-item').attr('data-id');
+    const id = $(this).attr('data-id')*1;
+    const compId = $(this).closest('.competency-item').attr('data-id')*1;
     openCompetencyQModal(id, compId);
   });
 
-  // Remove competency
+  // Remove functions
   $(document).on('click', '.remove-competency', function(){
-    const id = $(this).closest('.competency-item').attr('data-id');
+    const id = $(this).closest('.competency-item').attr('data-id')*1;
     const name = $(this).closest('.competency-item').attr('data-name');
     
     swal_confirm.fire({
-      title: '{{ __('superadmin/global-competencies.confirm-remove-competency') }}',
-      text: name,
+      title: '{{ __('superadmin/global-competencies.remove-competency-confirm') }}',
+      text: name
     }).then((result) => {
       if (result.isConfirmed) {
         removeCompetency(id);
@@ -77,116 +83,108 @@ $(document).ready(function(){
     });
   });
 
-  // Remove question
   $(document).on('click', '.remove-question', function(){
-    const id = $(this).closest('.question-item').attr('data-id');
+    const id = $(this).attr('data-id')*1;
+    const question = $(this).attr('data-question');
     
     swal_confirm.fire({
-      title: '{{ __('superadmin/global-competencies.confirm-remove-question') }}',
+      title: '{{ __('superadmin/global-competencies.remove-question-confirm') }}',
+      text: question
     }).then((result) => {
       if (result.isConfirmed) {
-        removeQuestion(id);
+        removeCompetencyQuestion(id);
       }
     });
   });
 
-  // Translation management
-  $(document).on('click', '.manage-translations', function(){
-    const competencyId = $(this).data('id');
+  // FIXED: Translation modal handlers
+  $(document).on('click', '.open-translations', function(){
+    const competencyId = $(this).closest('.competency-item').attr('data-id')*1;
     openTranslationModal(competencyId);
   });
 
-  $(document).on('click', '.manage-question-translations', function(){
-    const questionId = $(this).data('id');
+  $(document).on('click', '.open-question-translations', function(){
+    const questionId = $(this).attr('data-id')*1;
     openQuestionTranslationModal(questionId);
   });
 
-  // Search functionality
-  $('.competency-search-input').keyup(function(e){
-    if(e.keyCode != 13) return;
+  // ===================================
+  // BASIC COMPETENCY FUNCTIONS
+  // ===================================
 
-    swal_loader.fire();
-    const search = $(this).val().toLowerCase();
+  function openCompetencyModal(id = null, name = null) {
+    // Reset and show modal
+    $('#competency-modal .modal-title').text(
+      id ? '{{ __('superadmin/global-competencies.modify-competency') }}' : '{{ __('superadmin/global-competencies.create-competency') }}'
+    );
+    
+    $('#competency-modal input[name="id"]').val(id || '');
+    $('#competency-modal input[name="name"]').val(name || '');
+    
+    $('#competency-modal').modal('show');
+  }
 
-    $('.competency-item').each(function(){
-      const name = $(this).attr('data-name').toLowerCase();
-      if(name.includes(search) || search === ''){
-        $(this).removeClass('hidden');
-      } else {
-        $(this).addClass('hidden');
-      }
-    });
-
-    const visibleItems = $('.competency-item').not('.hidden').length;
-    if(visibleItems === 0){
-      $('.no-competency').removeClass('hidden');
+  function openCompetencyQModal(id = null, compId = null) {
+    if (id) {
+      // Load existing question
+      swal_loader.fire();
+      
+      $.ajax({
+        url: '{{ route('superadmin.competency.question.get') }}',
+        method: 'GET',
+        data: { id: id },
+        success: function(response) {
+          // FIXED: Handle response safely
+          if (response.success && response.id) {
+            populateQuestionModal(response);
+          } else {
+            console.error('Invalid question response:', response);
+            swal_error.fire({
+              title: '{{ __('global.error-occurred') }}'
+            });
+          }
+          swal_loader.close();
+        },
+        error: function(xhr) {
+          swal_loader.close();
+          console.error('Question load error:', xhr);
+          swal_error.fire({
+            title: '{{ __('global.error-occurred') }}'
+          });
+        }
+      });
     } else {
-      $('.no-competency').addClass('hidden');
+      // New question
+      $('#competencyq-modal .modal-title').text('{{ __('superadmin/global-competencies.create-question') }}');
+      $('#competencyq-modal input[name="id"]').val('');
+      $('#competencyq-modal input[name="competency_id"]').val(compId);
+      $('#competencyq-modal input[name="question"]').val('');
+      $('#competencyq-modal input[name="question_self"]').val('');
+      $('#competencyq-modal input[name="min_label"]').val('');
+      $('#competencyq-modal input[name="max_label"]').val('');
+      $('#competencyq-modal input[name="max_value"]').val('7');
+      
+      $('#competencyq-modal').modal('show');
     }
-
-    swal_loader.close();
-  });
-
-  $('.competency-clear-search').click(function(){
-    $('.competency-search-input').val('');
-    $('.competency-item').removeClass('hidden');
-    $('.no-competency').addClass('hidden');
-  });
-
-  // Helper Functions
-  function removeCompetency(id) {
-    swal_loader.fire();
-    
-    $.ajax({
-      url: '{{ route('superadmin.competency.remove') }}',
-      method: 'POST',
-      data: {
-        id: id,
-        _token: $('meta[name="csrf-token"]').attr('content')
-      },
-      success: function() {
-        swal_loader.close();
-        swal_success.fire({
-          title: '{{ __('superadmin/global-competencies.competency-removed') }}'
-        }).then(() => {
-          location.reload();
-        });
-      },
-      error: function() {
-        swal_loader.close();
-        swal_error.fire({
-          title: '{{ __('global.error-occurred') }}'
-        });
-      }
-    });
   }
 
-  function removeQuestion(id) {
-    swal_loader.fire();
+  // FIXED: Safer question modal population
+  function populateQuestionModal(data) {
+    $('#competencyq-modal .modal-title').text('{{ __('superadmin/global-competencies.modify-question') }}');
+    $('#competencyq-modal input[name="id"]').val(data.id || '');
+    $('#competencyq-modal input[name="competency_id"]').val(data.competency_id || '');
+    $('#competencyq-modal input[name="question"]').val(data.question || '');
+    $('#competencyq-modal input[name="question_self"]').val(data.question_self || '');
+    $('#competencyq-modal input[name="min_label"]').val(data.min_label || '');
+    $('#competencyq-modal input[name="max_label"]').val(data.max_label || '');
+    $('#competencyq-modal input[name="max_value"]').val(data.max_value || '7');
     
-    $.ajax({
-      url: '{{ route('superadmin.competency.question.remove') }}',
-      method: 'POST',
-      data: {
-        id: id,
-        _token: $('meta[name="csrf-token"]').attr('content')
-      },
-      success: function() {
-        swal_loader.close();
-        swal_success.fire({
-          title: '{{ __('superadmin/global-competencies.question-removed') }}'
-        }).then(() => {
-          location.reload();
-        });
-      },
-      error: function() {
-        swal_loader.close();
-        swal_error.fire({
-          title: '{{ __('global.error-occurred') }}'
-        });
-      }
-    });
+    $('#competencyq-modal').modal('show');
   }
+
+  // ===================================
+  // TRANSLATION FUNCTIONS - FIXED
+  // ===================================
 
   function openTranslationModal(competencyId) {
     swal_loader.fire();
@@ -199,11 +197,13 @@ $(document).ready(function(){
         _token: $('meta[name="csrf-token"]').attr('content')
       },
       success: function(response) {
+        console.log('Superadmin translation response:', response);
         showTranslationModal(competencyId, response);
         swal_loader.close();
       },
-      error: function() {
+      error: function(xhr) {
         swal_loader.close();
+        console.error('Translation load error:', xhr);
         swal_error.fire({
           title: '{{ __('global.error-occurred') }}'
         });
@@ -211,19 +211,25 @@ $(document).ready(function(){
     });
   }
 
+  // FIXED: Translation modal display for superadmin
   function showTranslationModal(competencyId, data) {
-    $('#translation-modal').modal('show');
-    $('#translation-modal').attr('data-competency-id', competencyId);
+    const $modal = $('#translation-modal');
+    $modal.modal('show');
+    $modal.attr('data-competency-id', competencyId);
     
-    const $form = $('#translation-modal .translation-form');
+    const $form = $modal.find('.translation-form');
     $form.empty();
     
+    // FIXED: Safely handle the translation data
     availableLanguages.forEach(lang => {
-      const name = window.languageNames[lang] || lang.toUpperCase();
-      const isOriginal = lang === data.original_language;
-      // Fix: Safely access the translation data
-      const translationData = data.translations && data.translations[lang] ? data.translations[lang] : {};
-      const value = translationData.name || '';
+      const name = languageNames[lang] || lang.toUpperCase();
+      const isOriginal = lang === (data.original_language || 'hu');
+      
+      // FIXED: Safe access to translation data
+      let value = '';
+      if (data.translations && data.translations[lang] && data.translations[lang].name) {
+        value = data.translations[lang].name;
+      }
       
       $form.append(`
         <div class="translation-field">
@@ -256,11 +262,13 @@ $(document).ready(function(){
         _token: $('meta[name="csrf-token"]').attr('content')
       },
       success: function(response) {
+        console.log('Superadmin question translation response:', response);
         showQuestionTranslationModal(questionId, response);
         swal_loader.close();
       },
-      error: function() {
+      error: function(xhr) {
         swal_loader.close();
+        console.error('Question translation load error:', xhr);
         swal_error.fire({
           title: '{{ __('global.error-occurred') }}'
         });
@@ -268,57 +276,72 @@ $(document).ready(function(){
     });
   }
 
+  // FIXED: Question translation modal display for superadmin
   function showQuestionTranslationModal(questionId, data) {
-    $('#question-translation-modal').modal('show');
-    $('#question-translation-modal').attr('data-question-id', questionId);
+    const $modal = $('#question-translation-modal');
+    $modal.modal('show');
+    $modal.attr('data-question-id', questionId);
     
-    // Create language tabs
-    const $tabs = $('#question-translation-modal .language-tabs');
+    const $tabs = $modal.find('.language-tabs');
+    const $content = $modal.find('.question-translation-content');
+    
     $tabs.empty();
-    
-    availableLanguages.forEach(lang => {
-      const name = window.languageNames[lang] || lang.toUpperCase();
-      const isOriginal = lang === data.original_language;
-      const isActive = lang === availableLanguages[0];
-      
-      $tabs.append(`
-        <div class="language-tab ${isActive ? 'active' : ''} ${isOriginal ? 'original' : ''}" data-lang="${lang}">
-          ${name} ${isOriginal ? '({{ __('superadmin/global-competencies.original') }})' : ''}
-        </div>
-      `);
-    });
-    
-    // Create form fields for each language
-    const $content = $('#question-translation-modal .question-translation-content');
     $content.empty();
     
+    // Create tabs for each language
     availableLanguages.forEach((lang, index) => {
+      const name = languageNames[lang] || lang.toUpperCase();
+      const isOriginal = lang === (data.original_language || 'hu');
       const isActive = index === 0;
-      const isOriginal = lang === data.original_language;
-      // Fix: Safely access the translation data
-      const translationData = data.translations && data.translations[lang] ? data.translations[lang] : {};
+      
+      $tabs.append(`
+        <button type="button" class="btn btn-outline-primary language-tab ${isActive ? 'active' : ''}" data-lang="${lang}">
+          ${name} ${isOriginal ? '({{ __('superadmin/global-competencies.original') }})' : ''}
+        </button>
+      `);
+      
+      // FIXED: Safe access to question translation data
+      let translation = {
+        question: '',
+        question_self: '',
+        min_label: '',
+        max_label: ''
+      };
+      
+      if (data.translations && data.translations[lang]) {
+        translation = {
+          question: data.translations[lang].question || '',
+          question_self: data.translations[lang].question_self || '',
+          min_label: data.translations[lang].min_label || '',
+          max_label: data.translations[lang].max_label || ''
+        };
+      }
       
       $content.append(`
         <div class="question-fields ${isActive ? '' : 'hidden'}" data-lang="${lang}">
-          <div class="field-group">
-            <label class="field-label">{{ __('superadmin/global-competencies.question') }}</label>
-            <textarea class="form-control" data-field="question" ${isOriginal ? 'readonly' : ''}>${translationData.question || ''}</textarea>
-          </div>
-          <div class="field-group">
-            <label class="field-label">{{ __('superadmin/global-competencies.question-self') }}</label>
-            <textarea class="form-control" data-field="question_self" ${isOriginal ? 'readonly' : ''}>${translationData.question_self || ''}</textarea>
-          </div>
           <div class="row">
+            <div class="col-12">
+              <div class="field-group">
+                <label class="field-label">{{ __('superadmin/global-competencies.question') }}</label>
+                <textarea class="form-control" data-field="question" ${isOriginal ? 'readonly' : ''}>${translation.question}</textarea>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="field-group">
+                <label class="field-label">{{ __('superadmin/global-competencies.question-self') }}</label>
+                <textarea class="form-control" data-field="question_self" ${isOriginal ? 'readonly' : ''}>${translation.question_self}</textarea>
+              </div>
+            </div>
             <div class="col-md-6">
               <div class="field-group">
                 <label class="field-label">{{ __('superadmin/global-competencies.min-label') }}</label>
-                <input type="text" class="form-control" data-field="min_label" value="${translationData.min_label || ''}" ${isOriginal ? 'readonly' : ''}>
+                <input type="text" class="form-control" data-field="min_label" value="${translation.min_label}" ${isOriginal ? 'readonly' : ''}>
               </div>
             </div>
             <div class="col-md-6">
               <div class="field-group">
                 <label class="field-label">{{ __('superadmin/global-competencies.max-label') }}</label>
-                <input type="text" class="form-control" data-field="max_label" value="${translationData.max_label || ''}" ${isOriginal ? 'readonly' : ''}>
+                <input type="text" class="form-control" data-field="max_label" value="${translation.max_label}" ${isOriginal ? 'readonly' : ''}>
               </div>
             </div>
           </div>
@@ -336,7 +359,11 @@ $(document).ready(function(){
     `);
   }
 
-  // Modal event handlers
+  // ===================================
+  // EVENT HANDLERS
+  // ===================================
+
+  // Language tab switching
   $(document).on('click', '.language-tab', function() {
     const lang = $(this).data('lang');
     
@@ -349,118 +376,18 @@ $(document).ready(function(){
     $(`.question-fields[data-lang="${lang}"]`).removeClass('hidden');
   });
 
-  $(document).on('click', '.ai-translate-competency', function() {
-    const competencyId = $('#translation-modal').data('competency-id');
-    const missingLanguages = availableLanguages.filter(lang => 
-      !$(`input[data-lang="${lang}"]`).prop('readonly')
-    );
-    
-    if (missingLanguages.length === 0) {
-      alert('{{ __('superadmin/global-competencies.no-translations-needed') }}');
-      return;
-    }
-    
-    swal_loader.fire();
-    
-    $.ajax({
-      url: '{{ route('superadmin.competency.translations.ai') }}',
-      method: 'POST',
-      data: {
-        id: competencyId,
-        languages: missingLanguages,
-        _token: $('meta[name="csrf-token"]').attr('content')
-      },
-      success: function(response) {
-        swal_loader.close();
-        
-        if (response.translations) {
-          // Update form fields with translations
-          Object.keys(response.translations).forEach(lang => {
-            const $input = $(`input[data-lang="${lang}"]`);
-            $input.val(response.translations[lang]);
-            $input.addClass('translation-success');
-            setTimeout(() => $input.removeClass('translation-success'), 2000);
-          });
-          
-          swal_success.fire({
-            title: '{{ __('superadmin/global-competencies.ai-translation-complete') }}'
-          });
-        }
-      },
-      error: function(xhr) {
-        swal_loader.close();
-        swal_error.fire({
-          title: xhr.responseJSON?.error || '{{ __('global.error-occurred') }}'
-        });
-      }
-    });
-  });
-
-  $(document).on('click', '.ai-translate-question', function() {
-    const questionId = $('#question-translation-modal').data('question-id');
-    const missingLanguages = availableLanguages.filter(lang => 
-      !$(`.question-fields[data-lang="${lang}"] [data-field="question"]`).prop('readonly')
-    );
-    
-    if (missingLanguages.length === 0) {
-      alert('{{ __('superadmin/global-competencies.no-translations-needed') }}');
-      return;
-    }
-    
-    swal_loader.fire();
-    
-    $.ajax({
-      url: '{{ route('superadmin.competency.question.translations.ai') }}',
-      method: 'POST',
-      data: {
-        id: questionId,
-        languages: missingLanguages,
-        _token: $('meta[name="csrf-token"]').attr('content')
-      },
-      success: function(response) {
-        swal_loader.close();
-        
-        if (response.translations) {
-          // Update form fields with translations
-          Object.keys(response.translations).forEach(lang => {
-            const fields = response.translations[lang];
-            Object.keys(fields).forEach(field => {
-              if (field !== 'max_value') { // Don't update max_value as it's readonly
-                const $input = $(`.question-fields[data-lang="${lang}"] [data-field="${field}"]`);
-                $input.val(fields[field]);
-                $input.addClass('translation-success');
-                setTimeout(() => $input.removeClass('translation-success'), 2000);
-              }
-            });
-          });
-          
-          swal_success.fire({
-            title: '{{ __('superadmin/global-competencies.ai-translation-complete') }}'
-          });
-        }
-      },
-      error: function(xhr) {
-        swal_loader.close();
-        swal_error.fire({
-          title: xhr.responseJSON?.error || '{{ __('global.error-occurred') }}'
-        });
-      }
-    });
-  });
-
-  $(document).on('click', '#translation-modal .save-translations', function() {
+  // Save translations
+  $(document).on('click', '.save-translations', function() {
     const competencyId = $('#translation-modal').data('competency-id');
     const translations = {};
     
-    $('#translation-modal input[data-lang]').each(function() {
+    $('#translation-modal .translation-field input').each(function() {
       const lang = $(this).data('lang');
       const value = $(this).val().trim();
       if (value) {
         translations[lang] = value;
       }
     });
-    
-    swal_loader.fire();
     
     $.ajax({
       url: '{{ route('superadmin.competency.translations.save') }}',
@@ -471,38 +398,40 @@ $(document).ready(function(){
         _token: $('meta[name="csrf-token"]').attr('content')
       },
       success: function() {
-        swal_loader.close();
         $('#translation-modal').modal('hide');
         swal_success.fire({
           title: '{{ __('superadmin/global-competencies.translations-saved') }}'
-        }).then(() => {
-          location.reload();
         });
       },
-      error: function(xhr) {
-        swal_loader.close();
+      error: function() {
         swal_error.fire({
-          title: xhr.responseJSON?.error || '{{ __('global.error-occurred') }}'
+          title: '{{ __('global.error-occurred') }}'
         });
       }
     });
   });
 
-  $(document).on('click', '#question-translation-modal .save-question-translations', function() {
+  // Save question translations
+  $(document).on('click', '.save-question-translations', function() {
     const questionId = $('#question-translation-modal').data('question-id');
     const translations = {};
     
     availableLanguages.forEach(lang => {
       const $fields = $(`.question-fields[data-lang="${lang}"]`);
-      translations[lang] = {
-        question: $fields.find('[data-field="question"]').val().trim(),
-        question_self: $fields.find('[data-field="question_self"]').val().trim(),
-        min_label: $fields.find('[data-field="min_label"]').val().trim(),
-        max_label: $fields.find('[data-field="max_label"]').val().trim()
-      };
+      const fields = {};
+      
+      $fields.find('input, textarea').each(function() {
+        const field = $(this).data('field');
+        const value = $(this).val().trim();
+        if (field && value) {
+          fields[field] = value;
+        }
+      });
+      
+      if (Object.keys(fields).length > 0) {
+        translations[lang] = fields;
+      }
     });
-    
-    swal_loader.fire();
     
     $.ajax({
       url: '{{ route('superadmin.competency.question.translations.save') }}',
@@ -513,21 +442,192 @@ $(document).ready(function(){
         _token: $('meta[name="csrf-token"]').attr('content')
       },
       success: function() {
-        swal_loader.close();
         $('#question-translation-modal').modal('hide');
         swal_success.fire({
           title: '{{ __('superadmin/global-competencies.translations-saved') }}'
-        }).then(() => {
-          location.reload();
         });
       },
-      error: function(xhr) {
-        swal_loader.close();
+      error: function() {
         swal_error.fire({
-          title: xhr.responseJSON?.error || '{{ __('global.error-occurred') }}'
+          title: '{{ __('global.error-occurred') }}'
         });
       }
     });
   });
+
+  // ===================================
+  // SAVE FUNCTIONS
+  // ===================================
+
+  $(document).on('click', '.save-competency', function(){
+    const id = $('#competency-modal input[name="id"]').val();
+    const name = $('#competency-modal input[name="name"]').val();
+    
+    if (!name.trim()) {
+      swal_error.fire({
+        title: '{{ __('superadmin/global-competencies.name-required') }}'
+      });
+      return;
+    }
+    
+    swal_loader.fire();
+    
+    $.ajax({
+      url: '{{ route('superadmin.competency.save') }}',
+      method: 'POST',
+      data: {
+        id: id,
+        name: name.trim(),
+        _token: $('meta[name="csrf-token"]').attr('content')
+      },
+      success: function(response) {
+        swal_loader.close();
+        $('#competency-modal').modal('hide');
+        
+        if (response.success) {
+          swal_success.fire({
+            title: response.message || '{{ __('global.saved') }}'
+          }).then(() => {
+            location.reload();
+          });
+        } else {
+          swal_error.fire({
+            title: response.error || '{{ __('global.error-occurred') }}'
+          });
+        }
+      },
+      error: function(xhr) {
+        swal_loader.close();
+        console.error('Save competency error:', xhr);
+        swal_error.fire({
+          title: '{{ __('global.error-occurred') }}'
+        });
+      }
+    });
+  });
+
+  $(document).on('click', '.save-competencyq', function(){
+    const data = {
+      id: $('#competencyq-modal input[name="id"]').val(),
+      competency_id: $('#competencyq-modal input[name="competency_id"]').val(),
+      question: $('#competencyq-modal input[name="question"]').val(),
+      question_self: $('#competencyq-modal input[name="question_self"]').val(),
+      min_label: $('#competencyq-modal input[name="min_label"]').val(),
+      max_label: $('#competencyq-modal input[name="max_label"]').val(),
+      max_value: $('#competencyq-modal input[name="max_value"]').val(),
+      _token: $('meta[name="csrf-token"]').attr('content')
+    };
+    
+    // Validation
+    if (!data.question.trim() || !data.question_self.trim() || !data.min_label.trim() || !data.max_label.trim()) {
+      swal_error.fire({
+        title: '{{ __('superadmin/global-competencies.all-fields-required') }}'
+      });
+      return;
+    }
+    
+    swal_loader.fire();
+    
+    $.ajax({
+      url: '{{ route('superadmin.competency.question.save') }}',
+      method: 'POST',
+      data: data,
+      success: function(response) {
+        swal_loader.close();
+        $('#competencyq-modal').modal('hide');
+        
+        if (response.success) {
+          swal_success.fire({
+            title: response.message || '{{ __('global.saved') }}'
+          }).then(() => {
+            location.reload();
+          });
+        } else {
+          swal_error.fire({
+            title: response.error || '{{ __('global.error-occurred') }}'
+          });
+        }
+      },
+      error: function(xhr) {
+        swal_loader.close();
+        console.error('Save question error:', xhr);
+        swal_error.fire({
+          title: '{{ __('global.error-occurred') }}'
+        });
+      }
+    });
+  });
+
+  // ===================================
+  // REMOVE FUNCTIONS
+  // ===================================
+
+  function removeCompetency(id) {
+    swal_loader.fire();
+    
+    $.ajax({
+      url: '{{ route('superadmin.competency.remove') }}',
+      method: 'POST',
+      data: {
+        id: id,
+        _token: $('meta[name="csrf-token"]').attr('content')
+      },
+      success: function(response) {
+        swal_loader.close();
+        if (response.success) {
+          swal_success.fire({
+            title: '{{ __('superadmin/global-competencies.competency-removed') }}'
+          }).then(() => {
+            location.reload();
+          });
+        } else {
+          swal_error.fire({
+            title: response.error || '{{ __('global.error-occurred') }}'
+          });
+        }
+      },
+      error: function(xhr) {
+        swal_loader.close();
+        console.error('Remove competency error:', xhr);
+        swal_error.fire({
+          title: '{{ __('global.error-occurred') }}'
+        });
+      }
+    });
+  }
+
+  function removeCompetencyQuestion(id) {
+    swal_loader.fire();
+    
+    $.ajax({
+      url: '{{ route('superadmin.competency.question.remove') }}',
+      method: 'POST',
+      data: {
+        id: id,
+        _token: $('meta[name="csrf-token"]').attr('content')
+      },
+      success: function(response) {
+        swal_loader.close();
+        if (response.success) {
+          swal_success.fire({
+            title: '{{ __('superadmin/global-competencies.question-removed') }}'
+          }).then(() => {
+            location.reload();
+          });
+        } else {
+          swal_error.fire({
+            title: response.error || '{{ __('global.error-occurred') }}'
+          });
+        }
+      },
+      error: function(xhr) {
+        swal_loader.close();
+        console.error('Remove question error:', xhr);
+        swal_error.fire({
+          title: '{{ __('global.error-occurred') }}'
+        });
+      }
+    });
+  }
 });
 </script>
