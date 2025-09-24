@@ -1,5 +1,7 @@
 .payments-section { margin-top: 24px; }
-.payments-table th, .payments-table td { vertical-align: middle; }
+.payment-table th, 
+.payment-table td { vertical-align: middle; }
+
 .empty-note { padding: 12px 16px; background: #f8f9fa; border: 1px dashed #cfd8dc; border-radius: 8px; color: #607d8b; }
 @media (max-width: 768px) {
   .payment-table {
@@ -99,4 +101,110 @@
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
   }
+}
+
+/* ===== DESKTOP (>=769px): kártyás, mobilhoz illeszkedő tábla ===== */
+@media (min-width: 769px) {
+  .tile > h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+  }
+
+  /* a táblát “kártyásítjuk” */
+  .payment-table {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    overflow: hidden; /* radiust érvényesíti a thead-re is */
+    box-shadow: 0 6px 16px rgba(16,24,40,.06);
+  }
+
+  .payment-table thead th {
+    background: #f8fafc;                /* világos fejlétszín (mobil kártya hangulata) */
+    color: #64748b;                      /* semleges szürke */
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: none;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e9ecef;
+  }
+
+  .payment-table tbody td {
+    padding: 14px 16px;
+    border-color: #eef2f6;
+  }
+
+  /* zebra + hover, mint a mobil kártyák enyhe shadow-ja */
+  .payment-table tbody tr:nth-child(even) td {
+    background: #fcfdff;
+  }
+  .payment-table tbody tr:hover td {
+    background: #f6f9ff;
+  }
+
+  /* összegek jobbra, fixáljuk a szélességet, hogy ne ugráljon */
+  .payment-table th.text-right,
+  .payment-table td.text-right {
+    text-align: right !important;
+    white-space: nowrap;
+    width: 140px;
+  }
+
+  /* státusz oszlop kicsit keskenyebb, középre igazítva */
+  .payment-table thead th:nth-child(4),
+  .payment-table tbody td:nth-child(4) {
+    text-align: center;
+    width: 160px;
+    white-space: nowrap;
+  }
+
+  /* műveletek oszlop – gomb ne törjön */
+  .payment-table thead th:last-child,
+  .payment-table tbody td:last-child {
+    white-space: nowrap;
+    width: 180px;
+  }
+
+  /* badge-ek: mobilhoz passzoló, picit nagyobb, kerekebb */
+  .badge {
+    padding: 6px 10px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .badge-warning { background: #fff3cd; color: #8a6d3b; border: 1px solid #ffe7a3; }
+  .badge-danger  { background: #fde8e8; color: #9b1c1c; border: 1px solid #facdcd; }
+  .badge-success { background: #e3f9e5; color: #2d6a4f; border: 1px solid #c6f6d5; }
+  .badge-secondary { background: #eef2f7; color: #475569; border: 1px solid #e2e8f0; }
+
+  /* gombok: kompakt, de vizuálisan “egy súlycsoport” a badge-el */
+  .btn.btn-sm {
+    padding: .4rem .75rem;
+    font-weight: 600;
+  }
+
+  /* dátumok egységes tipója */
+  .payment-table td:first-child,
+  .payment-table td:nth-child(2) {
+    color: #334155;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ===== MOBIL (<=768px): ami már megvan, apró finomítás ===== */
+@media (max-width: 768px) {
+  .payment-mobile-cards { display: block; width: 100%; max-width: 920px; margin-inline: auto; }
+  .payment-card {
+    border: 1px solid #e9ecef;
+    box-shadow: 0 6px 16px rgba(16,24,40,.06);
+  }
+  .payment-card-header { border-bottom: 1px solid #eef2f6; }
+  .payment-card-amount { font-variant-numeric: tabular-nums; }
+}
+
+/* Alap üres állapot – egységes a desktop/mobil között */
+.empty-note, .payment-empty-mobile {
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px dashed #cfd8dc;
+  color: #64748b;
 }

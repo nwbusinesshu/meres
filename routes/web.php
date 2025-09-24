@@ -253,6 +253,10 @@ Route::prefix('superadmin/competency')
         Route::get('/question/get', 'getCompetencyQuestion')->name('question.get');
         Route::post('/question/save', 'saveCompetencyQuestion')->name('question.save');
         Route::post('/question/remove', 'removeCompetencyQuestion')->name('question.remove');
+        Route::post('/translations/get', 'getCompetencyTranslations')->name('translations.get');
+        Route::post('/question/translations/get', 'getCompetencyQuestionTranslations')->name('question.translations.get');
+        Route::get('/languages/available', 'getAvailableLanguages')->name('languages.available');
+        Route::get('/languages/selected', 'getSelectedLanguages')->name('languages.selected');
         
         // FIXED: Add aliases for JavaScript compatibility
         Route::post('/question/remove', 'removeCompetencyQuestion')->name('q.remove'); // Alias for JS
