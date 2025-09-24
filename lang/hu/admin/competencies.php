@@ -75,6 +75,12 @@ return [
     'no-additional-languages' => 'Nincsenek további nyelvek kiválasztva fordításhoz.',
     'original-language-info' => 'Eredeti nyelv',
     'original-language-explanation' => 'A fő "Név" mező tartalmazza ezt a nyelvet. Itt csak a további nyelvek fordításait adja meg.',
-  
+    'original' => 'Eredeti',
+    'question-translations' => 'Kérdés Fordítások',
+    'missing-translations-warning' => 'Ehhez a kérdéshez hiányoznak fordítások',
+    'translation-status' => 'Fordítás Állapot',
+    'complete' => 'Teljes',
+    'incomplete' => 'Hiányos',
+      
   
 ];

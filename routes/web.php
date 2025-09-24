@@ -148,6 +148,7 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         Route::post('/question/save', 'saveCompetencyQuestion')->name('question.save');
         Route::post('/question/get', 'getCompetencyQuestion')->name('question.get');
         Route::post('/question/remove', 'removeCompetencyQuestion')->name('question.remove');
+        Route::post('/question/translations/get', 'getCompetencyQuestionTranslations')->name('question.translations.get');
         Route::post('/translations/get', 'getCompetencyTranslations')->name('translations.get');
     });
 
