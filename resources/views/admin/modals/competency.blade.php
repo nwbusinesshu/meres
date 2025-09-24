@@ -1,3 +1,4 @@
+{{-- resources/views/admin/modals/competency.blade.php --}}
 <div class="modal fade modal-drawer" tabindex="-1" role="dialog" id="competency-modal">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
@@ -108,8 +109,16 @@ function openCompetencyModal(id = null, name = null) {
 }
 
 function loadCompetencyTranslations(competencyId) {
+  // 🔥 CONTEXT-AWARE ROUTE SELECTION
+  const isGlobalMode = window.globalCompetencyMode || false;
+  const translationsUrl = isGlobalMode ? 
+    "{{ route('superadmin.competency.translations.get') }}" : 
+    "{{ route('admin.competency.translations.get') }}";
+  
+  console.log('🔥 Loading competency translations from:', translationsUrl);
+  
   $.ajax({
-    url: "{{ route('admin.competency.translations.get') }}",
+    url: translationsUrl,
     method: 'POST',
     data: { 
       id: competencyId,
@@ -139,18 +148,33 @@ function loadCompetencyTranslations(competencyId) {
 
 function loadCompetencySelectedLanguages() {
   return new Promise((resolve) => {
-    $.ajax({
-      url: "{{ route('admin.languages.selected') }}",
-      method: 'GET',
-      success: function(response) {
-        compSelectedLanguages = response.selected_languages || [compOriginalLanguage];
-        resolve();
-      },
-      error: function() {
-        compSelectedLanguages = [compOriginalLanguage];
-        resolve();
-      }
-    });
+    // 🔥 CONTEXT-AWARE LANGUAGE LOADING
+    const isGlobalMode = window.globalCompetencyMode || false;
+    
+    if (isGlobalMode) {
+      // GLOBAL MODE: Use ALL available languages from config
+      console.log('🔥 Global mode: Loading ALL available languages');
+      const availableLanguages = @json(config('app.available_locales'));
+      compSelectedLanguages = Object.keys(availableLanguages);
+      console.log('🔥 All available languages:', compSelectedLanguages);
+      resolve();
+    } else {
+      // ADMIN MODE: Use organization-selected languages
+      console.log('🔥 Admin mode: Loading organization-selected languages');
+      $.ajax({
+        url: "{{ route('admin.languages.selected') }}",
+        method: 'GET',
+        success: function(response) {
+          compSelectedLanguages = response.selected_languages || [compOriginalLanguage];
+          console.log('🔥 Organization-selected languages:', compSelectedLanguages);
+          resolve();
+        },
+        error: function() {
+          compSelectedLanguages = [compOriginalLanguage];
+          resolve();
+        }
+      });
+    }
   });
 }
 
@@ -169,7 +193,7 @@ function showCompetencyTranslationInputs() {
       <div class="alert alert-info">
         <i class="fa fa-info-circle"></i> 
         {{ __('admin/competencies.no-additional-languages') }}
-        <br><small>{{ __('admin/competencies.original-language-note') }}</small>
+        <br><small>{{ __('admin/competencies.original-language-explanation') }}</small>
       </div>
     `);
     $('.translation-section').show();
@@ -235,8 +259,8 @@ $(document).ready(function() {
     $('.create-translations').show();
   });
   
-  // Save competency with translations
-  $('#competency-modal .save-competency').click(function() {
+  // 🔥 CONTEXT-AWARE SAVE HANDLER
+  $('.save-competency').click(function() {
     swal_confirm.fire({
       title: '{{ __('admin/competencies.save-competency-confirm') }}'
     }).then((result) => {
@@ -260,8 +284,22 @@ $(document).ready(function() {
           }
         });
         
+        // 🔥 CONTEXT-AWARE ROUTE SELECTION
+        const isGlobalMode = window.globalCompetencyMode || false;
+        const saveUrl = isGlobalMode ? 
+          "{{ route('superadmin.competency.save') }}" : 
+          "{{ route('admin.competency.save') }}";
+        
+        console.log('🔥 Saving competency to URL:', saveUrl);
+        console.log('🔥 Competency data:', {
+          id: $('#competency-modal').attr('data-id'),
+          name: originalName,
+          translations: translations,
+          original_language: compOriginalLanguage
+        });
+        
         $.ajax({
-          url: "{{ route('admin.competency.save') }}",
+          url: saveUrl,
           method: 'POST',
           data: {
             id: $('#competency-modal').attr('data-id'),
@@ -271,6 +309,7 @@ $(document).ready(function() {
             _token: '{{ csrf_token() }}'
           },
           success: function(response) {
+            console.log('🔥 Competency save SUCCESS:', response);
             swal_loader.close();
             $('#competency-modal').modal('hide');
             
@@ -281,10 +320,11 @@ $(document).ready(function() {
               timer: 2000,
               showConfirmButton: false
             }).then(() => {
-              location.reload(); // Refresh to show updated competency
+              location.reload();
             });
           },
           error: function(xhr) {
+            console.error('🔥 Competency save ERROR:', xhr);
             swal_loader.close();
             swal.fire({
               icon: 'error',

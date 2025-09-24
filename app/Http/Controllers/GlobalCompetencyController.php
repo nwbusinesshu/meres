@@ -97,130 +97,142 @@ class GlobalCompetencyController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    public function saveCompetencyQuestion(Request $request)
-    {
-        $question = CompetencyQuestion::find($request->id);
+    public function saveCompetencyQuestion(Request $request){
+    $comp = Competency::find($request->compId);
+    if(!$comp) AjaxService::error(__('admin/competencies.competency-not-found'));
 
-        $request->validate([
-            'compId'       => ['required', 'integer', 'exists:competency,id'],
-            'question'     => ['required', 'string'],
-            'questionSelf' => ['required', 'string'],
-            'minLabel'     => ['required', 'string'],
-            'maxLabel'     => ['required', 'string'],
-            'scale'        => ['required', 'integer', 'min:2'],
-        ]);
-
-        AjaxService::DBTransaction(function () use ($request, &$question) {
-            $comp = Competency::findOrFail($request->compId);
-
-            if (!is_null($comp->organization_id)) {
-                abort(403);
-            }
-
-            if (is_null($question)) {
-                $question = new CompetencyQuestion();
-                $question->competency_id = $request->compId;
-                $question->organization_id = null;
-                $question->original_language = $request->original_language ?? auth()->user()->locale ?? config('app.locale', 'hu');
-            } else {
-                if (!is_null($question->organization_id)) {
-                    abort(403);
-                }
-                if ($request->has('original_language')) {
-                    $question->original_language = $request->original_language;
-                }
-            }
-
-            // Set the main values
-            $question->question = $request->question;
-            $question->question_self = $request->questionSelf;
-            $question->min_label = $request->minLabel;
-            $question->max_label = $request->maxLabel;
-            $question->max_value = $request->scale;
-
-            // UPDATED: Handle question translations
-            if ($request->has('question_translations') && is_array($request->question_translations)) {
-                $translations = array_filter($request->question_translations, function($value) {
-                    return !empty(trim($value));
-                });
-                
-                if (!empty($translations)) {
-                    $question->question_json = json_encode($translations, JSON_UNESCAPED_UNICODE);
-                }
-            } else {
-                // Store original question in JSON format
-                $originalLang = $question->original_language;
-                $question->question_json = json_encode([$originalLang => $question->question], JSON_UNESCAPED_UNICODE);
-            }
-
-            // Handle question_self translations
-            if ($request->has('question_self_translations') && is_array($request->question_self_translations)) {
-                $translations = array_filter($request->question_self_translations, function($value) {
-                    return !empty(trim($value));
-                });
-                
-                if (!empty($translations)) {
-                    $question->question_self_json = json_encode($translations, JSON_UNESCAPED_UNICODE);
-                }
-            } else {
-                $originalLang = $question->original_language;
-                $question->question_self_json = json_encode([$originalLang => $question->question_self], JSON_UNESCAPED_UNICODE);
-            }
-
-            // Handle min_label translations
-            if ($request->has('min_label_translations') && is_array($request->min_label_translations)) {
-                $translations = array_filter($request->min_label_translations, function($value) {
-                    return !empty(trim($value));
-                });
-                
-                if (!empty($translations)) {
-                    $question->min_label_json = json_encode($translations, JSON_UNESCAPED_UNICODE);
-                }
-            } else {
-                $originalLang = $question->original_language;
-                $question->min_label_json = json_encode([$originalLang => $question->min_label], JSON_UNESCAPED_UNICODE);
-            }
-
-            // Handle max_label translations
-            if ($request->has('max_label_translations') && is_array($request->max_label_translations)) {
-                $translations = array_filter($request->max_label_translations, function($value) {
-                    return !empty(trim($value));
-                });
-                
-                if (!empty($translations)) {
-                    $question->max_label_json = json_encode($translations, JSON_UNESCAPED_UNICODE);
-                }
-            } else {
-                $originalLang = $question->original_language;
-                $question->max_label_json = json_encode([$originalLang => $question->max_label], JSON_UNESCAPED_UNICODE);
-            }
-
-            // Update available languages based on all translations
-            $allTranslations = [$question->original_language];
-            if ($question->question_json) {
-                $allTranslations = array_merge($allTranslations, array_keys(json_decode($question->question_json, true)));
-            }
-            if ($question->question_self_json) {
-                $allTranslations = array_merge($allTranslations, array_keys(json_decode($question->question_self_json, true)));
-            }
-            if ($question->min_label_json) {
-                $allTranslations = array_merge($allTranslations, array_keys(json_decode($question->min_label_json, true)));
-            }
-            if ($question->max_label_json) {
-                $allTranslations = array_merge($allTranslations, array_keys(json_decode($question->max_label_json, true)));
-            }
-            
-            $allTranslations = array_unique($allTranslations);
-            if (!empty($allTranslations)) {
-                $question->available_languages = json_encode($allTranslations, JSON_UNESCAPED_UNICODE);
-            }
-
-            $question->save();
-        });
-
-        return response()->json(['ok' => true, 'id' => $question->id ?? null]);
+    // ADAPTED: Allow global competencies only (opposite of admin check)
+    if(!is_null($comp->organization_id)){
+        AjaxService::error(__('admin/competencies.cannot-modify-organization'));
     }
 
+    $q = CompetencyQuestion::find($request->id);
+
+    // EXACT SAME validation as working AdminCompetencyController
+    $rules = [
+        "question" => ['required'],
+        "questionSelf" => ['required'],
+        "minLabel" => ['required'],
+        "maxLabel" => ['required'],
+        "scale" => ['required', 'numeric'],
+    ];
+    $this->validate($request, $rules, [], [
+        "question" => __('admin/competencies.question'),
+        "questionSelf" => __('admin/competencies.question-self'),
+        "minLabel" => __('admin/competencies.min-label'),
+        "maxLabel" => __('admin/competencies.max-label'),
+        "scale" => __('admin/competencies.scale'),
+    ]);
+
+    // EXACT SAME transaction structure as working AdminCompetencyController  
+    AjaxService::DBTransaction(function() use ($request, &$q){
+        if(!$q){
+            $q = new CompetencyQuestion();
+            $q->competency_id = $request->compId;
+            $q->organization_id = null; // ADAPTED: null for global
+            $q->original_language = auth()->user()->locale ?? config('app.locale', 'hu');
+        } else {
+            // ADAPTED: Allow editing global questions only
+            if(!is_null($q->organization_id)){
+                abort(403);
+            }
+            if ($request->has('original_language')) {
+                $q->original_language = $request->original_language;
+            }
+        }
+
+        // Set the main values
+        $q->question = $request->question;
+        $q->question_self = $request->questionSelf;
+        $q->min_label = $request->minLabel;
+        $q->max_label = $request->maxLabel;
+        $q->max_value = $request->scale;
+
+        // EXACT SAME translation handling as working AdminCompetencyController
+        
+        // Handle question translations
+        if ($request->has('question_translations') && is_array($request->question_translations)) {
+            $translations = array_filter($request->question_translations, function($value) {
+                return !empty(trim($value));
+            });
+            
+            if (!empty($translations)) {
+                $q->question_json = json_encode($translations, JSON_UNESCAPED_UNICODE);
+            }
+        } else {
+            // Store original question in JSON format
+            $originalLang = $q->original_language;
+            $q->question_json = json_encode([$originalLang => $q->question], JSON_UNESCAPED_UNICODE);
+        }
+
+        // Handle question_self translations
+        if ($request->has('question_self_translations') && is_array($request->question_self_translations)) {
+            $translations = array_filter($request->question_self_translations, function($value) {
+                return !empty(trim($value));
+            });
+            
+            if (!empty($translations)) {
+                $q->question_self_json = json_encode($translations, JSON_UNESCAPED_UNICODE);
+            }
+        } else {
+            $originalLang = $q->original_language;
+            $q->question_self_json = json_encode([$originalLang => $q->question_self], JSON_UNESCAPED_UNICODE);
+        }
+
+        // Handle min_label translations
+        if ($request->has('min_label_translations') && is_array($request->min_label_translations)) {
+            $translations = array_filter($request->min_label_translations, function($value) {
+                return !empty(trim($value));
+            });
+            
+            if (!empty($translations)) {
+                $q->min_label_json = json_encode($translations, JSON_UNESCAPED_UNICODE);
+            }
+        } else {
+            $originalLang = $q->original_language;
+            $q->min_label_json = json_encode([$originalLang => $q->min_label], JSON_UNESCAPED_UNICODE);
+        }
+
+        // Handle max_label translations
+        if ($request->has('max_label_translations') && is_array($request->max_label_translations)) {
+            $translations = array_filter($request->max_label_translations, function($value) {
+                return !empty(trim($value));
+            });
+            
+            if (!empty($translations)) {
+                $q->max_label_json = json_encode($translations, JSON_UNESCAPED_UNICODE);
+            }
+        } else {
+            $originalLang = $q->original_language;
+            $q->max_label_json = json_encode([$originalLang => $q->max_label], JSON_UNESCAPED_UNICODE);
+        }
+
+        // Set available languages - EXACT SAME as working AdminCompetencyController
+        $allTranslations = [];
+        if ($q->question_json) {
+            $allTranslations = array_merge($allTranslations, array_keys(json_decode($q->question_json, true)));
+        }
+        if ($q->question_self_json) {
+            $allTranslations = array_merge($allTranslations, array_keys(json_decode($q->question_self_json, true)));
+        }
+        if ($q->min_label_json) {
+            $allTranslations = array_merge($allTranslations, array_keys(json_decode($q->min_label_json, true)));
+        }
+        if ($q->max_label_json) {
+            $allTranslations = array_merge($allTranslations, array_keys(json_decode($q->max_label_json, true)));
+        }
+        
+        $allTranslations = array_unique($allTranslations);
+        if (!empty($allTranslations)) {
+            $q->available_languages = json_encode($allTranslations, JSON_UNESCAPED_UNICODE);
+        }
+
+        $q->save();
+    });
+
+    // EXACT SAME return as working AdminCompetencyController
+    return response()->json(['ok' => true]);
+}
     public function removeCompetencyQuestion(Request $request)
     {
         $q = CompetencyQuestion::findOrFail($request->id);
@@ -293,7 +305,7 @@ class GlobalCompetencyController extends Controller
     }
 
     /**
-     * NEW: Get all available languages for global competencies (no organization filter)
+     * Get available languages from config 
      */
     public function getAvailableLanguages(Request $request)
     {
@@ -307,15 +319,15 @@ class GlobalCompetencyController extends Controller
     }
 
     /**
-     * NEW: Get all languages as selected for global competencies (no language restrictions)
+     * For global competencies, return all available languages
      */
     public function getSelectedLanguages(Request $request)
     {
-        $availableLocales = config('app.available_locales', []);
-        $allLanguageKeys = array_keys($availableLocales);
+        $availableLanguages = config('app.available_locales', []);
+        $allLanguageKeys = array_keys($availableLanguages);
         
         return response()->json([
-            'selected_languages' => $allLanguageKeys // All languages available for global competencies
+            'selected_languages' => $allLanguageKeys
         ]);
     }
 }
