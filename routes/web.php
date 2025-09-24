@@ -148,6 +148,14 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         Route::post('/question/save', 'saveCompetencyQuestion')->name('question.save');
         Route::post('/question/get', 'getCompetencyQuestion')->name('question.get');
         Route::post('/question/remove', 'removeCompetencyQuestion')->name('question.remove');
+        Route::post('/translations/get', 'getCompetencyTranslations')->name('translations.get');
+    });
+
+    Route::controller(AdminCompetencyController::class)->name('languages.')->prefix('/languages')->group(function () {
+        Route::get('/available', 'getAvailableLanguages')->name('available');
+        Route::get('/selected', 'getSelectedLanguages')->name('selected');
+        Route::post('/selected', 'getSelectedLanguages')->name('selected');
+        Route::post('/save', 'saveTranslationLanguages')->name('save');
     });
 
     // ceoranks

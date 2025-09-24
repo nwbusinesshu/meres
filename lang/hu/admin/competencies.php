@@ -52,21 +52,29 @@ return [
   
   "question-remove-success" => "A kérdés sikeresen törlésre került!",
   
-  "" => "",
-  
-  "" => "",
-  
-  "" => "",
-  
-  "" => "",
-  
-  "" => "",
-  
-  "" => "",
-  
-  "" => "",
-  
-  "" => "",
+  'select-translation-languages' => 'Fordítási nyelvek kiválasztása',
+    'select-languages' => 'Nyelvek kiválasztása',
+    'selected-languages' => 'Kiválasztott nyelvek',
+    'available-languages' => 'Elérhető nyelvek',
+    'save-languages' => 'Nyelvek mentése',
+    'languages-saved-successfully' => 'Nyelvek sikeresen elmentve!',
+    'error-loading-languages' => 'Hiba történt a nyelvek betöltése során.',
+    'error-saving-languages' => 'Hiba történt a nyelvek mentése során.',
+    'no-languages-selected' => 'Nincsenek kiválasztott nyelvek',
+    'all-languages-selected' => 'Minden nyelv ki van választva',
+    'default' => 'Alapértelmezett',
+    'add' => 'Hozzáadás',
+    'remove' => 'Eltávolítás',
+     'translations' => 'Fordítások',
+    'create-translations' => 'Fordítások létrehozása',
+    'hide-translations' => 'Fordítások elrejtése',
+    'original' => 'Eredeti',
+    'enter-translation-for' => 'Adja meg a fordítást:',
+    'translation-saved' => 'Fordítás mentve',
+    'translation-error' => 'Hiba a fordítás mentése során',
+    'no-additional-languages' => 'Nincsenek további nyelvek kiválasztva fordításhoz.',
+    'original-language-info' => 'Eredeti nyelv',
+    'original-language-explanation' => 'A fő "Név" mező tartalmazza ezt a nyelvet. Itt csak a további nyelvek fordításait adja meg.',
   
   
 ];

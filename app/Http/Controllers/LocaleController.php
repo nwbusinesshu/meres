@@ -6,23 +6,28 @@ use Illuminate\Http\Request;
 
 class LocaleController extends Controller
 {
-    public function set(Request $request)
+   public function set(Request $request)
 {
+    $available = array_keys((array) config('app.available_locales', ['hu' => 'Magyar', 'en' => 'English']));
+
     $data = $request->validate([
-        'locale' => ['required', 'in:hu,en'],
-        'redirect' => ['nullable','string'],
+        'locale'   => ['required', 'in:' . implode(',', $available)],
+        'redirect' => ['nullable', 'string'],
     ]);
 
     $locale = $data['locale'];
 
-    // sessionbe
+    // session + app
     session(['locale' => $locale]);
+    app()->setLocale($locale);
 
-    // DB-be ha be van jelentkezve
+    // ha be van jelentkezve, frissítsük az adatbázisban is
     if (auth()->check()) {
         auth()->user()->forceFill(['locale' => $locale])->save();
     }
 
-    return redirect()->to($data['redirect'] ?? url()->previous() ?? '/');
+    $redirectTo = $data['redirect'] ?? url()->previous() ?? '/';
+    return redirect()->to($redirectTo);
 }
+
 }

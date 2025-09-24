@@ -1,6 +1,22 @@
 @extends('layouts.master')
 
 @section('head-extra')
+<style>
+.translation-warning {
+  font-size: 0.875rem;
+  animation: warningPulse 2s infinite;
+}
+
+@keyframes warningPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.translation-warning:hover {
+  color: #e0a800 !important;
+  animation: none;
+}
+</style>
 @endsection
 
 @section('content')
@@ -16,6 +32,10 @@
   </div>
   <div class="tile tile-button create-competency">
     <span><i class="fa fa-circle-plus"></i>{{ $_('create-competency') }}</span>
+  </div>
+  <!-- NEW: Language Selection Button -->
+  <div class="tile tile-button open-language-modal" onclick="initLanguageModal()">
+    <span><i class="fa fa-language"></i>{{ __('admin/competencies.select-translation-languages') }}</span>
   </div>
 </div>
 
@@ -35,9 +55,30 @@
   </div>
 
   @forelse ($orgCompetencies as $comp)
+    @php
+      // Check if translations are missing for this competency
+      $hasIncompleteTranslations = false;
+      if (isset($selectedLanguages) && count($selectedLanguages) > 1) {
+        $translations = $comp->name_json ? json_decode($comp->name_json, true) : [];
+        foreach ($selectedLanguages as $langCode) {
+          if (empty($translations[$langCode])) {
+            $hasIncompleteTranslations = true;
+            break;
+          }
+        }
+      }
+    @endphp
+    
     <div class="tile competency-item" data-id="{{ $comp->id }}" data-name="{{ $comp->name }}">
       <div class="bar">
-        <span><i class="fa fa-caret-down"></i>{{ $comp->name }}</span>
+        <span>
+          <i class="fa fa-caret-down"></i>{{ $comp->name }}
+          @if($hasIncompleteTranslations)
+            <i class="fa fa-exclamation-triangle translation-warning" 
+               style="color: #ffc107; margin-left: 8px;" 
+               data-tippy-content="{{ __('admin/competencies.incomplete-translations') }}"></i>
+          @endif
+        </span>
         <button class="btn btn-outline-danger remove-competency" data-tippy-content="{{ $_('remove-competency') }}"><i class="fa fa-trash-alt"></i></button>
         <button class="btn btn-outline-warning modify-competency" data-tippy-content="{{ $_('modify-competency') }}"><i class="fa fa-file-pen"></i></button>
       </div>
@@ -124,4 +165,17 @@
 @section('scripts')
   @include('admin.modals.competency')
   @include('admin.modals.competencyq')
+  @include('admin.modals.language-select')
+  
+  <script>
+    $(document).ready(function() {
+      // Initialize tooltips for translation warnings
+      if (typeof tippy !== 'undefined') {
+        tippy('[data-tippy-content]', {
+          placement: 'top',
+          theme: 'warning',
+        });
+      }
+    });
+  </script>
 @endsection

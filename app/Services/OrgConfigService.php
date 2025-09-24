@@ -19,6 +19,9 @@ class OrgConfigService
     public const USE_TELEMETRY_TRUST        = 'use_telemetry_trust';        // bool
     public const NO_FORCED_DEMOTION_IF_HIGH = 'no_forced_demotion_if_high_cohesion'; // bool
 
+    // ÚJ – TRANSLATION LANGUAGES:
+    public const TRANSLATION_LANGUAGES = 'translation_languages'; // JSON array of selected languages
+
     /**
      * Általános getter – stringet ad vissza.
      */
@@ -84,5 +87,21 @@ class OrgConfigService
     public static function setJson(int $orgId, string $name, $value): void
     {
         self::set($orgId, $name, json_encode($value, JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * Get translation languages for organization
+     */
+    public static function getTranslationLanguages(int $orgId): array
+    {
+        return self::getJson($orgId, self::TRANSLATION_LANGUAGES, [config('app.locale', 'hu')]);
+    }
+
+    /**
+     * Set translation languages for organization
+     */
+    public static function setTranslationLanguages(int $orgId, array $languages): void
+    {
+        self::setJson($orgId, self::TRANSLATION_LANGUAGES, $languages);
     }
 }
