@@ -55,12 +55,62 @@ class OrgConfigService
     }
 
     /**
-     * JSON getter (array / object).
+     * JSON getter (array / object) - ENHANCED VERSION
+     * This method now properly handles failed JSON decoding and ensures a valid array/object is always returned
      */
     public static function getJson(int $orgId, string $name, $default = [])
     {
         $val = self::get($orgId, $name);
-        return $val !== null ? json_decode($val, true) : $default;
+        
+        // If no value found in database, return default
+        if ($val === null || $val === '') {
+            return $default;
+        }
+        
+        // ADDITIONAL SAFETY: If the value is clearly not JSON (e.g., just a simple string), return default
+        $trimmedVal = trim($val);
+        if (!str_starts_with($trimmedVal, '{') && !str_starts_with($trimmedVal, '[') && $trimmedVal !== 'null') {
+            \Log::warning('OrgConfigService: Value does not appear to be valid JSON', [
+                'org_id' => $orgId,
+                'name' => $name,
+                'value' => $val,
+            ]);
+            return $default;
+        }
+        
+        // Attempt to decode JSON
+        $decoded = json_decode($val, true);
+        
+        // Check if decoding was successful and returned the expected type
+        if (json_last_error() === JSON_ERROR_NONE) {
+            // If we successfully decoded null, return the default instead
+            if ($decoded === null) {
+                return $default;
+            }
+            
+            // Additional type checking - ensure we return the expected type
+            if (is_array($default) && !is_array($decoded)) {
+                \Log::warning('OrgConfigService: Decoded JSON is not an array when array expected', [
+                    'org_id' => $orgId,
+                    'name' => $name,
+                    'value' => $val,
+                    'decoded_type' => gettype($decoded),
+                ]);
+                return $default;
+            }
+            
+            return $decoded;
+        }
+        
+        // If JSON decoding failed, log the error for debugging and return default
+        \Log::warning('OrgConfigService: Failed to decode JSON for organization config', [
+            'org_id' => $orgId,
+            'name' => $name,
+            'value' => $val,
+            'json_error' => json_last_error_msg(),
+        ]);
+        
+        return $default;
     }
 
     /**
@@ -90,11 +140,28 @@ class OrgConfigService
     }
 
     /**
-     * Get translation languages for organization
+     * Get translation languages for organization - ENHANCED VERSION
+     * This method ensures we always return a valid array of languages
      */
     public static function getTranslationLanguages(int $orgId): array
     {
-        return self::getJson($orgId, self::TRANSLATION_LANGUAGES, [config('app.locale', 'hu')]);
+        $languages = self::getJson($orgId, self::TRANSLATION_LANGUAGES, [config('app.locale', 'hu')]);
+        
+        // Additional safety check to ensure we always have an array
+        if (!is_array($languages)) {
+            \Log::warning('OrgConfigService: Translation languages is not an array, falling back to default', [
+                'org_id' => $orgId,
+                'languages' => $languages,
+            ]);
+            return [config('app.locale', 'hu')];
+        }
+        
+        // Ensure we have at least one language
+        if (empty($languages)) {
+            return [config('app.locale', 'hu')];
+        }
+        
+        return $languages;
     }
 
     /**
@@ -102,6 +169,11 @@ class OrgConfigService
      */
     public static function setTranslationLanguages(int $orgId, array $languages): void
     {
+        // Validate input is array and not empty
+        if (!is_array($languages) || empty($languages)) {
+            throw new \InvalidArgumentException('Languages must be a non-empty array');
+        }
+        
         self::setJson($orgId, self::TRANSLATION_LANGUAGES, $languages);
     }
 }

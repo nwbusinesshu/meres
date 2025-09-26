@@ -32,8 +32,8 @@ class SetOrganization
                 }
             } else {
                 if (count($userOrgIds) === 1) {
-                    // Egyetlen org – automatikusan beállítjuk, és session ID-t regenerálunk
-                    $request->session()->regenerate();
+                    // FIXED: Don't regenerate session to avoid conflicts with locale switching
+                    // Just set the org_id without regenerating the session
                     session(['org_id' => $userOrgIds[0]]);
                     // (opcionális) tegyük a request attribútumai közé is
                     $request->attributes->set('org_id', $userOrgIds[0]);
@@ -46,6 +46,8 @@ class SetOrganization
         } else {
             // Van org_id – ellenőrizzük, hogy tényleg a user orgjai között van
             if (!$isSuperAdmin && !in_array($orgId, $userOrgIds, true)) {
+                // FIXED: Only regenerate session when absolutely necessary (security issue)
+                // and not during normal locale switching operations
                 $request->session()->regenerate();
                 session()->forget('org_id');
                 return redirect()->route('org.select');

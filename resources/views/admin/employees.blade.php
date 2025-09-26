@@ -237,7 +237,6 @@
 @endsection
 
 @section('scripts')
-    @parent
     @include('admin.modals.employee')
     @include('admin.modals.relations')
     @include('admin.modals.select')
