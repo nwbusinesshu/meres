@@ -4,25 +4,24 @@
     <div class="cookie-consent-container">
         <div class="cookie-consent-content">
             <div class="cookie-consent-text">
-                <h4>🍪 Süti beállítások</h4>
-                <p>
-                    Ez a weboldal sütiket használ a jobb felhasználói élmény biztosítása érdekében. 
-                    Kérjük, válassza ki, hogy mely sütiket fogadja el.
+                <h4>{{ __('global.cookie_banner_title') }}</h4>
+                <p>{{ __('global.cookie_banner_text') }}
+                    
                     <a href="#" class="cookie-policy-link" onclick="window.CookieManager.openPolicy(); return false;">
-                        További információ
+                        {{ __('global.cookie-more-info') }}
                     </a>
                 </p>
             </div>
             
             <div class="cookie-consent-actions">
                 <button type="button" class="btn btn-link btn-sm" id="banner-cookie-settings-btn">
-                    Beállítások
+                    {{ __('global.manage-cookies') }}
                 </button>
                 <button type="button" class="btn btn-secondary btn-sm" id="banner-cookie-necessary-btn">
-                    Csak szükségesek
+                    {{ __('global.accept-necessary-cookies') }}
                 </button>
                 <button type="button" class="btn btn-primary btn-sm" id="banner-cookie-accept-all-btn">
-                    Összes elfogadása
+                    {{ __('global.accept-all-cookies') }}
                 </button>
             </div>
         </div>
@@ -207,14 +206,14 @@
                 
                 // Show success message using global manager
                 if (window.CookieManager) {
-                    window.CookieManager.showMessage('Süti beállítások mentve!', 'success');
+                    window.CookieManager.showMessage('{{ __('global.cookie-settings-saved') }}', 'success');
                 }
             }
         })
         .catch(error => {
             console.error('Cookie consent error:', error);
             if (window.CookieManager) {
-                window.CookieManager.showMessage('Hiba történt a mentés során!', 'error');
+                window.CookieManager.showMessage('{{ __('global.cookie-settings-error') }}', 'error');
             }
         });
     }

@@ -4,6 +4,20 @@
 @endsection
 
 @section('content')
+@php
+    // Ensure $selectedLanguages is always an array
+    $selectedLanguages = $selectedLanguages ?? [auth()->user()->locale ?? config('app.locale', 'hu')];
+    if (!is_array($selectedLanguages)) {
+        $selectedLanguages = [auth()->user()->locale ?? config('app.locale', 'hu')];
+    }
+@endphp
+
+{{-- Then use it safely in foreach loops like this: --}}
+@if(isset($selectedLanguages) && is_array($selectedLanguages) && count($selectedLanguages) > 1)
+    @foreach($selectedLanguages as $lang)
+        {{-- Your loop content here --}}
+    @endforeach
+@endif
 <h1>{{ __('titles.admin.employees') }}</h1>
 
 <div class="mb-2">

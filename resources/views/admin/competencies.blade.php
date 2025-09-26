@@ -87,7 +87,7 @@
 {{-- ============================ --}}
 <div class="competency-list competency-list--org">
   <div class="tile tile-info" style="margin-top: 20px;">
-    <span><strong>Egyéni szervezeti kompetenciatár</strong></span>
+    <span><strong>{{ $_('org-competencies') }}</strong></span>
   </div>
 
   @forelse ($orgCompetencies as $comp)
@@ -193,7 +193,7 @@
 {{-- ============================ --}}
 <div class="competency-list competency-list--global">
   <div class="tile tile-info" style="margin-top: 10px;">
-    <span><strong>Globális kompetenciatár</strong> <small class="text-muted"></small></span>
+    <span><strong>{{ $_('glob-competencies') }}</strong> <small class="text-muted"></small></span>
   </div>
 
   @forelse ($globals as $comp)
@@ -270,7 +270,7 @@
       </div>
     </div>
   @empty
-    <div class="no-competency"><p>Nincs globális kompetencia.</p></div>
+    <div class="no-competency"><p>{{ $_('no-global-competency') }}</p></div>
   @endforelse
 </div>
 

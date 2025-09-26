@@ -4,6 +4,12 @@ return [
   
   "handle-employees" => "Alkalmazottak kompetenciái",
 
+  "org-competencies" => "Egyéni szervezeti kompetenciatár",
+
+  "glob-competencies" => "Globális kompetenciatár",
+
+  "no-global-competency" => "Nincsenek globális kompetenciák",
+
   "create-competency" => "Kompetencia létrehozása",
 
   "search" => "Keresés",

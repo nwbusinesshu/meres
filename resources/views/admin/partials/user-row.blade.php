@@ -26,7 +26,7 @@
     <div class="col col-raters">
         <div class="rater-counter {{ $raterClass }}">
             <div class="rater-number">{{ $raterCount }}</div>
-            <div class="rater-label">értékelő</div>
+            <div class="rater-label">{{ __('global.rater') }}</div>
             <div class="rater-bar">
                 <div class="rater-progress" style="width: {{ min(100, ($raterCount / 10) * 100) }}%"></div>
             </div>

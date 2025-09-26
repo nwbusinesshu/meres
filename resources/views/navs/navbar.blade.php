@@ -51,11 +51,11 @@
       </a>
       <a class="menuitem" href="{{ route('superadmin.competency.index') }}" data-route="superadmin.competency.index">
         <i class="fa fa-medal"></i>
-        <span>Globális kompetenciák</span>
+        <span>{{ __('titles.superadmin.global-competencies') }}</span>
       </a>
       <a class="menuitem" href="{{ route('org.select') }}" data-route="org.select">
         <i class="fa-solid fa-right-to-bracket"></i>
-        <span>Belépés cégbe</span>
+        <span>{{ __('global.login-to-org') }}</span>
       </a>
     @else
       <a class="menuitem" href="{{ route('home-redirect')}}" data-route="home" data-route-secondary="admin.home">
@@ -72,7 +72,7 @@
         @if (!AssessmentService::isAssessmentRunning())
           <div class="menuitem dropdown-toggle {{ $isOnConfigChild ? 'active' : '' }}" id="config-dropdown-toggle">
             <i class="fa fa-gears"></i>
-            <span>Konfiguráció</span>
+            <span>{{ __('global.navbar-configuration') }}</span>
           </div>
         @endif
           {{-- ÚJ: ha fut a mérés és van nyitott tartozás, tegyük ki fent a Fizetések menüt is --}}
@@ -80,7 +80,7 @@
     <a class="menuitem {{ request()->routeIs('admin.payments.index') ? 'active' : '' }}"
        href="{{ route('admin.payments.index') }}" data-route="admin.payments.index">
       <i class="fas fa-credit-card"></i>
-      <span>Fizetések</span>
+      <span>{{ __('titles.admin.payments') }}</span>
     </a>
   @endif
 
@@ -106,7 +106,7 @@
       @if ($isSuperadmin && $hasOrg)
         <a class="menuitem text-danger" href="{{ route('superadmin.exit-company') }}">
           <i class="fa fa-right-from-bracket"></i>
-          <span>Kilépés a cégből</span>
+          <span>{{ __('global.logout-org') }}</span>
         </a>
       @endif
     @endif
@@ -173,10 +173,10 @@
     <a class="menuitem {{ request()->routeIs('admin.settings.index') ? 'active' : '' }}" 
    href="{{ route('admin.settings.index') }}" data-route="admin.settings.index">
   <i class="fa fa-sliders"></i>
-  <span>Beállítások</span>
+  <span>{{ __('titles.admin.settings') }}</span>
 </a>
   <a class="menuitem {{ request()->routeIs('admin.payments.index') ? 'active' : '' }}" href="{{ route('admin.payments.index') }}" data-route="admin.payments.index">
-    <i class="fas fa-credit-card"></i> <span>Fizetések</span>
+    <i class="fas fa-credit-card"></i> <span>{{ __('titles.admin.payments') }}</span>
   </a>
   </div>
 @endif

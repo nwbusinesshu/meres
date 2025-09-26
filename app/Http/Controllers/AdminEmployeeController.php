@@ -19,6 +19,7 @@ use App\Services\PasswordSetupService;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\OrgConfigService;
 
 
 class AdminEmployeeController extends Controller
@@ -60,12 +61,28 @@ class AdminEmployeeController extends Controller
         return $u;
     });
 }
+     $selectedLanguages = \App\Services\OrgConfigService::getJson($orgId, 'translation_languages', [auth()->user()->locale ?? config('app.locale', 'hu')]);
+
+    if ($users->count() > 0) {
+        $userIds = $users->pluck('id')->all();
+
+        $positionsMap = DB::table('organization_user')
+            ->where('organization_id', $orgId)
+            ->whereIn('user_id', $userIds)
+            ->pluck('position', 'user_id'); // [user_id => position]
+
+        $users = $users->map(function ($u) use ($positionsMap) {
+            $u->position = $positionsMap[$u->id] ?? null;
+            return $u;
+        });
+    }
 
     // Ha nincs multi-level: megy a régi nézet
     if (!$enableMultiLevel) {
         return view('admin.employees', [
             'users' => $users,
             'showBonusMalus' => $showBonusMalus,
+            'selectedLanguages' => $selectedLanguages,
         ]);
     }
 
@@ -199,6 +216,8 @@ class AdminEmployeeController extends Controller
     // Üres részlegek a végére
     $departments = $departments->concat($emptyDepartments);
 
+   
+
     return view('admin.employees', [
         // LEGACY-hoz
         'users'            => $users,
@@ -214,6 +233,7 @@ class AdminEmployeeController extends Controller
         
         // settings
         'showBonusMalus'   => $showBonusMalus,
+        'selectedLanguages' => $selectedLanguages,
     ]);
 }
 

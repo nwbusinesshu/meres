@@ -19,12 +19,14 @@ return [
     "ceoranks" => "Vezetői rangsor",
     "results" => "Eredmények",
     "settings" => "Beállítások",
+    "payments" => "Fizetések",
   ],
   'superadmin' => [
         'dashboard' => 'Szuperadmin Dashboard',
         'new-org' => 'Új cég hozzáadása',
-        'edit-org' => 'Cég szerkesztése'
+        'edit-org' => 'Cég szerkesztése',
+        "global-competencies" => "Globális kompetenciák",
     ],
   'org' => [
-        'select' => 'Cégválasztó',]
+        'select' => 'Cégválasztó',],
 ];

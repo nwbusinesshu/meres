@@ -134,12 +134,12 @@
        <span style="background:#00a4ef"></span>
        <span style="background:#ffb900"></span>
      </span> </a>
-     <div><p>A bejelentkezéssel elfogadod az Adatvédelmi Irányelveinket.</p></div>
+     <div><p>{{ $_('privacy_policy_acceptance') }}</p></div>
 
     <img class="nwb-logo" src="{{ asset('assets/logo/nwb_logo.svg') }}" alt="">
 
     <div class="footnote">
-      Nincs még fiókja? <a href="{{ route('register.show') }}">Regisztráció</a>
+      {{ $_('no_account_yet') }} <a href="{{ route('register.show') }}">{{ $_('register_link') }}</a>
     </div>
   @endif
 

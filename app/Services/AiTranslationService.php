@@ -145,7 +145,7 @@ class AiTranslationService
                 'messages' => [
                     [
                         'role' => 'system',
-                        'content' => 'You are a professional translator specializing in HR assessment questionnaires. You understand the critical difference between questions used for rating others versus self-assessment. Maintain the professional tone and assessment context while ensuring cultural and linguistic accuracy.'
+                        'content' => 'You are a professional translator specializing in HR assessment questionnaires. You understand the critical difference between questions used for rating others versus self-assessment. Maintain the professional tone and assessment context while ensuring cultural and linguistic accuracy. '
                     ],
                     [
                         'role' => 'user',
@@ -252,9 +252,10 @@ Provide the translations in the exact JSON format above.";
 - The 'question' is used when rating OTHER people
 - The 'question_self' is used for SELF-assessment 
 - Maintain this important distinction in all translations
+- Where possible, use the appropiate they/them neutral proverbs. Prioritize to keep the original meaning across languages.
 - Keep the assessment/evaluation context intact
 - Maintain professional HR terminology
-- Ensure labels are appropriate for rating scales
+- Ensure labels are appropriate for rating scales and to appear on a Likert-scale as endpoint labels.
 - Adapt to each language's cultural context while preserving meaning
 
 **Required JSON format:**

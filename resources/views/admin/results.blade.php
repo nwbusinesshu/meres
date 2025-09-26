@@ -1,4 +1,3 @@
-
 {{-- resources/views/admin/results.blade.php --}}
 @extends('layouts.master')
 
@@ -13,35 +12,35 @@
   <div class="period-nav">
     <a class="nav-btn {{ $prevAssessment ? '' : 'is-disabled' }}"
        @if($prevAssessment) href="{{ route(Route::currentRouteName(), $prevAssessment->id) }}" @endif
-       aria-label="Előző lezárt időszak">
+       aria-label="{{ __('admin/results.previous-closed-period') }}">
       <i class="fa fa-chevron-left" aria-hidden="true"></i>
     </a>
 
-    <div class="period-chip" title="Lezárás dátuma">
+    <div class="period-chip" title="{{ __('admin/results.closure-date') }}">
       <i class="fa fa-calendar" aria-hidden="true"></i>
       <span>{{ \Carbon\Carbon::parse($assessment->closed_at)->translatedFormat('Y. m') }}</span>
     </div>
 
     <a class="nav-btn {{ $nextAssessment ? '' : 'is-disabled' }}"
        @if($nextAssessment) href="{{ route(Route::currentRouteName(), $nextAssessment->id) }}" @endif
-       aria-label="Következő lezárt időszak">
+       aria-label="{{ __('admin/results.next-closed-period') }}">
       <i class="fa fa-chevron-right" aria-hidden="true"></i>
     </a>
   </div>
 
   {{-- Küszöbök – mindig --}}
   <div class="thresholds-strip">
-    <div class="threshold-chip up" title="Előléptetési küszöb">
+    <div class="threshold-chip up" title="{{ __('admin/results.promotion-threshold') }}">
       <i class="fa fa-level-up" aria-hidden="true"></i>
-      <span>Felső ponthatár: <strong>{{ (int) $assessment->normal_level_up }}</strong></span>
+      <span>{{ __('admin/results.upper-score-limit') }}: <strong>{{ (int) $assessment->normal_level_up }}</strong></span>
     </div>
-    <div class="threshold-chip down" title="Lefokozási küszöb">
+    <div class="threshold-chip down" title="{{ __('admin/results.demotion-threshold') }}">
       <i class="fa fa-level-down" aria-hidden="true"></i>
-      <span>Alsó ponthatár: <strong>{{ (int) $assessment->normal_level_down }}</strong></span>
+      <span>{{ __('admin/results.lower-score-limit') }}: <strong>{{ (int) $assessment->normal_level_down }}</strong></span>
     </div>
-    <div class="threshold-chip method" title="Küszöbszámítási mód">
+    <div class="threshold-chip method" title="{{ __('admin/results.threshold-calculation-method') }}">
       <i class="fa fa-cog" aria-hidden="true"></i>
-      <span>Módszer: <strong>{{ strtoupper($assessment->threshold_method ?? 'fixed') }}</strong></span>
+      <span>{{ __('admin/results.method') }}: <strong>{{ strtoupper($assessment->threshold_method ?? 'fixed') }}</strong></span>
     </div>
   </div>
 
@@ -51,7 +50,7 @@
       <div class="tile tile-summary">
         <div class="tile-header">
           <i class="fa fa-lightbulb-o" aria-hidden="true"></i>
-          <span>AI összefoglaló</span>
+          <span>{{ __('admin/results.ai-summary') }}</span>
         </div>
         <div class="tile-body">
           <p>{{ $summaryHu }}</p>
@@ -61,10 +60,10 @@
       <div class="tile tile-warning">
         <div class="tile-header">
           <i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
-          <span>AI összefoglaló nem elérhető</span>
+          <span>{{ __('admin/results.ai-summary-not-available') }}</span>
         </div>
         <div class="tile-body">
-          <p>{{ $summaryDbg ?? 'A summary_hu mező nem található a suggested_decision logban.' }}</p>
+          <p>{{ $summaryDbg ?? __('admin/results.summary-field-not-found') }}</p>
         </div>
       </div>
     @endif
@@ -80,7 +79,7 @@
     @foreach ($users as $user)
       <a class="user-tile-link"
          href="{{ route('results.index', ['assessmentId' => optional($assessment)->id, 'as' => $user->id]) }}"
-         title="Megnyitás: {{ $user->name }} eredményei"
+         title="{{ __('admin/results.open-user-results', ['name' => $user->name]) }}"
          target="_blank" rel="noopener">
         <div class="tile tile-info employee">
           <div>

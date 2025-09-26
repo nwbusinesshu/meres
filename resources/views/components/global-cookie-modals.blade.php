@@ -3,15 +3,14 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="globalCookieSettingsModalLabel">🍪 Süti beállítások</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <h5 class="modal-title" id="globalCookieSettingsModalLabel">🍪 {{ __('global.cookie-settings-title') }}</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="{{ __('global.close') }}">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
             <div class="modal-body">
                 <p class="mb-4">
-                    Személyre szabhatja, hogy mely típusú sütiket szeretné engedélyezni. 
-                    A választását bármikor módosíthatja.
+                    {{ __('global.cookie-settings-description') }}
                 </p>
                 
                 <form id="global-cookie-preferences-form">
@@ -24,20 +23,20 @@
                                    name="necessary"
                                    checked disabled>
                             <label class="custom-control-label" for="global-cookie-necessary">
-                                <strong>Szükséges sütik</strong>
-                                <span class="badge badge-primary badge-sm ml-2">Kötelező</span>
+                                <strong>{{ __('global.cookie-necessary-title') }}</strong>
+                                <span class="badge badge-primary badge-sm ml-2">{{ __('global.cookie-required-badge') }}</span>
                             </label>
                         </div>
                         <p class="text-muted small mb-2">
-                            Ezek a sütik elengedhetetlenek a weboldal megfelelő működéséhez és nem kapcsolhatók ki.
+                            {{ __('global.cookie-necessary-description') }}
                         </p>
                         <div class="cookie-details">
                             <small class="text-muted">
-                                <strong>Használt sütik:</strong>
-                                <span class="d-block">• session cookie: Munkamenet azonosító a bejelentkezéshez</span>
-                                <span class="d-block">• CSRF token: Biztonsági token a támadások ellen</span>
-                                <span class="d-block">• auth cookie: Bejelentkezési állapot megőrzése</span>
-                                <span class="d-block">• cookie_consent: Süti beállítások tárolása</span>
+                                <strong>{{ __('global.cookie-used-cookies') }}:</strong>
+                                <span class="d-block">• session cookie: {{ __('global.cookie-session-desc') }}</span>
+                                <span class="d-block">• CSRF token: {{ __('global.cookie-csrf-desc') }}</span>
+                                <span class="d-block">• auth cookie: {{ __('global.cookie-auth-desc') }}</span>
+                                <span class="d-block">• cookie_consent: {{ __('global.cookie-consent-desc') }}</span>
                             </small>
                         </div>
                     </div>
@@ -50,28 +49,28 @@
                                    id="global-cookie-analytics"
                                    name="analytics">
                             <label class="custom-control-label" for="global-cookie-analytics">
-                                <strong>Analitikai sütik</strong>
-                                <span class="badge badge-secondary badge-sm ml-2">Opcionális</span>
+                                <strong>{{ __('global.cookie-analytics-title') }}</strong>
+                                <span class="badge badge-secondary badge-sm ml-2">{{ __('global.cookie-optional-badge') }}</span>
                             </label>
                         </div>
                         <p class="text-muted small mb-2">
-                            Ezek a sütik segítenek megérteni, hogyan használják a látogatók a weboldalt. Névtelen statisztikák készítéséhez használjuk.
+                            {{ __('global.cookie-analytics-description') }}
                         </p>
                         <div class="cookie-details">
                             <small class="text-muted">
-                                <strong>Használt sütik:</strong>
-                                <span class="d-block">• telemetry: Felhasználói viselkedés nyomon követése</span>
-                                <span class="d-block">• usage_stats: Oldal használati statisztikák</span>
-                                <span class="d-block">• performance_data: Oldal teljesítmény mérése</span>
+                                <strong>{{ __('global.cookie-used-cookies') }}:</strong>
+                                <span class="d-block">• telemetry: {{ __('global.cookie-telemetry-desc') }}</span>
+                                <span class="d-block">• usage_stats: {{ __('global.cookie-usage-stats-desc') }}</span>
+                                <span class="d-block">• performance_data: {{ __('global.cookie-performance-desc') }}</span>
                             </small>
                         </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Mégse</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">{{ __('global.cancel') }}</button>
                 <button type="button" class="btn btn-primary" id="global-save-cookie-preferences">
-                    Beállítások mentése
+                    {{ __('global.cookie-save-settings') }}
                 </button>
             </div>
         </div>
@@ -83,64 +82,61 @@
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="globalCookiePolicyModalLabel">🍪 Süti Szabályzat</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <h5 class="modal-title" id="globalCookiePolicyModalLabel">🍪 {{ __('global.cookie-policy-title') }}</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="{{ __('global.close') }}">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
             <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-                <h3>Mi az a süti?</h3>
+                <h3>{{ __('global.cookie-what-is-title') }}</h3>
                 <p>
-                    A sütik kis szöveges fájlok, amelyeket a weboldal az Ön számítógépére vagy mobileszközére ment, 
-                    amikor meglátogatja a weboldalt. Lehetővé teszik a weboldal számára, hogy emlékezzen az Ön 
-                    műveletére és preferenciáira egy bizonyos időn keresztül.
+                    {{ __('global.cookie-what-is-description') }}
                 </p>
                 
-                <h3>Hogyan használjuk a sütiket?</h3>
-                <p>Weboldalunk két típusú sütit használ:</p>
+                <h3>{{ __('global.cookie-how-we-use-title') }}</h3>
+                <p>{{ __('global.cookie-how-we-use-description') }}</p>
                 
                 {{-- Szükséges sütik --}}
                 <div class="card mb-3">
                     <div class="card-header">
                         <h4 class="card-title mb-0">
-                            Szükséges sütik
-                            <span class="badge badge-primary ml-2">Kötelező</span>
+                            {{ __('global.cookie-necessary-title') }}
+                            <span class="badge badge-primary ml-2">{{ __('global.cookie-required-badge') }}</span>
                         </h4>
                     </div>
                     <div class="card-body">
                         <p>
-                            Ezek a sütik elengedhetetlenek a weboldal megfelelő működéséhez és nem kapcsolhatók ki.
-                            Ezen sütik nélkül a weboldal nem működne megfelelően.
+                            {{ __('global.cookie-necessary-policy-description') }}
                         </p>
                         <div class="table-responsive">
                             <table class="table table-sm">
                                 <thead>
                                     <tr>
-                                        <th>Süti neve</th>
-                                        <th>Célkitűzés</th>
-                                        <th>Érvényesség</th>
+                                        <th>{{ __('global.cookie-table-name') }}</th>
+                                        <th>{{ __('global.cookie-table-purpose') }}</th>
+                                        <th>{{ __('global.cookie-table-duration') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
                                         <td><code>session cookie</code></td>
-                                        <td>Munkamenet azonosító a bejelentkezéshez</td>
-                                        <td>Böngésző bezárásáig</td>
+                                        <td>{{ __('global.cookie-session-desc') }}</td>
+                                        <td>{{ __('global.cookie-duration-session') }}</td>
                                     </tr>
                                     <tr>
                                         <td><code>CSRF token</code></td>
-                                        <td>Biztonsági token a támadások ellen</td>
-                                        <td>Böngésző bezárásáig</td>
+                                        <td>{{ __('global.cookie-csrf-desc') }}</td>
+                                        <td>{{ __('global.cookie-duration-session') }}</td>
                                     </tr>
                                     <tr>
                                         <td><code>auth cookie</code></td>
-                                        <td>Bejelentkezési állapot megőrzése</td>
-                                        <td>30 nap (ha bejelölve)</td>
+                                        <td>{{ __('global.cookie-auth-desc') }}</td>
+                                        <td>{{ __('global.cookie-duration-30-days') }}</td>
                                     </tr>
                                     <tr>
                                         <td><code>cookie_consent</code></td>
-                                        <td>Süti beállítások tárolása</td>
-                                        <td>1 év</td>
+                                        <td>{{ __('global.cookie-consent-desc') }}</td>
+                                        <td>{{ __('global.cookie-duration-1-year') }}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -152,39 +148,38 @@
                 <div class="card mb-3">
                     <div class="card-header">
                         <h4 class="card-title mb-0">
-                            Analitikai sütik
-                            <span class="badge badge-secondary ml-2">Opcionális</span>
+                            {{ __('global.cookie-analytics-title') }}
+                            <span class="badge badge-secondary ml-2">{{ __('global.cookie-optional-badge') }}</span>
                         </h4>
                     </div>
                     <div class="card-body">
                         <p>
-                            Ezek a sütik segítenek megérteni, hogyan használják a látogatók a weboldalt. 
-                            Névtelen statisztikák készítéséhez használjuk őket a felhasználói élmény javítása érdekében.
+                            {{ __('global.cookie-analytics-policy-description') }}
                         </p>
                         <div class="table-responsive">
                             <table class="table table-sm">
                                 <thead>
                                     <tr>
-                                        <th>Süti neve</th>
-                                        <th>Célkitűzés</th>
-                                        <th>Érvényesség</th>
+                                        <th>{{ __('global.cookie-table-name') }}</th>
+                                        <th>{{ __('global.cookie-table-purpose') }}</th>
+                                        <th>{{ __('global.cookie-table-duration') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
                                         <td><code>telemetry</code></td>
-                                        <td>Felhasználói viselkedés nyomon követése</td>
-                                        <td>Böngésző bezárásáig</td>
+                                        <td>{{ __('global.cookie-telemetry-desc') }}</td>
+                                        <td>{{ __('global.cookie-duration-session') }}</td>
                                     </tr>
                                     <tr>
                                         <td><code>usage_stats</code></td>
-                                        <td>Oldal használati statisztikák</td>
-                                        <td>30 nap</td>
+                                        <td>{{ __('global.cookie-usage-stats-desc') }}</td>
+                                        <td>{{ __('global.cookie-duration-30-days') }}</td>
                                     </tr>
                                     <tr>
                                         <td><code>performance_data</code></td>
-                                        <td>Oldal teljesítmény mérése</td>
-                                        <td>7 nap</td>
+                                        <td>{{ __('global.cookie-performance-desc') }}</td>
+                                        <td>{{ __('global.cookie-duration-7-days') }}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -192,30 +187,29 @@
                     </div>
                 </div>
                 
-                <h3>Süti beállítások kezelése</h3>
+                <h3>{{ __('global.cookie-manage-settings-title') }}</h3>
                 <p>
-                    A süti beállításait bármikor módosíthatja. Az analitikai sütiket bármikor ki- vagy bekapcsolhatja 
-                    anélkül, hogy ez befolyásolná a weboldal alapvető funkcióit.
+                    {{ __('global.cookie-manage-settings-description') }}
                 </p>
                 
                 <div class="alert alert-info">
-                    <h5>📞 Kapcsolat</h5>
-                    <p class="mb-1">Ha kérdése van a süti szabályzatunkkal kapcsolatban:</p>
+                    <h5>📞 {{ __('global.contact') }}</h5>
+                    <p class="mb-1">{{ __('global.cookie-contact-description') }}:</p>
                     <ul class="mb-0">
-                        <li>Email: <a href="mailto:{{ config('mail.from.address') }}">{{ config('mail.from.address') }}</a></li>
-                        <li>Weboldal: <a href="{{ url('/') }}">{{ config('app.name') }}</a></li>
+                        <li>{{ __('global.email') }}: <a href="mailto:{{ config('mail.from.address') }}">{{ config('mail.from.address') }}</a></li>
+                        <li>{{ __('global.website') }}: <a href="{{ url('/') }}">{{ config('app.name') }}</a></li>
                     </ul>
                 </div>
                 
                 <p class="text-muted small">
-                    <strong>Utolsó frissítés:</strong> {{ date('Y. F j.') }}<br>
-                    <strong>Verzió:</strong> {{ config('cookie-consent.version', '1.0') }}
+                    <strong>{{ __('global.last-updated') }}:</strong> {{ date('Y. F j.') }}<br>
+                    <strong>{{ __('global.version') }}:</strong> {{ config('cookie-consent.version', '1.0') }}
                 </p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Bezárás</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">{{ __('global.close') }}</button>
                 <button type="button" class="btn btn-primary" data-dismiss="modal" id="global-cookie-settings-from-policy">
-                    Beállítások módosítása
+                    {{ __('global.cookie-modify-settings') }}
                 </button>
             </div>
         </div>
@@ -298,7 +292,7 @@
                     }));
                     
                     // Show success message
-                    this.showMessage('Süti beállítások sikeresen mentve!', 'success');
+                    this.showMessage('{{ __('global.cookie-settings-saved') }}', 'success');
                     
                     // Hide any existing banner
                     const banner = document.getElementById('cookie-consent-banner');
@@ -313,7 +307,7 @@
             })
             .catch(error => {
                 console.error('Cookie consent error:', error);
-                this.showMessage('Hiba történt a beállítások mentésekor!', 'error');
+                this.showMessage('{{ __('global.cookie-settings-error') }}', 'error');
                 throw error;
             });
         },
@@ -361,7 +355,7 @@
         if (saveButton) {
             saveButton.addEventListener('click', function() {
                 const originalText = this.innerHTML;
-                this.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Mentés...';
+                this.innerHTML = '<i class="fa fa-spinner fa-spin"></i> {{ __('global.saving') }}...';
                 this.disabled = true;
                 
                 window.CookieManager.savePreferences()

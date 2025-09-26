@@ -32,7 +32,7 @@
 @endsection
 
 @section('content')
-<h1>Globális kompetenciák</h1>
+<h1>{{ __('titles.superadmin.global-competencies') }}</h1>
 
 <div class="fixed-row">
   <div class="tile tile-info competency-search">
