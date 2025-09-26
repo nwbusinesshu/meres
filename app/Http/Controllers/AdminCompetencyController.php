@@ -7,6 +7,7 @@ use App\Models\CompetencyQuestion;
 use App\Services\AjaxService;
 use App\Services\AssessmentService;
 use App\Services\OrgConfigService;
+use App\Services\AiTranslationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -141,43 +142,40 @@ class AdminCompetencyController extends Controller
         ]);
     }
 
-    /**
-     * UPDATED: Save competency question with translation support
-     */
     public function saveCompetencyQuestion(Request $request){
-        $comp = Competency::find($request->compId);
-        if(!$comp) AjaxService::error(__('admin/competencies.competency-not-found'));
-
-        if(is_null($comp->organization_id)){
-            AjaxService::error(__('admin/competencies.cannot-modify-global'));
-        }
-
         $q = CompetencyQuestion::find($request->id);
 
-        $rules = [
-            "question" => ['required'],
-            "questionSelf" => ['required'],
-            "minLabel" => ['required'],
-            "maxLabel" => ['required'],
-            "scale" => ['required', 'numeric'],
-        ];
-        $this->validate($request, $rules, [], [
-            "question" => __('admin/competencies.question'),
-            "questionSelf" => __('admin/competencies.question-self'),
-            "minLabel" => __('admin/competencies.min-label'),
-            "maxLabel" => __('admin/competencies.max-label'),
-            "scale" => __('admin/competencies.scale'),
+        $this->validate($request, [
+            'question' => ['required'],
+            'questionSelf' => ['required'],
+            'minLabel' => ['required'], 
+            'maxLabel' => ['required'],
+            'scale' => ['required', 'numeric', 'min:1', 'max:10']
+        ], [], [
+            'question' => __('admin/competencies.question'),
+            'questionSelf' => __('admin/competencies.question-self'),
+            'minLabel' => __('admin/competencies.min-label'),
+            'maxLabel' => __('admin/competencies.max-label'),
+            'scale' => __('admin/competencies.scale')
         ]);
 
-        AjaxService::DBTransaction(function() use ($request, &$q){
+        $orgId = session('org_id');
+
+        AjaxService::DBTransaction(function() use ($request, &$q, $orgId) {
             if(!$q){
                 $q = new CompetencyQuestion();
-                $q->competency_id = $request->compId;
-                $q->organization_id = session('org_id');
-                $q->original_language = auth()->user()->locale ?? config('app.locale', 'hu');
+                $q->competency_id = $request->competency_id;
+                $q->organization_id = $orgId;
+                $q->original_language = $request->original_language ?? auth()->user()->locale ?? config('app.locale', 'hu');
+            } else {
+                if(is_null($q->organization_id)){
+                    AjaxService::error(__('admin/competencies.cannot-modify-global'));
+                }
+                if ($request->has('original_language')) {
+                    $q->original_language = $request->original_language;
+                }
             }
 
-            // Set the main values
             $q->question = $request->question;
             $q->question_self = $request->questionSelf;
             $q->min_label = $request->minLabel;
@@ -267,6 +265,23 @@ class AdminCompetencyController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    public function removeCompetencyQuestion(Request $request){
+        $q = CompetencyQuestion::find($request->id);
+
+        if(!$q) AjaxService::error(__('admin/competencies.question-not-found'));
+
+        if(is_null($q->organization_id)){
+            AjaxService::error(__('admin/competencies.cannot-modify-global'));
+        }
+
+        AjaxService::DBTransaction(function() use (&$q) {
+            $q->removed_at = now();
+            $q->save();
+        });
+
+        return response()->json(['ok' => true]);
+    }
+
     public function getCompetencyQuestion(Request $request){
         $q = CompetencyQuestion::find($request->id);
         if(!$q) AjaxService::error(__('admin/competencies.question-not-found'));
@@ -275,7 +290,7 @@ class AdminCompetencyController extends Controller
     }
 
     /**
-     * NEW: Get competency question translations
+     * Get competency question translations
      */
     public function getCompetencyQuestionTranslations(Request $request)
     {
@@ -301,24 +316,8 @@ class AdminCompetencyController extends Controller
         ]);
     }
 
-    public function removeCompetencyQuestion(Request $request){
-        $q = CompetencyQuestion::find($request->id);
-        if(!$q) AjaxService::error(__('admin/competencies.question-not-found'));
-
-        if(is_null($q->organization_id)){
-            AjaxService::error(__('admin/competencies.cannot-modify-global'));
-        }
-
-        AjaxService::DBTransaction(function() use (&$q) {
-            $q->removed_at = now();
-            $q->save();
-        });
-
-        return response()->json(['ok' => true]);
-    }
-
     /**
-     * Get available languages from config and user's default language
+     * Get available languages from config
      */
     public function getAvailableLanguages(Request $request)
     {
@@ -332,54 +331,95 @@ class AdminCompetencyController extends Controller
     }
 
     /**
-     * Get currently selected translation languages for the organization
+     * Get selected languages for organization
      */
     public function getSelectedLanguages(Request $request)
     {
         $orgId = session('org_id');
-        $userDefaultLanguage = auth()->user()->locale ?? config('app.locale', 'hu');
+        $selectedLanguages = OrgConfigService::getJson($orgId, 'translation_languages', [auth()->user()->locale ?? config('app.locale', 'hu')]);
         
-        // Get selected languages from organization config
-        $translationLanguages = OrgConfigService::getJson($orgId, 'translation_languages', [$userDefaultLanguage]);
-        
-        // Ensure user's default language is always included
-        if (!in_array($userDefaultLanguage, $translationLanguages)) {
-            $translationLanguages[] = $userDefaultLanguage;
-        }
-
         return response()->json([
-            'selected_languages' => array_unique($translationLanguages)
+            'selected_languages' => $selectedLanguages
         ]);
     }
 
     /**
-     * Save selected translation languages for the organization
+     * Save selected translation languages for organization
      */
     public function saveTranslationLanguages(Request $request)
     {
         $request->validate([
-            'languages' => 'required|array|min:1',
-            'languages.*' => 'required|string|in:' . implode(',', array_keys(config('app.available_locales', [])))
+            'languages' => 'required|array',
+            'languages.*' => 'string'
         ]);
 
         $orgId = session('org_id');
-        $userDefaultLanguage = auth()->user()->locale ?? config('app.locale', 'hu');
-        $languages = $request->languages;
+        OrgConfigService::setJson($orgId, 'translation_languages', $request->languages);
 
-        // Ensure user's default language is always included
-        if (!in_array($userDefaultLanguage, $languages)) {
-            $languages[] = $userDefaultLanguage;
-        }
+        return response()->json(['ok' => true]);
+    }
 
-        // Remove duplicates and save to organization config
-        $languages = array_unique($languages);
+    /**
+     * NEW: Translate competency name using AI service
+     */
+    public function translateCompetencyName(Request $request)
+    {
+        $request->validate([
+            'competency_name' => 'required|string',
+            'source_language' => 'required|string',
+            'target_languages' => 'required|array',
+        ]);
+
+        $aiTranslationService = new AiTranslationService();
         
-        OrgConfigService::setJson($orgId, 'translation_languages', $languages);
+        $translations = $aiTranslationService->translateCompetencyName(
+            $request->competency_name,
+            $request->source_language,
+            $request->target_languages
+        );
+
+        if ($translations === null) {
+            return response()->json([
+                'success' => false,
+                'message' => __('admin/competencies.translation-failed')
+            ], 500);
+        }
 
         return response()->json([
             'success' => true,
-            'message' => __('admin/competencies.languages-saved-successfully'),
-            'selected_languages' => $languages
+            'translations' => $translations
+        ]);
+    }
+
+    /**
+     * NEW: Translate competency question using AI service
+     */
+    public function translateCompetencyQuestion(Request $request)
+    {
+        $request->validate([
+            'question_data' => 'required|array',
+            'source_language' => 'required|string',
+            'target_languages' => 'required|array',
+        ]);
+
+        $aiTranslationService = new AiTranslationService();
+        
+        $translations = $aiTranslationService->translateCompetencyQuestion(
+            $request->question_data,
+            $request->source_language,
+            $request->target_languages
+        );
+
+        if ($translations === null) {
+            return response()->json([
+                'success' => false,
+                'message' => __('admin/competencies.translation-failed')
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'translations' => $translations
         ]);
     }
 }

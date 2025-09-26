@@ -93,8 +93,10 @@ function refreshAIButtonState() {
   const nameVal = ($('#competency-modal .competency-name').val() || '').trim();
   const langs = Array.isArray(compSelectedLanguages) ? compSelectedLanguages : [];
   const targets = langs.filter(l => l !== compOriginalLanguage);
+  const isTranslationSectionVisible = $('.translation-section').is(':visible');
 
-  const enable = nameVal.length > 0 && targets.length > 0;
+  // Button should only be enabled when translation section is visible, name is filled, and there are target languages
+  const enable = isTranslationSectionVisible && nameVal.length > 0 && targets.length > 0;
   btn.toggleClass('disabled', !enable).prop('disabled', !enable);
 }
 
@@ -115,6 +117,9 @@ function openCompetencyModal(id = null, name = null) {
   $('.translation-section').hide();
   $('.create-translations').show();
   competencyTranslations = {};
+  
+  // Remove AI button when modal opens (it will be added only when needed)
+  removeCompetencyAIButton();
 
   if (id) {
     loadCompetencyTranslations(id);
@@ -207,7 +212,10 @@ function showCompetencyTranslationInputs() {
     `);
     $('.translation-section').show();
     $('.create-translations').hide();
-    refreshAIButtonState(); // <- itt is
+    
+    // ADD AI button when translation section becomes visible
+    addCompetencyAIButton();
+    refreshAIButtonState();
     return;
   }
 
@@ -241,7 +249,28 @@ function showCompetencyTranslationInputs() {
 
   $('.translation-section').show();
   $('.create-translations').hide();
-  refreshAIButtonState(); // <- és itt is
+  
+  // ADD AI button when translation section becomes visible
+  addCompetencyAIButton();
+  refreshAIButtonState();
+}
+
+/** AI gomb hozzáadása CSAK amikor a fordítási szekció megjelenik */
+function addCompetencyAIButton() {
+  if ($('.translation-section').is(':visible') && $('#competency-modal .ai-translate-competency').length === 0) {
+    const aiButton = $(`
+      <button type="button" class="btn btn-outline-primary ai-translate-competency disabled" style="margin-right: 0.5rem;" disabled>
+        <i class="fa fa-robot"></i> {{ __('admin/competencies.ai-translate') }}
+      </button>
+    `);
+    aiButton.insertBefore('#competency-modal .save-competency');
+    initCompetencyTranslationButton();
+  }
+}
+
+/** AI gomb eltávolítása amikor a fordítási szekció el van rejtve */
+function removeCompetencyAIButton() {
+  $('#competency-modal .ai-translate-competency').remove();
 }
 
 /** AI fordító gomb inicializálása + események */
@@ -339,20 +368,6 @@ function translateCompetencyName(competencyName, sourceLanguage, targetLanguages
   });
 }
 
-/** AI gomb beszúrása, ha még nincs */
-function updateCompetencyModalButtons() {
-  if ($('#competency-modal .ai-translate-competency').length === 0) {
-    const aiButton = $(`
-      <button type="button" class="btn btn-outline-primary ai-translate-competency disabled" style="margin-right: 0.5rem;" disabled>
-        <i class="fa fa-robot"></i> {{ __('admin/competencies.ai-translate') }}
-      </button>
-    `);
-    aiButton.insertBefore('#competency-modal .save-competency');
-  }
-  // mindig inicializáljuk (akkor is, ha már létezett a gomb)
-  initCompetencyTranslationButton();
-}
-
 $(document).ready(function() {
   // "Fordítások létrehozása" gomb
   $('.create-translations').off('click').on('click', function() {
@@ -362,15 +377,20 @@ $(document).ready(function() {
       if (currentName) {
         competencyTranslations[compOriginalLanguage] = currentName;
       }
-      showCompetencyTranslationInputs();
+      showCompetencyTranslationInputs(); // This will now add the AI button
       swal_loader.close();
     });
   });
 
-  // "Elrejtés" gomb
+  // "Elrejtés" gomb - UPDATED
   $('.hide-translations').off('click').on('click', function() {
     $('.translation-section').hide();
     $('.create-translations').show();
+    removeCompetencyAIButton(); // Remove AI button when hiding translations
+  });
+
+  // Add name input listener
+  $(document).on('input keyup', '#competency-modal .competency-name', function() {
     refreshAIButtonState();
   });
 
@@ -433,12 +453,6 @@ $(document).ready(function() {
         }
       });
     });
-  });
-
-  // Modal megjelenésekor szúrjuk be/initializáljuk az AI gombot és frissítsünk állapotot
-  $('#competency-modal').on('shown.bs.modal', function() {
-    updateCompetencyModalButtons();
-    refreshAIButtonState();
   });
 });
 
