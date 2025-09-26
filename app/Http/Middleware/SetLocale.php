@@ -7,8 +7,6 @@ use Illuminate\Http\Request;
 
 class SetLocale
 {
-    private array $allowed = ['hu', 'en'];
-
     public function handle(Request $request, Closure $next)
     {
         $locale = null;
@@ -28,15 +26,19 @@ class SetLocale
             $locale = config('app.locale', 'hu');
         }
 
+        // FIXED: Get allowed languages from config instead of hardcoding
+        $availableLocales = config('app.available_locales', ['hu' => 'Magyar', 'en' => 'English']);
+        $allowed = array_keys($availableLocales);
+
         // validálás
-        if (!in_array($locale, $this->allowed, true)) {
-            $locale = 'hu';
+        if (!in_array($locale, $allowed, true)) {
+            $locale = config('app.locale', 'hu');
         }
 
         // sessionbe mindig tegyük
         session(['locale' => $locale]);
 
-        // app-ra is állítsuk
+        // app-ra is állítsük
         app()->setLocale($locale);
 
         return $next($request);
