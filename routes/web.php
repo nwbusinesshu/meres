@@ -150,6 +150,8 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         Route::post('/question/remove', 'removeCompetencyQuestion')->name('question.remove');
         Route::post('/question/translations/get', 'getCompetencyQuestionTranslations')->name('question.translations.get');
         Route::post('/translations/get', 'getCompetencyTranslations')->name('translations.get');
+        Route::post('/translate-name', 'translateCompetencyName')->name('translate-name');
+        Route::post('/translate-question', 'translateCompetencyQuestion')->name('translate-question');
     });
 
     Route::controller(AdminCompetencyController::class)->name('languages.')->prefix('/languages')->group(function () {
@@ -257,6 +259,8 @@ Route::prefix('superadmin/competency')
         Route::post('/question/translations/get', 'getCompetencyQuestionTranslations')->name('question.translations.get');
         Route::get('/languages/available', 'getAvailableLanguages')->name('languages.available');
         Route::get('/languages/selected', 'getSelectedLanguages')->name('languages.selected');
+        Route::post('/translate-name', 'translateCompetencyName')->name('translate-name');
+        Route::post('/translate-question', 'translateCompetencyQuestion')->name('translate-question');
         
         // FIXED: Add aliases for JavaScript compatibility
         Route::post('/question/remove', 'removeCompetencyQuestion')->name('q.remove'); // Alias for JS

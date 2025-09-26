@@ -81,6 +81,15 @@ return [
     'translation-status' => 'Fordítás Állapot',
     'complete' => 'Teljes',
     'incomplete' => 'Hiányos',
+    'ai-translate' => 'AI Fordítás',
+'translating' => 'Fordítás folyamatban',
+'translation-success' => 'Fordítás sikeres',
+'translation-failed' => 'Fordítás sikertelen',
+'question-translation-failed' => 'Kérdés fordítása sikertelen',
+'ai-translations-generated' => 'AI fordítások elkészültek. Szerkesztheted őket mentés előtt.',
+'fill-competency-name-first' => 'Kérlek, először töltsd ki a kompetencia nevét.',
+'fill-all-fields-first' => 'Kérlek, először töltsd ki az összes kérdés mezőt az eredeti nyelven.',
+'no-target-languages' => 'Nincsenek elérhető célnyelvek a fordításhoz.',
       
   
 ];

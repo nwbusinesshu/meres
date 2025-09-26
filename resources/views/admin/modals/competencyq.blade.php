@@ -592,4 +592,243 @@ $('.carousel-next').on('click', function() {
   }
 });
 });
+
+// Add these functions to the competencyq modal JavaScript (add after existing functions, don't modify them)
+
+// AI Translation functionality for competency questions
+function initQuestionTranslationButton() {
+  // Check if translation button should be enabled
+  function checkQuestionTranslationButtonState() {
+    const currentLangContent = $('.language-content.active');
+    const question = currentLangContent.find('.question').val()?.trim();
+    const questionSelf = currentLangContent.find('.question-self').val()?.trim();
+    const minLabel = currentLangContent.find('.min-label').val()?.trim();
+    const maxLabel = currentLangContent.find('.max-label').val()?.trim();
+    
+    const hasAllFields = question && questionSelf && minLabel && maxLabel;
+    const hasMultipleLanguages = qSelectedLanguages.length > 1;
+    const isOriginalLanguage = qCurrentLanguage === qOriginalLanguage;
+    
+    const translateButton = $('#competencyq-modal .ai-translate-question');
+    
+    if (hasAllFields && hasMultipleLanguages && isOriginalLanguage) {
+      translateButton.removeClass('disabled').prop('disabled', false);
+    } else {
+      translateButton.addClass('disabled').prop('disabled', true);
+    }
+  }
+  
+  // Listen to input changes in the current language content
+  $(document).on('input keyup', '#competencyq-modal .language-content.active input, #competencyq-modal .language-content.active textarea', checkQuestionTranslationButtonState);
+  
+  // Listen to language switches
+  $(document).on('click', '.language-tab', checkQuestionTranslationButtonState);
+  
+  // Initial check
+  setTimeout(checkQuestionTranslationButtonState, 100);
+  
+  // Handle translation button click
+  $(document).off('click', '#competencyq-modal .ai-translate-question').on('click', '#competencyq-modal .ai-translate-question', function() {
+    if ($(this).hasClass('disabled')) return;
+    
+    const currentLangContent = $('.language-content.active');
+    const questionData = {
+      question: currentLangContent.find('.question').val()?.trim(),
+      question_self: currentLangContent.find('.question-self').val()?.trim(),
+      min_label: currentLangContent.find('.min-label').val()?.trim(),
+      max_label: currentLangContent.find('.max-label').val()?.trim()
+    };
+    
+    const sourceLanguage = qOriginalLanguage;
+    const targetLanguages = qSelectedLanguages.filter(lang => lang !== sourceLanguage);
+    
+    // Validate all fields are filled
+    if (!questionData.question || !questionData.question_self || !questionData.min_label || !questionData.max_label) {
+      swal.fire({
+        icon: 'warning',
+        title: '{{ __('global.warning') }}',
+        text: '{{ __('admin/competencies.fill-all-fields-first') }}'
+      });
+      return;
+    }
+    
+    if (targetLanguages.length === 0) {
+      swal.fire({
+        icon: 'info',
+        title: '{{ __('global.info') }}',
+        text: '{{ __('admin/competencies.no-target-languages') }}'
+      });
+      return;
+    }
+    
+    translateCompetencyQuestion(questionData, sourceLanguage, targetLanguages);
+  });
+}
+
+function translateCompetencyQuestion(questionData, sourceLanguage, targetLanguages) {
+  // Show loading
+  const translateButton = $('#competencyq-modal .ai-translate-question');
+  const originalText = translateButton.html();
+  translateButton.html('<i class="fa fa-spinner fa-spin"></i> {{ __('admin/competencies.translating') }}...').prop('disabled', true);
+  
+  // 🔥 CONTEXT-AWARE ROUTE SELECTION
+  const isGlobalMode = window.globalCompetencyMode || false;
+  const translateUrl = isGlobalMode ? 
+    "{{ route('superadmin.competency.translate-question') }}" : 
+    "{{ route('admin.competency.translate-question') }}";
+  
+  $.ajax({
+    url: translateUrl,
+    method: 'POST',
+    data: {
+      question: questionData.question,
+      question_self: questionData.question_self,
+      min_label: questionData.min_label,
+      max_label: questionData.max_label,
+      source_language: sourceLanguage,
+      target_languages: targetLanguages,
+      _token: '{{ csrf_token() }}'
+    },
+    success: function(response) {
+      if (response.success && response.translations) {
+        // Fill the translation objects with AI translations
+        Object.keys(response.translations).forEach(langCode => {
+          const langTranslations = response.translations[langCode];
+          
+          // Update global translation objects
+          qTranslations.question[langCode] = langTranslations.question;
+          qTranslations.question_self[langCode] = langTranslations.question_self;
+          qTranslations.min_label[langCode] = langTranslations.min_label;
+          qTranslations.max_label[langCode] = langTranslations.max_label;
+        });
+        
+        // Add original language translations
+        qTranslations.question[sourceLanguage] = questionData.question;
+        qTranslations.question_self[sourceLanguage] = questionData.question_self;
+        qTranslations.min_label[sourceLanguage] = questionData.min_label;
+        qTranslations.max_label[sourceLanguage] = questionData.max_label;
+        
+        // Update all language content with new translations
+        updateAllLanguageContent();
+        
+        // Update language tabs to reflect new translations
+        updateLanguageTabs();
+        
+        swal.fire({
+          icon: 'success',
+          title: '{{ __('admin/competencies.translation-success') }}',
+          text: '{{ __('admin/competencies.ai-translations-generated') }}',
+          timer: 3000,
+          showConfirmButton: false
+        });
+      } else {
+        swal.fire({
+          icon: 'error',
+          title: '{{ __('global.error') }}',
+          text: response.message || '{{ __('admin/competencies.question-translation-failed') }}'
+        });
+      }
+    },
+    error: function(xhr) {
+      let errorMessage = '{{ __('admin/competencies.question-translation-failed') }}';
+      if (xhr.responseJSON && xhr.responseJSON.message) {
+        errorMessage = xhr.responseJSON.message;
+      }
+      
+      swal.fire({
+        icon: 'error',
+        title: '{{ __('global.error') }}',
+        text: errorMessage
+      });
+    },
+    complete: function() {
+      // Restore button
+      translateButton.html(originalText).prop('disabled', false);
+      initQuestionTranslationButton(); // Re-initialize state checking
+    }
+  });
+}
+
+function updateAllLanguageContent() {
+  // Update all language content areas with the new translations
+  qSelectedLanguages.forEach(lang => {
+    const langContent = $(`.language-content[data-lang="${lang}"]`);
+    
+    if (langContent.length > 0) {
+      // Update input values
+      langContent.find('.question').val(qTranslations.question[lang] || '');
+      langContent.find('.question-self').val(qTranslations.question_self[lang] || '');
+      langContent.find('.min-label').val(qTranslations.min_label[lang] || '');
+      langContent.find('.max-label').val(qTranslations.max_label[lang] || '');
+    }
+  });
+}
+
+function updateLanguageTabs() {
+  // Update the language tabs to remove 'missing' class if translations are now available
+  qSelectedLanguages.forEach(lang => {
+    const tab = $(`.language-tab[data-lang="${lang}"]`);
+    const hasAllTranslations = 
+      qTranslations.question[lang] && 
+      qTranslations.question_self[lang] && 
+      qTranslations.min_label[lang] && 
+      qTranslations.max_label[lang];
+    
+    if (hasAllTranslations) {
+      tab.removeClass('missing');
+    } else {
+      tab.addClass('missing');
+    }
+  });
+}
+
+// Add AI translate button to question modal
+function addQuestionTranslationButton() {
+  // Add AI translate button if it doesn't exist
+  if ($('#competencyq-modal .ai-translate-question').length === 0) {
+    const aiButton = $(`
+      <button type="button" class="btn btn-outline-primary ai-translate-question disabled" style="margin-right: 0.5rem;" disabled>
+        <i class="fa fa-robot"></i> {{ __('admin/competencies.ai-translate') }}
+      </button>
+    `);
+    
+    // Insert before the save button
+    aiButton.insertBefore('#competencyq-modal .save-question');
+    
+    // Initialize the button
+    initQuestionTranslationButton();
+  }
+}
+
+// Hook into the existing modal setup
+$(document).ready(function() {
+  // Add the AI translate button when modal is shown
+  $('#competencyq-modal').on('shown.bs.modal', function() {
+    addQuestionTranslationButton();
+  });
+  
+  // Re-check button state when switching languages
+  $(document).on('click', '.language-tab', function() {
+    setTimeout(function() {
+      if (typeof initQuestionTranslationButton === 'function') {
+        const translateButton = $('#competencyq-modal .ai-translate-question');
+        const currentLangContent = $('.language-content.active');
+        const question = currentLangContent.find('.question').val()?.trim();
+        const questionSelf = currentLangContent.find('.question-self').val()?.trim();
+        const minLabel = currentLangContent.find('.min-label').val()?.trim();
+        const maxLabel = currentLangContent.find('.max-label').val()?.trim();
+        
+        const hasAllFields = question && questionSelf && minLabel && maxLabel;
+        const hasMultipleLanguages = qSelectedLanguages.length > 1;
+        const isOriginalLanguage = qCurrentLanguage === qOriginalLanguage;
+        
+        if (hasAllFields && hasMultipleLanguages && isOriginalLanguage) {
+          translateButton.removeClass('disabled').prop('disabled', false);
+        } else {
+          translateButton.addClass('disabled').prop('disabled', true);
+        }
+      }
+    }, 100);
+  });
+});
 </script>

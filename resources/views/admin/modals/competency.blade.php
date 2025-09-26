@@ -87,19 +87,35 @@ let compSelectedLanguages = [];
 let competencyTranslations = {};
 let compOriginalLanguage = '{{ auth()->user()->locale ?? config('app.locale') }}';
 
+/** Központi állapotfrissítő az AI fordító gombhoz */
+function refreshAIButtonState() {
+  const btn = $('#competency-modal .ai-translate-competency');
+  const nameVal = ($('#competency-modal .competency-name').val() || '').trim();
+  const langs = Array.isArray(compSelectedLanguages) ? compSelectedLanguages : [];
+  const targets = langs.filter(l => l !== compOriginalLanguage);
+
+  const enable = nameVal.length > 0 && targets.length > 0;
+  btn.toggleClass('disabled', !enable).prop('disabled', !enable);
+}
+
+/** Modal megnyitása */
 function openCompetencyModal(id = null, name = null) {
   swal_loader.fire();
+
   $('#competency-modal').attr('data-id', id ?? 0);
-  $('#competency-modal .modal-title').html(id == null ? '{{ __('admin/competencies.create-competency') }}' : '{{ __('admin/competencies.modify-competency') }}');
+  $('#competency-modal .modal-title').html(
+    id == null ? '{{ __('admin/competencies.create-competency') }}' : '{{ __('admin/competencies.modify-competency') }}'
+  );
   $('#competency-modal .save-competency').html('{{ __('admin/competencies.save-competency') }}');
-  $('#competency-modal .competency-name').val(name ?? '');
-  
-  // Reset translation state
+
+  // programozott értékadás — lőjünk input eventet is, hogy a gombállapot frissüljön
+  $('#competency-modal .competency-name').val(name ?? '').trigger('input');
+
+  // Reset fordítások
   $('.translation-section').hide();
   $('.create-translations').show();
   competencyTranslations = {};
-  
-  // If editing existing competency, load its translations
+
   if (id) {
     loadCompetencyTranslations(id);
   } else {
@@ -108,19 +124,17 @@ function openCompetencyModal(id = null, name = null) {
   }
 }
 
+/** Fordítások betöltése (szerkesztéskor) */
 function loadCompetencyTranslations(competencyId) {
-  // 🔥 CONTEXT-AWARE ROUTE SELECTION
   const isGlobalMode = window.globalCompetencyMode || false;
-  const translationsUrl = isGlobalMode ? 
-    "{{ route('superadmin.competency.translations.get') }}" : 
-    "{{ route('admin.competency.translations.get') }}";
-  
-  console.log('🔥 Loading competency translations from:', translationsUrl);
-  
+  const translationsUrl = isGlobalMode
+    ? "{{ route('superadmin.competency.translations.get') }}"
+    : "{{ route('admin.competency.translations.get') }}";
+
   $.ajax({
     url: translationsUrl,
     method: 'POST',
-    data: { 
+    data: {
       id: competencyId,
       _token: '{{ csrf_token() }}'
     },
@@ -128,8 +142,8 @@ function loadCompetencyTranslations(competencyId) {
       if (response.name_json) {
         competencyTranslations = response.name_json;
         compOriginalLanguage = response.original_language || compOriginalLanguage;
-        
-        // If translations exist, show them
+
+        // ha vannak fordítások, töltsük a nyelveket és jelenítsük meg
         if (Object.keys(competencyTranslations).length > 1) {
           loadCompetencySelectedLanguages().then(() => {
             showCompetencyTranslationInputs();
@@ -146,31 +160,28 @@ function loadCompetencyTranslations(competencyId) {
   });
 }
 
+/** Választott nyelvek betöltése (globális/organizációs mód szerint) */
 function loadCompetencySelectedLanguages() {
   return new Promise((resolve) => {
-    // 🔥 CONTEXT-AWARE LANGUAGE LOADING
     const isGlobalMode = window.globalCompetencyMode || false;
-    
+
     if (isGlobalMode) {
-      // GLOBAL MODE: Use ALL available languages from config
-      console.log('🔥 Global mode: Loading ALL available languages');
       const availableLanguages = @json(config('app.available_locales'));
       compSelectedLanguages = Object.keys(availableLanguages);
-      console.log('🔥 All available languages:', compSelectedLanguages);
+      refreshAIButtonState(); // <- fontos
       resolve();
     } else {
-      // ADMIN MODE: Use organization-selected languages
-      console.log('🔥 Admin mode: Loading organization-selected languages');
       $.ajax({
         url: "{{ route('admin.languages.selected') }}",
         method: 'GET',
         success: function(response) {
           compSelectedLanguages = response.selected_languages || [compOriginalLanguage];
-          console.log('🔥 Organization-selected languages:', compSelectedLanguages);
+          refreshAIButtonState(); // <- fontos
           resolve();
         },
         error: function() {
           compSelectedLanguages = [compOriginalLanguage];
+          refreshAIButtonState(); // <- fontos
           resolve();
         }
       });
@@ -178,163 +189,259 @@ function loadCompetencySelectedLanguages() {
   });
 }
 
+/** Fordítási inputok renderelése */
 function showCompetencyTranslationInputs() {
   const container = $('.translations-container');
   container.empty();
-  
-  // Get available language names
+
   const availableLocales = @json(config('app.available_locales'));
-  
-  // Filter out the original language since that's handled by the main input field
   const translationLanguages = compSelectedLanguages.filter(langCode => langCode !== compOriginalLanguage);
-  
+
   if (translationLanguages.length === 0) {
     container.append(`
       <div class="alert alert-info">
-        <i class="fa fa-info-circle"></i> 
+        <i class="fa fa-info-circle"></i>
         {{ __('admin/competencies.no-additional-languages') }}
         <br><small>{{ __('admin/competencies.original-language-explanation') }}</small>
       </div>
     `);
     $('.translation-section').show();
     $('.create-translations').hide();
+    refreshAIButtonState(); // <- itt is
     return;
   }
-  
-  // Show info about original language
+
   container.append(`
     <div class="alert alert-warning">
-      <i class="fa fa-info-circle"></i> 
-      <strong>{{ __('admin/competencies.original-language-info') }}:</strong> 
+      <i class="fa fa-info-circle"></i>
+      <strong>{{ __('admin/competencies.original-language-info') }}:</strong>
       ${availableLocales[compOriginalLanguage]} (${compOriginalLanguage.toUpperCase()})
       <br><small>{{ __('admin/competencies.original-language-explanation') }}</small>
     </div>
   `);
-  
+
   translationLanguages.forEach(langCode => {
     if (availableLocales[langCode]) {
       const currentValue = competencyTranslations[langCode] || '';
-      
       const inputGroup = $(`
         <div class="translation-input-group" data-lang="${langCode}">
           <label>
             ${availableLocales[langCode]}
             <span class="language-flag">(${langCode})</span>
           </label>
-          <input type="text" class="form-control translation-input" 
-                 data-lang="${langCode}" 
+          <input type="text" class="form-control translation-input"
+                 data-lang="${langCode}"
                  value="${currentValue}"
                  placeholder="{{ __('admin/competencies.enter-translation-for') }} ${availableLocales[langCode]}">
         </div>
       `);
-      
       container.append(inputGroup);
     }
   });
-  
+
   $('.translation-section').show();
   $('.create-translations').hide();
+  refreshAIButtonState(); // <- és itt is
+}
+
+/** AI fordító gomb inicializálása + események */
+function initCompetencyTranslationButton() {
+  const competencyNameInput = $('#competency-modal .competency-name');
+  const translateButton = $('#competency-modal .ai-translate-competency');
+
+  // ne duplikáljunk bindingot
+  competencyNameInput.off('input.ai keyup.ai').on('input.ai keyup.ai', refreshAIButtonState);
+
+  // induláskor is frissítünk
+  refreshAIButtonState();
+
+  translateButton.off('click.ai').on('click.ai', function() {
+    if ($(this).hasClass('disabled')) return;
+
+    const competencyName = competencyNameInput.val().trim();
+    const sourceLanguage = compOriginalLanguage;
+    const targetLanguages = (compSelectedLanguages || []).filter(l => l !== sourceLanguage);
+
+    if (!competencyName) {
+      swal.fire({
+        icon: 'warning',
+        title: '{{ __('global.warning') }}',
+        text: '{{ __('admin/competencies.fill-competency-name-first') }}'
+      });
+      return;
+    }
+
+    if (targetLanguages.length === 0) {
+      swal.fire({
+        icon: 'info',
+        title: '{{ __('global.info') }}',
+        text: '{{ __('admin/competencies.no-target-languages') }}'
+      });
+      return;
+    }
+
+    translateCompetencyName(competencyName, sourceLanguage, targetLanguages);
+  });
+}
+
+/** Fordítás meghívása backendről */
+function translateCompetencyName(competencyName, sourceLanguage, targetLanguages) {
+  const translateButton = $('#competency-modal .ai-translate-competency');
+  const originalText = translateButton.html();
+  translateButton.html('<i class="fa fa-spinner fa-spin"></i> {{ __('admin/competencies.translating') }}...').prop('disabled', true);
+
+  const isGlobalMode = window.globalCompetencyMode || false;
+  const translateUrl = isGlobalMode
+    ? "{{ route('superadmin.competency.translate-name') }}"
+    : "{{ route('admin.competency.translate-name') }}";
+
+  $.ajax({
+    url: translateUrl,
+    method: 'POST',
+    data: {
+      competency_name: competencyName,
+      source_language: sourceLanguage,
+      target_languages: targetLanguages,
+      _token: '{{ csrf_token() }}'
+    },
+    success: function(response) {
+      if (response.success && response.translations) {
+        competencyTranslations = { ...competencyTranslations, ...response.translations };
+        competencyTranslations[sourceLanguage] = competencyName;
+        showCompetencyTranslationInputs();
+
+        swal.fire({
+          icon: 'success',
+          title: '{{ __('admin/competencies.translation-success') }}',
+          text: '{{ __('admin/competencies.ai-translations-generated') }}',
+          timer: 3000,
+          showConfirmButton: false
+        });
+      } else {
+        swal.fire({
+          icon: 'error',
+          title: '{{ __('global.error') }}',
+          text: response.message || '{{ __('admin/competencies.translation-failed') }}'
+        });
+      }
+    },
+    error: function(xhr) {
+      let errorMessage = '{{ __('admin/competencies.translation-failed') }}';
+      if (xhr.responseJSON && xhr.responseJSON.message) {
+        errorMessage = xhr.responseJSON.message;
+      }
+      swal.fire({ icon: 'error', title: '{{ __('global.error') }}', text: errorMessage });
+    },
+    complete: function() {
+      translateButton.html(originalText).prop('disabled', false);
+      initCompetencyTranslationButton(); // állapotfigyelés újra
+    }
+  });
+}
+
+/** AI gomb beszúrása, ha még nincs */
+function updateCompetencyModalButtons() {
+  if ($('#competency-modal .ai-translate-competency').length === 0) {
+    const aiButton = $(`
+      <button type="button" class="btn btn-outline-primary ai-translate-competency disabled" style="margin-right: 0.5rem;" disabled>
+        <i class="fa fa-robot"></i> {{ __('admin/competencies.ai-translate') }}
+      </button>
+    `);
+    aiButton.insertBefore('#competency-modal .save-competency');
+  }
+  // mindig inicializáljuk (akkor is, ha már létezett a gomb)
+  initCompetencyTranslationButton();
 }
 
 $(document).ready(function() {
-  // Create translations button
-  $('.create-translations').click(function() {
+  // "Fordítások létrehozása" gomb
+  $('.create-translations').off('click').on('click', function() {
     swal_loader.fire();
-    
     loadCompetencySelectedLanguages().then(() => {
-      // Initialize translations with current name for original language
       const currentName = $('#competency-modal .competency-name').val();
       if (currentName) {
         competencyTranslations[compOriginalLanguage] = currentName;
       }
-      
       showCompetencyTranslationInputs();
       swal_loader.close();
     });
   });
-  
-  // Hide translations button
-  $('.hide-translations').click(function() {
+
+  // "Elrejtés" gomb
+  $('.hide-translations').off('click').on('click', function() {
     $('.translation-section').hide();
     $('.create-translations').show();
+    refreshAIButtonState();
   });
-  
-  // 🔥 CONTEXT-AWARE SAVE HANDLER
-  $('.save-competency').click(function() {
+
+  // Mentés
+  $('.save-competency').off('click').on('click', function() {
     swal_confirm.fire({
       title: '{{ __('admin/competencies.save-competency-confirm') }}'
     }).then((result) => {
-      if (result.isConfirmed) {
-        swal_loader.fire();
-        
-        // Start with original language from main input
-        const translations = {};
-        const originalName = $('#competency-modal .competency-name').val().trim();
-        
-        if (originalName) {
-          translations[compOriginalLanguage] = originalName;
+      if (!result.isConfirmed) return;
+
+      swal_loader.fire();
+
+      const translations = {};
+      const originalName = $('#competency-modal .competency-name').val().trim();
+      if (originalName) {
+        translations[compOriginalLanguage] = originalName;
+      }
+
+      $('.translation-input').each(function() {
+        const langCode = $(this).data('lang');
+        const value = $(this).val().trim();
+        if (value && langCode !== compOriginalLanguage) {
+          translations[langCode] = value;
         }
-        
-        // Add translations from translation inputs
-        $('.translation-input').each(function() {
-          const langCode = $(this).data('lang');
-          const value = $(this).val().trim();
-          if (value && langCode !== compOriginalLanguage) {
-            translations[langCode] = value;
-          }
-        });
-        
-        // 🔥 CONTEXT-AWARE ROUTE SELECTION
-        const isGlobalMode = window.globalCompetencyMode || false;
-        const saveUrl = isGlobalMode ? 
-          "{{ route('superadmin.competency.save') }}" : 
-          "{{ route('admin.competency.save') }}";
-        
-        console.log('🔥 Saving competency to URL:', saveUrl);
-        console.log('🔥 Competency data:', {
+      });
+
+      const isGlobalMode = window.globalCompetencyMode || false;
+      const saveUrl = isGlobalMode
+        ? "{{ route('superadmin.competency.save') }}"
+        : "{{ route('admin.competency.save') }}";
+
+      $.ajax({
+        url: saveUrl,
+        method: 'POST',
+        data: {
           id: $('#competency-modal').attr('data-id'),
           name: originalName,
           translations: translations,
-          original_language: compOriginalLanguage
-        });
-        
-        $.ajax({
-          url: saveUrl,
-          method: 'POST',
-          data: {
-            id: $('#competency-modal').attr('data-id'),
-            name: originalName,
-            translations: translations,
-            original_language: compOriginalLanguage,
+          original_language: compOriginalLanguage,
             _token: '{{ csrf_token() }}'
-          },
-          success: function(response) {
-            console.log('🔥 Competency save SUCCESS:', response);
-            swal_loader.close();
-            $('#competency-modal').modal('hide');
-            
-            swal.fire({
-              icon: 'success',
-              title: '{{ __('global.success') }}',
-              text: '{{ __('admin/competencies.save-competency-success') }}',
-              timer: 2000,
-              showConfirmButton: false
-            }).then(() => {
-              location.reload();
-            });
-          },
-          error: function(xhr) {
-            console.error('🔥 Competency save ERROR:', xhr);
-            swal_loader.close();
-            swal.fire({
-              icon: 'error',
-              title: '{{ __('global.error') }}',
-              text: xhr.responseJSON?.message || '{{ __('admin/competencies.translation-error') }}'
-            });
-          }
-        });
-      }
+        },
+        success: function(response) {
+          swal_loader.close();
+          $('#competency-modal').modal('hide');
+          swal.fire({
+            icon: 'success',
+            title: '{{ __('global.success') }}',
+            text: '{{ __('admin/competencies.save-competency-success') }}',
+            timer: 2000,
+            showConfirmButton: false
+          }).then(() => location.reload());
+        },
+        error: function(xhr) {
+          swal_loader.close();
+          swal.fire({
+            icon: 'error',
+            title: '{{ __('global.error') }}',
+            text: xhr.responseJSON?.message || '{{ __('admin/competencies.translation-error') }}'
+          });
+        }
+      });
     });
   });
+
+  // Modal megjelenésekor szúrjuk be/initializáljuk az AI gombot és frissítsünk állapotot
+  $('#competency-modal').on('shown.bs.modal', function() {
+    updateCompetencyModalButtons();
+    refreshAIButtonState();
+  });
 });
+
+// tedd globálissá, ha kívülről hívod (pl. kattintás handler másik fájlban)
+window.openCompetencyModal = openCompetencyModal;
 </script>
