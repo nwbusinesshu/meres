@@ -1,6 +1,6 @@
 {{-- resources/views/admin/modals/competency.blade.php --}}
 <div class="modal fade modal-drawer" tabindex="-1" role="dialog" id="competency-modal">
-  <div class="modal-dialog modal-lg" role="document">
+  <div class="modal-dialog modal-xl" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title"></h5>
@@ -9,34 +9,25 @@
         </button>
       </div>
       <div class="modal-body">
-        <!-- Original competency name -->
-        <div class="form-row">
-          <div class="form-group">
-            <label>{{ __('global.name') }}</label>
-            <input type="text" class="form-control competency-name">
+        
+        <!-- Language Carousel -->
+        <div class="language-carousel-container">
+          <div class="language-carousel">
+            <div class="carousel-nav">
+              <button class="carousel-prev">‹</button>
+              <div class="language-tabs"></div>
+              <button class="carousel-next">›</button>
+            </div>
           </div>
         </div>
 
-        <!-- Translation section -->
-        <div class="translation-section" style="display: none;">
-          <hr style="margin: 1.5rem 0;">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h6 class="mb-0">{{ __('admin/competencies.translations') }}</h6>
-            <button type="button" class="btn btn-outline-secondary btn-sm hide-translations">
-              <i class="fa fa-eye-slash"></i> {{ __('admin/competencies.hide-translations') }}
-            </button>
-          </div>
-          
-          <div class="translations-container">
-            <!-- Translation inputs will be populated here -->
-          </div>
+        <!-- Translation Content -->
+        <div class="translation-content">
+          <!-- Content will be dynamically generated for each language -->
         </div>
 
         <!-- Action buttons -->
         <div class="modal-actions">
-          <button type="button" class="btn btn-outline-info create-translations" style="margin-right: 0.5rem;">
-            <i class="fa fa-language"></i> {{ __('admin/competencies.create-translations') }}
-          </button>
           <button class="btn btn-primary save-competency">{{ __('admin/competencies.save-competency') }}</button>
         </div>
       </div>
@@ -45,34 +36,159 @@
 </div>
 
 <style>
-.translation-input-group {
-  margin-bottom: 1rem;
-  padding: 0.75rem;
+.language-carousel-container {
+  margin-bottom: 20px;
+}
+
+.language-carousel {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 0px;
   border: 1px solid #dee2e6;
-  border-radius: 0.375rem;
-  background-color: #f8f9fa;
 }
 
-.translation-input-group label {
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  color: #495057;
+.carousel-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.translation-input-group .language-flag {
-  font-size: 0.875rem;
+.carousel-prev, 
+.carousel-next {
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 32px;
+  font-weight: bold;
+  padding-bottom: 10px;
+}
+
+.carousel-prev:disabled, 
+.carousel-next:disabled {
+  background: #e9ecef;
   color: #6c757d;
-  text-transform: uppercase;
-  margin-left: 0.5rem;
+  cursor: not-allowed;
 }
 
-.translation-input-group.original-language {
-  background-color: #fff3e0;
-  border-color: #ff9800;
+.language-tabs {
+  display: flex;
+  flex: 1;
+  overflow-x: scroll;
+  gap: 5px;
+  padding: 0 10px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-behavior: smooth;
 }
 
-.translation-input-group.original-language label {
-  color: #e65100;
+.language-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.language-tab {
+  background: white;
+  border: 2px solid #dee2e6;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  min-width: fit-content;
+  font-weight: 500;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.language-tab:hover {
+  border-color: #0d6efd;
+  background: #f8f9ff;
+}
+
+.language-tab.active {
+  background: #0d6efd;
+  border-color: #0d6efd;
+  color: white;
+}
+
+.language-tab.missing::after {
+  content: '!';
+  position: absolute;
+  top: -2px;
+  right: -5px;
+  background: #ffc107;
+  color: #000;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.translation-content {
+  min-height: 300px;
+}
+
+.language-content {
+  display: none;
+}
+
+.language-content.active {
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.translation-field {
+  margin-bottom: 20px;
+}
+
+.translation-field.missing {
+  background: #fff3cd;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.translation-field label {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.translation-field.missing label {
+  color: #856404;
+}
+
+.translation-field textarea,
+.translation-field input {
+  width: 100%;
+  border-radius: 4px;
+  border: 1px solid #ced4da;
+  padding: 10px;
+}
+
+.translation-field.missing textarea,
+.translation-field.missing input {
+  border-color: #ffc107;
+}
+
+.competency-description {
+  resize: vertical;
+  min-height: 75px;
 }
 
 .modal-actions {
@@ -83,25 +199,17 @@
 </style>
 
 <script>
-let compSelectedLanguages = [];
-let competencyTranslations = {};
-let compOriginalLanguage = '{{ auth()->user()->locale ?? config('app.locale') }}';
-
-/** Központi állapotfrissítő az AI fordító gombhoz */
-function refreshAIButtonState() {
-  const btn = $('#competency-modal .ai-translate-competency');
-  const nameVal = ($('#competency-modal .competency-name').val() || '').trim();
-  const langs = Array.isArray(compSelectedLanguages) ? compSelectedLanguages : [];
-  const targets = langs.filter(l => l !== compOriginalLanguage);
-  const isTranslationSectionVisible = $('.translation-section').is(':visible');
-
-  // Button should only be enabled when translation section is visible, name is filled, and there are target languages
-  const enable = isTranslationSectionVisible && nameVal.length > 0 && targets.length > 0;
-  btn.toggleClass('disabled', !enable).prop('disabled', !enable);
-}
+// Global variables for competency translation management
+let compCurrentLanguage = 'hu';
+let compSelectedLanguages = ['hu'];
+let compOriginalLanguage = 'hu';
+let compTranslations = {
+  name: {},
+  description: {}
+};
 
 /** Modal megnyitása */
-function openCompetencyModal(id = null, name = null) {
+function openCompetencyModal(id = null, name = null, description = null) {
   swal_loader.fire();
 
   $('#competency-modal').attr('data-id', id ?? 0);
@@ -110,22 +218,64 @@ function openCompetencyModal(id = null, name = null) {
   );
   $('#competency-modal .save-competency').html('{{ __('admin/competencies.save-competency') }}');
 
-  // programozott értékadás — lőjünk input eventet is, hogy a gombállapot frissüljön
-  $('#competency-modal .competency-name').val(name ?? '').trigger('input');
-
-  // Reset fordítások
-  $('.translation-section').hide();
-  $('.create-translations').show();
-  competencyTranslations = {};
+  // Reset translations
+  compTranslations = { name: {}, description: {} };
   
-  // Remove AI button when modal opens (it will be added only when needed)
-  removeCompetencyAIButton();
+  // Load selected languages first
+  loadCompetencyLanguages().then(() => {
+    if (id) {
+      loadCompetencyTranslations(id);
+    } else {
+      // Set default values for new competency
+      if (name) compTranslations.name[compOriginalLanguage] = name;
+      if (description) compTranslations.description[compOriginalLanguage] = description;
+      
+      setupCompetencyModal();
+      swal_loader.close();
+      $('#competency-modal').modal();
+    }
+  });
+}
 
-  if (id) {
-    loadCompetencyTranslations(id);
+/** Load languages based on mode */
+function loadCompetencyLanguages() {
+  const isGlobalMode = window.globalCompetencyMode || false;
+  
+  if (isGlobalMode) {
+    // GLOBAL MODE: Load all available languages automatically
+    return $.ajax({
+      url: "{{ route('superadmin.competency.languages.available') }}",
+      method: 'GET',
+      success: function(response) {
+        const availableLocales = response.available_locales || {};
+        compSelectedLanguages = Object.keys(availableLocales);
+        compOriginalLanguage = response.user_default_language || 'hu';
+        compCurrentLanguage = compOriginalLanguage;
+      },
+      error: function() {
+        // Fallback for global mode
+        compSelectedLanguages = ['hu', 'en', 'de', 'fr', 'es'];
+        compOriginalLanguage = 'hu';
+        compCurrentLanguage = 'hu';
+      }
+    });
   } else {
-    swal_loader.close();
-    $('#competency-modal').modal();
+    // ADMIN MODE: Use organization's selected languages
+    return $.ajax({
+      url: "{{ route('admin.languages.selected') }}",
+      method: 'GET',
+      success: function(response) {
+        compSelectedLanguages = response.selected_languages || ['hu'];
+        compOriginalLanguage = '{{ auth()->user()->locale ?? config('app.locale', 'hu') }}';
+        compCurrentLanguage = compOriginalLanguage;
+      },
+      error: function() {
+        // Fallback for admin mode
+        compSelectedLanguages = ['hu'];
+        compOriginalLanguage = 'hu';
+        compCurrentLanguage = 'hu';
+      }
+    });
   }
 }
 
@@ -144,181 +294,284 @@ function loadCompetencyTranslations(competencyId) {
       _token: '{{ csrf_token() }}'
     },
     success: function(response) {
-      if (response.name_json) {
-        competencyTranslations = response.name_json;
-        compOriginalLanguage = response.original_language || compOriginalLanguage;
+      // Load translations
+      compOriginalLanguage = response.original_language || compOriginalLanguage;
+      compCurrentLanguage = compOriginalLanguage;
+      compTranslations.name = response.name_json || {};
+      compTranslations.description = response.description_json || {};
 
-        // ha vannak fordítások, töltsük a nyelveket és jelenítsük meg
-        if (Object.keys(competencyTranslations).length > 1) {
-          loadCompetencySelectedLanguages().then(() => {
-            showCompetencyTranslationInputs();
-          });
-        }
+      // Set original values if not in translations
+      if (response.name && !compTranslations.name[compOriginalLanguage]) {
+        compTranslations.name[compOriginalLanguage] = response.name;
       }
+      if (response.description && !compTranslations.description[compOriginalLanguage]) {
+        compTranslations.description[compOriginalLanguage] = response.description;
+      }
+
+      setupCompetencyModal();
       swal_loader.close();
       $('#competency-modal').modal();
     },
-    error: function() {
+    error: function(xhr) {
+      setupCompetencyModal();
       swal_loader.close();
       $('#competency-modal').modal();
     }
   });
 }
 
-/** Választott nyelvek betöltése (globális/organizációs mód szerint) */
-function loadCompetencySelectedLanguages() {
-  return new Promise((resolve) => {
-    const isGlobalMode = window.globalCompetencyMode || false;
-
-    if (isGlobalMode) {
-      const availableLanguages = @json(config('app.available_locales'));
-      compSelectedLanguages = Object.keys(availableLanguages);
-      refreshAIButtonState(); // <- fontos
-      resolve();
-    } else {
-      $.ajax({
-        url: "{{ route('admin.languages.selected') }}",
-        method: 'GET',
-        success: function(response) {
-          compSelectedLanguages = response.selected_languages || [compOriginalLanguage];
-          refreshAIButtonState(); // <- fontos
-          resolve();
-        },
-        error: function() {
-          compSelectedLanguages = [compOriginalLanguage];
-          refreshAIButtonState(); // <- fontos
-          resolve();
-        }
-      });
-    }
-  });
-}
-
-/** Fordítási inputok renderelése */
-function showCompetencyTranslationInputs() {
-  const container = $('.translations-container');
-  container.empty();
-
+/** Setup modal with language tabs and content */
+function setupCompetencyModal() {
   const availableLocales = @json(config('app.available_locales'));
-  const translationLanguages = compSelectedLanguages.filter(langCode => langCode !== compOriginalLanguage);
-
-  if (translationLanguages.length === 0) {
-    container.append(`
-      <div class="alert alert-info">
-        <i class="fa fa-info-circle"></i>
-        {{ __('admin/competencies.no-additional-languages') }}
-        <br><small>{{ __('admin/competencies.original-language-explanation') }}</small>
-      </div>
-    `);
-    $('.translation-section').show();
-    $('.create-translations').hide();
-    
-    // ADD AI button when translation section becomes visible
-    addCompetencyAIButton();
-    refreshAIButtonState();
-    return;
-  }
-
-  container.append(`
-    <div class="alert alert-warning">
-      <i class="fa fa-info-circle"></i>
-      <strong>{{ __('admin/competencies.original-language-info') }}:</strong>
-      ${availableLocales[compOriginalLanguage]} (${compOriginalLanguage.toUpperCase()})
-      <br><small>{{ __('admin/competencies.original-language-explanation') }}</small>
-    </div>
-  `);
-
-  translationLanguages.forEach(langCode => {
-    if (availableLocales[langCode]) {
-      const currentValue = competencyTranslations[langCode] || '';
-      const inputGroup = $(`
-        <div class="translation-input-group" data-lang="${langCode}">
-          <label>
-            ${availableLocales[langCode]}
-            <span class="language-flag">(${langCode})</span>
-          </label>
-          <input type="text" class="form-control translation-input"
-                 data-lang="${langCode}"
-                 value="${currentValue}"
-                 placeholder="{{ __('admin/competencies.enter-translation-for') }} ${availableLocales[langCode]}">
+  
+  // Build language tabs
+  const tabsContainer = $('.language-tabs');
+  tabsContainer.empty();
+  
+  compSelectedLanguages.forEach((lang, index) => {
+    if (availableLocales[lang]) {
+      const isActive = lang === compCurrentLanguage;
+      const hasAllTranslations = checkAllCompetencyTranslations(lang);
+      
+      const tab = $(`
+        <div class="language-tab ${isActive ? 'active' : ''} ${hasAllTranslations ? '' : 'missing'}" 
+             data-lang="${lang}">
+          ${availableLocales[lang]} 
+          ${lang === compOriginalLanguage ? '({{ __('admin/competencies.original') }})' : ''}
         </div>
       `);
-      container.append(inputGroup);
+      
+      tab.click(() => switchCompetencyLanguage(lang));
+      tabsContainer.append(tab);
+    }
+  });
+  
+  // Build content for each language
+  const contentContainer = $('.translation-content');
+  contentContainer.empty();
+  
+  compSelectedLanguages.forEach(lang => {
+    const isActive = lang === compCurrentLanguage;
+    const content = $(`
+      <div class="language-content ${isActive ? 'active' : ''}" data-lang="${lang}">
+        <h5>
+          ${availableLocales[lang]} 
+          ${lang === compOriginalLanguage ? '({{ __('admin/competencies.original') }})' : ''}
+        </h5>
+        
+        <div class="translation-field" data-field="name">
+          <label>{{ __('global.name') }}</label>
+          <input class="form-control competency-name" type="text"
+                 value="${compTranslations.name[lang] || ''}">
+        </div>
+        
+        <div class="translation-field" data-field="description">
+          <label>{{ __('global.description') }}</label>
+          <textarea class="form-control competency-description" rows="3"
+                    placeholder="{{ __('admin/competencies.enter-description') }}">${compTranslations.description[lang] || ''}</textarea>
+        </div>
+      </div>
+    `);
+    
+    contentContainer.append(content);
+  });
+  
+  updateCompetencyLanguageTabs();
+  addCompetencyTranslationButton();
+  initCarouselNavigation();
+}
+
+/** Check if language has all required translations */
+function checkAllCompetencyTranslations(lang) {
+  if (lang === compOriginalLanguage) return true;
+  
+  return compTranslations.name[lang] && compTranslations.name[lang].trim() !== '';
+}
+
+/** Switch to a different language */
+function switchCompetencyLanguage(lang) {
+  // Save current language data before switching
+  saveCurrentCompetencyLanguageData();
+  
+  compCurrentLanguage = lang;
+  
+  // Update tabs
+  $('.language-tab').removeClass('active');
+  $(`.language-tab[data-lang="${lang}"]`).addClass('active');
+  
+  // Update content
+  $('.language-content').removeClass('active');
+  $(`.language-content[data-lang="${lang}"]`).addClass('active');
+  
+  updateCompetencyFieldStatus();
+  checkCompetencyTranslationButtonState();
+}
+
+/** Save current language form data */
+function saveCurrentCompetencyLanguageData() {
+  const currentContent = $(`.language-content[data-lang="${compCurrentLanguage}"]`);
+  if (currentContent.length > 0) {
+    compTranslations.name[compCurrentLanguage] = currentContent.find('.competency-name').val() || '';
+    compTranslations.description[compCurrentLanguage] = currentContent.find('.competency-description').val() || '';
+  }
+}
+
+/** Update field status for current language */
+function updateCompetencyFieldStatus() {
+  const currentContent = $(`.language-content[data-lang="${compCurrentLanguage}"]`);
+  
+  if (compCurrentLanguage !== compOriginalLanguage) {
+    // Check for missing translations
+    const fields = ['name', 'description'];
+    
+    fields.forEach(field => {
+      const fieldElement = currentContent.find(`.translation-field[data-field="${field}"]`);
+      const hasTranslation = compTranslations[field] && compTranslations[field][compCurrentLanguage] && compTranslations[field][compCurrentLanguage].trim() !== '';
+      
+      if (field === 'name' && !hasTranslation) {
+        fieldElement.addClass('missing');
+      } else if (field === 'description') {
+        // Description is optional, so don't mark as missing
+        fieldElement.removeClass('missing');
+      } else {
+        fieldElement.removeClass('missing');
+      }
+    });
+  }
+}
+
+/** Update language tab status */
+function updateCompetencyLanguageTabs() {
+  compSelectedLanguages.forEach(lang => {
+    const tab = $(`.language-tab[data-lang="${lang}"]`);
+    const hasAllTranslations = checkAllCompetencyTranslations(lang);
+    
+    if (hasAllTranslations) {
+      tab.removeClass('missing');
+    } else {
+      tab.addClass('missing');
+    }
+  });
+}
+
+/** Initialize carousel navigation */
+function initCarouselNavigation() {
+  const tabsContainer = $('.language-tabs');
+
+  // Previous button
+  $('.carousel-prev').off('click').on('click', function() {
+    const currentScroll = tabsContainer.scrollLeft();
+    const firstTab = tabsContainer.find('.language-tab').first();
+    const firstTabWidth = firstTab.outerWidth(true);
+
+    if (currentScroll === 0) {
+      tabsContainer.animate({
+        scrollLeft: tabsContainer.prop('scrollWidth') - tabsContainer.prop('clientWidth')
+      }, 200);
+    } else {
+      tabsContainer.animate({
+        scrollLeft: currentScroll - firstTabWidth - 5
+      }, 200);
     }
   });
 
-  $('.translation-section').show();
-  $('.create-translations').hide();
-  
-  // ADD AI button when translation section becomes visible
-  addCompetencyAIButton();
-  refreshAIButtonState();
+  // Next button
+  $('.carousel-next').off('click').on('click', function() {
+    const currentScroll = tabsContainer.scrollLeft();
+    const scrollEnd = tabsContainer.prop('scrollWidth') - tabsContainer.prop('clientWidth');
+    const firstTab = tabsContainer.find('.language-tab').first();
+    const firstTabWidth = firstTab.outerWidth(true);
+
+    if (currentScroll >= scrollEnd - 5) {
+      tabsContainer.animate({
+        scrollLeft: 0
+      }, 200);
+    } else {
+      tabsContainer.animate({
+        scrollLeft: currentScroll + firstTabWidth + 5
+      }, 200);
+    }
+  });
 }
 
-/** AI gomb hozzáadása CSAK amikor a fordítási szekció megjelenik */
-function addCompetencyAIButton() {
-  if ($('.translation-section').is(':visible') && $('#competency-modal .ai-translate-competency').length === 0) {
+/** Add AI translation button */
+function addCompetencyTranslationButton() {
+  if ($('#competency-modal .ai-translate-competency').length === 0) {
     const aiButton = $(`
       <button type="button" class="btn btn-outline-primary ai-translate-competency disabled" style="margin-right: 0.5rem;" disabled>
         <i class="fa fa-robot"></i> {{ __('admin/competencies.ai-translate') }}
       </button>
     `);
+    
     aiButton.insertBefore('#competency-modal .save-competency');
-    initCompetencyTranslationButton();
   }
+  
+  initCompetencyTranslationButton();
 }
 
-/** AI gomb eltávolítása amikor a fordítási szekció el van rejtve */
-function removeCompetencyAIButton() {
-  $('#competency-modal .ai-translate-competency').remove();
-}
-
-/** AI fordító gomb inicializálása + események */
+/** Initialize AI translation button */
 function initCompetencyTranslationButton() {
-  const competencyNameInput = $('#competency-modal .competency-name');
-  const translateButton = $('#competency-modal .ai-translate-competency');
-
-  // ne duplikáljunk bindingot
-  competencyNameInput.off('input.ai keyup.ai').on('input.ai keyup.ai', refreshAIButtonState);
-
-  // induláskor is frissítünk
-  refreshAIButtonState();
-
-  translateButton.off('click.ai').on('click.ai', function() {
+  // Remove existing event handlers
+  $(document).off('input.aicomp keyup.aicomp change.aicomp', '#competency-modal .language-content input, #competency-modal .language-content textarea');
+  $(document).off('click.aicomp', '.language-tab');
+  
+  // Listen to input changes
+  $(document).on('input.aicomp keyup.aicomp change.aicomp', '#competency-modal .language-content input, #competency-modal .language-content textarea', function() {
+    saveCurrentCompetencyLanguageData();
+    setTimeout(checkCompetencyTranslationButtonState, 50);
+  });
+  
+  // Listen to language tab switches
+  $(document).on('click.aicomp', '.language-tab', function() {
+    setTimeout(checkCompetencyTranslationButtonState, 100);
+  });
+  
+  // Initial check
+  setTimeout(checkCompetencyTranslationButtonState, 100);
+  
+  // Handle translation button click
+  $(document).off('click.aitranslatecomp', '#competency-modal .ai-translate-competency').on('click.aitranslatecomp', '#competency-modal .ai-translate-competency', function() {
     if ($(this).hasClass('disabled')) return;
-
-    const competencyName = competencyNameInput.val().trim();
-    const sourceLanguage = compOriginalLanguage;
-    const targetLanguages = (compSelectedLanguages || []).filter(l => l !== sourceLanguage);
-
-    if (!competencyName) {
+    
+    const nameToTranslate = compTranslations.name[compOriginalLanguage] || '';
+    const descriptionToTranslate = compTranslations.description[compOriginalLanguage] || '';
+    const targetLanguages = compSelectedLanguages.filter(lang => lang !== compOriginalLanguage);
+    
+    if (!nameToTranslate) {
       swal.fire({
         icon: 'warning',
-        title: '{{ __('global.warning') }}',
-        text: '{{ __('admin/competencies.fill-competency-name-first') }}'
+        title: '{{ __('admin/competencies.name-required') }}',
+        text: '{{ __('admin/competencies.enter-name-first') }}'
       });
       return;
     }
-
-    if (targetLanguages.length === 0) {
-      swal.fire({
-        icon: 'info',
-        title: '{{ __('global.info') }}',
-        text: '{{ __('admin/competencies.no-target-languages') }}'
-      });
-      return;
-    }
-
-    translateCompetencyName(competencyName, sourceLanguage, targetLanguages);
+    
+    translateCompetencyName(nameToTranslate, descriptionToTranslate, compOriginalLanguage, targetLanguages);
   });
 }
 
-/** Fordítás meghívása backendről */
-function translateCompetencyName(competencyName, sourceLanguage, targetLanguages) {
+/** Check AI translation button state */
+function checkCompetencyTranslationButtonState() {
+  const translateButton = $('#competency-modal .ai-translate-competency');
+  if (translateButton.length === 0) return;
+  
+  const nameInOriginal = compTranslations.name[compOriginalLanguage] && compTranslations.name[compOriginalLanguage].trim() !== '';
+  const hasMultipleLanguages = compSelectedLanguages.length > 1;
+  const isOriginalLanguage = compCurrentLanguage === compOriginalLanguage;
+  
+  if (nameInOriginal && hasMultipleLanguages && isOriginalLanguage) {
+    translateButton.removeClass('disabled').prop('disabled', false);
+  } else {
+    translateButton.addClass('disabled').prop('disabled', true);
+  }
+}
+
+/** Translate competency using AI */
+function translateCompetencyName(nameToTranslate, descriptionToTranslate, sourceLanguage, targetLanguages) {
   const translateButton = $('#competency-modal .ai-translate-competency');
   const originalText = translateButton.html();
   translateButton.html('<i class="fa fa-spinner fa-spin"></i> {{ __('admin/competencies.translating') }}...').prop('disabled', true);
-
+  
   const isGlobalMode = window.globalCompetencyMode || false;
   const translateUrl = isGlobalMode
     ? "{{ route('superadmin.competency.translate-name') }}"
@@ -328,130 +581,125 @@ function translateCompetencyName(competencyName, sourceLanguage, targetLanguages
     url: translateUrl,
     method: 'POST',
     data: {
-      competency_name: competencyName,
+      competency_name: nameToTranslate,
+      competency_description: descriptionToTranslate,
       source_language: sourceLanguage,
       target_languages: targetLanguages,
       _token: '{{ csrf_token() }}'
     },
     success: function(response) {
       if (response.success && response.translations) {
-        competencyTranslations = { ...competencyTranslations, ...response.translations };
-        competencyTranslations[sourceLanguage] = competencyName;
-        showCompetencyTranslationInputs();
-
+        // Update translations with new AI translations
+        Object.entries(response.translations).forEach(([lang, translations]) => {
+          if (translations.name) {
+            compTranslations.name[lang] = translations.name;
+          }
+          if (translations.description && descriptionToTranslate) {
+            compTranslations.description[lang] = translations.description;
+          }
+        });
+        
+        updateAllCompetencyLanguageContent();
+        updateCompetencyLanguageTabs();
+        
         swal.fire({
           icon: 'success',
           title: '{{ __('admin/competencies.translation-success') }}',
-          text: '{{ __('admin/competencies.ai-translations-generated') }}',
-          timer: 3000,
+          timer: 2000,
           showConfirmButton: false
-        });
-      } else {
-        swal.fire({
-          icon: 'error',
-          title: '{{ __('global.error') }}',
-          text: response.message || '{{ __('admin/competencies.translation-failed') }}'
         });
       }
     },
     error: function(xhr) {
-      let errorMessage = '{{ __('admin/competencies.translation-failed') }}';
-      if (xhr.responseJSON && xhr.responseJSON.message) {
-        errorMessage = xhr.responseJSON.message;
-      }
-      swal.fire({ icon: 'error', title: '{{ __('global.error') }}', text: errorMessage });
+      swal.fire({
+        icon: 'error',
+        title: '{{ __('admin/competencies.translation-failed') }}',
+        text: xhr.responseJSON?.message || '{{ __('admin/competencies.translation-error') }}'
+      });
     },
     complete: function() {
       translateButton.html(originalText).prop('disabled', false);
-      initCompetencyTranslationButton(); // állapotfigyelés újra
+      checkCompetencyTranslationButtonState();
     }
   });
 }
 
+/** Update all language content with new translations */
+function updateAllCompetencyLanguageContent() {
+  compSelectedLanguages.forEach(lang => {
+    const langContent = $(`.language-content[data-lang="${lang}"]`);
+    
+    if (langContent.length > 0) {
+      langContent.find('.competency-name').val(compTranslations.name[lang] || '');
+      langContent.find('.competency-description').val(compTranslations.description[lang] || '');
+    }
+  });
+}
+
+/** Event Listeners */
 $(document).ready(function() {
-  // "Fordítások létrehozása" gomb
-  $('.create-translations').off('click').on('click', function() {
-    swal_loader.fire();
-    loadCompetencySelectedLanguages().then(() => {
-      const currentName = $('#competency-modal .competency-name').val();
-      if (currentName) {
-        competencyTranslations[compOriginalLanguage] = currentName;
-      }
-      showCompetencyTranslationInputs(); // This will now add the AI button
-      swal_loader.close();
-    });
-  });
-
-  // "Elrejtés" gomb - UPDATED
-  $('.hide-translations').off('click').on('click', function() {
-    $('.translation-section').hide();
-    $('.create-translations').show();
-    removeCompetencyAIButton(); // Remove AI button when hiding translations
-  });
-
-  // Add name input listener
-  $(document).on('input keyup', '#competency-modal .competency-name', function() {
-    refreshAIButtonState();
-  });
-
-  // Mentés
+  
+  // Save competency
   $('.save-competency').off('click').on('click', function() {
+    // Save current language data before saving
+    saveCurrentCompetencyLanguageData();
+    
     swal_confirm.fire({
-      title: '{{ __('admin/competencies.save-competency-confirm') }}'
+      title: '{{ __('admin/competencies.save-confirm') }}'
     }).then((result) => {
-      if (!result.isConfirmed) return;
+      if (result.isConfirmed) {
+        swal_loader.fire();
+        
+        const originalName = compTranslations.name[compOriginalLanguage] || '';
+        const originalDescription = compTranslations.description[compOriginalLanguage] || '';
+        
+        // Filter out empty translations
+        const nameTranslations = Object.fromEntries(
+          Object.entries(compTranslations.name).filter(([key, value]) => value && value.trim())
+        );
+        
+        const descriptionTranslations = Object.fromEntries(
+          Object.entries(compTranslations.description).filter(([key, value]) => value && value.trim())
+        );
 
-      swal_loader.fire();
+        const isGlobalMode = window.globalCompetencyMode || false;
+        const saveUrl = isGlobalMode 
+          ? "{{ route('superadmin.competency.save') }}"
+          : "{{ route('admin.competency.save') }}";
 
-      const translations = {};
-      const originalName = $('#competency-modal .competency-name').val().trim();
-      if (originalName) {
-        translations[compOriginalLanguage] = originalName;
-      }
-
-      $('.translation-input').each(function() {
-        const langCode = $(this).data('lang');
-        const value = $(this).val().trim();
-        if (value && langCode !== compOriginalLanguage) {
-          translations[langCode] = value;
-        }
-      });
-
-      const isGlobalMode = window.globalCompetencyMode || false;
-      const saveUrl = isGlobalMode
-        ? "{{ route('superadmin.competency.save') }}"
-        : "{{ route('admin.competency.save') }}";
-
-      $.ajax({
-        url: saveUrl,
-        method: 'POST',
-        data: {
-          id: $('#competency-modal').attr('data-id'),
-          name: originalName,
-          translations: translations,
-          original_language: compOriginalLanguage,
+        $.ajax({
+          url: saveUrl,
+          method: 'POST',
+          data: {
+            id: $('#competency-modal').attr('data-id'),
+            name: originalName,
+            description: originalDescription,
+            translations: nameTranslations,
+            description_translations: descriptionTranslations,
+            original_language: compOriginalLanguage,
             _token: '{{ csrf_token() }}'
-        },
-        success: function(response) {
-          swal_loader.close();
-          $('#competency-modal').modal('hide');
-          swal.fire({
-            icon: 'success',
-            title: '{{ __('global.success') }}',
-            text: '{{ __('admin/competencies.save-competency-success') }}',
-            timer: 2000,
-            showConfirmButton: false
-          }).then(() => location.reload());
-        },
-        error: function(xhr) {
-          swal_loader.close();
-          swal.fire({
-            icon: 'error',
-            title: '{{ __('global.error') }}',
-            text: xhr.responseJSON?.message || '{{ __('admin/competencies.translation-error') }}'
-          });
-        }
-      });
+          },
+          success: function(response) {
+            swal_loader.close();
+            $('#competency-modal').modal('hide');
+            swal.fire({
+              icon: 'success',
+              title: '{{ __('global.success') }}',
+              text: '{{ __('admin/competencies.save-competency-success') }}',
+              timer: 2000,
+              showConfirmButton: false
+            }).then(() => location.reload());
+          },
+          error: function(xhr) {
+            swal_loader.close();
+            swal.fire({
+              icon: 'error',
+              title: '{{ __('global.error') }}',
+              text: xhr.responseJSON?.message || '{{ __('admin/competencies.translation-error') }}'
+            });
+          }
+        });
+      }
     });
   });
 });

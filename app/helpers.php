@@ -7,7 +7,7 @@
  */
 function assets($path)
 {
-  return asset($path).'?v='.filemtime(public_path('/assets/'.$path));
+  return asset('assets/' . $path).'?v='.filemtime(public_path('/assets/'.$path));
 }
 
 function moment(){

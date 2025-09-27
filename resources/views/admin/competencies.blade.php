@@ -28,6 +28,30 @@
   font-size: 0.8em;
   opacity: 0.7;
 }
+
+/* ADDED: Competency description styling */
+.competency-description {
+  background-color: #f6f5f2;
+  border-left: 3px solid #007bff;
+  padding: 12px 16px;
+  margin-bottom: 15px;
+  font-style: italic;
+  color: #495057;
+}
+
+.competency-description.fallback-text {
+  border-left-color: #dc3545;
+  background-color: #fdf2f2;
+}
+
+.competency-description-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #6c757d;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  display: block;
+}
 </style>
 @endsection
 
@@ -111,6 +135,17 @@
         $comp->original_language ?? 'hu', 
         $currentLocale
       );
+
+      // ADDED: Get translated competency description
+      $competencyDescription = null;
+      if (!empty($comp->description)) {
+        $competencyDescription = $getTranslated(
+          $comp->description, 
+          $comp->description_json, 
+          $comp->original_language ?? 'hu', 
+          $currentLocale
+        );
+      }
     @endphp
     
     <div class="tile competency-item" data-id="{{ $comp->id }}" data-name="{{ $comp->name }}">
@@ -128,6 +163,14 @@
       </div>
 
       <div class="questions hidden">
+        {{-- ADDED: Display competency description if it exists --}}
+        @if($competencyDescription)
+          <div class="competency-description {{ $competencyDescription['is_fallback'] ? 'fallback-text' : '' }}">
+            <span class="competency-description-label">{{ __('global.description') }}</span>
+            {{ $competencyDescription['text'] }}
+          </div>
+        @endif
+
         <div class="tile tile-button create-question">{{ $_('create-question') }}</div>
 
         @foreach ($comp->questions as $q)
@@ -205,41 +248,60 @@
         $comp->original_language ?? 'hu', 
         $currentLocale
       );
+
+      // ADDED: Get translated global competency description
+      $globalCompetencyDescription = null;
+      if (!empty($comp->description)) {
+        $globalCompetencyDescription = $getTranslated(
+          $comp->description, 
+          $comp->description_json, 
+          $comp->original_language ?? 'hu', 
+          $currentLocale
+        );
+      }
     @endphp
     
     <div class="tile competency-item competency-item--global" data-id="{{ $comp->id }}" data-name="{{ $comp->name }}" data-readonly="1">
       <div class="bar">
-        <span class="{{ $globalCompetencyName['is_fallback'] ? 'fallback-text' : '' }}"><i class="fa fa-caret-down"></i>{{ $globalCompetencyName['text'] }}</span>
-        {{-- NINCSENEK műveleti gombok a globális blokknál --}}
+        <span class="{{ $globalCompetencyName['is_fallback'] ? 'fallback-text' : '' }}">
+          <i class="fa fa-caret-down"></i>{{ $globalCompetencyName['text'] }}
+        </span>
       </div>
 
-      <div class="questions hidden questions--readonly">
-        {{-- NINCS kérdés-hozzáadás gomb a globális blokknál --}}
-        @forelse ($comp->questions as $q)
+      <div class="questions hidden">
+        {{-- ADDED: Display global competency description if it exists --}}
+        @if($globalCompetencyDescription)
+          <div class="competency-description {{ $globalCompetencyDescription['is_fallback'] ? 'fallback-text' : '' }}">
+            <span class="competency-description-label">{{ __('global.description') }}</span>
+            {{ $globalCompetencyDescription['text'] }}
+          </div>
+        @endif
+
+        @foreach ($comp->questions as $q)
           @php
-            // Get translated question texts for global competencies
-            $globalQuestionText = $getTranslated(
+            // Get translated question texts
+            $questionText = $getTranslated(
               $q->question, 
               $q->question_json, 
               $q->original_language ?? 'hu', 
               $currentLocale
             );
             
-            $globalQuestionSelfText = $getTranslated(
+            $questionSelfText = $getTranslated(
               $q->question_self, 
               $q->question_self_json, 
               $q->original_language ?? 'hu', 
               $currentLocale
             );
             
-            $globalMinLabelText = $getTranslated(
+            $minLabelText = $getTranslated(
               $q->min_label, 
               $q->min_label_json, 
               $q->original_language ?? 'hu', 
               $currentLocale
             );
             
-            $globalMaxLabelText = $getTranslated(
+            $maxLabelText = $getTranslated(
               $q->max_label, 
               $q->max_label_json, 
               $q->original_language ?? 'hu', 
@@ -247,49 +309,35 @@
             );
           @endphp
           
-          <div class="question-item question-item--readonly" data-id="{{ $q->id }}">
+          <div class="question-item" data-id="{{ $q->id }}">
             <div>
               <span>{{ $_('question') }} #{{ $loop->index+1 }}</span>
-              <div>
-                {{-- NINCS szerkesztés/törlés gomb --}}
-              </div>
             </div>
             <div>
-              <p class="{{ $globalQuestionText['is_fallback'] ? 'fallback-text' : '' }}">{{ $globalQuestionText['text'] }}</p>
-              <p class="{{ $globalQuestionSelfText['is_fallback'] ? 'fallback-text' : '' }}">{{ $globalQuestionSelfText['text'] }}</p>
+              <p class="{{ $questionText['is_fallback'] ? 'fallback-text' : '' }}">{{ $questionText['text'] }}</p>
+              <p class="{{ $questionSelfText['is_fallback'] ? 'fallback-text' : '' }}">{{ $questionSelfText['text'] }}</p>
             </div>
             <div>
-              <p>{{ $_('min-label') }}<span class="{{ $globalMinLabelText['is_fallback'] ? 'fallback-text' : '' }}">{{ $globalMinLabelText['text'] }}</span></p>
-              <p>{{ $_('max-label') }}<span class="{{ $globalMaxLabelText['is_fallback'] ? 'fallback-text' : '' }}">{{ $globalMaxLabelText['text'] }}</span></p>
+              <p>{{ $_('min-label') }}<span class="{{ $minLabelText['is_fallback'] ? 'fallback-text' : '' }}">{{ $minLabelText['text'] }}</span></p>
+              <p>{{ $_('max-label') }}<span class="{{ $maxLabelText['is_fallback'] ? 'fallback-text' : '' }}">{{ $maxLabelText['text'] }}</span></p>
               <p>{{ $_('scale') }}<span>{{ $q->max_value }}</span></p>
             </div>
           </div>
-        @empty
-          <div class="no-competency"><p>{{ $_('no-competency') }}</p></div>
-        @endforelse
+        @endforeach
       </div>
     </div>
   @empty
-    <div class="no-competency"><p>{{ $_('no-global-competency') }}</p></div>
+    <div class="no-competency"><p>{{ $_('no-competency') }}</p></div>
   @endforelse
 </div>
 
 @endsection
 
-@section('scripts')
+@section('modals')
   @include('admin.modals.competency')
   @include('admin.modals.competencyq')
   @include('admin.modals.language-select')
-  
-  <script>
-    $(document).ready(function() {
-      // Initialize tooltips for translation warnings
-      if (typeof tippy !== 'undefined') {
-        tippy('[data-tippy-content]', {
-          placement: 'top',
-          theme: 'warning',
-        });
-      }
-    });
-  </script>
+@endsection
+
+@section('scripts')
 @endsection

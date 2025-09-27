@@ -28,6 +28,30 @@
   font-size: 0.8em;
   opacity: 0.7;
 }
+
+/* ADDED: Competency description styling */
+.competency-description {
+  background-color: #f6f5f2;
+  border-left: 3px solid #007bff;
+  padding: 12px 16px;
+  margin-bottom: 15px;
+  font-style: italic;
+  color: #495057;
+}
+
+.competency-description.fallback-text {
+  border-left-color: #dc3545;
+  background-color: #fdf2f2;
+}
+
+.competency-description-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #6c757d;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  display: block;
+}
 </style>
 @endsection
 
@@ -73,7 +97,7 @@
   };
 @endphp
 
-<div class="competency-list competency-list--global-crud">
+<div class="competency-list">
   @forelse ($globals as $comp)
     @php
       // Check if translations are missing for this competency
@@ -95,9 +119,23 @@
         $comp->original_language ?? 'hu', 
         $currentLocale
       );
+
+      // ADDED: Get translated competency description - always define the variable
+      $competencyDescription = null;
+      $hasDescription = false;
+      
+      if (isset($comp->description) && !empty($comp->description) && trim($comp->description) !== '') {
+        $hasDescription = true;
+        $competencyDescription = $getTranslated(
+          $comp->description, 
+          $comp->description_json, 
+          $comp->original_language ?? 'hu', 
+          $currentLocale
+        );
+      }
     @endphp
     
-    <div class="tile competency-item" data-id="{{ $comp->id }}" data-name="{{ $comp->name }}">
+    <div class="tile competency-item" data-id="{{ $comp->id }}" data-name="{{ $comp->name }}" data-description="{{ $comp->description ?? '' }}">
       <div class="bar">
         <span class="{{ $competencyName['is_fallback'] ? 'fallback-text' : '' }}">
           <i class="fa fa-caret-down"></i>{{ $competencyName['text'] }}
@@ -112,6 +150,14 @@
       </div>
 
       <div class="questions hidden">
+        {{-- ADDED: Display competency description if it exists --}}
+        @if(isset($competencyDescription) && $competencyDescription)
+          <div class="competency-description {{ $competencyDescription['is_fallback'] ? 'fallback-text' : '' }}">
+            <span class="competency-description-label">{{ __('global.description') }}</span>
+            {{ $competencyDescription['text'] }}
+          </div>
+        @endif
+
         <div class="tile tile-button create-question">{{ $_('create-question') }}</div>
 
         @foreach ($comp->questions as $q)
@@ -125,10 +171,10 @@
               $maxLabelTranslations = $q->max_label_json ? json_decode($q->max_label_json, true) : [];
               
               foreach ($selectedLanguages as $lang) {
-                if (!isset($questionTranslations[$lang]) || empty(trim($questionTranslations[$lang])) ||
-                    !isset($questionSelfTranslations[$lang]) || empty(trim($questionSelfTranslations[$lang])) ||
-                    !isset($minLabelTranslations[$lang]) || empty(trim($minLabelTranslations[$lang])) ||
-                    !isset($maxLabelTranslations[$lang]) || empty(trim($maxLabelTranslations[$lang]))) {
+                if ((!isset($questionTranslations[$lang]) || empty(trim($questionTranslations[$lang]))) ||
+                    (!isset($questionSelfTranslations[$lang]) || empty(trim($questionSelfTranslations[$lang]))) ||
+                    (!isset($minLabelTranslations[$lang]) || empty(trim($minLabelTranslations[$lang]))) ||
+                    (!isset($maxLabelTranslations[$lang]) || empty(trim($maxLabelTranslations[$lang])))) {
                   $hasIncompleteQuestionTranslations = true;
                   break;
                 }
@@ -167,15 +213,13 @@
           
           <div class="question-item" data-id="{{ $q->id }}">
             <div>
-              <span>
-                {{ $_('question') }} #{{ $loop->index+1 }}
-                @if($hasIncompleteQuestionTranslations)
-                  <i class="fa fa-exclamation-triangle translation-warning text-warning ml-1" 
-                     data-tippy-content="{{ __('admin/competencies.question-translation-missing') }}"
-                     style="color: #ffc107 !important; font-size: 0.8em;"></i>
-                @endif
-              </span>
+              <span>{{ $_('question') }} #{{ $loop->index+1 }}</span>
               <div>
+                @if($hasIncompleteQuestionTranslations)
+                  <i class="fa fa-exclamation-triangle translation-warning text-warning mr-2" 
+                     data-tippy-content="{{ __('admin/competencies.missing-translations-warning') }}"
+                     style="color: #ffc107 !important;"></i>
+                @endif
                 <button class="btn btn-outline-danger remove-question" data-tippy-content="{{ $_('question-remove') }}"><i class="fa fa-trash-alt"></i></button>
                 <button class="btn btn-outline-warning modify-question" data-tippy-content="{{ $_('question-modify') }}"><i class="fa fa-file-pen"></i></button>
               </div>

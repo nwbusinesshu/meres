@@ -57,7 +57,10 @@ class GlobalCompetencyController extends Controller
                 }
             }
 
-            // UPDATED: Handle translations for global competencies
+            // ADDED: Handle description field
+            $comp->description = $request->description ?? null;
+
+            // UPDATED: Handle name translations for global competencies
             if ($request->has('translations') && is_array($request->translations)) {
                 $translations = array_filter($request->translations, function($value) {
                     return !empty(trim($value));
@@ -74,6 +77,26 @@ class GlobalCompetencyController extends Controller
                 $originalLang = $comp->original_language;
                 $comp->name_json = json_encode([$originalLang => $comp->name], JSON_UNESCAPED_UNICODE);
                 $comp->available_languages = json_encode([$originalLang], JSON_UNESCAPED_UNICODE);
+            }
+
+            // ADDED: Handle description translations
+            if ($request->has('description_translations') && is_array($request->description_translations)) {
+                $descriptionTranslations = $request->description_translations;
+                
+                // Remove empty description translations
+                $descriptionTranslations = array_filter($descriptionTranslations, function($value) {
+                    return !empty(trim($value));
+                });
+                
+                if (!empty($descriptionTranslations)) {
+                    $comp->description_json = json_encode($descriptionTranslations, JSON_UNESCAPED_UNICODE);
+                }
+            } else {
+                // If description is provided but no translations, store original description in JSON format
+                if (!empty($comp->description)) {
+                    $originalLang = $comp->original_language;
+                    $comp->description_json = json_encode([$originalLang => $comp->description], JSON_UNESCAPED_UNICODE);
+                }
             }
 
             $comp->save();
@@ -202,21 +225,22 @@ class GlobalCompetencyController extends Controller
                 $q->max_label_json = json_encode([$originalLang => $q->max_label], JSON_UNESCAPED_UNICODE);
             }
 
-            // Set available languages - EXACT SAME as working AdminCompetencyController
+            // Get all unique languages from all translation fields
             $allTranslations = [];
-            if ($q->question_json) {
+            
+            if (!empty($q->question_json)) {
                 $allTranslations = array_merge($allTranslations, array_keys(json_decode($q->question_json, true)));
             }
-            if ($q->question_self_json) {
+            if (!empty($q->question_self_json)) {
                 $allTranslations = array_merge($allTranslations, array_keys(json_decode($q->question_self_json, true)));
             }
-            if ($q->min_label_json) {
+            if (!empty($q->min_label_json)) {
                 $allTranslations = array_merge($allTranslations, array_keys(json_decode($q->min_label_json, true)));
             }
-            if ($q->max_label_json) {
+            if (!empty($q->max_label_json)) {
                 $allTranslations = array_merge($allTranslations, array_keys(json_decode($q->max_label_json, true)));
             }
-            
+
             $allTranslations = array_unique($allTranslations);
             if (!empty($allTranslations)) {
                 $q->available_languages = json_encode($allTranslations, JSON_UNESCAPED_UNICODE);
@@ -268,6 +292,9 @@ class GlobalCompetencyController extends Controller
             'id' => $competency->id,
             'name' => $competency->name,
             'name_json' => $competency->name_json ? json_decode($competency->name_json, true) : null,
+            // ADDED: Return description data
+            'description' => $competency->description,
+            'description_json' => $competency->description_json ? json_decode($competency->description_json, true) : null,
             'original_language' => $competency->original_language ?? 'hu',
             'available_languages' => $competency->available_languages ? json_decode($competency->available_languages, true) : null
         ]);
@@ -328,20 +355,23 @@ class GlobalCompetencyController extends Controller
     }
 
     /**
-     * NEW: Translate competency name using AI service
+     * Translate competency name using AI service
      */
     public function translateCompetencyName(Request $request)
     {
         $request->validate([
             'competency_name' => 'required|string',
+            'competency_description' => 'nullable|string', // ADDED: Optional description
             'source_language' => 'required|string',
             'target_languages' => 'required|array',
         ]);
 
         $aiTranslationService = new AiTranslationService();
         
+        // UPDATED: Pass description to the service
         $translations = $aiTranslationService->translateCompetencyName(
             $request->competency_name,
+            $request->competency_description ?? null, // ADDED: Pass description
             $request->source_language,
             $request->target_languages
         );
@@ -360,7 +390,7 @@ class GlobalCompetencyController extends Controller
     }
 
     /**
-     * NEW: Translate competency question using AI service
+     * Translate competency question using AI service
      */
     public function translateCompetencyQuestion(Request $request)
     {

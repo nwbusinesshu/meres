@@ -19,14 +19,15 @@ class AiTranslationService
     }
 
     /**
-     * Translate competency name to multiple languages
+     * Translate competency name and description to multiple languages
      * 
      * @param string $competencyName The competency name to translate
+     * @param string|null $competencyDescription The competency description to translate (optional)
      * @param string $sourceLanguage Source language code (e.g., 'hu', 'en')
      * @param array $targetLanguages Array of target language codes
      * @return array|null Array of translations or null on failure
      */
-    public function translateCompetencyName(string $competencyName, string $sourceLanguage, array $targetLanguages): ?array
+    public function translateCompetencyName(string $competencyName, ?string $competencyDescription, string $sourceLanguage, array $targetLanguages): ?array
     {
         if (!$this->apiKey) {
             Log::warning('AI translation aborted: missing OPENAI_API_KEY');
@@ -41,7 +42,7 @@ class AiTranslationService
         }
 
         $languageNames = $this->getLanguageNames();
-        $prompt = $this->buildCompetencyNamePrompt($competencyName, $sourceLanguage, $targetLanguages, $languageNames);
+        $prompt = $this->buildCompetencyNamePrompt($competencyName, $competencyDescription, $sourceLanguage, $targetLanguages, $languageNames);
 
         try {
             $response = Http::withHeaders([
@@ -93,7 +94,8 @@ class AiTranslationService
             Log::info('AI competency translation successful', [
                 'source' => $sourceLanguage,
                 'targets' => $targetLanguages,
-                'original' => $competencyName
+                'original_name' => $competencyName,
+                'has_description' => !empty($competencyDescription)
             ]);
 
             return $translations['translations'];
@@ -200,35 +202,58 @@ class AiTranslationService
     }
 
     /**
-     * Build prompt for competency name translation
+     * Build prompt for competency name and description translation
      */
-    private function buildCompetencyNamePrompt(string $competencyName, string $sourceLanguage, array $targetLanguages, array $languageNames): string
+    private function buildCompetencyNamePrompt(string $competencyName, ?string $competencyDescription, string $sourceLanguage, array $targetLanguages, array $languageNames): string
     {
         $sourceLanguageName = $languageNames[$sourceLanguage] ?? $sourceLanguage;
         $targetLanguagesList = array_map(fn($code) => $languageNames[$code] ?? $code, $targetLanguages);
         
-        return "Translate the following competency name from {$sourceLanguageName} to " . implode(', ', $targetLanguagesList) . ".
+        $hasDescription = !empty($competencyDescription);
+        
+        $prompt = "Translate the following competency information from {$sourceLanguageName} to " . implode(', ', $targetLanguagesList) . ".
 
-**Original competency name ({$sourceLanguageName}):**
-\"{$competencyName}\"
+**Original competency ({$sourceLanguageName}):**
 
-**Instructions:**
-- This is a business/HR competency name that will be used in employee assessments
+**Name:** \"{$competencyName}\"";
+
+        if ($hasDescription) {
+            $prompt .= "\n**Description:** \"{$competencyDescription}\"";
+        }
+
+        $prompt .= "\n\n**Instructions:**
+- This is a business/HR competency that will be used in employee assessments
 - Maintain the professional meaning and business context
-- Keep translations concise and clear
-- Adapt to each language's business terminology conventions
+- Keep translations concise and clear for the name
+- If description is provided, maintain its explanatory nature";
+
+        if ($hasDescription) {
+            $prompt .= "\n- The description should provide context and detail about the competency";
+        }
+
+        $prompt .= "\n- Adapt to each language's business terminology conventions
 - Ensure translations sound natural to native speakers
 
-**Required JSON format:**
-```json
-{
-  \"translations\": {
-    \"" . implode("\": \"[translation]\",\n    \"", $targetLanguages) . "\": \"[translation]\"
-  }
-}
-```
+**Required JSON format:**\n```json\n{
+  \"translations\": {";
+
+        // Build the JSON structure for each target language
+        $languageEntries = [];
+        foreach ($targetLanguages as $lang) {
+            $entry = "\n    \"{$lang}\": {\n      \"name\": \"[translated name]\"";
+            if ($hasDescription) {
+                $entry .= ",\n      \"description\": \"[translated description]\"";
+            }
+            $entry .= "\n    }";
+            $languageEntries[] = $entry;
+        }
+
+        $prompt .= implode(',', $languageEntries);
+        $prompt .= "\n  }\n}\n```
 
 Provide the translations in the exact JSON format above.";
+
+        return $prompt;
     }
 
     /**
@@ -286,19 +311,34 @@ Provide the translations in the exact JSON format above.";
             'hu' => 'Hungarian',
             'en' => 'English',
             'de' => 'German',
-            'ro' => 'Romanian',
-            'sk' => 'Slovak',
-            'cs' => 'Czech',
-            'pl' => 'Polish',
             'fr' => 'French',
             'es' => 'Spanish',
             'it' => 'Italian',
             'pt' => 'Portuguese',
             'nl' => 'Dutch',
-            'da' => 'Danish',
+            'pl' => 'Polish',
+            'cs' => 'Czech',
+            'sk' => 'Slovak',
+            'ro' => 'Romanian',
+            'bg' => 'Bulgarian',
+            'hr' => 'Croatian',
+            'sl' => 'Slovenian',
+            'sr' => 'Serbian',
+            'mk' => 'Macedonian',
+            'sq' => 'Albanian',
+            'el' => 'Greek',
+            'tr' => 'Turkish',
+            'ru' => 'Russian',
+            'uk' => 'Ukrainian',
+            'be' => 'Belarusian',
+            'lt' => 'Lithuanian',
+            'lv' => 'Latvian',
+            'et' => 'Estonian',
+            'fi' => 'Finnish',
             'sv' => 'Swedish',
             'no' => 'Norwegian',
-            'fi' => 'Finnish',
+            'da' => 'Danish',
+            'is' => 'Icelandic',
         ];
     }
 }

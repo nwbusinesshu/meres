@@ -13,6 +13,7 @@ return [
   "swal-next" => "Tovább",
 
   "swal-previous" => "Vissza",
+  'description' => 'Leírás',
 
   "swal-confirm" => "Igen",
 

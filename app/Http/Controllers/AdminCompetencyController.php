@@ -78,8 +78,11 @@ class AdminCompetencyController extends Controller
             }
 
             $comp->name = $request->name;
+            
+            // ADDED: Handle description field
+            $comp->description = $request->description ?? null;
 
-            // Handle translations
+            // Handle name translations
             if ($request->has('translations') && is_array($request->translations)) {
                 $translations = $request->translations;
                 
@@ -97,6 +100,26 @@ class AdminCompetencyController extends Controller
                 $originalLang = $comp->original_language;
                 $comp->name_json = json_encode([$originalLang => $comp->name], JSON_UNESCAPED_UNICODE);
                 $comp->available_languages = json_encode([$originalLang], JSON_UNESCAPED_UNICODE);
+            }
+
+            // ADDED: Handle description translations
+            if ($request->has('description_translations') && is_array($request->description_translations)) {
+                $descriptionTranslations = $request->description_translations;
+                
+                // Remove empty description translations
+                $descriptionTranslations = array_filter($descriptionTranslations, function($value) {
+                    return !empty(trim($value));
+                });
+                
+                if (!empty($descriptionTranslations)) {
+                    $comp->description_json = json_encode($descriptionTranslations, JSON_UNESCAPED_UNICODE);
+                }
+            } else {
+                // If description is provided but no translations, store original description in JSON format
+                if (!empty($comp->description)) {
+                    $originalLang = $comp->original_language;
+                    $comp->description_json = json_encode([$originalLang => $comp->description], JSON_UNESCAPED_UNICODE);
+                }
             }
 
             $comp->save();
@@ -137,6 +160,9 @@ class AdminCompetencyController extends Controller
             'id' => $comp->id,
             'name' => $comp->name,
             'name_json' => $comp->name_json ? json_decode($comp->name_json, true) : null,
+            // ADDED: Return description data
+            'description' => $comp->description,
+            'description_json' => $comp->description_json ? json_decode($comp->description_json, true) : null,
             'original_language' => $comp->original_language ?? 'hu',
             'available_languages' => $comp->available_languages ? json_decode($comp->available_languages, true) : null
         ]);
@@ -168,11 +194,9 @@ class AdminCompetencyController extends Controller
                 $q->organization_id = $orgId;
                 $q->original_language = $request->original_language ?? auth()->user()->locale ?? config('app.locale', 'hu');
             } else {
+                // global competency questiont nem editálhat a client
                 if(is_null($q->organization_id)){
                     AjaxService::error(__('admin/competencies.cannot-modify-global'));
-                }
-                if ($request->has('original_language')) {
-                    $q->original_language = $request->original_language;
                 }
             }
 
@@ -192,7 +216,6 @@ class AdminCompetencyController extends Controller
                     $q->question_json = json_encode($translations, JSON_UNESCAPED_UNICODE);
                 }
             } else {
-                // Store original question in JSON format
                 $originalLang = $q->original_language;
                 $q->question_json = json_encode([$originalLang => $q->question], JSON_UNESCAPED_UNICODE);
             }
@@ -239,21 +262,22 @@ class AdminCompetencyController extends Controller
                 $q->max_label_json = json_encode([$originalLang => $q->max_label], JSON_UNESCAPED_UNICODE);
             }
 
-            // Set available languages
+            // Get all unique languages
             $allTranslations = [];
-            if ($q->question_json) {
+            
+            if (!empty($q->question_json)) {
                 $allTranslations = array_merge($allTranslations, array_keys(json_decode($q->question_json, true)));
             }
-            if ($q->question_self_json) {
+            if (!empty($q->question_self_json)) {
                 $allTranslations = array_merge($allTranslations, array_keys(json_decode($q->question_self_json, true)));
             }
-            if ($q->min_label_json) {
+            if (!empty($q->min_label_json)) {
                 $allTranslations = array_merge($allTranslations, array_keys(json_decode($q->min_label_json, true)));
             }
-            if ($q->max_label_json) {
+            if (!empty($q->max_label_json)) {
                 $allTranslations = array_merge($allTranslations, array_keys(json_decode($q->max_label_json, true)));
             }
-            
+
             $allTranslations = array_unique($allTranslations);
             if (!empty($allTranslations)) {
                 $q->available_languages = json_encode($allTranslations, JSON_UNESCAPED_UNICODE);
@@ -317,63 +341,23 @@ class AdminCompetencyController extends Controller
     }
 
     /**
-     * Get available languages from config
-     */
-    public function getAvailableLanguages(Request $request)
-    {
-        $availableLocales = config('app.available_locales', []);
-        $userDefaultLanguage = auth()->user()->locale ?? config('app.locale', 'hu');
-
-        return response()->json([
-            'available_locales' => $availableLocales,
-            'user_default_language' => $userDefaultLanguage
-        ]);
-    }
-
-    /**
-     * Get selected languages for organization
-     */
-    public function getSelectedLanguages(Request $request)
-    {
-        $orgId = session('org_id');
-        $selectedLanguages = OrgConfigService::getJson($orgId, 'translation_languages', [auth()->user()->locale ?? config('app.locale', 'hu')]);
-        
-        return response()->json([
-            'selected_languages' => $selectedLanguages
-        ]);
-    }
-
-    /**
-     * Save selected translation languages for organization
-     */
-    public function saveTranslationLanguages(Request $request)
-    {
-        $request->validate([
-            'languages' => 'required|array',
-            'languages.*' => 'string'
-        ]);
-
-        $orgId = session('org_id');
-        OrgConfigService::setJson($orgId, 'translation_languages', $request->languages);
-
-        return response()->json(['ok' => true]);
-    }
-
-    /**
-     * NEW: Translate competency name using AI service
+     * Translate competency name using AI service
      */
     public function translateCompetencyName(Request $request)
     {
         $request->validate([
             'competency_name' => 'required|string',
+            'competency_description' => 'nullable|string',
             'source_language' => 'required|string',
             'target_languages' => 'required|array',
         ]);
 
         $aiTranslationService = new AiTranslationService();
         
+        // FIXED: Updated to match new service signature
         $translations = $aiTranslationService->translateCompetencyName(
             $request->competency_name,
+            $request->competency_description ?? null,  // Add description parameter
             $request->source_language,
             $request->target_languages
         );
@@ -392,7 +376,7 @@ class AdminCompetencyController extends Controller
     }
 
     /**
-     * NEW: Translate competency question using AI service
+     * Translate competency question using AI service
      */
     public function translateCompetencyQuestion(Request $request)
     {
@@ -421,5 +405,49 @@ class AdminCompetencyController extends Controller
             'success' => true,
             'translations' => $translations
         ]);
+    }
+
+    /**
+     * Get available languages from config
+     */
+    public function getAvailableLanguages(Request $request)
+    {
+        $availableLocales = config('app.available_locales', []);
+        $userDefaultLanguage = auth()->user()->locale ?? config('app.locale', 'hu');
+
+        return response()->json([
+            'available_locales' => $availableLocales,
+            'user_default_language' => $userDefaultLanguage
+        ]);
+    }
+
+    /**
+     * Get organization's selected translation languages
+     */
+    public function getSelectedLanguages(Request $request)
+    {
+        $orgId = session('org_id');
+        $selectedLanguages = OrgConfigService::getJson($orgId, 'translation_languages', [auth()->user()->locale ?? config('app.locale', 'hu')]);
+        
+        return response()->json([
+            'selected_languages' => $selectedLanguages
+        ]);
+    }
+
+    /**
+     * Save translation languages for organization
+     */
+    public function saveTranslationLanguages(Request $request)
+    {
+        $request->validate([
+            'languages' => 'required|array|min:1',
+            'languages.*' => 'required|string|max:5'
+        ]);
+
+        $orgId = session('org_id');
+        
+        OrgConfigService::setJson($orgId, 'translation_languages', $request->languages);
+
+        return response()->json(['ok' => true]);
     }
 }

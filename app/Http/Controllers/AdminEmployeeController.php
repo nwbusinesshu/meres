@@ -94,7 +94,7 @@ public function index(Request $request)
 
         // ===== Részlegek listája =====
         $departments = collect();
-        $rawDepartments = DB::table('organization_department as od')
+        $rawDepartments = DB::table('organization_departments as od')
             ->where('od.organization_id', $orgId)
             ->whereNull('od.removed_at')
             ->orderBy('od.department_name')
