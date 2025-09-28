@@ -98,7 +98,7 @@ $(document).ready(function(){
         $.ajax({
           url: "{{ route('admin.competency.remove') }}",
           data: { id: $(this).parents('.competency-item').attr('data-id') },
-          successMessage: "{{ __('admin/competencies.remove-competency-success') }}",
+          successMessage: "{{ __('admin/competency.remove-competency-success') }}",
         });
       }
     });
@@ -151,11 +151,22 @@ $(document).ready(function(){
     });
   });
 
+  // FIXED: Improved modify-competency-group click handler with better error handling
   $('.modify-competency-group').click(function(e){
     e.stopPropagation();
     
     const groupId = $(this).closest('.competency-group-item').attr('data-id');
     const groupName = $(this).closest('.competency-group-item').attr('data-name');
+    
+    // ADDED: Validation before making the request
+    if (!groupId) {
+      swal.fire({
+        icon: 'error',
+        title: '{{ __('global.error') }}',
+        text: 'Group ID not found. Please refresh the page and try again.'
+      });
+      return;
+    }
     
     swal_loader.fire();
     
@@ -168,17 +179,46 @@ $(document).ready(function(){
       },
       success: function(response) {
         swal_loader.close();
-        initEditCompetencyGroupModal(groupId, groupName, response.competencies);
+        
+        // FIXED: Added validation for response structure
+        if (response && response.competencies) {
+          // FIXED: Call the global function directly
+          window.initEditCompetencyGroupModal(groupId, groupName, response.competencies);
+        } else {
+          swal.fire({
+            icon: 'error',
+            title: '{{ __('global.error') }}',
+            text: 'Invalid response from server. Please try again.'
+          });
+        }
       },
       error: function(xhr) {
         swal_loader.close();
+        
+        // IMPROVED: Better error handling with more specific messages
+        let errorMessage = '{{ __('global.error-occurred') }}';
+        
+        if (xhr.status === 404) {
+          errorMessage = '{{ __('admin/competencies.group-not-found') }}';
+        } else if (xhr.status === 403) {
+          errorMessage = 'You do not have permission to edit this group.';
+        } else if (xhr.status === 422) {
+          errorMessage = 'Invalid group ID provided.';
+        } else if (xhr.responseJSON && xhr.responseJSON.message) {
+          errorMessage = xhr.responseJSON.message;
+        }
+        
         swal.fire({
           icon: 'error',
           title: '{{ __('global.error') }}',
-          text: xhr.responseJSON?.message || '{{ __('global.error-occurred') }}'
+          text: errorMessage
         });
+        
+        // ADDED: Console logging for debugging
+        console.error('Group edit error:', xhr);
       }
     });
   });
-});
+
+}); // FIXED: Only one closing bracket for $(document).ready
 </script>

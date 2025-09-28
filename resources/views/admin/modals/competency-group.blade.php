@@ -121,25 +121,25 @@
 </style>
 
 <script>
+// FIXED: Move addGroupCompetencyItem function to global scope so it can be accessed by initEditCompetencyGroupModal
+window.addGroupCompetencyItem = function(competencyId, competencyName, competencyDescription = null){
+  const descriptionDisplay = competencyDescription ? 
+    `<span>${competencyDescription}</span>` : '';
+  
+  $('.competency-group-list').append(`
+    <div class="group-competency-item" data-id="${competencyId}">
+      <i class="fa fa-trash-alt" data-tippy-content="{{ __('admin/competencies.remove-competency') }}"></i>
+      <div class="item-content">
+        <p>${competencyName}</p>
+        ${descriptionDisplay}
+      </div>
+    </div>
+  `);
+};
+
 // Initialize competency group modal functions
 (function(){
   
-  // Add competency item to group list
-  function addGroupCompetencyItem(competencyId, competencyName, competencyDescription = null){
-    const descriptionDisplay = competencyDescription ? 
-      `<span>${competencyDescription}</span>` : '';
-    
-    $('.competency-group-list').append(`
-      <div class="group-competency-item" data-id="${competencyId}">
-        <i class="fa fa-trash-alt" data-tippy-content="{{ __('admin/competencies.remove-competency') }}"></i>
-        <div class="item-content">
-          <p>${competencyName}</p>
-          ${descriptionDisplay}
-        </div>
-      </div>
-    `);
-  }
-
   // Remove competency from group
   $(document).on('click', '.group-competency-item i', function(){
     $(this).closest('.group-competency-item').remove();
@@ -172,7 +172,8 @@
         
         // Check if competency already exists to prevent duplicates
         if ($('#competency-group-modal .group-competency-item[data-id="' + selectedId + '"]').length === 0) {
-          addGroupCompetencyItem(selectedId, selectedName, selectedDescription);
+          // FIXED: Now using the global function
+          window.addGroupCompetencyItem(selectedId, selectedName, selectedDescription);
         }
       },
       exceptArray: exceptArray,
@@ -263,29 +264,31 @@
     });
   });
 
-  // Initialize create new group modal
-  window.initCreateCompetencyGroupModal = function() {
-    $('#competency-group-modal').removeAttr('data-id');
-    $('#competency-group-modal .modal-title').text("{{ __('admin/competencies.create-competency-group') }}");
-    $('.group-name-input').val('');
-    $('.competency-group-list').html('');
-    $('#competency-group-modal').modal('show');
-  };
-
-  // Initialize edit group modal
-  window.initEditCompetencyGroupModal = function(groupId, groupName, competencies) {
-    $('#competency-group-modal').attr('data-id', groupId);
-    $('#competency-group-modal .modal-title').text("{{ __('admin/competencies.edit-competency-group') }}");
-    $('.group-name-input').val(groupName);
-    $('.competency-group-list').html('');
-    
-    // Add existing competencies to the list
-    competencies.forEach(function(comp) {
-      addGroupCompetencyItem(comp.id, comp.name, comp.description);
-    });
-    
-    $('#competency-group-modal').modal('show');
-  };
-
 })();
+
+// FIXED: Initialize create new group modal - now uses global function
+window.initCreateCompetencyGroupModal = function() {
+  $('#competency-group-modal').removeAttr('data-id');
+  $('#competency-group-modal .modal-title').text("{{ __('admin/competencies.create-competency-group') }}");
+  $('.group-name-input').val('');
+  $('.competency-group-list').html('');
+  $('#competency-group-modal').modal('show');
+};
+
+// FIXED: Initialize edit group modal - now uses global function
+window.initEditCompetencyGroupModal = function(groupId, groupName, competencies) {
+  $('#competency-group-modal').attr('data-id', groupId);
+  $('#competency-group-modal .modal-title').text("{{ __('admin/competencies.edit-competency-group') }}");
+  $('.group-name-input').val(groupName);
+  $('.competency-group-list').html('');
+  
+  // FIXED: Add existing competencies to the list using the global function
+  if (competencies && competencies.length > 0) {
+    competencies.forEach(function(comp) {
+      window.addGroupCompetencyItem(comp.id, comp.name, comp.description || '');
+    });
+  }
+  
+  $('#competency-group-modal').modal('show');
+};
 </script>

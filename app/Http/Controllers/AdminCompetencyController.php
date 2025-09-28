@@ -516,8 +516,9 @@ public function saveCompetencyGroup(Request $request)
  */
 public function getCompetencyGroup(Request $request)
 {
+    // FIXED: Changed from 'competency_group' to 'competency_groups' (correct table name)
     $this->validate($request, [
-        'id' => 'required|exists:competency_group,id'
+        'id' => 'required|exists:competency_groups,id'
     ]);
 
     $orgId = session('org_id');
@@ -530,20 +531,23 @@ public function getCompetencyGroup(Request $request)
         AjaxService::error(__('admin/competencies.group-not-found'));
     }
 
-    // Get the actual competency details
-    $competencies = $group->competencies()->map(function($comp) {
+    // FIXED: Get the actual competency details using the competencies() method
+    $competencies = $group->competencies();
+    
+    // FIXED: Convert to array format expected by JavaScript
+    $competenciesArray = $competencies->map(function($comp) {
         return [
             'id' => $comp->id,
             'name' => $comp->name,
-            'description' => $comp->description
+            'description' => $comp->description ?? ''
         ];
-    });
+    })->toArray();
 
     return response()->json([
         'id' => $group->id,
         'name' => $group->name,
         'competency_ids' => $group->competency_ids,
-        'competencies' => $competencies
+        'competencies' => $competenciesArray
     ]);
 }
 
@@ -552,8 +556,9 @@ public function getCompetencyGroup(Request $request)
  */
 public function removeCompetencyGroup(Request $request)
 {
+    // FIXED: Changed from 'competency_group' to 'competency_groups' (correct table name)
     $this->validate($request, [
-        'id' => 'required|exists:competency_group,id'
+        'id' => 'required|exists:competency_groups,id'
     ]);
 
     $orgId = session('org_id');
