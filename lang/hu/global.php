@@ -20,6 +20,7 @@ return [
   "swal-deny" => "Nem",
 
   "swal-cancel" => "Mégsem",
+  "remove-all" => "Összes eltávolítása",
 
   "swal-ok" => "Ok",
 

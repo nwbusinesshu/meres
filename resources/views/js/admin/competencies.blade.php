@@ -219,6 +219,17 @@ $(document).ready(function(){
       }
     });
   });
+  
+// NEW: Handle group user assignment button
+  $('.assign-group-users').click(function(e){
+    e.stopPropagation();
+    
+    const groupId = $(this).data('group-id');
+    const groupName = $(this).data('group-name');
+    
+    // Open the group users modal
+    initGroupUsersModal(groupId, groupName);
+  });
 
 }); // FIXED: Only one closing bracket for $(document).ready
 </script>

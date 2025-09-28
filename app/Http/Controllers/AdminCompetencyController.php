@@ -11,6 +11,8 @@ use App\Services\AiTranslationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Models\CompetencyGroup;
+use Illuminate\Support\Facades\DB;
+
 
 
 class AdminCompetencyController extends Controller
@@ -597,4 +599,146 @@ public function getAllCompetencyGroups(Request $request)
             ];
         });
 }
+
+    public function getCompetencyGroupUsers(Request $request)
+    {
+        $this->validate($request, [
+            'group_id' => 'required|exists:competency_groups,id'
+        ]);
+
+        $orgId = session('org_id');
+        
+        $group = CompetencyGroup::where('id', $request->group_id)
+            ->where('organization_id', $orgId)
+            ->first();
+
+        if (!$group) {
+            AjaxService::error(__('admin/competencies.group-not-found'));
+        }
+
+        // Get the assigned users with their details
+        $assignedUsers = $group->assignedUsers();
+        
+        // Return user data in format expected by modal
+        $userData = $assignedUsers->map(function($user) {
+            return [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email ?? null
+            ];
+        });
+
+        return response()->json($userData);
+    }
+
+    /**
+     * Save user assignments for a competency group
+     */
+     public function saveCompetencyGroupUsers(Request $request)
+    {
+        $this->validate($request, [
+            'group_id' => 'required|exists:competency_groups,id',
+            'user_ids' => 'array',
+            'user_ids.*' => 'exists:user,id'
+        ]);
+
+        $orgId = session('org_id');
+        
+        $group = CompetencyGroup::where('id', $request->group_id)
+            ->where('organization_id', $orgId)
+            ->first();
+
+        if (!$group) {
+            AjaxService::error(__('admin/competencies.group-not-found'));
+        }
+
+        $userIds = $request->user_ids ?? [];
+        
+        if (!empty($userIds)) {
+            // Verify all users belong to this organization
+            $validUserIds = DB::table('organization_user')
+                ->where('organization_id', $orgId)
+                ->whereIn('user_id', $userIds)
+                ->pluck('user_id')
+                ->toArray();
+
+            if (count($validUserIds) !== count($userIds)) {
+                AjaxService::error(__('admin/competencies.invalid-users'));
+            }
+
+            // NEW: Check if any users are already assigned to other groups
+            $otherGroupsWithUsers = CompetencyGroup::where('organization_id', $orgId)
+                ->where('id', '!=', $request->group_id)
+                ->get()
+                ->filter(function($otherGroup) use ($userIds) {
+                    $otherGroupUsers = $otherGroup->assigned_users ?? [];
+                    return !empty(array_intersect($userIds, $otherGroupUsers));
+                });
+
+            if ($otherGroupsWithUsers->count() > 0) {
+                // Find which users are already assigned
+                $conflictingUsers = [];
+                foreach ($otherGroupsWithUsers as $otherGroup) {
+                    $conflicts = array_intersect($userIds, $otherGroup->assigned_users ?? []);
+                    if (!empty($conflicts)) {
+                        $userNames = DB::table('user')->whereIn('id', $conflicts)->pluck('name')->toArray();
+                        $conflictingUsers = array_merge($conflictingUsers, $userNames);
+                    }
+                }
+                
+                $conflictingUsersText = implode(', ', array_unique($conflictingUsers));
+                AjaxService::error(__('admin/competencies.users-already-assigned', ['users' => $conflictingUsersText]));
+            }
+            
+            $userIds = $validUserIds;
+        }
+
+        AjaxService::DBTransaction(function() use ($group, $userIds) {
+            // Update the group's assigned users
+            $group->setUsers($userIds);
+        });
+
+        return response()->json([
+            'ok' => true,
+            'message' => __('admin/competencies.user-assignments-saved')
+        ]);
+    }
+
+    public function getEligibleUsersForGroup(Request $request)
+    {
+        $this->validate($request, [
+            'group_id' => 'nullable|exists:competency_groups,id'
+        ]);
+
+        $orgId = session('org_id');
+        $currentGroupId = $request->group_id;
+
+        // Get all user IDs that are already assigned to competency groups
+        $assignedUserIds = CompetencyGroup::where('organization_id', $orgId)
+            ->when($currentGroupId, function($query, $groupId) {
+                // Exclude the current group if editing
+                return $query->where('id', '!=', $groupId);
+            })
+            ->get()
+            ->pluck('assigned_users')
+            ->flatten()
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
+
+        // Get all users in the organization who are NOT assigned to any other group
+        $eligibleUsers = DB::table('user as u')
+            ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+            ->where('ou.organization_id', $orgId)
+            ->whereNull('u.removed_at')
+            ->whereNotIn('u.id', $assignedUserIds)
+            ->where('u.type', '!=', 'admin')  // Exclude global admin users
+            ->where('ou.role', '!=', 'admin') // Exclude organization admin users
+            ->orderBy('u.name')
+            ->select('u.id', 'u.name', 'u.email', 'u.type', 'ou.position')
+            ->get();
+
+        return response()->json($eligibleUsers);
+    }
 }

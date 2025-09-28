@@ -266,10 +266,16 @@
     <div class="no-competency"><p>{{ $_('no-competency') }}</p></div>
   @endforelse
 
-  {{-- NEW: Competency Groups Section - MINIMAL ADDITION after org competencies --}}
+{{-- NEW: Competency Groups Section - WITH PROPER TITLE --}}
+<div class="competency-list competency-list--groups">
+  <div class="tile tile-info" style="margin-top: 20px;">
+    <span><strong>{{ __('admin/competencies.competency-groups') }}</strong></span>
+  </div>
+
   @forelse ($competencyGroups as $group)
     @php
       $groupCompetencies = $group->competencies();
+      $assignedUsers = $group->assignedUsers(); // NEW: Get assigned users
     @endphp
     
     <div class="tile competency-item competency-group-item" data-id="{{ $group->id }}" data-name="{{ $group->name }}">
@@ -277,9 +283,17 @@
         <span>
           <i class="fa fa-caret-down"></i>{{ $group->name }}
           <span class="competency-group-count">{{ $groupCompetencies->count() }}</span>
+          {{-- NEW: Show assigned users count --}}
+          @if($assignedUsers->count() > 0)
+            <span class="competency-group-users-count" style="color: #28a745; margin-left: 0.5rem;">
+              <i class="fa fa-users"></i> {{ $assignedUsers->count() }}
+            </span>
+          @endif
         </span>
         <button class="btn btn-outline-danger remove-competency-group" data-tippy-content="{{ __('admin/competencies.remove-group') }}"><i class="fa fa-trash-alt"></i></button>
         <button class="btn btn-outline-warning modify-competency-group" data-tippy-content="{{ __('admin/competencies.modify-group') }}"><i class="fa fa-file-pen"></i></button>
+        {{-- NEW: User Assignment Button --}}
+        <button class="btn btn-outline-info assign-group-users" data-tippy-content="{{ __('admin/competencies.assign-users') }}" data-group-id="{{ $group->id }}" data-group-name="{{ $group->name }}"><i class="fa fa-user-plus"></i></button>
       </div>
 
       <div class="questions group-competencies hidden">
@@ -301,9 +315,24 @@
         @else
           <p class="text-muted">{{ __('admin/competencies.no-competencies-in-group') }}</p>
         @endif
+
+        {{-- NEW: Assigned Users Section --}}
+        <h6 style="margin-top: 1.5rem;">{{ __('admin/competencies.assigned-users') }}:</h6>
+        @if($assignedUsers->count() > 0)
+          <div class="assigned-users-list" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+            @foreach($assignedUsers as $user)
+              <span class="assigned-user-badge" style="background-color: #e8f4fd; border: 1px solid #007bff; padding: 0.25rem 0.75rem; font-size: 0.875rem; color: #007bff; border-radius: 0.375rem;">
+                <i class="fa fa-user"></i> {{ $user->name }}
+              </span>
+            @endforeach
+          </div>
+        @else
+          <p class="text-muted">{{ __('admin/competencies.no-users-assigned') }}</p>
+        @endif
       </div>
     </div>
   @empty
+    <div class="no-competency"><p>{{ __('admin/competencies.no-groups') }}</p></div>
   @endforelse
 </div>
 
@@ -415,6 +444,7 @@
   @include('admin.modals.language-select')
   @include('admin.modals.select')
   @include('admin.modals.competency-group')
+  @include('admin.modals.group-user-selector') 
 @endsection
 
 @section('scripts')

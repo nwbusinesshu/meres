@@ -139,4 +139,17 @@ return [
   'group-not-found' => 'Kompetencia csoport nem található.',
   'invalid-competencies' => 'Néhány kiválasztott kompetencia érvénytelen.',
   'remove-competency' => 'Kompetencia eltávolítása a csoportból',
+     // NEW: User assignment keys
+  'assign-users' => 'Felhasználók hozzárendelése',
+  'assigned-users' => 'Hozzárendelt felhasználók',
+  'no-users-assigned' => 'Nincsenek hozzárendelt felhasználók.',
+  'select-users' => 'Felhasználók kiválasztása',
+  'save-user-assignments' => 'Felhasználó hozzárendelések mentése',
+  'user-assignments-saved' => 'Felhasználó hozzárendelések sikeresen mentve!',
+  'assign-users-to-group' => 'Felhasználók hozzárendelése a csoporthoz',
+  'remove-user' => 'Felhasználó eltávolítása',
+  'remove-all-users-confirm' => 'Biztosan el szeretné távolítani az összes felhasználót?',
+  'invalid-users' => 'Néhány kiválasztott felhasználó érvénytelen.',
+  'users-already-assigned' => 'A következő felhasználók már más csoporthoz vannak rendelve: :users',
+  'one-user-per-group-note' => 'Megjegyzés: Egy felhasználó csak egy kompetencia csoporthoz rendelhető hozzá.',
 ];

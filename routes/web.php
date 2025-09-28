@@ -159,6 +159,9 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         Route::post('/get', 'getCompetencyGroup')->name('get');
         Route::post('/remove', 'removeCompetencyGroup')->name('remove');
         Route::post('/all', 'getAllCompetencyGroups')->name('all');
+        Route::post('/users/get', 'getCompetencyGroupUsers')->name('users.get');
+        Route::post('/users/save', 'saveCompetencyGroupUsers')->name('users.save');
+        Route::post('/users/eligible', 'getEligibleUsersForGroup')->name('users.eligible');
     });
 
     Route::controller(AdminCompetencyController::class)->name('languages.')->prefix('/languages')->group(function () {
