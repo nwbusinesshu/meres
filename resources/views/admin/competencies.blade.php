@@ -52,6 +52,35 @@
   margin-bottom: 4px;
   display: block;
 }
+
+/* NEW: Competency Groups Styling - MINIMAL blue styling */
+.competency-group-item {
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8f1ff 100%);
+  border-left: 4px solid #007bff;
+}
+
+.competency-group-count {
+  border-radius: 50%;
+  padding: 0.125rem 0.5rem;
+  margin-left: 0.5rem;
+}
+
+.group-competencies {
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+}
+
+.group-competency-badge {
+  background-color: #e9ecef;
+  border: 1px solid #ced4da;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  color: #495057;
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+  display: inline-block;
+}
 </style>
 @endsection
 
@@ -69,7 +98,11 @@
   <div class="tile tile-button create-competency">
     <span><i class="fa fa-circle-plus"></i>{{ $_('create-competency') }}</span>
   </div>
-  <!-- NEW: Language Selection Button -->
+  {{-- NEW: Create Group Button - ONLY ADDITION --}}
+  <div class="tile tile-button create-competency-group" onclick="initCreateCompetencyGroupModal()">
+    <span><i class="fa fa-layer-group"></i>{{ __('admin/competencies.create-group') }}</span>
+  </div>
+  <!-- Language Selection Button -->
   <div class="tile tile-button open-language-modal" onclick="initLanguageModal()">
     <span><i class="fa fa-language"></i>{{ __('admin/competencies.select-translation-languages') }}</span>
   </div>
@@ -104,6 +137,9 @@
   // Hogy visszafelé kompatibilis legyen: ha csak $competencies érkezik, bontsuk szét itt.
   $globals = $globals ?? (isset($competencies) ? $competencies->where('organization_id', null) : collect());
   $orgCompetencies = $orgCompetencies ?? (isset($competencies) ? $competencies->where('organization_id', session('org_id')) : collect());
+  
+  // NEW: Get competency groups (minimal addition)
+  $competencyGroups = $competencyGroups ?? collect();
 @endphp
 
 {{-- ============================ --}}
@@ -229,6 +265,46 @@
   @empty
     <div class="no-competency"><p>{{ $_('no-competency') }}</p></div>
   @endforelse
+
+  {{-- NEW: Competency Groups Section - MINIMAL ADDITION after org competencies --}}
+  @forelse ($competencyGroups as $group)
+    @php
+      $groupCompetencies = $group->competencies();
+    @endphp
+    
+    <div class="tile competency-item competency-group-item" data-id="{{ $group->id }}" data-name="{{ $group->name }}">
+      <div class="bar">
+        <span>
+          <i class="fa fa-caret-down"></i>{{ $group->name }}
+          <span class="competency-group-count">{{ $groupCompetencies->count() }}</span>
+        </span>
+        <button class="btn btn-outline-danger remove-competency-group" data-tippy-content="{{ __('admin/competencies.remove-group') }}"><i class="fa fa-trash-alt"></i></button>
+        <button class="btn btn-outline-warning modify-competency-group" data-tippy-content="{{ __('admin/competencies.modify-group') }}"><i class="fa fa-file-pen"></i></button>
+      </div>
+
+      <div class="questions group-competencies hidden">
+        <h6>{{ __('admin/competencies.competencies-in-group') }}:</h6>
+        @if($groupCompetencies->count() > 0)
+          @foreach($groupCompetencies as $comp)
+            @php
+              $competencyName = $getTranslated(
+                $comp->name, 
+                $comp->name_json, 
+                $comp->original_language ?? 'hu', 
+                $currentLocale
+              );
+            @endphp
+            <span class="group-competency-badge {{ $competencyName['is_fallback'] ? 'fallback-text' : '' }}">
+              {{ $competencyName['text'] }}
+            </span>
+          @endforeach
+        @else
+          <p class="text-muted">{{ __('admin/competencies.no-competencies-in-group') }}</p>
+        @endif
+      </div>
+    </div>
+  @empty
+  @endforelse
 </div>
 
 {{-- ============================ --}}
@@ -337,6 +413,8 @@
   @include('admin.modals.competency')
   @include('admin.modals.competencyq')
   @include('admin.modals.language-select')
+  @include('admin.modals.select')
+  @include('admin.modals.competency-group')
 @endsection
 
 @section('scripts')

@@ -10,6 +10,8 @@ use App\Services\OrgConfigService;
 use App\Services\AiTranslationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use App\Models\CompetencyGroup;
+
 
 class AdminCompetencyController extends Controller
 {
@@ -40,8 +42,20 @@ class AdminCompetencyController extends Controller
         // Get organization's selected translation languages
         $selectedLanguages = OrgConfigService::getJson($orgId, 'translation_languages', [auth()->user()->locale ?? config('app.locale', 'hu')]);
 
+        // NEW: Get competency groups for this organization
+        $competencyGroups = CompetencyGroup::where('organization_id', $orgId)
+            ->orderBy('name')
+            ->get();
+
+        // Split competencies into globals and organization-specific
+        $globals = $comps->where('organization_id', null);
+        $orgCompetencies = $comps->where('organization_id', $orgId);
+
         return view('admin.competencies', [
-            "competencies" => $comps,
+            "competencies" => $comps, // Keep for backward compatibility
+            "globals" => $globals,
+            "orgCompetencies" => $orgCompetencies,
+            "competencyGroups" => $competencyGroups, // NEW
             "selectedLanguages" => $selectedLanguages
         ]);
     }
@@ -450,4 +464,132 @@ class AdminCompetencyController extends Controller
 
         return response()->json(['ok' => true]);
     }
+
+    /**
+ * Save a competency group
+ */
+public function saveCompetencyGroup(Request $request)
+{
+    $this->validate($request, [
+        'name' => 'required|string|max:255',
+        'competency_ids' => 'required|array|min:1',
+        'competency_ids.*' => 'exists:competency,id'
+    ], [], [
+        'name' => __('admin/competencies.group-name'),
+        'competency_ids' => __('admin/competencies.competencies')
+    ]);
+
+    $orgId = session('org_id');
+
+    AjaxService::DBTransaction(function() use ($request, $orgId) {
+        $group = $request->id ? CompetencyGroup::find($request->id) : new CompetencyGroup();
+
+        if (!$group && $request->id) {
+            AjaxService::error(__('admin/competencies.group-not-found'));
+        }
+
+        // Verify competencies belong to this organization or are global
+        $validCompetencyIds = Competency::whereIn('id', $request->competency_ids)
+            ->where(function($q) use ($orgId) {
+                $q->whereNull('organization_id')
+                  ->orWhere('organization_id', $orgId);
+            })
+            ->whereNull('removed_at')
+            ->pluck('id')
+            ->toArray();
+
+        if (count($validCompetencyIds) !== count($request->competency_ids)) {
+            AjaxService::error(__('admin/competencies.invalid-competencies'));
+        }
+
+        $group->organization_id = $orgId;
+        $group->name = $request->name;
+        $group->competency_ids = $validCompetencyIds;
+        $group->save();
+    });
+
+    return response()->json(['ok' => true]);
+}
+
+/**
+ * Get a competency group details
+ */
+public function getCompetencyGroup(Request $request)
+{
+    $this->validate($request, [
+        'id' => 'required|exists:competency_group,id'
+    ]);
+
+    $orgId = session('org_id');
+    
+    $group = CompetencyGroup::where('id', $request->id)
+        ->where('organization_id', $orgId)
+        ->first();
+
+    if (!$group) {
+        AjaxService::error(__('admin/competencies.group-not-found'));
+    }
+
+    // Get the actual competency details
+    $competencies = $group->competencies()->map(function($comp) {
+        return [
+            'id' => $comp->id,
+            'name' => $comp->name,
+            'description' => $comp->description
+        ];
+    });
+
+    return response()->json([
+        'id' => $group->id,
+        'name' => $group->name,
+        'competency_ids' => $group->competency_ids,
+        'competencies' => $competencies
+    ]);
+}
+
+/**
+ * Remove a competency group
+ */
+public function removeCompetencyGroup(Request $request)
+{
+    $this->validate($request, [
+        'id' => 'required|exists:competency_group,id'
+    ]);
+
+    $orgId = session('org_id');
+
+    AjaxService::DBTransaction(function() use ($request, $orgId) {
+        $group = CompetencyGroup::where('id', $request->id)
+            ->where('organization_id', $orgId)
+            ->first();
+
+        if (!$group) {
+            AjaxService::error(__('admin/competencies.group-not-found'));
+        }
+
+        $group->delete();
+
+        AjaxService::success(__('admin/competencies.group-removed-success'));
+    });
+}
+
+/**
+ * Get all competency groups for an organization
+ */
+public function getAllCompetencyGroups(Request $request)
+{
+    $orgId = session('org_id');
+
+    return CompetencyGroup::where('organization_id', $orgId)
+        ->orderBy('name')
+        ->get()
+        ->map(function($group) {
+            return [
+                'id' => $group->id,
+                'name' => $group->name,
+                'competency_count' => count($group->competency_ids ?? []),
+                'competency_ids' => $group->competency_ids
+            ];
+        });
+}
 }

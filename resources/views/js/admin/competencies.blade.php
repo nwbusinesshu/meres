@@ -12,6 +12,7 @@ $(document).ready(function(){
     openCompetencyModal(id, name);
   });
 
+  // ORIGINAL: Handle ALL competency-item clicks (including groups)
   $('.competency-item .bar span').click(function(e){
     var show = $(this).parents('.competency-item').find('.questions').hasClass('hidden');
     $('.competency-item .questions').addClass('hidden');
@@ -98,6 +99,83 @@ $(document).ready(function(){
           url: "{{ route('admin.competency.remove') }}",
           data: { id: $(this).parents('.competency-item').attr('data-id') },
           successMessage: "{{ __('admin/competencies.remove-competency-success') }}",
+        });
+      }
+    });
+  });
+
+  // NEW: Handle competency group specific actions
+  $('.remove-competency-group').click(function(e){
+    e.stopPropagation();
+    
+    const groupId = $(this).closest('.competency-group-item').attr('data-id');
+    const groupName = $(this).closest('.competency-group-item').attr('data-name');
+    
+    swal_confirm.fire({
+      title: '{{ __('admin/competencies.remove-group-confirm') }}',
+      text: `{{ __('admin/competencies.remove-group-text') }} "${groupName}"?`,
+      icon: 'warning'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        swal_loader.fire();
+        
+        $.ajax({
+          url: "{{ route('admin.competency-group.remove') }}",
+          method: 'POST',
+          data: {
+            id: groupId,
+            _token: $('meta[name="csrf-token"]').attr('content')
+          },
+          success: function(response) {
+            if (response.ok) {
+              swal.fire({
+                icon: 'success',
+                title: '{{ __('admin/competencies.group-removed-success') }}',
+                timer: 2000,
+                showConfirmButton: false
+              }).then(() => {
+                location.reload();
+              });
+            }
+          },
+          error: function(xhr) {
+            swal_loader.close();
+            swal.fire({
+              icon: 'error',
+              title: '{{ __('global.error') }}',
+              text: xhr.responseJSON?.message || '{{ __('global.error-occurred') }}'
+            });
+          }
+        });
+      }
+    });
+  });
+
+  $('.modify-competency-group').click(function(e){
+    e.stopPropagation();
+    
+    const groupId = $(this).closest('.competency-group-item').attr('data-id');
+    const groupName = $(this).closest('.competency-group-item').attr('data-name');
+    
+    swal_loader.fire();
+    
+    $.ajax({
+      url: "{{ route('admin.competency-group.get') }}",
+      method: 'POST',
+      data: {
+        id: groupId,
+        _token: $('meta[name="csrf-token"]').attr('content')
+      },
+      success: function(response) {
+        swal_loader.close();
+        initEditCompetencyGroupModal(groupId, groupName, response.competencies);
+      },
+      error: function(xhr) {
+        swal_loader.close();
+        swal.fire({
+          icon: 'error',
+          title: '{{ __('global.error') }}',
+          text: xhr.responseJSON?.message || '{{ __('global.error-occurred') }}'
         });
       }
     });

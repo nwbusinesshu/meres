@@ -154,6 +154,13 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         Route::post('/translate-question', 'translateCompetencyQuestion')->name('translate-question');
     });
 
+    Route::controller(AdminCompetencyController::class)->name('competency-group.')->prefix('/competency-group')->group(function () {
+        Route::post('/save', 'saveCompetencyGroup')->name('save');
+        Route::post('/get', 'getCompetencyGroup')->name('get');
+        Route::post('/remove', 'removeCompetencyGroup')->name('remove');
+        Route::post('/all', 'getAllCompetencyGroups')->name('all');
+    });
+
     Route::controller(AdminCompetencyController::class)->name('languages.')->prefix('/languages')->group(function () {
         Route::get('/available', 'getAvailableLanguages')->name('available');
         Route::get('/selected', 'getSelectedLanguages')->name('selected');
