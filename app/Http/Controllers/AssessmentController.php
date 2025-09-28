@@ -41,13 +41,65 @@ class AssessmentController extends Controller
             return abort(403);
         }
 
+        // Get current locale for translations
+        $currentLocale = app()->getLocale();
+        
+        // Get questions with competency data
+        $questionsData = $target->competencyQuestions()->with('competency')->get();
+        
+        // Process translations and group by translated competency names
+        $translatedQuestions = $questionsData->map(function($question) use ($currentLocale) {
+            $competency = $question->competency;
+            
+            // Get translated competency name
+            $translatedName = $this->getTranslatedText(
+                $competency->name,
+                $competency->name_json,
+                $competency->original_language ?? 'hu',
+                $currentLocale
+            );
+            
+            // Add translated data to question object
+            $question->translated_competency_name = $translatedName['text'];
+            $question->competency_name_is_fallback = $translatedName['is_fallback'];
+            
+            return $question;
+        });
+        
+        // Group by translated competency names
+        $groupedQuestions = $translatedQuestions->groupBy('translated_competency_name');
+
         return view('assessment',[
             "target" => $target,
             "relation" => UserRelation::where('user_id', $user->id)->where('target_id', $target->id)->first(),
             "assessment" => $assessment,
-            "questions" => $target->competencyQuestions()->with('competency')->get()->groupBy('competency.name'),
-            "questionsCount" => $target->competencyQuestions()->count()
+            "questions" => $groupedQuestions,
+            "questionsCount" => $questionsData->count()
         ]);
+    }
+
+    /**
+     * Helper method to get translated text with fallback
+     */
+    private function getTranslatedText($originalText, $translationsJson, $originalLanguage, $currentLocale)
+    {
+        // If no translations or we're in the original language, return original text
+        if (empty($translationsJson) || $currentLocale === $originalLanguage) {
+            return ['text' => $originalText, 'is_fallback' => false];
+        }
+        
+        $translations = json_decode($translationsJson, true);
+        if (!$translations || !is_array($translations)) {
+            return ['text' => $originalText, 'is_fallback' => true];
+        }
+        
+        // Check if translation exists for current locale
+        if (isset($translations[$currentLocale]) && !empty(trim($translations[$currentLocale]))) {
+            return ['text' => $translations[$currentLocale], 'is_fallback' => false];
+        }
+        
+        // Fallback to original text
+        return ['text' => $originalText, 'is_fallback' => true];
     }
 
     public function submitAssessment(Request $request)
@@ -150,40 +202,11 @@ if ($already) {
             'target_id'     => $target->id,
             'submitted_at'  => date('Y-m-d H:i:s'),
             'telemetry_raw' => $aiTelemetry
-                ? json_encode($telemetryRaw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-                : null, // <<-- AI OFF esetén NULL
-            // 'telemetry_ai' itt NEM kerül kitöltésre; AI OFF esetén később is NULL marad
+                ? $telemetryRaw
+                : null,
         ]);
+    });
 
-        // AI hívás csak akkor, ha engedélyezett
-        if ($aiTelemetry) {
-            \DB::afterCommit(function () use ($assessment, $user, $target) {
-                try {
-                    \Log::info('[AI] afterCommit: start', [
-                        'assessmentId' => $assessment->id,
-                        'userId'       => $user->id,
-                        'targetId'     => $target->id,
-                    ]);
-
-                    $ai = \App\Services\TelemetryService::scoreAndStoreTelemetryAI(
-                        $assessment->id, $user->id, $target->id
-                    );
-
-                    \Log::info('[AI] afterCommit: done', [
-                        'ok'          => (bool) $ai,
-                        'trust_score' => $ai['trust_score'] ?? null,
-                    ]);
-                } catch (\Throwable $e) {
-                    \Log::error('[AI] afterCommit: exception', ['msg' => $e->getMessage()]);
-                }
-            });
-        }
-        // AI OFF esetén nincs afterCommit callback -> telemetry_ai NULL marad
-
-    }); // DBTransaction vége
-
-    return response()->json(['ok' => true]);
+    return response()->json(['message' => 'OK']);
 }
-
 }
-

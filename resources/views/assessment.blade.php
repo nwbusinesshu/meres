@@ -1,6 +1,19 @@
 @extends('layouts.master')
 
 @section('head-extra')
+<style>
+/* NEW: Styling for fallback text when translation is not available */
+.fallback-text {
+  color: #dc3545 !important;
+  font-style: italic;
+}
+
+.fallback-text::after {
+  content: ' (!)';
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+</style>
 @endsection
 
 @section('content')
@@ -26,9 +39,9 @@
 @php
 $counter = 1;
 @endphp
-@foreach ($questions as $key => $question)
+@foreach ($questions as $competencyName => $question)
 <div class="competency">
-  <p>{{ $key }}</p>
+  <p class="{{ $question->first()->competency_name_is_fallback ? 'fallback-text' : '' }}">{{ $competencyName }}</p>
   @foreach ($question->shuffle() as $q)
    @php
     $qText  = session('uid') == $target->id ? $q->question_self : $q->question;
