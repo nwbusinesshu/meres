@@ -167,6 +167,12 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         Route::post('/get', 'getCeoRank')->name('get');
         Route::post('/save', 'saveCeoRank')->name('save');
         Route::post('/remove', 'removeCeoRank')->name('remove');
+        Route::post('/translations/get', 'getCeoRankTranslations')->name('translations.get');
+    Route::get('/languages/available', 'getAvailableLanguages')->name('languages.available');
+    Route::get('/languages/selected', 'getSelectedLanguages')->name('languages.selected');
+    Route::post('/languages/save', 'saveTranslationLanguages')->name('languages.save');
+    Route::post('/translate-name', 'translateCeoRankName')->name('translate-name');
+
     });
 
     // results

@@ -32,11 +32,21 @@ class CeoRankController extends Controller
         $utype   = (string) session('utype'); // App\Models\Enums\UserType
         $multiOn = OrgConfigService::getBool($orgId, 'enable_multi_level', false);
 
+        // Get current locale for translations
+        $currentLocale = app()->getLocale();
+
         // Rang-kategóriák
         $ranks = CeoRank::where('organization_id', $orgId)
             ->whereNull('removed_at')
             ->orderByDesc('value')
             ->get();
+
+        // Process translations for each rank
+        foreach ($ranks as $rank) {
+            $translatedData = $this->getTranslatedName($rank, $currentLocale);
+            $rank->translated_name = $translatedData['text'];
+            $rank->name_is_fallback = $translatedData['is_fallback'];
+        }
 
         // Célcsoport (kit lehet rangsorolni)
         [$employees, $totalCount] = $this->getAllowedTargets($orgId, $userId, $utype, $multiOn);
@@ -52,6 +62,30 @@ class CeoRankController extends Controller
             'ceoranks'  => $ranks,
             'employees' => $employees,
         ]);
+    }
+
+    /**
+     * Get translated name with fallback logic
+     */
+    private function getTranslatedName($rank, $currentLocale)
+    {
+        // If no translations or we're in the original language, return original text
+        if (empty($rank->name_json) || $currentLocale === ($rank->original_language ?? 'hu')) {
+            return ['text' => $rank->name, 'is_fallback' => false];
+        }
+        
+        $translations = json_decode($rank->name_json, true);
+        if (!$translations || !is_array($translations)) {
+            return ['text' => $rank->name, 'is_fallback' => true];
+        }
+        
+        // Check if translation exists for current locale
+        if (isset($translations[$currentLocale]) && !empty(trim($translations[$currentLocale]))) {
+            return ['text' => $translations[$currentLocale], 'is_fallback' => false];
+        }
+        
+        // Fallback to original text
+        return ['text' => $rank->name, 'is_fallback' => true];
     }
 
     /**

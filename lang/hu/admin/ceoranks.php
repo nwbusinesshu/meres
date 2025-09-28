@@ -16,4 +16,25 @@ return [
   "name" => "Megnevezés",
   "value" => "Érték",
   
+  // Translation-related strings
+  "select-translation-languages" => "Fordítási nyelvek kiválasztása",
+  "translations" => "Fordítások",
+  "original" => "Eredeti",
+  "translation-saved" => "Fordítás mentve",
+  "translation-error" => "Hiba a fordítás mentése során",
+  "missing-translations-warning" => "Ehhez a szinthez hiányoznak fordítások",
+  "no-additional-languages" => "Nincsenek további nyelvek kiválasztva fordításhoz.",
+  "original-language-info" => "Eredeti nyelv",
+  "original-language-explanation" => "A fő \"Megnevezés\" mező tartalmazza ezt a nyelvet. Itt csak a további nyelvek fordításait adja meg.",
+  
+  // AI Translation strings
+  "ai-translate" => "AI Fordítás",
+  "translating" => "Fordítás folyamatban",
+  "translation-success" => "Fordítás sikeres",
+  "translation-failed" => "Fordítás sikertelen",
+  "ai-translations-generated" => "AI fordítások elkészültek. Szerkesztheted őket mentés előtt.",
+  "fill-rank-name-first" => "Kérlek, először töltsd ki a szint nevét.",
+  "enter-name-first" => "Először adja meg a szint nevét.",
+  "no-target-languages" => "Nincsenek elérhető célnyelvek a fordításhoz.",
+  "name-required" => "A név megadása kötelező.",
 ];

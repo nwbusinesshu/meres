@@ -341,4 +341,130 @@ Provide the translations in the exact JSON format above.";
             'is' => 'Icelandic',
         ];
     }
+
+    /**
+     * Translate CEO rank name to multiple languages
+     * 
+     * @param string $rankName The CEO rank name to translate
+     * @param string $sourceLanguage Source language code (e.g., 'hu', 'en')
+     * @param array $targetLanguages Array of target language codes
+     * @return array|null Array of translations or null on failure
+     */
+    public function translateCeoRankName(string $rankName, string $sourceLanguage, array $targetLanguages): ?array
+    {
+        if (!$this->apiKey) {
+            Log::warning('AI CEO rank translation aborted: missing OPENAI_API_KEY');
+            return null;
+        }
+
+        // Remove source language from targets to avoid duplicates
+        $targetLanguages = array_diff($targetLanguages, [$sourceLanguage]);
+        
+        if (empty($targetLanguages)) {
+            return [];
+        }
+
+        $languageNames = $this->getLanguageNames();
+        $prompt = $this->buildCeoRankPrompt($rankName, $sourceLanguage, $targetLanguages, $languageNames);
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])
+            ->timeout($this->timeout)
+            ->post('https://api.openai.com/v1/chat/completions', [
+                'model' => $this->model,
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => 'You are a professional translator specializing in business and HR terminology, particularly executive ranking and performance evaluation systems. You maintain the meaning and professional tone while adapting to each language\'s business context.'
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => $prompt
+                    ]
+                ],
+                'response_format' => [
+                    'type' => 'json_object'
+                ],
+                'temperature' => 0.3,
+            ]);
+
+            if (!$response->ok()) {
+                Log::error('AI CEO rank translation API error', [
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
+                return null;
+            }
+
+            $data = $response->json();
+            $content = $data['choices'][0]['message']['content'] ?? null;
+            
+            if (!$content) {
+                Log::error('AI CEO rank translation: empty response content');
+                return null;
+            }
+
+            $translations = json_decode($content, true);
+            
+            if (!is_array($translations) || !isset($translations['translations'])) {
+                Log::error('AI CEO rank translation: invalid response format', ['content' => $content]);
+                return null;
+            }
+
+            Log::info('AI CEO rank translation successful', [
+                'source' => $sourceLanguage,
+                'targets' => $targetLanguages,
+                'original_name' => $rankName
+            ]);
+
+            return $translations['translations'];
+
+        } catch (\Throwable $e) {
+            Log::error('AI CEO rank translation exception', [
+                'message' => $e->getMessage(),
+                'rank_name' => $rankName,
+                'source' => $sourceLanguage,
+                'targets' => $targetLanguages
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Build prompt for CEO rank name translation
+     */
+    private function buildCeoRankPrompt(string $rankName, string $sourceLanguage, array $targetLanguages, array $languageNames): string
+    {
+        $sourceLanguageName = $languageNames[$sourceLanguage] ?? $sourceLanguage;
+        $targetLanguagesList = array_map(fn($code) => $languageNames[$code] ?? $code, $targetLanguages);
+        
+        $prompt = "Translate the following CEO/executive performance rank name from {$sourceLanguageName} to " . implode(', ', $targetLanguagesList) . ".
+
+This is a performance evaluation rank used in corporate performance management systems. Maintain the professional, formal tone appropriate for executive assessment.
+
+Original rank name: \"{$rankName}\"
+
+Provide the translations in the following JSON format:
+{
+  \"translations\": {";
+
+        foreach ($targetLanguages as $lang) {
+            $langName = $languageNames[$lang] ?? $lang;
+            $prompt .= "\n    \"{$lang}\": {\n      \"name\": \"[translated rank name in {$langName}]\"\n    },";
+        }
+
+        $prompt = rtrim($prompt, ',') . "\n  }\n}";
+
+        $prompt .= "\n\nGuidelines:
+- Maintain the formal, professional tone appropriate for executive performance rankings
+- Keep the translation concise and clear
+- Ensure the translation conveys the same level of performance/achievement as the original
+- Use terminology commonly used in business performance evaluations in each target language
+- The translation should be appropriate for corporate HR and management contexts";
+
+        return $prompt;
+    }
 }

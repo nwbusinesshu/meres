@@ -83,12 +83,20 @@ public function index(Request $request)
             ->orderBy('u.name')
             ->get(['u.id', 'u.name', 'u.email', 'u.type', DB::raw("'—' as login_mode_text"), DB::raw("null as bonusMalus"), DB::raw("0 as rater_count"), 'ou.position']);
 
+        // FIXED: Exclude admins AND already assigned managers from unassigned list
         $unassigned = DB::table('user as u')
             ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
             ->where('ou.organization_id', $orgId)
             ->whereNull('u.removed_at')
             ->whereNull('ou.department_id')
             ->where('u.type', '!=', 'ceo')
+            ->where('u.type', '!=', 'admin')  // FIXED: Exclude admins
+            // FIXED: Exclude managers who are already assigned to departments
+            ->whereNotExists(function($query) use ($orgId) {
+                $query->from('organization_department_managers as odm')
+                      ->whereColumn('odm.manager_id', 'u.id')
+                      ->where('odm.organization_id', $orgId);
+            })
             ->orderBy('u.name')
             ->get(['u.id', 'u.name', 'u.email', 'u.type', DB::raw("'—' as login_mode_text"), DB::raw("null as bonusMalus"), DB::raw("0 as rater_count"), 'ou.position']);
 
@@ -113,7 +121,8 @@ public function index(Request $request)
                 ->where('odm.organization_id', $orgId)
                 ->where('odm.department_id', $dept->id)
                 ->whereNull('u.removed_at')
-                ->select('u.id', 'u.name', 'u.email', 'u.type', 'ou.position', 'odm.assigned_at')
+                // FIXED: Use created_at instead of assigned_at
+                ->select('u.id', 'u.name', 'u.email', 'u.type', 'ou.position', 'odm.created_at as assigned_at')
                 ->get();
 
             // Members

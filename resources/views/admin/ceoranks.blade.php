@@ -1,13 +1,34 @@
 @extends('layouts.master')
 
 @section('head-extra')
+<style>
+/* NEW: Styling for fallback text when translation is not available */
+.fallback-text {
+  color: #dc3545 !important;
+  font-style: italic;
+}
+
+.fallback-text::after {
+  content: ' (!)';
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+</style>
 @endsection
 
 @section('content')
 <h1>{{ __('titles.admin.ceoranks') }}</h1>
-<div class="tile tile-button add-rank">
-  <span>{{ $_('add-rank') }}</span>
+
+<div class="fixed-row">
+  <div class="tile tile-button add-rank">
+    <span>{{ $_('add-rank') }}</span>
+  </div>
+  <!-- NEW: Language Selection Button -->
+  <div class="tile tile-button open-language-modal" onclick="initLanguageModal()">
+    <span><i class="fa fa-language"></i>{{ __('admin/competencies.select-translation-languages') }}</span>
+  </div>
 </div>
+
 @foreach ($ceoranks as $rank)
 <div class="tile tile-info rank" data-id="{{ $rank->id }}">
   <div>
@@ -16,7 +37,7 @@
   </div>
   <div>
     <span>{{ $_('name') }}</span>
-    <span>{{ $rank->name }}</span>
+    <span class="{{ $rank->name_is_fallback ? 'fallback-text' : '' }}">{{ $rank->translated_name }}</span>
   </div>
   <div>
     <p>{{ $_('employee-number') }}</p>
@@ -41,4 +62,5 @@
 
 @section('scripts')
 @include('admin.modals.ceorank')
+@include('admin.modals.language-select')
 @endsection
