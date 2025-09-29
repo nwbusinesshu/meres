@@ -5,6 +5,9 @@
   <meta name="mobile-web-app-capable" content="yes">
 	<meta name="theme-color" content="#2B7A78" />
 	<meta name="csrf-token" content="{{ csrf_token() }}">
+	<meta name="app-view-key" content="{{ $view_key ?? $currentViewName ?? '' }}">
+	<meta name="app-user-role" content="{{ session('type') ?? 'guest' }}">
+	<meta name="app-locale" content="{{ app()->getLocale() }}">
  
   <!-- Favicon -->
 	<link rel="icon" type="image/png" href="{{ assets('favicon.png') }}">
@@ -41,6 +44,8 @@
 	<!-- Global css -->
 	<link rel="stylesheet" href="{{ asset('assets/css/global.css') }}">
 	<link rel="stylesheet" href="{{ asset('assets/css/global_media.css') }}">
+	<link rel="stylesheet" href="{{ asset('assets/css/pages/help-modal.css') }}">
+
 
 	<!-- Custom css per page -->
 	<link rel="stylesheet" href="{{ assets("css/pages/{$currentViewName}.css") }}">

@@ -39,5 +39,9 @@
         <span class="icon">?</span>
         <span class="help-label">Súgóközpont</span>
       </a>
+
+      {{-- Help Modal JavaScript (NEW) --}}
+      @include('components.help-modal')
+      @include('js.help-modal')
     </body>
 </html>

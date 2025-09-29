@@ -1,0 +1,561 @@
+/* =======================================================================
+   HELP DRAWER - CUSTOM LEFT DRAWER WITH PUSH BEHAVIOR (NO BOOTSTRAP MODAL)
+   ======================================================================= */
+
+/* Help Drawer - Custom implementation without Bootstrap modal */
+.help-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1050;
+  pointer-events: none; /* Allow clicks through to page */
+  display: none;
+}
+
+body.help-modal-open .floating-help-btn {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-100px);
+  transition: all 0.3s ease-out;
+}
+
+.help-drawer.show {
+  display: block;
+}
+
+/* Disable transitions when restoring state */
+body.help-no-transition .page-container,
+.help-drawer.help-no-transition .help-drawer-dialog {
+  transition: none !important;
+}
+
+/* Dialog positioned on LEFT side, full height */
+.help-drawer-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  margin: 0;
+  height: 100vh;
+  max-height: 100vh;
+  width: min(520px, 100vw);
+  transform: translateX(-100%); /* Start off-screen to the LEFT */
+  transition: transform 0.3s ease-out;
+  pointer-events: auto; /* Enable clicks on drawer itself */
+  z-index: 1051;
+}
+
+.help-drawer.show .help-drawer-dialog {
+  transform: translateX(0); /* Visible state */
+}
+
+/* Content - full height, scrollable */
+.help-drawer-content {
+  height: 100%;
+  border-radius: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background-color: #fff;
+  border-right: 3px solid var(--info);
+}
+
+/* DESKTOP: Push content to the right when modal opens */
+@media (min-width: 769px) {
+  body.help-modal-open .page-container {
+    margin-left: 520px;
+    transition: margin-left 0.3s ease-out;
+  }
+}
+
+/* MOBILE: Standard overlay behavior */
+@media (max-width: 768px) {
+  .help-drawer-dialog {
+    width: 100vw;
+  }
+
+  body.help-modal-open .page-container {
+    margin-left: 0;
+  }
+}
+
+/* =======================================================================
+   DRAWER HEADER & TABS
+   ======================================================================= */
+
+.help-drawer-header {
+  border-bottom: none;
+  padding: 1.5rem 1.5rem 1rem 1.5rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.help-drawer-header .help-header-content {
+  flex: 1;
+}
+
+.help-drawer-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #2a2a2a;
+  margin-bottom: 0.25rem;
+  margin: 0;
+}
+
+.help-drawer-header .help-page-title {
+  font-size: 0.875rem;
+  color: #6c757d;
+  margin: 0;
+  font-weight: normal;
+}
+
+.help-drawer-close {
+  padding: 0.5rem;
+  background: none;
+  border: none;
+  font-size: 1.75rem;
+  line-height: 1;
+  color: #000;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+  cursor: pointer;
+  margin-left: 1rem;
+}
+
+.help-drawer-close:hover {
+  opacity: 1;
+}
+
+/* Tab Navigation */
+.help-tabs {
+  display: flex;
+  border-bottom: 2px solid #e9ecef;
+  padding: 0 1.5rem;
+  flex-shrink: 0;
+}
+
+.help-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #6c757d;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.help-tab:hover {
+  color: #495057;
+  background-color: #f8f9fa;
+}
+
+.help-tab.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+}
+
+.help-tab i {
+  font-size: 1rem;
+}
+
+/* =======================================================================
+   DRAWER BODY & TAB CONTENT
+   ======================================================================= */
+
+.help-drawer-body {
+  padding: 0;
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.help-tab-content {
+  display: none;
+  height: 100%;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+.help-tab-content.active {
+  display: flex;
+  flex-direction: column;
+}
+
+/* =======================================================================
+   ABOUT PAGE TAB - STATIC CONTENT
+   ======================================================================= */
+
+.help-static-content {
+  flex: 1;
+}
+
+.help-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  color: #6c757d;
+}
+
+.help-loading .help-loader-svg {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 1rem;
+}
+
+.help-loading i {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  color: #007bff;
+}
+
+.help-loading p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.help-content-not-found {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6c757d;
+}
+
+.help-content-not-found i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: #dee2e6;
+}
+
+.help-content-not-found p {
+  margin: 0;
+}
+
+/* Help content styling */
+.help-static-content h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #2a2a2a;
+}
+
+.help-static-content h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: #495057;
+}
+
+.help-static-content h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: #495057;
+}
+
+.help-static-content p {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+  color: #495057;
+}
+
+.help-static-content ul,
+.help-static-content ol {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.help-static-content li {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+.help-static-content code {
+  background-color: #f8f9fa;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.9em;
+  color: #e83e8c;
+}
+
+.help-static-content pre {
+  background-color: #f8f9fa;
+  padding: 1rem;
+  border-radius: 5px;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+/* =======================================================================
+   AI SUPPORT TAB - CHAT INTERFACE
+   ======================================================================= */
+
+.help-ai-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 1rem;
+}
+
+/* Chat messages area */
+.help-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.help-chat-history {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Chat bubbles */
+.help-ai-bubble,
+.help-user-bubble {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  animation: bubbleSlideIn 0.3s ease-out;
+}
+
+@keyframes bubbleSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.help-user-bubble {
+  flex-direction: row-reverse;
+}
+
+.help-bubble-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.1rem;
+}
+
+.help-ai-bubble .help-bubble-icon {
+  background-color: #007bff;
+  color: white;
+}
+
+.help-user-bubble .help-bubble-icon {
+  background-color: #28a745;
+  color: white;
+}
+
+.help-bubble-content {
+  flex: 1;
+  background-color: #f8f9fa;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  max-width: 85%;
+}
+
+.help-user-bubble .help-bubble-content {
+  background-color: #e3f2fd;
+}
+
+.help-bubble-content p {
+  margin: 0;
+  line-height: 1.5;
+  color: #2a2a2a;
+}
+
+.help-bubble-content p + p {
+  margin-top: 0.5rem;
+}
+
+.help-bubble-content strong {
+  font-weight: 600;
+}
+
+/* Welcome message styling */
+.help-welcome-message {
+  padding: 1rem;
+  background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
+  border-radius: 12px;
+  border-left: 4px solid #007bff;
+}
+
+.help-welcome-message .help-ai-bubble {
+  animation: none;
+}
+
+.help-welcome-message .help-bubble-content {
+  background-color: transparent;
+  padding: 0;
+  max-width: 100%;
+}
+
+/* AI Notice */
+.help-ai-notice {
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #856404;
+}
+
+.help-ai-notice i {
+  font-size: 1rem;
+  color: #ffc107;
+}
+
+/* Chat input area */
+.help-chat-input-container {
+  border-top: 1px solid #e9ecef;
+  padding-top: 1rem;
+  flex-shrink: 0;
+}
+
+.help-chat-input-wrapper {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
+.help-chat-input {
+  flex: 1;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  resize: none;
+  max-height: 120px;
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.help-chat-input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.help-chat-input:disabled {
+  background-color: #f8f9fa;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.help-chat-send {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.help-chat-send:hover:not(:disabled) {
+  background-color: #0056b3;
+  transform: scale(1.05);
+}
+
+.help-chat-send:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.help-chat-send i {
+  font-size: 1rem;
+}
+
+/* =======================================================================
+   SCROLLBAR STYLING
+   ======================================================================= */
+
+.help-chat-messages::-webkit-scrollbar,
+.help-tab-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.help-chat-messages::-webkit-scrollbar-track,
+.help-tab-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.help-chat-messages::-webkit-scrollbar-thumb,
+.help-tab-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.help-chat-messages::-webkit-scrollbar-thumb:hover,
+.help-tab-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* =======================================================================
+   RESPONSIVE ADJUSTMENTS
+   ======================================================================= */
+
+@media (max-width: 576px) {
+  .help-drawer-header {
+    padding: 1rem;
+  }
+
+  .help-tabs {
+    padding: 0 1rem;
+  }
+
+  .help-tab {
+    font-size: 0.85rem;
+    padding: 0.6rem 0.5rem;
+  }
+
+  .help-tab span {
+    display: none;
+  }
+
+  .help-tab i {
+    font-size: 1.25rem;
+  }
+
+  .help-tab-content {
+    padding: 1rem;
+  }
+
+  .help-bubble-content {
+    max-width: 90%;
+  }
+}
