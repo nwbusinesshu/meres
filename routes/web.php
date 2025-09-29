@@ -26,6 +26,8 @@ use App\Http\Controllers\RegistrationController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\CookieConsentController;
+use App\Http\Controllers\HelpChatController;
+
 
 
 //locale
@@ -40,6 +42,18 @@ Route::prefix('cookie-consent')->name('cookie-consent.')->group(function () {
     Route::get('/policy', [CookieConsentController::class, 'policy'])->name('policy');
     Route::get('/preferences', [CookieConsentController::class, 'preferences'])->name('preferences');
 });
+
+Route::controller(HelpChatController::class)
+    ->prefix('/help')
+    ->middleware(['auth:'.UserType::NORMAL])
+    ->name('help.')
+    ->group(function(){
+        Route::post('/chat/send', 'sendMessage')->name('chat.send')->middleware('throttle:30,1');
+        Route::get('/chat/sessions', 'listSessions')->name('chat.sessions');
+        Route::get('/chat/session/{sessionId}', 'loadSession')->name('chat.session');
+        Route::post('/chat/session/new', 'createSession')->name('chat.session.new');
+        Route::delete('/chat/session/{sessionId}', 'deleteSession')->name('chat.session.delete');
+    });
 
 // login routes
 Route::controller(LoginController::class)->middleware('auth:'.UserType::GUEST)->group(function () {

@@ -1,100 +1,74 @@
 <script>
 $(document).ready(function() {
-  
+
   /* =======================================================================
-     HELP MODAL - GLOBAL VARIABLES
+     CONFIGURATION & STATE
      ======================================================================= */
   
+  const isDebugMode = {{ config('app.debug') ? 'true' : 'false' }};
+  
+  // Session storage keys
+  const STORAGE_KEY_MODAL_STATE = 'helpModalState';
+  const STORAGE_KEY_CURRENT_SESSION = 'helpCurrentSession';
+  
+  // Current state variables
   let helpModalOpen = false;
   let currentViewKey = '';
   let currentUserRole = '';
   let currentLocale = '';
   let currentPageTitle = '';
   let currentActiveTab = 'about-page';
-  
-  // Session storage keys
-  const STORAGE_KEY_MODAL_OPEN = 'help_modal_open';
-  const STORAGE_KEY_ACTIVE_TAB = 'help_modal_active_tab';
-  const STORAGE_KEY_CHAT_HISTORY = 'help_chat_history';
-  const STORAGE_KEY_SESSION_ID = 'help_session_id';
+  let currentSessionId = null;
+  let isSendingMessage = false;
+  let conversationListOpen = false;
 
-  /* =======================================================================
-     READ META TAGS & INITIALIZE
-     ======================================================================= */
-  
-  // Check if DEBUG mode is enabled
-  const isDebugMode = typeof DEBUG !== 'undefined' && (DEBUG === true || DEBUG === 'true' || DEBUG === '1');
-  
   /* =======================================================================
      SESSION STORAGE HELPERS
      ======================================================================= */
   
   function saveModalState() {
     try {
-      sessionStorage.setItem(STORAGE_KEY_MODAL_OPEN, helpModalOpen ? '1' : '0');
-      sessionStorage.setItem(STORAGE_KEY_ACTIVE_TAB, currentActiveTab);
+      sessionStorage.setItem(STORAGE_KEY_MODAL_STATE, JSON.stringify({
+        wasOpen: helpModalOpen,
+        activeTab: currentActiveTab
+      }));
     } catch (e) {
-      if (isDebugMode) {
-        console.warn('[Help System] Could not save to sessionStorage:', e);
-      }
+      // Silently fail if sessionStorage is not available
     }
   }
   
   function getModalState() {
     try {
-      return {
-        wasOpen: sessionStorage.getItem(STORAGE_KEY_MODAL_OPEN) === '1',
-        activeTab: sessionStorage.getItem(STORAGE_KEY_ACTIVE_TAB) || 'about-page'
-      };
+      const state = sessionStorage.getItem(STORAGE_KEY_MODAL_STATE);
+      return state ? JSON.parse(state) : { wasOpen: false, activeTab: 'about-page' };
     } catch (e) {
-      if (isDebugMode) {
-        console.warn('[Help System] Could not read from sessionStorage:', e);
-      }
       return { wasOpen: false, activeTab: 'about-page' };
     }
   }
   
   function clearModalState() {
     try {
-      sessionStorage.removeItem(STORAGE_KEY_MODAL_OPEN);
+      sessionStorage.removeItem(STORAGE_KEY_MODAL_STATE);
     } catch (e) {
       // Silently fail
     }
   }
   
-  function saveChatHistory(history) {
+  function saveCurrentSession(sessionId) {
     try {
-      sessionStorage.setItem(STORAGE_KEY_CHAT_HISTORY, JSON.stringify(history));
-    } catch (e) {
-      if (isDebugMode) {
-        console.warn('[Help System] Could not save chat history:', e);
+      if (sessionId) {
+        sessionStorage.setItem(STORAGE_KEY_CURRENT_SESSION, sessionId);
+      } else {
+        sessionStorage.removeItem(STORAGE_KEY_CURRENT_SESSION);
       }
-    }
-  }
-  
-  function getChatHistory() {
-    try {
-      const history = sessionStorage.getItem(STORAGE_KEY_CHAT_HISTORY);
-      return history ? JSON.parse(history) : [];
-    } catch (e) {
-      if (isDebugMode) {
-        console.warn('[Help System] Could not load chat history:', e);
-      }
-      return [];
-    }
-  }
-  
-  function saveSessionId(sessionId) {
-    try {
-      sessionStorage.setItem(STORAGE_KEY_SESSION_ID, sessionId);
     } catch (e) {
       // Silently fail
     }
   }
   
-  function getSessionId() {
+  function getCurrentSession() {
     try {
-      return sessionStorage.getItem(STORAGE_KEY_SESSION_ID) || null;
+      return sessionStorage.getItem(STORAGE_KEY_CURRENT_SESSION) || null;
     } catch (e) {
       return null;
     }
@@ -115,6 +89,9 @@ $(document).ready(function() {
     
     // Update modal title
     updateModalPageTitle();
+    
+    // Load current session from storage
+    currentSessionId = getCurrentSession();
     
     // Check if modal was open in previous page
     const state = getModalState();
@@ -148,7 +125,8 @@ $(document).ready(function() {
         role: currentUserRole,
         locale: currentLocale,
         pageTitle: currentPageTitle,
-        restoredState: state
+        restoredState: state,
+        currentSessionId: currentSessionId
       });
     }
   }
@@ -167,7 +145,6 @@ $(document).ready(function() {
       $('#help-modal').css('display', 'block'); // Make visible first
       
       // Trigger both animations simultaneously after a tiny delay
-      // This ensures CSS sees the initial state before transitioning
       setTimeout(function() {
         $('body').addClass('help-modal-open');  // Push page
         $('#help-modal').addClass('show');       // Slide drawer
@@ -277,56 +254,342 @@ $(document).ready(function() {
         </div>
       `);
     }, 500);
-    
-    /* FUTURE API IMPLEMENTATION:
-    $.ajax({
-      url: '/help/page',
-      method: 'GET',
-      data: {
-        view: currentViewKey,
-        locale: currentLocale
-      },
-      success: function(response) {
-        $content.html(response.content_html);
-      },
-      error: function() {
-        $content.html(`
-          <div class="help-content-not-found">
-            <i class="fa fa-book-open"></i>
-            <p><strong>{{ __('help.content-not-found') }}</strong></p>
-            <p>{{ __('help.content-coming-soon') }}</p>
-          </div>
-        `);
-      }
-    });
-    */
   }
 
   function loadAiSupportContent() {
-    // AI Support content is static for now
-    // Future: Initialize chat session here
+    // Enable the chat interface
+    enableChatInterface();
     
-    if (isDebugMode) {
-      console.log('[Help Modal] AI Support tab loaded (placeholder)');
+    // Load current session if exists
+    if (currentSessionId) {
+      loadChatSession(currentSessionId);
+    } else {
+      // Show welcome message only
+      $('.help-chat-history').empty();
+      scrollChatToBottom();
     }
     
-    /* FUTURE API IMPLEMENTATION:
-    $.ajax({
-      url: '/support/session',
-      method: 'POST',
-      data: {
-        view_key: currentViewKey,
-        locale: currentLocale,
-        role: currentUserRole
-      },
-      success: function(response) {
-        // Store session_id for future messages
-        window.helpChatSessionId = response.session_id;
-      }
-    });
-    */
+    if (isDebugMode) {
+      console.log('[Help Modal] AI Support tab loaded, session:', currentSessionId);
+    }
   }
 
+  /* =======================================================================
+     CHAT FUNCTIONALITY
+     ======================================================================= */
+  
+  function enableChatInterface() {
+    // Remove disabled state from input and button
+    $('.help-chat-input').prop('disabled', false);
+    $('.help-chat-send').prop('disabled', false);
+  }
+  
+  function loadChatSession(sessionId) {
+    $.ajax({
+      url: `/help/chat/session/${sessionId}`,
+      method: 'GET',
+      success: function(response) {
+        if (response.success && response.messages) {
+          renderMessages(response.messages);
+          currentSessionId = response.session.id;
+          saveCurrentSession(currentSessionId);
+        }
+      },
+      error: function(xhr) {
+        if (isDebugMode) {
+          console.error('[Help Chat] Failed to load session:', xhr);
+        }
+        // Clear invalid session
+        currentSessionId = null;
+        saveCurrentSession(null);
+        $('.help-chat-history').empty();
+      }
+    });
+  }
+  
+  function renderMessages(messages) {
+    const $history = $('.help-chat-history');
+    $history.empty();
+    
+    messages.forEach(function(msg) {
+      if (msg.role === 'user') {
+        appendUserMessage(msg.content, false);
+      } else if (msg.role === 'assistant') {
+        appendAiMessage(msg.content, false);
+      }
+    });
+    
+    scrollChatToBottom();
+  }
+  
+  function appendUserMessage(message, saveToDb = true) {
+    const $history = $('.help-chat-history');
+    const $bubble = $(`
+      <div class="help-user-bubble">
+        <div class="help-bubble-content">
+          <p>${escapeHtml(message)}</p>
+        </div>
+        <div class="help-bubble-icon">
+          <i class="fa fa-user"></i>
+        </div>
+      </div>
+    `);
+    
+    $history.append($bubble);
+    scrollChatToBottom();
+  }
+  
+  function appendAiMessage(message, saveToDb = true) {
+    const $history = $('.help-chat-history');
+    const $bubble = $(`
+      <div class="help-ai-bubble">
+        <div class="help-bubble-icon">
+          <i class="fa fa-robot"></i>
+        </div>
+        <div class="help-bubble-content">
+          <p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>
+        </div>
+      </div>
+    `);
+    
+    $history.append($bubble);
+    scrollChatToBottom();
+  }
+  
+  function appendLoadingMessage() {
+    const $history = $('.help-chat-history');
+    const $bubble = $(`
+      <div class="help-ai-bubble help-ai-loading">
+        <div class="help-bubble-icon">
+          <i class="fa fa-robot"></i>
+        </div>
+        <div class="help-bubble-content">
+          <div class="help-typing-indicator">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+      </div>
+    `);
+    
+    $history.append($bubble);
+    scrollChatToBottom();
+  }
+  
+  function removeLoadingMessage() {
+    $('.help-ai-loading').remove();
+  }
+  
+  function scrollChatToBottom() {
+    const $messages = $('.help-chat-messages');
+    $messages.scrollTop($messages[0].scrollHeight);
+  }
+  
+  function sendChatMessage() {
+    if (isSendingMessage) {
+      return; // Prevent multiple simultaneous sends
+    }
+    
+    const $input = $('.help-chat-input');
+    const message = $input.val().trim();
+    
+    if (!message) {
+      return; // Don't send empty messages
+    }
+    
+    // Append user message
+    appendUserMessage(message);
+    
+    // Clear input
+    $input.val('');
+    autoResizeTextarea($input[0]);
+    
+    // Disable input while sending
+    isSendingMessage = true;
+    $input.prop('disabled', true);
+    $('.help-chat-send').prop('disabled', true);
+    
+    // Show loading indicator
+    appendLoadingMessage();
+    
+    // Send to API
+    $.ajax({
+      url: '{{ route("help.chat.send") }}',
+      method: 'POST',
+      data: {
+        message: message,
+        session_id: currentSessionId,
+        view_key: currentViewKey,
+        locale: currentLocale,
+        _token: '{{ csrf_token() }}'
+      },
+      success: function(response) {
+        removeLoadingMessage();
+        
+        if (response.success && response.response) {
+          appendAiMessage(response.response);
+          
+          // Update current session ID if new session was created
+          if (response.session_id) {
+            currentSessionId = response.session_id;
+            saveCurrentSession(currentSessionId);
+          }
+        } else {
+          appendAiMessage('{{ __("help.ai-error-generic") }}');
+        }
+      },
+      error: function(xhr) {
+        removeLoadingMessage();
+        
+        let errorMessage = '{{ __("help.ai-error-generic") }}';
+        
+        if (xhr.status === 429) {
+          errorMessage = '{{ __("help.ai-error-rate-limit") }}';
+        } else if (xhr.responseJSON && xhr.responseJSON.error) {
+          errorMessage = xhr.responseJSON.error;
+        }
+        
+        appendAiMessage(errorMessage);
+        
+        if (isDebugMode) {
+          console.error('[Help Chat] Error:', xhr);
+        }
+      },
+      complete: function() {
+        // Re-enable input
+        isSendingMessage = false;
+        $input.prop('disabled', false);
+        $('.help-chat-send').prop('disabled', false);
+        $input.focus();
+      }
+    });
+  }
+
+  /* =======================================================================
+     CONVERSATION LIST
+     ======================================================================= */
+  
+  function openConversationList() {
+    conversationListOpen = true;
+    
+    // Show loading
+    $('.help-conversations-list').html(`
+      <div class="help-loading">
+        <img src="{{ asset('assets/loader/loader.svg') }}" alt="Loading..." class="help-loader-svg">
+        <p>{{ __('help.loading-conversations') }}</p>
+      </div>
+    `);
+    
+    $('.help-conversations-sidebar').addClass('open');
+    
+    // Load conversations
+    $.ajax({
+      url: '{{ route("help.chat.sessions") }}',
+      method: 'GET',
+      success: function(response) {
+        if (response.success && response.sessions) {
+          renderConversationList(response.sessions);
+        } else {
+          $('.help-conversations-list').html(`
+            <div class="help-empty-state">
+              <i class="fa fa-comments"></i>
+              <p>{{ __('help.no-conversations') }}</p>
+            </div>
+          `);
+        }
+      },
+      error: function(xhr) {
+        $('.help-conversations-list').html(`
+          <div class="help-error-state">
+            <i class="fa fa-exclamation-triangle"></i>
+            <p>{{ __('help.error-loading-conversations') }}</p>
+          </div>
+        `);
+        
+        if (isDebugMode) {
+          console.error('[Help Chat] Failed to load conversations:', xhr);
+        }
+      }
+    });
+  }
+  
+  function closeConversationList() {
+    conversationListOpen = false;
+    $('.help-conversations-sidebar').removeClass('open');
+  }
+  
+  function renderConversationList(sessions) {
+    if (!sessions || sessions.length === 0) {
+      $('.help-conversations-list').html(`
+        <div class="help-empty-state">
+          <i class="fa fa-comments"></i>
+          <p>{{ __('help.no-conversations') }}</p>
+        </div>
+      `);
+      return;
+    }
+    
+    const $list = $('.help-conversations-list');
+    $list.empty();
+    
+    sessions.forEach(function(session) {
+      const isActive = session.id === currentSessionId;
+      const date = new Date(session.last_message_at);
+      const formattedDate = formatRelativeDate(date);
+      
+      const $item = $(`
+        <div class="help-conversation-item ${isActive ? 'active' : ''}" data-session-id="${session.id}">
+          <div class="help-conversation-info">
+            <h4 class="help-conversation-title">${escapeHtml(session.title)}</h4>
+            <p class="help-conversation-preview">${escapeHtml(session.preview.substring(0, 60))}${session.preview.length > 60 ? '...' : ''}</p>
+            <span class="help-conversation-date">${formattedDate} • ${session.message_count} {{ __('help.messages') }}</span>
+          </div>
+          <button class="help-conversation-delete" data-session-id="${session.id}" title="{{ __('help.delete-conversation') }}">
+            <i class="fa fa-trash"></i>
+          </button>
+        </div>
+      `);
+      
+      $list.append($item);
+    });
+  }
+  
+  function startNewConversation() {
+    // Clear current session
+    currentSessionId = null;
+    saveCurrentSession(null);
+    
+    // Clear chat history
+    $('.help-chat-history').empty();
+    
+    // Close conversation list
+    closeConversationList();
+    
+    // Focus input
+    $('.help-chat-input').focus();
+    
+    if (isDebugMode) {
+      console.log('[Help Chat] Started new conversation');
+    }
+  }
+  
+  function formatRelativeDate(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return '{{ __("help.just-now") }}';
+    if (diffMins < 60) return diffMins + ' {{ __("help.minutes-ago") }}';
+    if (diffHours < 24) return diffHours + ' {{ __("help.hours-ago") }}';
+    if (diffDays === 1) return '{{ __("help.yesterday") }}';
+    if (diffDays < 7) return diffDays + ' {{ __("help.days-ago") }}';
+    
+    return date.toLocaleDateString(currentLocale);
+  }
+  
   /* =======================================================================
      UPDATE PAGE TITLE
      ======================================================================= */
@@ -352,6 +615,21 @@ $(document).ready(function() {
   function autoResizeTextarea(textarea) {
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+  }
+  
+  /* =======================================================================
+     UTILITY FUNCTIONS
+     ======================================================================= */
+  
+  function escapeHtml(text) {
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
   }
 
   /* =======================================================================
@@ -382,37 +660,96 @@ $(document).ready(function() {
     e.stopPropagation();
   });
 
-  // Textarea auto-resize (for future use when enabled)
+  // Textarea auto-resize
   $(document).on('input', '.help-chat-input', function() {
     autoResizeTextarea(this);
   });
 
-  // Enter key to send (for future use)
+  // Enter key to send
   $(document).on('keydown', '.help-chat-input', function(e) {
     if (e.key === 'Enter' && !e.shiftKey && !$(this).prop('disabled')) {
       e.preventDefault();
-      // TODO: Send message
-      if (isDebugMode) {
-        console.log('[Help Chat] Enter pressed (not yet implemented)');
-      }
+      sendChatMessage();
     }
   });
 
-  // Send button click (for future use)
+  // Send button click
   $(document).on('click', '.help-chat-send', function() {
     if (!$(this).prop('disabled')) {
-      // TODO: Send message
-      if (isDebugMode) {
-        console.log('[Help Chat] Send clicked (not yet implemented)');
-      }
+      sendChatMessage();
     }
+  });
+
+  // Conversations button click
+  $(document).on('click', '.help-conversations-btn', function() {
+    if (conversationListOpen) {
+      closeConversationList();
+    } else {
+      openConversationList();
+    }
+  });
+
+  // New conversation button
+  $(document).on('click', '.help-new-conversation-btn', function() {
+    startNewConversation();
+  });
+
+  // Load conversation
+  $(document).on('click', '.help-conversation-item', function(e) {
+    // Don't trigger if clicking delete button
+    if ($(e.target).closest('.help-conversation-delete').length) {
+      return;
+    }
+    
+    const sessionId = $(this).data('session-id');
+    loadChatSession(sessionId);
+    closeConversationList();
+  });
+
+  // Delete conversation
+$(document).on('click', '.help-conversation-delete', function(e) {
+    e.stopPropagation();
+    
+    const sessionId = $(this).data('session-id');
+    
+    $.ajax({
+      url: `/help/chat/session/${sessionId}`,
+      method: 'DELETE',
+      data: {
+        _token: '{{ csrf_token() }}'
+      },
+      success: function(response) {
+        if (response.success) {
+          // If deleted current session, start new
+          if (sessionId === currentSessionId) {
+            startNewConversation();
+          }
+          // Reload conversation list
+          openConversationList();
+        }
+      },
+      error: function(xhr) {
+        if (isDebugMode) {
+          console.error('[Help Chat] Failed to delete conversation:', xhr);
+        }
+      }
+    });
+  });
+
+  // Close conversation list when clicking outside
+  $(document).on('click', '.help-conversations-sidebar-overlay', function() {
+    closeConversationList();
   });
 
   // Keyboard shortcuts
   $(document).on('keydown', function(e) {
     // ESC to close modal (only if explicitly pressed, not from other interactions)
     if (e.key === 'Escape' && helpModalOpen && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-      closeHelpModal();
+      if (conversationListOpen) {
+        closeConversationList();
+      } else {
+        closeHelpModal();
+      }
     }
     
     // Ctrl/Cmd + H to toggle help
@@ -432,7 +769,7 @@ $(document).ready(function() {
   
   initializeHelpSystem();
 
-  // Re-initialize on page navigation (for SPA-like behavior or full page loads)
+  // Re-initialize on page navigation
   $(document).on('pageChanged', function() {
     if (isDebugMode) {
       console.log('[Help System] Page changed, re-initializing...');
@@ -440,9 +777,8 @@ $(document).ready(function() {
     initializeHelpSystem();
   });
   
-  // Also listen for DOMContentLoaded in case of full page navigation
+  // Also listen for window load
   $(window).on('load', function() {
-    // Check if we need to restore modal after full page load
     const state = getModalState();
     if (state.wasOpen && !helpModalOpen) {
       if (isDebugMode) {
@@ -450,14 +786,12 @@ $(document).ready(function() {
       }
       currentActiveTab = state.activeTab;
       
-      // Add no-transition class
       $('body').addClass('help-no-transition');
       $('.page-container').addClass('help-no-transition');
       $('#help-modal').addClass('help-no-transition');
       
       openHelpModal(true);
       
-      // Remove no-transition class after brief moment
       setTimeout(function() {
         $('body').removeClass('help-no-transition');
         $('.page-container').removeClass('help-no-transition');
@@ -481,6 +815,12 @@ $(document).ready(function() {
       switchTab: switchTab,
       reload: initializeHelpSystem,
       clearState: clearModalState,
+      clearSession: function() {
+        currentSessionId = null;
+        saveCurrentSession(null);
+        $('.help-chat-history').empty();
+        console.log('[Help System] Session cleared');
+      },
       getState: function() {
         return {
           open: helpModalOpen,
@@ -488,8 +828,8 @@ $(document).ready(function() {
           role: currentUserRole,
           locale: currentLocale,
           activeTab: currentActiveTab,
-          sessionId: getSessionId(),
-          chatHistory: getChatHistory()
+          currentSessionId: currentSessionId,
+          conversationListOpen: conversationListOpen
         };
       }
     };

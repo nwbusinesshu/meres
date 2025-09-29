@@ -41,6 +41,19 @@
 
         {{-- AI Support Tab Content --}}
         <div class="help-tab-content" id="help-tab-ai-support">
+          
+          {{-- Conversations Toolbar --}}
+          <div class="help-ai-toolbar">
+            <button class="help-conversations-btn" title="{{ __('help.view-conversations') }}">
+              <i class="fa fa-history"></i>
+              <span>{{ __('help.conversations') }}</span>
+            </button>
+            <button class="help-new-conversation-btn" title="{{ __('help.new-conversation') }}">
+              <i class="fa fa-plus"></i>
+              <span>{{ __('help.new') }}</span>
+            </button>
+          </div>
+
           <div class="help-ai-container">
             
             {{-- Chat Messages Area --}}
@@ -58,46 +71,22 @@
               </div>
               
               {{-- Chat history will be appended here --}}
-              <div class="help-chat-history">
-                {{-- Example user message (for styling reference) --}}
-                <div class="help-user-bubble" style="display: none;">
-                  <div class="help-bubble-content">
-                    <p>Example user message</p>
-                  </div>
-                  <div class="help-bubble-icon">
-                    <i class="fa fa-user"></i>
-                  </div>
-                </div>
-
-                {{-- Example AI response (for styling reference) --}}
-                <div class="help-ai-bubble" style="display: none;">
-                  <div class="help-bubble-icon">
-                    <i class="fa fa-robot"></i>
-                  </div>
-                  <div class="help-bubble-content">
-                    <p>Example AI response</p>
-                  </div>
-                </div>
-              </div>
+              <div class="help-chat-history"></div>
             </div>
 
             {{-- Chat Input Area --}}
             <div class="help-chat-input-container">
-              <div class="help-ai-notice">
-                <i class="fa fa-info-circle"></i>
-                <span>{{ __('help.ai-coming-soon') }}</span>
-              </div>
               <div class="help-chat-input-wrapper">
                 <textarea 
                   class="help-chat-input" 
                   placeholder="{{ __('help.ai-input-placeholder') }}" 
                   rows="1"
-                  disabled
                 ></textarea>
-                <button class="help-chat-send" disabled>
+                <button class="help-chat-send">
                   <i class="fa fa-paper-plane"></i>
                 </button>
               </div>
+              <span>{{ __('help.ai-warning') }}</span>
             </div>
 
           </div>
@@ -107,4 +96,21 @@
 
     </div>
   </div>
+
+  {{-- Conversations Sidebar --}}
+  <div class="help-conversations-sidebar">
+    <div class="help-conversations-sidebar-overlay"></div>
+    <div class="help-conversations-sidebar-content">
+      <div class="help-conversations-header">
+        <h3>{{ __('help.conversations') }}</h3>
+        <button class="help-conversations-close">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>
+      <div class="help-conversations-list">
+        {{-- Conversations will be loaded here dynamically --}}
+      </div>
+    </div>
+  </div>
+
 </div>

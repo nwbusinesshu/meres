@@ -4,35 +4,36 @@ return [
     'modal-title' => 'Súgóközpont',
     'loading' => 'Betöltés...',
     'tab-about-page' => 'Oldal leírása',
-    'tab-ai-support' => 'AI Támogatás',
+    'tab-ai-support' => 'AI SUPPORT',
     'loading-content' => 'Tartalom betöltése...',
     
     // AI Support Tab
-    'ai-welcome-title' => 'Üdvözöllek a Súgóközpontban!',
+    'ai-welcome-title' => 'Üdvözöllek!',
     'ai-welcome-message' => 'Miben segíthetek? Kérdezz bátran az oldal funkcióiról, vagy kérj segítséget egy konkrét feladathoz.',
-    'ai-coming-soon' => 'Az AI támogatás hamarosan elérhető lesz',
     'ai-input-placeholder' => 'Írj egy kérdést...',
     
     // Content messages
     'content-not-found' => 'Ehhez az oldalhoz még nincs elérhető súgó tartalom.',
     'content-coming-soon' => 'A tartalom hamarosan elérhető lesz.',
-];
+    'ai-error-generic' => 'Hiba történt az AI válasz lekérése során. Kérjük, próbálja újra.',
+    'ai-error-rate-limit' => 'Túl sok kérés. Kérjük, várjon néhány másodpercet és próbálja újra.',
+    'ai-warning' => 'Az AI ismeri a programot, de hibázhat. Mindig legyen körültekintő!',
 
-// resources/lang/en/help.php (English)
-return [
-    'modal-title' => 'Help Center',
-    'loading' => 'Loading...',
-    'tab-about-page' => 'About Page',
-    'tab-ai-support' => 'AI Support',
-    'loading-content' => 'Loading content...',
-    
-    // AI Support Tab
-    'ai-welcome-title' => 'Welcome to Help Center!',
-    'ai-welcome-message' => 'How can I help you? Feel free to ask about page features or request help with a specific task.',
-    'ai-coming-soon' => 'AI support coming soon',
-    'ai-input-placeholder' => 'Type a question...',
-    
-    // Content messages
-    'content-not-found' => 'No help content available for this page yet.',
-    'content-coming-soon' => 'Content coming soon.',
+        // Conversations (add these new keys)
+    'conversations' => 'Beszélgetések',
+    'view-conversations' => 'Korábbi beszélgetések megtekintése',
+    'new-conversation' => 'Új beszélgetés',
+    'new' => 'Új',
+    'loading-conversations' => 'Beszélgetések betöltése...',
+    'no-conversations' => 'Még nincsenek beszélgetések. Kezdj el beszélgetni az AI-val!',
+    'error-loading-conversations' => 'Hiba történt a beszélgetések betöltése során.',
+    'confirm-delete-conversation' => 'Biztosan törölni szeretnéd ezt a beszélgetést?',
+    'error-deleting-conversation' => 'Hiba történt a beszélgetés törlése során.',
+    'delete-conversation' => 'Beszélgetés törlése',
+    'messages' => 'üzenet',
+    'just-now' => 'most',
+    'minutes-ago' => 'perce',
+    'hours-ago' => 'órája',
+    'yesterday' => 'tegnap',
+    'days-ago' => 'napja',
 ];
