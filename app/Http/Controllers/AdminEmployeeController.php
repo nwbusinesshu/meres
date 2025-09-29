@@ -757,57 +757,154 @@ public function PasswordReset(Request $request)
 
 
     public function getEmployeeCompetencies(Request $request){
-        $orgId = session('org_id');
-        $user = User::findOrFail($request->id);
+    $orgId = session('org_id');
+    $user = User::findOrFail($request->id);
 
-        // ha belongsToMany pivotot használsz:
-        return $user->competencies()
-            ->wherePivot('organization_id', $orgId)
-            ->get(['competency.id','competency.name']);
-    }
+    // Get all competencies with their sources
+    $competenciesWithSources = DB::table('user_competency as uc')
+        ->join('competency as c', 'uc.competency_id', '=', 'c.id')
+        ->leftJoin('user_competency_sources as ucs', function($join) use ($orgId) {
+            $join->on('ucs.user_id', '=', 'uc.user_id')
+                 ->on('ucs.competency_id', '=', 'uc.competency_id')
+                 ->where('ucs.organization_id', '=', $orgId);
+        })
+        ->leftJoin('competency_groups as cg', function($join) {
+            $join->on('ucs.source_id', '=', 'cg.id')
+                 ->where('ucs.source_type', '=', 'group');
+        })
+        ->where('uc.user_id', $user->id)
+        ->where('uc.organization_id', $orgId)
+        ->whereNull('c.removed_at')
+        ->select(
+            'c.id',
+            'c.name',
+            DB::raw('GROUP_CONCAT(DISTINCT ucs.source_type) as source_types'),
+            DB::raw('GROUP_CONCAT(DISTINCT CASE WHEN ucs.source_type = "group" THEN cg.name END SEPARATOR ", ") as group_names'),
+            DB::raw('GROUP_CONCAT(DISTINCT CASE WHEN ucs.source_type = "group" THEN cg.id END) as group_ids')
+        )
+        ->groupBy('c.id', 'c.name')
+        ->orderBy('c.name')
+        ->get();
+
+    // Transform the data for frontend
+    return $competenciesWithSources->map(function($item) {
+        $sourceTypes = $item->source_types ? explode(',', $item->source_types) : [];
+        
+        return [
+            'id' => $item->id,
+            'name' => $item->name,
+            'is_manual' => in_array('manual', $sourceTypes),
+            'is_from_group' => in_array('group', $sourceTypes),
+            'group_names' => $item->group_names ? $item->group_names : null,
+            'group_ids' => $item->group_ids ? explode(',', $item->group_ids) : []
+        ];
+    });
+}
 
     public function saveEmployeeCompetencies(Request $request){
-        $user = User::findOrFail($request->id);
+    $user = User::findOrFail($request->id);
 
-        // kötelező: legyen mit menteni
-        $ids = collect($request->competencies ?? [])->unique()->values();
-        if ($ids->isEmpty()) return abort(403);
+    // kötelező: legyen mit menteni
+    $ids = collect($request->competencies ?? [])->unique()->values();
+    if ($ids->isEmpty()) return abort(403);
 
-        $orgId = session('org_id');
+    $orgId = session('org_id');
 
-        // csak az aktuális org + globális kompetenciák engedettek (competency.organization_id NULL vagy = $orgId)
-        $validIds = Competency::whereNull('removed_at')
-            ->whereIn('id', $ids)
-            ->where(function($q) use ($orgId){
-                $q->whereNull('organization_id')->orWhere('organization_id', $orgId);
-            })
-            ->pluck('id');
+    // csak az aktuális org + globális kompetenciák engedettek (competency.organization_id NULL vagy = $orgId)
+    $validIds = Competency::whereNull('removed_at')
+        ->whereIn('id', $ids)
+        ->where(function($q) use ($orgId){
+            $q->whereNull('organization_id')->orWhere('organization_id', $orgId);
+        })
+        ->pluck('id');
 
-        $invalid = $ids->diff($validIds);
-        if ($invalid->isNotEmpty()) {
-            return response()->json([
-                'message' => 'Érvénytelen kompetencia az aktuális szervezethez.',
-                'invalid' => $invalid->values(),
-            ], 422);
-        }
+    $invalid = $ids->diff($validIds);
+    if ($invalid->isNotEmpty()) {
+        return response()->json([
+            'message' => 'Érvénytelen kompetencia az aktuális szervezethez.',
+            'errors' => ['competencies' => ['Érvénytelen kompetencia.']]
+        ], 422);
+    }
 
-        \DB::transaction(function() use ($user, $orgId, $validIds) {
-            // csak az adott orgra törlünk
-            \DB::table('user_competency')
+    try {
+        DB::transaction(function() use ($user, $validIds, $orgId) {
+            // Get current competencies from user_competency
+            $currentCompIds = DB::table('user_competency')
                 ->where('user_id', $user->id)
                 ->where('organization_id', $orgId)
-                ->delete();
-
-            // beszúrás org‑gal
-            foreach ($validIds as $cid) {
-                \DB::table('user_competency')->insert([
+                ->pluck('competency_id')
+                ->toArray();
+            
+            // Find competencies to ADD (new ones not in current)
+            $toAdd = array_diff($validIds->toArray(), $currentCompIds);
+            
+            // Find competencies to REMOVE (current ones not in new list)
+            $toRemove = array_diff($currentCompIds, $validIds->toArray());
+            
+            // === ADD NEW COMPETENCIES ===
+            foreach ($toAdd as $compId) {
+                // Add to user_competency
+                DB::table('user_competency')->insertOrIgnore([
                     'user_id' => $user->id,
+                    'competency_id' => $compId,
+                    'organization_id' => $orgId
+                ]);
+                
+                // Track as manual source
+                DB::table('user_competency_sources')->insertOrIgnore([
+                    'user_id' => $user->id,
+                    'competency_id' => $compId,
                     'organization_id' => $orgId,
-                    'competency_id' => $cid,
+                    'source_type' => 'manual',
+                    'source_id' => null,
+                    'created_at' => now()
                 ]);
             }
+            
+            // === REMOVE COMPETENCIES (smart removal) ===
+            foreach ($toRemove as $compId) {
+                // First, remove the manual source if it exists
+                DB::table('user_competency_sources')
+                    ->where('user_id', $user->id)
+                    ->where('competency_id', $compId)
+                    ->where('organization_id', $orgId)
+                    ->where('source_type', 'manual')
+                    ->delete();
+                
+                // Check if there are any remaining sources (e.g., from groups)
+                $hasOtherSources = DB::table('user_competency_sources')
+                    ->where('user_id', $user->id)
+                    ->where('competency_id', $compId)
+                    ->where('organization_id', $orgId)
+                    ->exists();
+                
+                // Only remove from user_competency if NO other sources exist
+                if (!$hasOtherSources) {
+                    DB::table('user_competency')
+                        ->where('user_id', $user->id)
+                        ->where('competency_id', $compId)
+                        ->where('organization_id', $orgId)
+                        ->delete();
+                }
+            }
         });
+        
+        return response()->json(['message' => 'Sikeres mentés.']);
+        
+    } catch (\Throwable $e) {
+        Log::error('Hiba a kompetencia mentés közben', [
+            'user_id' => $user->id,
+            'org_id' => $orgId,
+            'exception' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+
+        return response()->json([
+            'message' => 'Sikertelen mentés: belső hiba!',
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
 
     public function getBonusMalus(Request $request){
         return User::findOrFail($request->id)->bonusMalus->take(4);

@@ -6,7 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class CompetencyGroup extends Model
 {
@@ -16,12 +16,12 @@ class CompetencyGroup extends Model
         'organization_id',
         'name',
         'competency_ids',
-        'assigned_users'  // NEW: Added assigned_users
+        'assigned_users'
     ];
 
     protected $casts = [
         'competency_ids' => 'array',
-        'assigned_users' => 'array',  // NEW: Cast assigned_users as array
+        'assigned_users' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime'
     ];
@@ -94,7 +94,7 @@ class CompetencyGroup extends Model
         return count($this->competency_ids ?? []);
     }
 
-    // ========== NEW: User Assignment Methods ==========
+    // ========== User Assignment Methods ==========
 
     /**
      * Get the users that are assigned to this group.
@@ -172,5 +172,110 @@ class CompetencyGroup extends Model
     {
         $this->assigned_users = [];
         $this->save();
+    }
+
+    // ========== NEW: Competency Synchronization Methods ==========
+
+    /**
+     * Sync all competencies from this group to a specific user.
+     * Adds competencies to user_competency and tracks in user_competency_sources.
+     */
+    public function syncUserCompetencies($userId)
+    {
+        $competencyIds = $this->competency_ids ?? [];
+        
+        if (empty($competencyIds)) {
+            return;
+        }
+
+        foreach ($competencyIds as $compId) {
+            // Add to user_competency if not exists
+            DB::table('user_competency')->insertOrIgnore([
+                'user_id' => $userId,
+                'competency_id' => $compId,
+                'organization_id' => $this->organization_id
+            ]);
+            
+            // Track source
+            DB::table('user_competency_sources')->insertOrIgnore([
+                'user_id' => $userId,
+                'competency_id' => $compId,
+                'organization_id' => $this->organization_id,
+                'source_type' => 'group',
+                'source_id' => $this->id,
+                'created_at' => now()
+            ]);
+        }
+    }
+
+    /**
+     * Remove competencies from a user that came from this group.
+     * Only removes from user_competency if no other sources exist.
+     */
+    public function removeUserCompetencies($userId)
+    {
+        // Get competencies that this user has from this specific group
+        $groupCompIds = DB::table('user_competency_sources')
+            ->where('user_id', $userId)
+            ->where('organization_id', $this->organization_id)
+            ->where('source_type', 'group')
+            ->where('source_id', $this->id)
+            ->pluck('competency_id')
+            ->toArray();
+        
+        if (empty($groupCompIds)) {
+            return;
+        }
+
+        // Remove source records for this group
+        DB::table('user_competency_sources')
+            ->where('user_id', $userId)
+            ->where('organization_id', $this->organization_id)
+            ->where('source_type', 'group')
+            ->where('source_id', $this->id)
+            ->delete();
+        
+        // For each competency, check if it has other sources
+        foreach ($groupCompIds as $compId) {
+            $hasOtherSources = DB::table('user_competency_sources')
+                ->where('user_id', $userId)
+                ->where('competency_id', $compId)
+                ->where('organization_id', $this->organization_id)
+                ->exists();
+            
+            // Only remove from user_competency if no other sources exist
+            if (!$hasOtherSources) {
+                DB::table('user_competency')
+                    ->where('user_id', $userId)
+                    ->where('competency_id', $compId)
+                    ->where('organization_id', $this->organization_id)
+                    ->delete();
+            }
+        }
+    }
+
+    /**
+     * Sync competencies for all users currently assigned to this group.
+     * Useful when competencies are added/removed from the group.
+     */
+    public function syncAllUsersCompetencies()
+    {
+        $userIds = $this->assigned_users ?? [];
+        
+        foreach ($userIds as $userId) {
+            $this->syncUserCompetencies($userId);
+        }
+    }
+
+    /**
+     * Remove competencies for all users currently assigned to this group.
+     */
+    public function removeAllUsersCompetencies()
+    {
+        $userIds = $this->assigned_users ?? [];
+        
+        foreach ($userIds as $userId) {
+            $this->removeUserCompetencies($userId);
+        }
     }
 }

@@ -79,4 +79,13 @@ return [
   "selected" => "kiválasztva",
   
   "add-selected" => "Hozzáadás",
+  'from-groups' => 'Csoportokból',
+'manually-added' => 'Manuálisan hozzáadva',
+'no-group-competencies' => 'Nincsenek csoport kompetenciák.',
+'no-manual-competencies' => 'Nincsenek manuálisan hozzáadott kompetenciák.',
+'from-group' => 'Csoportból',
+'manual' => 'Manuális',
+'both-sources' => 'Mindkettő',
+'managed-by-group' => 'Csoport által kezelve (nem törölhető)',
+'remove-manual-only' => 'Manuális hozzárendelés törlése (csoport kompetencia megmarad)',
 ];

@@ -473,8 +473,8 @@ class AdminCompetencyController extends Controller
 public function saveCompetencyGroup(Request $request)
 {
     $this->validate($request, [
-        'name' => 'required|string|max:255',
-        'competency_ids' => 'required|array|min:1',
+        'name' => ['required'],
+        'competency_ids' => ['required', 'array'],
         'competency_ids.*' => 'exists:competency,id'
     ], [], [
         'name' => __('admin/competencies.group-name'),
@@ -504,10 +504,19 @@ public function saveCompetencyGroup(Request $request)
             AjaxService::error(__('admin/competencies.invalid-competencies'));
         }
 
+        // Store old competency IDs for comparison (only if updating)
+        $oldCompetencyIds = $request->id ? ($group->competency_ids ?? []) : [];
+
         $group->organization_id = $orgId;
         $group->name = $request->name;
         $group->competency_ids = $validCompetencyIds;
         $group->save();
+
+        // SYNC COMPETENCIES: If this is an update and competencies changed, re-sync all users
+        if ($request->id && $oldCompetencyIds !== $validCompetencyIds) {
+            // Competencies changed - need to re-sync all assigned users
+            $group->syncAllUsersCompetencies();
+        }
     });
 
     return response()->json(['ok' => true]);
@@ -558,7 +567,6 @@ public function getCompetencyGroup(Request $request)
  */
 public function removeCompetencyGroup(Request $request)
 {
-    // FIXED: Changed from 'competency_group' to 'competency_groups' (correct table name)
     $this->validate($request, [
         'id' => 'required|exists:competency_groups,id'
     ]);
@@ -574,6 +582,10 @@ public function removeCompetencyGroup(Request $request)
             AjaxService::error(__('admin/competencies.group-not-found'));
         }
 
+        // CLEANUP: Remove competencies from all users before deleting the group
+        $group->removeAllUsersCompetencies();
+        
+        // Delete the group (foreign key CASCADE will handle user_competency_sources cleanup)
         $group->delete();
 
         AjaxService::success(__('admin/competencies.group-removed-success'));
@@ -635,75 +647,93 @@ public function getAllCompetencyGroups(Request $request)
      * Save user assignments for a competency group
      */
      public function saveCompetencyGroupUsers(Request $request)
-    {
-        $this->validate($request, [
-            'group_id' => 'required|exists:competency_groups,id',
-            'user_ids' => 'array',
-            'user_ids.*' => 'exists:user,id'
-        ]);
+{
+    $this->validate($request, [
+        'group_id' => 'required|exists:competency_groups,id',
+        'user_ids' => 'array',
+        'user_ids.*' => 'exists:user,id'
+    ]);
 
-        $orgId = session('org_id');
-        
-        $group = CompetencyGroup::where('id', $request->group_id)
-            ->where('organization_id', $orgId)
-            ->first();
+    $orgId = session('org_id');
+    
+    $group = CompetencyGroup::where('id', $request->group_id)
+        ->where('organization_id', $orgId)
+        ->first();
 
-        if (!$group) {
-            AjaxService::error(__('admin/competencies.group-not-found'));
-        }
-
-        $userIds = $request->user_ids ?? [];
-        
-        if (!empty($userIds)) {
-            // Verify all users belong to this organization
-            $validUserIds = DB::table('organization_user')
-                ->where('organization_id', $orgId)
-                ->whereIn('user_id', $userIds)
-                ->pluck('user_id')
-                ->toArray();
-
-            if (count($validUserIds) !== count($userIds)) {
-                AjaxService::error(__('admin/competencies.invalid-users'));
-            }
-
-            // NEW: Check if any users are already assigned to other groups
-            $otherGroupsWithUsers = CompetencyGroup::where('organization_id', $orgId)
-                ->where('id', '!=', $request->group_id)
-                ->get()
-                ->filter(function($otherGroup) use ($userIds) {
-                    $otherGroupUsers = $otherGroup->assigned_users ?? [];
-                    return !empty(array_intersect($userIds, $otherGroupUsers));
-                });
-
-            if ($otherGroupsWithUsers->count() > 0) {
-                // Find which users are already assigned
-                $conflictingUsers = [];
-                foreach ($otherGroupsWithUsers as $otherGroup) {
-                    $conflicts = array_intersect($userIds, $otherGroup->assigned_users ?? []);
-                    if (!empty($conflicts)) {
-                        $userNames = DB::table('user')->whereIn('id', $conflicts)->pluck('name')->toArray();
-                        $conflictingUsers = array_merge($conflictingUsers, $userNames);
-                    }
-                }
-                
-                $conflictingUsersText = implode(', ', array_unique($conflictingUsers));
-                AjaxService::error(__('admin/competencies.users-already-assigned', ['users' => $conflictingUsersText]));
-            }
-            
-            $userIds = $validUserIds;
-        }
-
-        AjaxService::DBTransaction(function() use ($group, $userIds) {
-            // Update the group's assigned users
-            $group->setUsers($userIds);
-        });
-
-        return response()->json([
-            'ok' => true,
-            'message' => __('admin/competencies.user-assignments-saved')
-        ]);
+    if (!$group) {
+        AjaxService::error(__('admin/competencies.group-not-found'));
     }
 
+    $newUserIds = $request->user_ids ?? [];
+    
+    if (!empty($newUserIds)) {
+        // Verify all users belong to this organization
+        $validUserIds = DB::table('organization_user')
+            ->where('organization_id', $orgId)
+            ->whereIn('user_id', $newUserIds)
+            ->pluck('user_id')
+            ->toArray();
+
+        if (count($validUserIds) !== count($newUserIds)) {
+            AjaxService::error(__('admin/competencies.invalid-users'));
+        }
+
+        // Check if any users are already assigned to other groups
+        $otherGroupsWithUsers = CompetencyGroup::where('organization_id', $orgId)
+            ->where('id', '!=', $request->group_id)
+            ->get()
+            ->filter(function($otherGroup) use ($newUserIds) {
+                $otherGroupUsers = $otherGroup->assigned_users ?? [];
+                return !empty(array_intersect($newUserIds, $otherGroupUsers));
+            });
+
+        if ($otherGroupsWithUsers->count() > 0) {
+            // Find which users are already assigned
+            $conflictingUsers = [];
+            foreach ($otherGroupsWithUsers as $otherGroup) {
+                $conflicts = array_intersect($newUserIds, $otherGroup->assigned_users ?? []);
+                if (!empty($conflicts)) {
+                    $userNames = DB::table('user')->whereIn('id', $conflicts)->pluck('name')->toArray();
+                    $conflictingUsers = array_merge($conflictingUsers, $userNames);
+                }
+            }
+            
+            $conflictingUsersText = implode(', ', array_unique($conflictingUsers));
+            AjaxService::error(__('admin/competencies.users-already-assigned', ['users' => $conflictingUsersText]));
+        }
+        
+        $newUserIds = $validUserIds;
+    }
+
+    AjaxService::DBTransaction(function() use ($group, $newUserIds) {
+        // Get the current users before updating
+        $oldUserIds = $group->assigned_users ?? [];
+        
+        // Find users that were REMOVED
+        $removedUserIds = array_diff($oldUserIds, $newUserIds);
+        
+        // Find users that were ADDED
+        $addedUserIds = array_diff($newUserIds, $oldUserIds);
+        
+        // Update the group's assigned users
+        $group->setUsers($newUserIds);
+        
+        // SYNC COMPETENCIES: Remove competencies for users that were removed
+        foreach ($removedUserIds as $userId) {
+            $group->removeUserCompetencies($userId);
+        }
+        
+        // SYNC COMPETENCIES: Add competencies for users that were added
+        foreach ($addedUserIds as $userId) {
+            $group->syncUserCompetencies($userId);
+        }
+    });
+
+    return response()->json([
+        'ok' => true,
+        'message' => __('admin/competencies.user-assignments-saved')
+    ]);
+}
     public function getEligibleUsersForGroup(Request $request)
     {
         $this->validate($request, [
