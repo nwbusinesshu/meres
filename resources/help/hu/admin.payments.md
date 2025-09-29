@@ -10,7 +10,7 @@ actions:
 
 # Mi ez az oldal?
 
-A **Fizetések** oldal az értékelési mérések utáni számlázás és fizetések kezelésére szolgál. Minden lezárt értékelési mérés után automatikusan létrejön egy fizetési tétel, amit ezen az oldalon tudsz rendezni.
+A **Fizetések** oldal az értékelési mérések utáni számlázás és fizetések kezelésére szolgál. Minden elindított mérési időszak után automatikusan létrejön egy fizetési tétel, amit ezen az oldalon tudsz rendezni, kizárólag bankkártyás fizetéssel.
 
 Az oldal két fő részre oszlik:
 - **Nyitott tartozások**: Még ki nem fizetett vagy sikertelen fizetések
@@ -23,7 +23,7 @@ Az oldal két fő részre oszlik:
 ### 🔴 Nyitott tartozások kezelése
 - **Fizetés indítása**: Átirányítás a Barion fizetési felületre
 - **Státusz ellenőrzése**: Folyamatban lévő vagy sikertelen fizetések áttekintése
-- **Fizetési határidő követése**: Látod, meddig kell rendezned a tételt
+- **Fizetési határidő követése**: Látod, meddig kell rendezned a tételt, ez a határidő mindig az aktuálisan futó mérési időszak véghatárideje. Ha azt megváltoztatod, a fizetési határidő is módosul.
 
 ### ✅ Rendezett tételek kezelése
 - **Számla letöltése**: PDF formátumban töltheted le a kiállított számlát
@@ -41,16 +41,16 @@ Az oldal két fő részre oszlik:
 ### 2. Fizetés indítása
 - Kattints a **"Fizetés indítása"** gombra a tétel mellett
 - A rendszer átirányít a Barion biztonságos fizetési oldalára
-- ⚠️ **Fontos**: Ne indíts új fizetést, ha már folyamatban van egy!
+- ⚠️ **Fontos**: Ne indíts új fizetést, ha már folyamatban van egy! Sikertelen fizetés esetén a rendszer automatikusan "Sikertelen" státuszra állítja a fizetést és megpróbálhatod újra.
 
 ### 3. Fizetés teljesítése a Barion felületen
-- Válaszd ki a fizetési módot (bankkártya, átutalás, stb.)
-- Kövesd a Barion utasításait
-- A sikeres fizetés után automatikusan visszairányít az alkalmazásba
+- Válaszd ki a számodra megfelelő fizetési módot, amit a Barion felkínál.
+- Kövesd a Barion, esetleg a bankod utasításait.
+- A sikeres fizetés után automatikusan visszairányít az alkalmazásba, ahol már látod is, hogy sikeres volt a fizetés.
 
 ### 4. Számla ellenőrzése
 - Sikeres fizetés után a tétel átkerül a **"Korábban rendezettek"** közé
-- A számla PDF automatikusan kiállításra kerül (néhány másodperc)
+- A számla PDF automatikusan kiállításra kerül (általában néhány másodperc)
 - Töltsd le a számlát a **"Számla letöltése"** gombbal
 
 ---
@@ -73,7 +73,7 @@ Az oldal két fő részre oszlik:
 |------|----------|
 | **Kiállítás dátuma** | Mikor állították ki a számlát |
 | **Fizetés dátuma** | Mikor történt meg a sikeres fizetés |
-| **Számlaszám** | A Billingo számla egyedi azonosítója |
+| **Számlaszám** | A számla egyedi azonosítója |
 | **Összeg** | Kifizetett összeg |
 | **Művelet** | "Számla letöltése" gomb (PDF) |
 
@@ -91,14 +91,14 @@ Az oldal két fő részre oszlik:
 4. Ha továbbra is probléma van, kattints újra a "Fizetés indítása" gombra
 
 ### ❌ "A számla PDF még feldolgozás alatt áll"
-**Ok**: A Billingo még generálja a számlát (általában 10-30 másodperc).
+**Ok**: A rendszerünk még generálja a számlát (általában 10-30 másodperc).
 
 **Megoldás**:
 - Várj 30 másodpercet, majd próbáld újra letölteni
 - Frissítsd az oldalt (F5)
 
 ### ❌ Sikertelen fizetés
-**Ok**: A Barion fizetés megszakadt vagy elutasításra került.
+**Ok**: A Barion fizetés megszakadt vagy elutasításra került. Bankkártyád nem lett megterhelve.
 
 **Megoldás**:
 1. Kattints újra a "Fizetés indítása" gombra
@@ -110,33 +110,25 @@ Az oldal két fő részre oszlik:
 
 **Megoldás**:
 - Várj 1-2 percet, majd próbáld újra
-- Ha továbbra is hiba van, jelezd a rendszergazdának
-
+- Ha továbbra is hiba van, jelezd ügyfélszolgálatunkon.
 ---
 
 ## GYIK (Gyakran Ismételt Kérdések)
 
 ### 📌 Hogyan számolódik ki a fizetendő összeg?
-Az összeg az értékelt dolgozók száma alapján: **950 Ft / fő**. 
-Például: Ha 10 dolgozót értékeltek, akkor 10 × 950 Ft = **9.500 Ft**.
+Az összeg az értékelt dolgozók száma alapján kerül kiszámításra. Aktuális tarifákról tájékozódj a weboldalunkon.
 
 ### 📌 Milyen fizetési módokat tudok használni?
 A Barion az alábbi módokat támogatja:
 - Bankkártya (Visa, Mastercard)
 - Azonnali banki átutalás
-- Egyéb online fizetési módok (Barion egyenleg, stb.)
+- Egyéb online fizetési módok (Barion egyenleg, Google Pay, Apple Pay stb.)
 
 ### 📌 Mikor kapom meg a számlát?
 A sikeres fizetés után **automatikusan**, kb. 10-30 másodpercen belül. Ha nem jelenik meg azonnal, frissítsd az oldalt vagy várj egy percet.
 
-### 📌 Tudok-e átutalással fizetni?
-Igen! A Barion felületén válaszd az "Azonnali banki átutalás" opciót, és a rendszer átirányít a banki felületre.
-
 ### 📌 Mi van, ha rossz összeget látok?
-Az összeg automatikusan számolódik a dolgozók száma alapján. Ha úgy gondolod, hogy hibás:
-1. Ellenőrizd, hány dolgozód van az **Alkalmazottak** oldalon
-2. Szorozzd meg 950-el
-3. Ha továbbra is eltérést látsz, jelezd a rendszergazdának
+Az összeg automatikusan számolódik a dolgozók száma alapján. Ha esetleg úgy gondolod, hogy az összeg továbbra sem megfelelő, keress minket.
 
 ### 📌 Lehet módosítani egy már kifizetett tételt?
 Nem. A kifizetett tételek zároltak. Ha hibát találsz a számlán, vedd fel a kapcsolatot az ügyfélszolgálattal.
@@ -148,10 +140,7 @@ Nem. A kifizetett tételek zároltak. Ha hibát találsz a számlán, vedd fel a
 Minden korábbi számla elérhető a **"Korábban rendezettek"** táblázatban. Kattints a "Számla letöltése" gombra bármelyik tételnél.
 
 ### 📌 Mi történik, ha nem fizetek?
-A határidő lejárta után:
-- Nem tudsz új értékelési mérést indítani
-- Emlékeztető emaileket fogsz kapni
-- A tartozás továbbra is megmarad a rendszerben
+Nyitott tartozással rendelkező cég nem tudja lezárni a megnyitott értékelési időszakot. Amíg az értékelési időszakot nem zárod le (ehhez rendezned kell a számlát), addig minden korábbi eredmény megtekintése, illetve a beállítások módosítása is zárolva van.
 
 ---
 
@@ -164,8 +153,6 @@ A határidő lejárta után:
 ---
 
 ## Gyors segítség
-
-💡 **Tipp**: Ha azonnal ki szeretnéd fizetni a tartozást, kattints a "Fizetés indítása" gombra, majd válaszd a bankkártyás fizetést - ez a leggyorsabb módszer!
 
 ⚠️ **Fontos**: Mindig ellenőrizd, hogy a helyes céges adatok szerepelnek-e a számlán. Ha hibát találsz, jelezd azonnal!
 

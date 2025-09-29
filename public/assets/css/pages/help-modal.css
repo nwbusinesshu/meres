@@ -896,3 +896,334 @@ body.help-no-transition .page-container,
     font-size: 0.8rem;
   }
 }
+
+/* Error state styling */
+.help-content-error {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #dc3545;
+}
+
+.help-content-error i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: #f8d7da;
+}
+
+.help-content-error p {
+  margin: 0.5rem 0;
+}
+
+.help-content-error p:first-of-type {
+  font-weight: 600;
+  color: #721c24;
+}
+
+/* =======================================================================
+   ENHANCED HELP CONTENT STYLING - Add this to public/assets/css/pages/help-modal.css
+   ======================================================================= */
+
+/* Base help content container */
+.help-static-content {
+  flex: 1;
+  line-height: 1.6;
+  color: #2c3e50;
+}
+
+/* Headings */
+.help-static-content h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #1a202c;
+  border-bottom: 3px solid #007bff;
+  padding-bottom: 0.5rem;
+}
+
+.help-static-content h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  color: #2d3748;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 0.375rem;
+}
+
+.help-static-content h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.75rem;
+  color: #4a5568;
+}
+
+.help-static-content h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #4a5568;
+}
+
+/* Paragraphs */
+.help-static-content p {
+  margin-bottom: 0.5rem;
+  line-height: 1.7;
+  color: #4a5568;
+}
+
+/* Lists */
+.help-static-content ul,
+.help-static-content ol {
+  margin-bottom: 1rem;
+  padding-left: 1.2rem;
+}
+
+.help-static-content li {
+  margin-bottom: 0.4rem;
+  line-height: 1.5;
+  color: #4a5568;
+}
+
+.help-static-content li strong {
+  color: #2d3748;
+}
+
+/* Nested lists */
+.help-static-content ul ul,
+.help-static-content ol ol,
+.help-static-content ul ol,
+.help-static-content ol ul {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Tables - Professional styling */
+.help-static-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.help-static-content thead {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.help-static-content thead th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #ffffff;
+  border: none;
+}
+
+.help-static-content tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+  transition: background-color 0.2s;
+}
+
+.help-static-content tbody tr:last-child {
+  border-bottom: none;
+}
+
+.help-static-content tbody tr:hover {
+  background-color: #f7fafc;
+}
+
+.help-static-content tbody td {
+  padding: 0.875rem 1rem;
+  color: #4a5568;
+  vertical-align: top;
+}
+
+.help-static-content tbody td:first-child {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+/* Strong/Bold text */
+.help-static-content strong {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+/* Emphasis/Italic text */
+.help-static-content em {
+  font-style: italic;
+  color: #718096;
+}
+
+/* Code - inline */
+.help-static-content code {
+  background-color: #f7fafc;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.875em;
+  color: #d73a49;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  border: 1px solid #e2e8f0;
+}
+
+/* Code - block */
+.help-static-content pre {
+  background-color: #2d3748;
+  color: #e2e8f0;
+  padding: 1.25rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.help-static-content pre code {
+  background: none;
+  padding: 0;
+  border: none;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* Horizontal rule */
+.help-static-content hr {
+  border: none;
+  border-top: 2px solid #e2e8f0;
+  margin: 2rem 0;
+}
+
+/* Blockquotes */
+.help-static-content blockquote {
+  border-left: 4px solid #007bff;
+  margin: 1.5rem 0;
+  padding: 1rem 1.5rem;
+  background-color: #f7fafc;
+  border-radius: 0 8px 8px 0;
+  color: #4a5568;
+}
+
+.help-static-content blockquote p {
+  margin-bottom: 0.5rem;
+}
+
+.help-static-content blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* Links */
+.help-static-content a {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.help-static-content a:hover {
+  color: #0056b3;
+  text-decoration: underline;
+}
+
+/* Special formatting for emoji sections */
+.help-static-content h3:has(+ ul) {
+  margin-bottom: 0.5rem;
+}
+
+/* Warning/Important boxes (based on emoji usage) */
+.help-static-content p:has(strong:first-child) {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin: 1rem 0;
+}
+
+/* Red warning (❌) */
+.help-static-content h3:contains("❌") {
+  color: #c53030;
+}
+
+/* Success/Check (✅) */
+.help-static-content h3:contains("✅") {
+  color: #38a169;
+}
+
+/* Info (📌) */
+.help-static-content h3:contains("📌") {
+  color: #3182ce;
+}
+
+/* Better spacing for definition lists */
+.help-static-content dl {
+  margin: 1.5rem 0;
+}
+
+.help-static-content dt {
+  font-weight: 600;
+  color: #2d3748;
+  margin-top: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.help-static-content dd {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+  color: #4a5568;
+}
+
+/* Image styling (if any) */
+.help-static-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1.5rem 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .help-static-content h1 {
+    font-size: 1.5rem;
+  }
+
+  .help-static-content h2 {
+    font-size: 1.25rem;
+  }
+
+  .help-static-content h3 {
+    font-size: 1.1rem;
+  }
+
+  .help-static-content table {
+    font-size: 0.875rem;
+  }
+
+  .help-static-content thead th,
+  .help-static-content tbody td {
+    padding: 0.75rem;
+  }
+
+  /* Make tables scrollable on mobile */
+  .help-static-content table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
+/* Smooth scrolling within help content */
+.help-static-content {
+  scroll-behavior: smooth;
+}
+
+/* Add some breathing room at the bottom */
+.help-static-content > *:last-child {
+  margin-bottom: 2rem;
+}

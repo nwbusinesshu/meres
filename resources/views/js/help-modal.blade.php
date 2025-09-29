@@ -232,30 +232,78 @@ $(document).ready(function() {
     }
   }
 
-  function loadAboutPageContent() {
-    const $content = $('.help-static-content');
-    
-    // Show loading state with custom loader
-    $content.html(`
-      <div class="help-loading">
-        <img src="{{ asset('assets/loader/loader.svg') }}" alt="Loading..." class="help-loader-svg">
-        <p>{{ __('help.loading-content') }}</p>
-      </div>
-    `);
-    
-    // TODO: Future API call to load help content
-    // For now, show "content not found" after a delay
-    setTimeout(function() {
-      $content.html(`
-        <div class="help-content-not-found">
-          <i class="fa fa-book-open"></i>
-          <p><strong>{{ __('help.content-not-found') }}</strong></p>
-          <p>{{ __('help.content-coming-soon') }}</p>
-        </div>
-      `);
-    }, 500);
-  }
+function loadAboutPageContent() {
+  const $content = $('.help-static-content');
+  
+  // Show loading state with custom loader
+  $content.html(`
+    <div class="help-loading">
+      <img src="{{ asset('assets/loader/loader.svg') }}" alt="Loading..." class="help-loader-svg">
+      <p>{{ __('help.loading-content') }}</p>
+    </div>
+  `);
+  
+  // Make API call to fetch help content
+  $.ajax({
+    url: '/help/content',
+    method: 'GET',
+    data: {
+      view_key: currentViewKey,
+      locale: currentLocale
+    },
+    skipGlobalErrorHandler: true, // <-- NEW: Custom flag to prevent global error popup
+    success: function(response) {
+      if (response.success && response.content) {
+        // Display the HTML content
+        $content.html(response.content);
+        
+        if (isDebugMode) {
+          console.log('[Help Modal] Content loaded successfully', {
+            viewKey: currentViewKey,
+            locale: currentLocale,
+            metadata: response.metadata
+          });
+        }
+      } else {
+        showContentNotFound();
+      }
+    },
+    error: function(xhr) {
+      // Handle 404 (not found) gracefully
+      if (xhr.status === 404) {
+        showContentNotFound();
+      } else {
+        // Show error for other failures
+        $content.html(`
+          <div class="help-content-error">
+            <i class="fa fa-exclamation-triangle"></i>
+            <p><strong>{{ __('help.error-loading-content') }}</strong></p>
+            <p>{{ __('help.try-again-later') }}</p>
+          </div>
+        `);
+      }
+      
+      if (isDebugMode) {
+        console.error('[Help Modal] Failed to load content:', {
+          status: xhr.status,
+          viewKey: currentViewKey,
+          locale: currentLocale
+        });
+      }
+    }
+  });
+}
 
+function showContentNotFound() {
+  const $content = $('.help-static-content');
+  $content.html(`
+    <div class="help-content-not-found">
+      <i class="fa fa-book-open"></i>
+      <p><strong>{{ __('help.content-not-found') }}</strong></p>
+      <p>{{ __('help.content-coming-soon') }}</p>
+    </div>
+  `);
+}
   function loadAiSupportContent() {
     // Enable the chat interface
     enableChatInterface();

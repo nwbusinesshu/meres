@@ -48,6 +48,7 @@ Route::controller(HelpChatController::class)
     ->middleware(['auth:'.UserType::NORMAL])
     ->name('help.')
     ->group(function(){
+        Route::get('/content', 'getHelpContent')->name('content');
         Route::post('/chat/send', 'sendMessage')->name('chat.send')->middleware('throttle:30,1');
         Route::get('/chat/sessions', 'listSessions')->name('chat.sessions');
         Route::get('/chat/session/{sessionId}', 'loadSession')->name('chat.session');
