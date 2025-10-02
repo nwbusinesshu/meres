@@ -30,8 +30,12 @@
       <span class="slider"></span>
     </label>
   </div>
+</div>
 
-  {{-- ÚJ: Többszintű részlegkezelés kapcsoló --}}
+{{-- ===== PROGRAMBEÁLLÍTÁSOK ===== --}}
+<h3 class="settings-subtitle">{{ $_('settings.section_program') }}</h3>
+<div class="settings-grid">
+  {{-- Multi-level részlegkezelés --}}
   <div class="tile tile-info">
     <div class="text">
       <div class="title"><h3>Multi-level részlegkezelés</h3></div>
@@ -54,7 +58,7 @@
     </label>
   </div>
 
-  {{-- NEW: Bonus/Malus megjelenítés kapcsoló --}}
+  {{-- Bonus/Malus megjelenítés --}}
   <div class="tile tile-info">
     <div class="text">
       <div class="title"><h3>Jutalmazási bónuszrendszer</h3></div>
@@ -66,6 +70,26 @@
     </div>
     <label class="switch">
       <input type="checkbox" id="toggle-bonus-malus" {{ $showBonusMalus ? 'checked' : '' }}>
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  {{-- Easy Relation Setup --}}
+  <div class="tile tile-info">
+    <div class="text">
+      <div class="title"><h3>Kapcsolatok egyszerűsített beállítása</h3></div>
+      <div class="meta">
+        Ha be van kapcsolva, a kapcsolatok kétirányúan állítódnak be automatikusan.
+        <br>
+        <strong>Alárendelt → Kolléga:</strong> Ha X beosztottként értékeli Y-t, akkor Y automatikusan kollégaként értékeli X-et.
+        <br>
+        <strong>Kolléga → Kolléga:</strong> Ha X kollégaként értékeli Y-t, akkor Y is kollégaként értékeli X-et.
+        <br>
+        Ütközés esetén a rendszer figyelmeztetést ad, és lehetőséget biztosít a javításra.
+      </div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="toggle-easy-relation" {{ $easyRelationSetup ? 'checked' : '' }}>
       <span class="slider"></span>
     </label>
   </div>

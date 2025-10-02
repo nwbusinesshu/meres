@@ -6,6 +6,7 @@ return [
         'menu' => 'Beállítások',
         'title' => 'Beállítások',
         'section_ai_privacy' => 'AI & adatvédelem',
+        'section_program'    => 'Programbeállítások',
 
         // Szigorú anon
         'strict' => [

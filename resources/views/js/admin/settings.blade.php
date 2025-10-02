@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', function() {
     warn_multi_on:  'Biztosan bekapcsolod a Többszintű részlegkezelést? A döntés végleges, később nem kapcsolható ki. Mielőtt bekapcsolod, tájékozódj a következményeiről a dokumentációban!',
     warn_bonus_malus_off: 'Biztosan elrejted a Bonus/Malus kategóriákat? A besorolások továbbra is számolódnak, de nem lesznek láthatók a felhasználói felületen.',
     warn_bonus_malus_on: 'Biztosan megjeleníted a Bonus/Malus kategóriákat a felhasználói felületen?',
+    warn_easy_relation_off: 'Biztosan kikapcsolod az egyszerűsített kapcsolatbeállítást? Ezután a kapcsolatokat manuálisan kell beállítani mindkét irányban.',
+warn_easy_relation_on: 'Biztosan bekapcsolod az egyszerűsített kapcsolatbeállítást? A kapcsolatok automatikusan kétirányúan állítódnak be.',
     saved:          @json(__('admin/settings.settings.saved')),
     saved:          @json(__('admin/settings.settings.saved')),
     error:          @json(__('admin/settings.settings.error')),
@@ -19,6 +21,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const aiEl     = document.getElementById('toggle-ai');
   const multiEl  = document.getElementById('toggle-multi');
   const bonusMalusEl = document.getElementById('toggle-bonus-malus');  // ADD THIS LINE
+  const easyRelationEl = document.getElementById('toggle-easy-relation');
+
 
   // --- Reload utáni toast ---
   (function showSavedToastOnLoad(){
@@ -140,6 +144,22 @@ document.addEventListener('DOMContentLoaded', function() {
       Swal.fire({ icon: 'error', title: T.error, text: String(err) });
     }
   });
+
+  // NEW: Easy Relation Setup toggle handler
+easyRelationEl?.addEventListener('change', async (e) => {
+  const nextVal = e.target.checked;
+  const warnMsg = nextVal ? T.warn_easy_relation_on : T.warn_easy_relation_off;
+  const ok = await warnConfirm(warnMsg);
+  if (!ok) { e.target.checked = !nextVal; return; }
+
+  try {
+    await postToggle('easy_relation_setup', nextVal ? '1' : '0');
+    reloadWithToast(nextVal ? 'Egyszerűsített kapcsolatbeállítás bekapcsolva.' : 'Egyszerűsített kapcsolatbeállítás kikapcsolva.');
+  } catch (err) {
+    e.target.checked = !nextVal;
+    Swal.fire({ icon: 'error', title: T.error, text: String(err) });
+  }
+});
 
 });
 

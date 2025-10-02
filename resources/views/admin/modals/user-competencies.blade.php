@@ -48,19 +48,9 @@
   font-weight: 600;
   margin-bottom: 0.5rem;
   padding: 0.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-
-#user-competencies-modal .competency-groups-section .section-header {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-}
-
-#user-competencies-modal .competency-manual-section .section-header {
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
 }
 
 #user-competencies-modal .competency-list {
@@ -139,11 +129,6 @@
   transition: all 0.2s ease;
 }
 
-#user-competencies-modal .competency-item:hover {
-  transform: translateX(2px);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
 #user-competencies-modal .competency-item i {
   display: flex;
   font-size: 1.2em;
@@ -182,7 +167,6 @@
 #user-competencies-modal .competency-item div .source-badge {
   display: inline-block;
   padding: 0.125rem 0.5rem;
-  border-radius: 9999px;
   font-size: 0.7em;
   font-weight: 600;
   text-transform: uppercase;

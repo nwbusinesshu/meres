@@ -81,7 +81,7 @@ public function index(Request $request)
             ->whereNull('u.removed_at')
             ->where('u.type', 'ceo')
             ->orderBy('u.name')
-            ->get(['u.id', 'u.name', 'u.email', 'u.type', DB::raw("'—' as login_mode_text"), DB::raw("null as bonusMalus"), DB::raw("0 as rater_count"), 'ou.position']);
+            ->get(['u.id', 'u.name', 'u.email', 'u.type', 'ou.position']);
 
         // FIXED: Exclude admins AND already assigned managers from unassigned list
         $unassigned = DB::table('user as u')
@@ -90,15 +90,18 @@ public function index(Request $request)
             ->whereNull('u.removed_at')
             ->whereNull('ou.department_id')
             ->where('u.type', '!=', 'ceo')
-            ->where('u.type', '!=', 'admin')  // FIXED: Exclude admins
-            // FIXED: Exclude managers who are already assigned to departments
+            ->where('u.type', '!=', 'admin')
             ->whereNotExists(function($query) use ($orgId) {
                 $query->from('organization_department_managers as odm')
                       ->whereColumn('odm.manager_id', 'u.id')
                       ->where('odm.organization_id', $orgId);
             })
             ->orderBy('u.name')
-            ->get(['u.id', 'u.name', 'u.email', 'u.type', DB::raw("'—' as login_mode_text"), DB::raw("null as bonusMalus"), DB::raw("0 as rater_count"), 'ou.position']);
+            ->get(['u.id', 'u.name', 'u.email', 'u.type', 'ou.position']);
+
+        // FIXED: Add rater counts to CEOs and unassigned
+        $ceos = $this->addRaterCounts($ceos, $orgId);
+        $unassigned = $this->addRaterCounts($unassigned, $orgId);
 
         // ===== Részlegek listája =====
         $departments = collect();
@@ -121,11 +124,10 @@ public function index(Request $request)
                 ->where('odm.organization_id', $orgId)
                 ->where('odm.department_id', $dept->id)
                 ->whereNull('u.removed_at')
-                // FIXED: Use created_at instead of assigned_at
                 ->select('u.id', 'u.name', 'u.email', 'u.type', 'ou.position', 'odm.created_at as assigned_at')
                 ->get();
 
-            // Members
+            // Members - FIXED: Remove hardcoded rater_count
             $members = DB::table('user as u')
                 ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
                 ->where('ou.organization_id', $orgId)
@@ -133,7 +135,11 @@ public function index(Request $request)
                 ->where('ou.role', '!=', 'manager')
                 ->whereNull('u.removed_at')
                 ->orderBy('u.name')
-                ->get(['u.id', 'u.name', 'u.email', 'u.type', DB::raw("'—' as login_mode_text"), DB::raw("null as bonusMalus"), DB::raw("0 as rater_count"), 'ou.position']);
+                ->get(['u.id', 'u.name', 'u.email', 'u.type', 'ou.position']);
+
+            // FIXED: Add rater counts to managers and members
+            $managers = $this->addRaterCounts($managers, $orgId);
+            $members = $this->addRaterCounts($members, $orgId);
 
             $deptData = (object) [
                 'id' => $dept->id,
@@ -176,7 +182,7 @@ public function index(Request $request)
             
             // settings
             'showBonusMalus'   => $showBonusMalus,
-            'selectedLanguages' => $selectedLanguages, // ✅ CRITICAL FIX: Always pass this
+            'selectedLanguages' => $selectedLanguages,
         ]);
     }
 
@@ -185,7 +191,7 @@ public function index(Request $request)
         'users'             => $users,
         'enableMultiLevel'  => false,
         'showBonusMalus'    => $showBonusMalus,
-        'selectedLanguages' => $selectedLanguages, // ✅ CRITICAL FIX: Always pass this
+        'selectedLanguages' => $selectedLanguages,
     ]);
 }
 // Hozzácsatolja a bonusMalus szintet tetszőleges user-collection-höz (id, name, email, ...)
@@ -213,7 +219,10 @@ private function attachBonusMalus($users)
     /**
      * Get rater counts for given user IDs in bulk
      */
-    private function addRaterCounts($users, $orgId)
+   /**
+ * Get rater counts for given user IDs in bulk
+ */
+private function addRaterCounts($users, $orgId)
 {
     $userIds = $users->pluck('id')->toArray();
     if (empty($userIds)) {
@@ -221,13 +230,21 @@ private function attachBonusMalus($users)
     }
 
     // Értékelők (rater) darabszáma célonként
+    // FIXED: Exclude self-relations from the count
     $raterCounts = DB::table('user_relation as ur')
         ->join('user as rater', 'rater.id', '=', 'ur.user_id')
         ->whereIn('ur.target_id', $userIds)
         ->where('ur.organization_id', $orgId)
         ->whereNull('rater.removed_at')
+        ->where('ur.type', '!=', 'self')  // FIXED: Exclude self-relations
+        ->whereColumn('ur.user_id', '!=', 'ur.target_id')  // FIXED: Extra safety - exclude where user_id = target_id
         ->groupBy('ur.target_id')
-        ->pluck(DB::raw('COUNT(*)'), 'ur.target_id');
+        ->select('ur.target_id', DB::raw('COUNT(*) as rater_count'))
+        ->get()
+        ->pluck('rater_count', 'target_id');
+
+    // DEBUGGING: Log the rater counts
+    \Log::info('Rater counts fetched', ['counts' => $raterCounts->toArray()]);
 
     // NINCS login_mode: vizsgáljuk, van-e jelszó a user táblában
     // has_password: 1, ha password nem NULL és nem üres; különben 0
@@ -242,7 +259,11 @@ private function attachBonusMalus($users)
         $user = (object) $user; // biztosítsuk, hogy objektum legyen
 
         // Rater count
-        $user->rater_count = $raterCounts[$user->id] ?? 0;
+        $count = $raterCounts[$user->id] ?? 0;
+        $user->rater_count = $count;
+
+        // DEBUGGING: Log each user's count
+        \Log::info('User rater count', ['user_id' => $user->id, 'name' => $user->name ?? 'unknown', 'count' => $count]);
 
         // Login mód szöveg a jelszó megléte alapján
         $user->login_mode_text = (!empty($hasPassword[$user->id]) && (int)$hasPassword[$user->id] === 1)
@@ -263,12 +284,21 @@ private function getRaterCounts($userIds, $orgId)
         return collect();
     }
 
-    return DB::table('user_relation')
+    // FIXED: Exclude self-relations from the count
+    $counts = DB::table('user_relation')
         ->whereIn('target_id', $userIds->toArray())
         ->where('organization_id', $orgId)
+        ->where('type', '!=', 'self')  // FIXED: Exclude self-relations
+        ->whereColumn('user_id', '!=', 'target_id')  // FIXED: Extra safety - exclude where user_id = target_id
         ->groupBy('target_id')
-        ->get(['target_id', DB::raw('COUNT(*) as rater_count')])
+        ->select('target_id', DB::raw('COUNT(*) as rater_count'))
+        ->get()
         ->pluck('rater_count', 'target_id');
+
+    // DEBUGGING: Log the counts
+    \Log::info('getRaterCounts result', ['counts' => $counts->toArray()]);
+
+    return $counts;
 }
 
 
@@ -683,77 +713,198 @@ public function PasswordReset(Request $request)
     }
 
     public function saveEmployeeRelations(Request $request)
-    {
-        Log::info('Kapott adat', $request->all());
+{
+    Log::info('Kapott adat', $request->all());
 
-        $request->validate([
-            'id' => 'required|integer|exists:user,id',
-            'relations' => 'required|array|min:1',
-            'relations.*.target_id' => 'required|integer|exists:user,id',
-            'relations.*.type' => 'required|string|in:self,colleague,subordinate,superior',
-        ]);
-
-        $user = User::findOrFail($request->id);
-        $relations = collect($request->input('relations'));
-
-        // 💡 Feltételezzük, hogy a user legalább 1 szervezet tagja
-        $organizationId = session('org_id'); // pontosan az aktív szervezet
-
-        try {
-            AjaxService::DBTransaction(function () use ($relations, $user, $organizationId) {
-
-    // 1) CSAK a nem-SELF típusok törlése az adott usernél, explicit query-vel
-    DB::table('user_relation')
-        ->where('user_id', $user->id)
-        ->where('organization_id', $organizationId)
-        ->whereIn('type', ['colleague','subordinate','superior'])
-        ->delete();
-
-    // 2) SELF kapcsolat garantálása (idempotens)
-    DB::table('user_relation')->insertOrIgnore([
-        'user_id'         => $user->id,
-        'target_id'       => $user->id,
-        'organization_id' => $organizationId,
-        'type'            => 'self',
+    $request->validate([
+        'id' => 'required|integer|exists:user,id',
+        'relations' => 'required|array|min:1',
+        'relations.*.target_id' => 'required|integer|exists:user,id',
+        'relations.*.type' => 'required|string|in:self,colleague,subordinate,superior',
+        'force_fix' => 'sometimes|boolean', // NEW: flag to force apply changes
     ]);
 
-    // 3) Payload tisztítása: SELF kihagyása, önmagára mutató nem-SELF tiltása, duplikátumok kiszűrése
-    $rows = $relations
-        ->map(function ($item) use ($user, $organizationId) {
-            return [
+    $user = User::findOrFail($request->id);
+    $relations = collect($request->input('relations'));
+    $organizationId = session('org_id');
+    $forceFix = $request->boolean('force_fix', false); // NEW
+
+    // NEW: Check if easy relation setup is enabled
+    $easyRelationSetup = \App\Services\OrgConfigService::getBool($organizationId, 'easy_relation_setup', false);
+
+    try {
+        // NEW: If easy relation setup is ON and not forcing, check for conflicts
+        if ($easyRelationSetup && !$forceFix) {
+            $conflicts = $this->detectRelationConflicts($user->id, $relations, $organizationId);
+            
+            if (!empty($conflicts)) {
+                return response()->json([
+                    'has_conflicts' => true,
+                    'conflicts' => $conflicts,
+                    'message' => 'Ütközések találhatók a kapcsolatokban.',
+                ], 200); // 200 OK, but with conflicts flag
+            }
+        }
+
+        // Continue with normal save process
+        AjaxService::DBTransaction(function () use ($relations, $user, $organizationId, $easyRelationSetup) {
+
+            // 1) Delete existing non-SELF relations for this user
+            DB::table('user_relation')
+                ->where('user_id', $user->id)
+                ->where('organization_id', $organizationId)
+                ->whereIn('type', ['colleague','subordinate','superior'])
+                ->delete();
+
+            // 2) Ensure SELF relation exists
+            DB::table('user_relation')->insertOrIgnore([
                 'user_id'         => $user->id,
-                'target_id'       => (int)($item['target_id'] ?? $item['target'] ?? 0),
+                'target_id'       => $user->id,
                 'organization_id' => $organizationId,
-                'type'            => $item['type'] ?? null,
-            ];
-        })
-        ->filter(function ($r) use ($user) {
-            return in_array($r['type'], ['colleague','subordinate','superior'], true)
-                && $r['target_id'] > 0
-                && $r['target_id'] !== $user->id;
-        })
-        ->unique(fn($r) => $r['user_id'].'-'.$r['target_id'].'-'.$r['organization_id'].'-'.$r['type'])
-        ->values()
-        ->all();
-
-    if (!empty($rows)) {
-        DB::table('user_relation')->insertOrIgnore($rows);
-    }
-});
-
-            return response()->json(['message' => 'Sikeres mentés.']);
-        } catch (\Throwable $e) {
-            Log::error('Hiba a relation mentés közben', [
-                'exception' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'type'            => 'self',
             ]);
 
-            return response()->json([
-                'message' => 'Sikertelen mentés: belső hiba!',
-                'error' => $e->getMessage(),
-            ], 500);
+            // 3) Clean payload: remove SELF, self-pointing non-SELF, duplicates
+            $rows = $relations
+                ->map(function ($item) use ($user, $organizationId) {
+                    return [
+                        'user_id'         => $user->id,
+                        'target_id'       => (int)($item['target_id'] ?? $item['target'] ?? 0),
+                        'organization_id' => $organizationId,
+                        'type'            => $item['type'] ?? null,
+                    ];
+                })
+                ->filter(function ($r) use ($user) {
+                    return in_array($r['type'], ['colleague','subordinate','superior'], true)
+                        && $r['target_id'] > 0
+                        && $r['target_id'] !== $user->id;
+                })
+                ->unique(fn($r) => $r['user_id'].'-'.$r['target_id'].'-'.$r['organization_id'].'-'.$r['type'])
+                ->values()
+                ->all();
+
+            if (!empty($rows)) {
+                DB::table('user_relation')->insertOrIgnore($rows);
+            }
+
+            // NEW: If easy relation setup is ON, create bidirectional relations
+            if ($easyRelationSetup) {
+                $this->applyBidirectionalRelations($user->id, $rows, $organizationId);
+            }
+        });
+
+        return response()->json(['message' => 'Sikeres mentés.']);
+    } catch (\Throwable $e) {
+        Log::error('Hiba a relation mentés közben', [
+            'exception' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+
+        return response()->json([
+            'message' => 'Sikertelen mentés: belső hiba!',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
+
+/**
+ * NEW: Detect conflicts in reverse relations
+ */
+private function detectRelationConflicts($userId, $relations, $organizationId)
+{
+    $conflicts = [];
+
+    foreach ($relations as $relation) {
+        $targetId = (int)($relation['target_id'] ?? 0);
+        $type = $relation['type'] ?? null;
+
+        // Skip self and invalid
+        if ($targetId === $userId || !in_array($type, ['colleague', 'subordinate', 'superior'])) {
+            continue;
+        }
+
+        // Determine what the reverse relation should be
+        $expectedReverseType = $this->getExpectedReverseType($type);
+
+        // Check if reverse relation already exists
+        $existingReverse = DB::table('user_relation')
+            ->where('user_id', $targetId)
+            ->where('target_id', $userId)
+            ->where('organization_id', $organizationId)
+            ->whereIn('type', ['colleague', 'subordinate', 'superior'])
+            ->first();
+
+        if ($existingReverse && $existingReverse->type !== $expectedReverseType) {
+            // Get target user name
+            $targetUser = User::find($targetId);
+            $conflicts[] = [
+                'target_id' => $targetId,
+                'target_name' => $targetUser ? $targetUser->name : 'Unknown',
+                'current_type' => $type,
+                'existing_reverse_type' => $existingReverse->type,
+                'expected_reverse_type' => $expectedReverseType,
+            ];
         }
     }
+
+    return $conflicts;
+}
+
+/**
+ * NEW: Apply bidirectional relations
+ */
+private function applyBidirectionalRelations($userId, $rows, $organizationId)
+{
+    $reversesToCreate = [];
+
+    foreach ($rows as $row) {
+        $targetId = $row['target_id'];
+        $type = $row['type'];
+
+        // Determine reverse type
+        $reverseType = $this->getExpectedReverseType($type);
+
+        // Delete existing reverse relation (to avoid conflicts)
+        DB::table('user_relation')
+            ->where('user_id', $targetId)
+            ->where('target_id', $userId)
+            ->where('organization_id', $organizationId)
+            ->whereIn('type', ['colleague', 'subordinate', 'superior'])
+            ->delete();
+
+        // Prepare reverse relation
+        $reversesToCreate[] = [
+            'user_id'         => $targetId,
+            'target_id'       => $userId,
+            'organization_id' => $organizationId,
+            'type'            => $reverseType,
+        ];
+    }
+
+    // Insert all reverse relations
+    if (!empty($reversesToCreate)) {
+        DB::table('user_relation')->insertOrIgnore($reversesToCreate);
+    }
+}
+
+/**
+ * NEW: Get expected reverse relation type
+ */
+private function getExpectedReverseType($type)
+{
+    // subordinate -> colleague
+    // colleague -> colleague
+    // superior -> subordinate (though this shouldn't normally occur in the UI)
+    if ($type === 'subordinate') {
+        return 'colleague';
+    } elseif ($type === 'colleague') {
+        return 'colleague';
+    } elseif ($type === 'superior') {
+        return 'subordinate';
+    }
+    
+    return 'colleague'; // fallback
+}
 
 
     public function getEmployeeCompetencies(Request $request){

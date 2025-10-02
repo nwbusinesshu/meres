@@ -347,8 +347,8 @@ tr.hidden { display: none; }
     display: flex;
     flex-direction: column;
     gap: 1em;
-    max-height: 300px;
-    height: 300px;
+    max-height: 80%;
+    min-height: 70%;
     overflow-y: scroll;
     padding-right: .5em;
 }

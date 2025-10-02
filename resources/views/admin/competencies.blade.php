@@ -290,10 +290,6 @@
             </span>
           @endif
         </span>
-        <button class="btn btn-outline-danger remove-competency-group" data-tippy-content="{{ __('admin/competencies.remove-group') }}"><i class="fa fa-trash-alt"></i></button>
-        <button class="btn btn-outline-warning modify-competency-group" data-tippy-content="{{ __('admin/competencies.modify-group') }}"><i class="fa fa-file-pen"></i></button>
-        {{-- NEW: User Assignment Button --}}
-        <button class="btn btn-outline-info assign-group-users" data-tippy-content="{{ __('admin/competencies.assign-users') }}" data-group-id="{{ $group->id }}" data-group-name="{{ $group->name }}"><i class="fa fa-user-plus"></i></button>
       </div>
 
       <div class="questions group-competencies hidden">
@@ -329,6 +325,10 @@
         @else
           <p class="text-muted">{{ __('admin/competencies.no-users-assigned') }}</p>
         @endif
+        <div> <button class="btn btn-outline-danger remove-competency-group" data-tippy-content="{{ __('admin/competencies.remove-group') }}"><i class="fa fa-trash-alt"></i></button>
+        <button class="btn btn-outline-warning modify-competency-group" data-tippy-content="{{ __('admin/competencies.modify-group') }}"><i class="fa fa-file-pen"></i></button>
+        {{-- NEW: User Assignment Button --}}
+        <button class="btn btn-outline-info assign-group-users" data-tippy-content="{{ __('admin/competencies.assign-users') }}" data-group-id="{{ $group->id }}" data-group-name="{{ $group->name }}"><i class="fa fa-user-plus"></i></button></div>
       </div>
     </div>
   @empty
