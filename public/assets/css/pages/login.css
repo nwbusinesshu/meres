@@ -1,14 +1,16 @@
 .page-container {
-  background: radial-gradient(circle at 20% 30%, #f5d6d6 0%, transparent 40%),
-              radial-gradient(circle at 100% 20%, #d6e4f5 0%, transparent 40%),
-              radial-gradient(circle at 50% 100%, #d6f5e1 0%, transparent 40%),
-              #eee;
+  background: radial-gradient(circle at 20% 30%, rgba(217, 37, 61, 0.15) 0%, transparent 40%),
+              radial-gradient(circle at 100% 20%, rgba(68, 163, 188, 0.15) 0%, transparent 40%),
+              radial-gradient(circle at 50% 100%, rgba(106, 176, 110, 0.15) 0%, transparent 40%),
+              var(--bg);
+  transition: background-color 0.3s ease;
 }
 
 .main-content{
   margin-top: calc(5em + 1rem);
   align-items: center;
 }
+
 .tile{
   width: 100%;
   max-width: 500px;
@@ -16,7 +18,8 @@
   animation: slideInFromRight 0.5s ease-in-out forwards;
   animation-delay: 500ms;
   opacity: 0;
-  box-shadow: 0px 5px 10px #bbb;
+  box-shadow: 0px 5px 10px rgba(0, 0, 0, 0.15);
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 /* Keyframe animation for slide-in with blur */
@@ -39,7 +42,7 @@
 
 .tile-login .btn-primary {
   max-width: 100px;
-  }
+}
 
 .quarma-360{
   max-width: 250px;
@@ -54,30 +57,63 @@
   max-height: 2em;
   margin-bottom: 1rem;
 }
+
 h1{
   margin-top: 2rem;
   font-size: min(11vw, 2.5em);
+  color: var(--outer_space);
+  transition: color 0.3s ease;
+}
+
+/* Text and label colors for theme support */
+.tile label,
+.tile p,
+.tile span,
+.tile a {
+  color: var(--outer_space);
+  transition: color 0.3s ease;
+}
+
+.tile .form-control {
+  background-color: var(--alabaster);
+  color: var(--outer_space);
+  border-color: var(--light_border);
+  transition: all 0.3s ease;
+}
+
+.tile .form-control:focus {
+  background-color: var(--alabaster);
+  color: var(--outer_space);
+  border-color: var(--pelorous);
 }
 
 .google-login {
-  background: #fff;
-  color: #444;
-  border: 1px solid #ddd;
+  background: var(--alabaster);
+  color: var(--outer_space);
+  border: 1px solid var(--light_border);
   font-weight: 500;
+  transition: all 0.3s ease;
 }
 
 .google-login i {
-  color: #4285F4; /* Google kék */
+  color: #4285F4; /* Google brand color - keep as is */
 }
 
 .microsoft-login {
-  background: #fff;
-  color: #444;
-  border: 1px solid #ddd;
+  background: var(--alabaster);
+  color: var(--outer_space);
+  border: 1px solid var(--light_border);
   font-weight: 500;
   display: flex;
   justify-content: center;
   align-items: center;
+  transition: all 0.3s ease;
+}
+
+.google-login:hover,
+.microsoft-login:hover {
+  background: var(--dim);
+  border-color: var(--outer_space);
 }
 
 .google-login i {
@@ -97,12 +133,30 @@ h1{
   display: block;
 }
 
+/* Alert messages */
+.tile .alert {
+  color: var(--outer_space);
+  transition: all 0.3s ease;
+}
+
+.tile .alert-danger {
+  background-color: rgba(217, 37, 61, 0.1);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.tile .alert-success {
+  background-color: rgba(106, 176, 110, 0.1);
+  border-color: var(--success);
+  color: var(--success);
+}
+
 @media (max-width: 768px){
   .main-content {
-  margin-top: 20px!important; }
+    margin-top: 20px!important;
+  }
   .tile {
     padding: 1rem!important;
     gap: 0.5em!important;
   }
-
 }

@@ -9,28 +9,73 @@
         <i class="fa fa-cookie-bite"></i> {{ __('global.footer-cookie-settings') }}
       </a>
     </div>
-{{-- NYELVVÁLASZTÓ --}}
-<form method="POST" action="{{ route('locale.set') }}" id="footer-locale-form" class="footer-lang">
-    @csrf
-    <input type="hidden" name="redirect" value="{{ url()->current() }}">
-    <select name="locale" id="footer-locale" class="footer-lang__select">
-        @foreach(config('app.available_locales') as $code => $label)
-            <option value="{{ $code }}" @selected(app()->getLocale() === $code)>
-                {{ $label }}
-            </option>
-        @endforeach
-    </select>
-</form>
 
-{{-- KIS JS: change-re elküldi a formot --}}
-<script>
-  (function(){
-    var sel = document.getElementById('footer-locale');
-    if(!sel) return;
-    sel.addEventListener('change', function(){
-      var f = document.getElementById('footer-locale-form');
-      if (f) f.submit();
-    });
-  })();
-</script>
+    {{-- THEME TOGGLE BUTTON --}}
+    <button id="theme-toggle-btn" class="footer-theme-toggle" title="Toggle Dark/Light Mode" aria-label="Toggle theme">
+      <i class="fa fa-sun theme-icon-light"></i>
+      <i class="fa fa-moon theme-icon-dark"></i>
+    </button>
+
+    {{-- NYELVVÁLASZTÓ --}}
+    <form method="POST" action="{{ route('locale.set') }}" id="footer-locale-form" class="footer-lang">
+        @csrf
+        <input type="hidden" name="redirect" value="{{ url()->current() }}">
+        <select name="locale" id="footer-locale" class="footer-lang__select">
+            @foreach(config('app.available_locales') as $code => $label)
+                <option value="{{ $code }}" @selected(app()->getLocale() === $code)>
+                    {{ $label }}
+                </option>
+            @endforeach
+        </select>
+    </form>
+  </div>
+
+  {{-- LANGUAGE SELECTOR JS --}}
+  <script>
+    (function(){
+      var sel = document.getElementById('footer-locale');
+      if(!sel) return;
+      sel.addEventListener('change', function(){
+        var f = document.getElementById('footer-locale-form');
+        if (f) f.submit();
+      });
+    })();
+  </script>
+
+  {{-- THEME TOGGLE JS --}}
+  <script>
+    (function() {
+      const themeToggleBtn = document.getElementById('theme-toggle-btn');
+      const htmlElement = document.documentElement;
+      
+      // Function to set theme
+      function setTheme(theme) {
+        if (theme === 'dark') {
+          htmlElement.setAttribute('data-theme', 'dark');
+          themeToggleBtn.classList.add('dark-mode');
+        } else {
+          htmlElement.removeAttribute('data-theme');
+          themeToggleBtn.classList.remove('dark-mode');
+        }
+        // Save preference to localStorage
+        localStorage.setItem('theme', theme);
+      }
+      
+      // Load saved theme on page load
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) {
+        setTheme(savedTheme);
+      }
+      
+      // Toggle theme on button click
+      if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const currentTheme = htmlElement.getAttribute('data-theme');
+          const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+          setTheme(newTheme);
+        });
+      }
+    })();
+  </script>
 </footer>

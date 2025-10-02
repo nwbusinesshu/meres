@@ -1,19 +1,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
+/* ========== LIGHT MODE (ORIGINAL) ========== */
 :root{
   --bg: #eaebee;
 
-	--alabaster: #FAFAFA;
-	--outer_space: #252F36;
-	--silver_chalice: #9E9E9E;
-	--pelorous: #44A3BC;
-	--light_border: #707070;
-	--crimson: #D9253D;
-	--minsk: #3E3779;
-	--fern: #6AB06E;
+  --alabaster: #FAFAFA;
+  --outer_space: #252F36;
+  --silver_chalice: #9E9E9E;
+  --pelorous: #44A3BC;
+  --light_border: #707070;
+  --crimson: #D9253D;
+  --minsk: #3E3779;
+  --fern: #6AB06E;
   --tango: #EA7E12;
 
-	--radius: 8px;
+  --radius: 8px;
 
   --danger: var(--crimson);
   --warning: var(--tango);
@@ -24,12 +26,45 @@
   --dark: var(--outer_space);
 
   --dim: rgba(0,0,0,.05);
+    /* NEW: Help Modal specific colors */
+  --help-bg-light: #f8f9fa;
+  --help-border-light: #e9ecef;
+  --help-border-medium: #dee2e6;
+  --help-text-muted: #6c757d;
+  --help-text-dark: #495057;
+  --help-scrollbar-track: #f1f1f1;
+  --help-scrollbar-thumb: #c1c1c1;
+  --help-scrollbar-thumb-hover: #a8a8a8;
+}
 
+/* ========== DARK MODE VARIABLES ========== */
+[data-theme="dark"] {
+  --bg: #1a1a1a;
+  
+  --alabaster: #2d2d2d;
+  --outer_space: #e0e0e0;
+  --silver_chalice: #b0b0b0;
+  --pelorous: #5cb3cc;
+  --light_border: #555555;
+  --crimson: #ff4d6d;
+  --minsk: #6b7cff;
+  --fern: #7bc67e;
+  --tango: #ffb347;
+
+  --dim: rgba(255,255,255,.05);
+    --help-bg-light: #2d2d2d;
+  --help-border-light: #444444;
+  --help-border-medium: #555555;
+  --help-text-muted: #b0b0b0;
+  --help-text-dark: #e0e0e0;
+  --help-scrollbar-track: #2d2d2d;
+  --help-scrollbar-thumb: #555555;
+  --help-scrollbar-thumb-hover: #666666;
 }
 
 html,body{
-	min-height:100%;
-	font-family: 'Outfit', sans-serif;
+  min-height:100%;
+  font-family: 'Outfit', sans-serif;
 }
 
 /* A teljes görgetősáv stílusa */
@@ -67,6 +102,7 @@ h1,h2,h3,h4,h5,h6{
   font-weight: 600;
   color: var(--outer_space);
   margin: 0;
+  transition: color 0.3s ease; /* ADDED for dark mode */
 }
 p{
   margin: 0;
@@ -83,6 +119,10 @@ td{
 }
 .form-control{
   border-radius: unset;
+  background-color: var(--alabaster); /* ADDED for dark mode */
+  color: var(--outer_space); /* ADDED for dark mode */
+  border-color: var(--light_border); /* ADDED for dark mode */
+  transition: all 0.3s ease; /* ADDED for dark mode */
 }
 .form-row{
   margin-left: 0;
@@ -96,7 +136,7 @@ td{
 }
 
 .modal{
-	-ms-overflow-style: none;  /* IE and Edge */
+  -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
 .modal::-webkit-scrollbar{
@@ -109,32 +149,32 @@ td{
   padding-right:0px!important;
 }
 .swal2-title{
-	color: var(--mirage);
-	font-size: 1.8em;
+  color: var(--mirage);
+  font-size: 1.8em;
 }
 .swal2-icon-error .swal2-title{
-	color: var(--danger);
+  color: var(--danger);
 }
 .swal2-icon-warning .swal2-title{
-	color: var(--warning);
+  color: var(--warning);
 }
 .swal2-icon-success .swal2-title{
-	color: var(--success);
+  color: var(--success);
 }
 .swal2-icon-info .swal2-title{
-	color: var(--info);
+  color: var(--info);
 }
 button.swal2-styled{
   font-family: 'Outfit', sans-serif;
   font-weight: 600;
 }
 .swal2-loader-title{
-	color: var(--alabaster);
+  color: var(--alabaster);
 }
 .swal2-loader-html{
-	display: flex!important;
-	justify-content: center;
-	align-items: center;
+  display: flex!important;
+  justify-content: center;
+  align-items: center;
 }
 .page-container{
   background: url('../logo/quarma_wm.svg'), var(--bg);
@@ -146,13 +186,14 @@ button.swal2-styled{
   display: flex;
   flex-direction: column;
   min-height: 100dvh; /* Ez már helyesen van beállítva nálad! */
+  transition: background-color 0.3s ease; /* ADDED for dark mode */
 }
 
 .main-container{
   display: flex;
   flex-direction: column;
   align-items: center;
-	min-height: 100%;
+  min-height: 100%;
   flex: 1;
   padding-bottom: 50px;
 }
@@ -173,6 +214,7 @@ button.swal2-styled{
   gap: 1em;
   background-color: var(--alabaster);
   border-left: 3px solid transparent;
+  transition: background-color 0.3s ease; /* ADDED for dark mode */
 }
 [data-tippy-content]{
   cursor: pointer;
@@ -185,6 +227,7 @@ button.swal2-styled{
   margin: 0;
   width: 100%;
   background-color: var(--alabaster);
+  transition: background-color 0.3s ease; /* ADDED for dark mode */
 }
 .navbar > div{
   display: flex;
@@ -226,6 +269,7 @@ button.swal2-styled{
   text-decoration: none;
   height: 50px;
   border-bottom: 2px solid var(--alabaster);
+  transition: all 0.3s ease; /* ADDED for dark mode */
 }
 .navbar .menuitem.disabled{
   pointer-events: none;
@@ -247,6 +291,7 @@ button.swal2-styled{
   height: 50px;
   gap: 1em;
   border-top: 1px solid var(--silver_chalice);
+  transition: background-color 0.3s ease; /* ADDED for dark mode */
 }
 
 #config-dropdown .menuitem {
@@ -366,6 +411,7 @@ button.swal2-styled{
   font-weight: 600;
   color: var(--silver_chalice);
   border-left: 3px solid var(--silver_chalice);
+  transition: all 0.3s ease; /* ADDED for dark mode */
 }
 .tile-button span{
   font-size: 1.7em;
@@ -388,6 +434,9 @@ button.swal2-styled{
   .modal-content {
     border-radius: 0;
     border-left: 4px solid var(--pelorous);
+    background-color: var(--alabaster); /* ADDED for dark mode */
+    color: var(--outer_space); /* ADDED for dark mode */
+    transition: all 0.3s ease; /* ADDED for dark mode */
   }
 
 #select-modal .modal-body{
@@ -620,3 +669,92 @@ button.swal2-styled{
   }
 }
 
+/* ========================================
+   THEME TOGGLE BUTTON - NEW
+   ======================================== */
+.footer-theme-toggle {
+  position: relative;
+  width: 60px;
+  height: 32px;
+  background-color: #4a5568;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  transition: background-color 0.3s ease;
+  outline: none;
+}
+
+.footer-theme-toggle:hover {
+  background-color: #5a6578;
+}
+
+.footer-theme-toggle:focus {
+  box-shadow: 0 0 0 2px rgba(25,118,210,.3);
+}
+
+.footer-theme-toggle .theme-icon-light,
+.footer-theme-toggle .theme-icon-dark {
+  font-size: 14px;
+  transition: opacity 0.3s ease;
+  z-index: 1;
+}
+
+.footer-theme-toggle .theme-icon-light {
+  color: #ffd700;
+  opacity: 1;
+}
+
+.footer-theme-toggle .theme-icon-dark {
+  color: #e0e0e0;
+  opacity: 0.3;
+}
+
+.footer-theme-toggle.dark-mode {
+  background-color: #3E3779;
+}
+
+.footer-theme-toggle.dark-mode .theme-icon-light {
+  opacity: 0.3;
+}
+
+.footer-theme-toggle.dark-mode .theme-icon-dark {
+  opacity: 1;
+}
+
+.footer-theme-toggle::before {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+  transform: translateX(0);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  left: 5px;
+}
+
+.footer-theme-toggle.dark-mode::before {
+  transform: translateX(28px);
+}
+
+@media (max-width: 600px) {
+  .footer-inner {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .footer-theme-toggle {
+    order: 2;
+  }
+  
+  .footer-lang {
+    order: 3;
+    margin-left: 0;
+  }
+}
