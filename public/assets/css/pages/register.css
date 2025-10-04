@@ -11,6 +11,37 @@
     #eee;
 }
 .main-content { margin-top: calc(5em + 1rem); align-items: center; }
+
+/* iOS-szerű switch */
+.switch{ position:relative; display:inline-block; width:60px; height:32px; margin-left:auto; }
+.switch input{ opacity:0; width:0; height:0; }
+.slider{ 
+  position:absolute; 
+  inset:0; 
+  cursor:pointer; 
+  background: var(--silver_chalice); 
+  transition:.2s; 
+  border-radius:32px; 
+}
+.slider:before{ 
+  content:""; 
+  position:absolute; 
+  height:24px; 
+  width:24px; 
+  left:4px; 
+  bottom:4px; 
+  background: var(--alabaster); 
+  border-radius:50%; 
+  transition:.2s; 
+}
+.switch input:checked + .slider{ background:var(--success); }
+.switch input:checked + .slider:before{ transform:translateX(28px); }
+.switch input:disabled + .slider{ background:var(--silver_chalice); opacity:.6; cursor:not-allowed; }
+
+.tile-info .inner {
+  margin-top: 0.4em;
+}
+
 @media (max-width: 768px){ .main-content { margin-top: 20px !important; } }
 
 /* A tile: csak a registerhez célzottan, ne írjuk felül a login alap-stílusait */

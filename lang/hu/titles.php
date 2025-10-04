@@ -10,6 +10,7 @@ return [
   "assessment" => "Értékelés",
   "ceorank" => "Vezetői rangsor",
   "results" => "Eredmények",
+  "register" => "Regisztráció",
   "" => "",
   "" => "",
   "admin" => [
