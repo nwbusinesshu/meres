@@ -43,6 +43,36 @@ public function index(Request $request)
         $selectedLanguages = [auth()->user()->locale ?? config('app.locale', 'hu')];
     }
 
+    $hasClosedAssessment = DB::table('assessment')
+        ->where('organization_id', $orgId)
+        ->whereNotNull('closed_at')
+        ->exists();
+    
+    // Get employee limit and current employee count
+    $employeeLimit = null;
+    $currentEmployeeCount = 0;
+    $isLimitReached = false;
+    
+    if (!$hasClosedAssessment) {
+        // Only apply limit if there are no closed assessments yet
+        $employeeLimit = DB::table('organization_profiles')
+            ->where('organization_id', $orgId)
+            ->value('employee_limit');
+        
+        // Count current employees (excluding admins)
+        $currentEmployeeCount = DB::table('organization_user as ou')
+            ->join('user as u', 'u.id', '=', 'ou.user_id')
+            ->where('ou.organization_id', $orgId)
+            ->whereNull('u.removed_at')
+            ->whereNotIn('u.type', ['admin'])
+            ->count();
+        
+        // Check if limit is reached
+        if ($employeeLimit && $currentEmployeeCount >= $employeeLimit) {
+            $isLimitReached = true;
+        }
+    }
+
     // ===== LEGACY (régi) lista adatai – változatlan =====
     $users = \App\Services\UserService::getUsers()->map(function ($user) {
         // bonusMalus feltöltése biztonságosan (nincs eager load, nincs created_at ordering)
@@ -171,7 +201,7 @@ public function index(Request $request)
         // Üres részlegek a végére
         $departments = $departments->concat($emptyDepartments);
 
-        return view('admin.employees', [
+         return view('admin.employees', [
             // LEGACY-hoz
             'users'            => $users,
 
@@ -187,6 +217,12 @@ public function index(Request $request)
             // settings
             'showBonusMalus'   => $showBonusMalus,
             'selectedLanguages' => $selectedLanguages,
+            
+            // NEW: Employee limit
+            'hasClosedAssessment'   => $hasClosedAssessment,
+            'employeeLimit'         => $employeeLimit,
+            'currentEmployeeCount'  => $currentEmployeeCount,
+            'isLimitReached'        => $isLimitReached,
         ]);
     }
 
@@ -196,8 +232,15 @@ public function index(Request $request)
         'enableMultiLevel'  => false,
         'showBonusMalus'    => $showBonusMalus,
         'selectedLanguages' => $selectedLanguages,
+        
+        // NEW: Employee limit
+        'hasClosedAssessment'   => $hasClosedAssessment,
+        'employeeLimit'         => $employeeLimit,
+        'currentEmployeeCount'  => $currentEmployeeCount,
+        'isLimitReached'        => $isLimitReached,
     ]);
 }
+
 // Hozzácsatolja a bonusMalus szintet tetszőleges user-collection-höz (id, name, email, ...)
 private function attachBonusMalus($users)
 {

@@ -23,10 +23,11 @@ class AdminPaymentController extends Controller
     $orgId = (int) $request->session()->get('org_id');
 
     // A blade "Nyitott tartozások" + "Korábban rendezettek" elrendezést vár:
+    // Include 'initial' status in open payments
     $open = \DB::table('payments as p')
         ->leftJoin('assessment as a', 'a.id', '=', 'p.assessment_id')
         ->where('p.organization_id', $orgId)
-        ->whereIn('p.status', ['pending','failed'])
+        ->whereIn('p.status', ['initial', 'pending','failed'])
         ->orderByDesc('p.created_at')
         ->select('p.*', 'a.started_at', 'a.due_at', 'a.closed_at')
         ->get();
@@ -96,13 +97,20 @@ public function start(Request $request, \App\Services\BarionService $barion)
             ->where('ou.role', 'admin')
             ->value('u.email');
 
-        $comment   = '360° értékelés – mérés #' . $payment->assessment_id;
+        // Different comment for initial vs assessment payments
+        if ($payment->status === 'initial') {
+            $comment = '360° értékelés – Kezdeti regisztrációs díj';
+        } else {
+            $comment = '360° értékelés – mérés #' . $payment->assessment_id;
+        }
+        
         $payloadId = 'PAY-' . $payment->id;
 
         \Log::info('barion.start.init', [
             'payment_id'   => $payment->id,
             'org_id'       => $payment->organization_id,
             'assessment_id'=> $payment->assessment_id,
+            'status'       => $payment->status,
             'total_huf'    => $totalHuf,
             'quantity'     => $quantity,
             'admin_email'  => $adminEmail,
@@ -122,7 +130,7 @@ public function start(Request $request, \App\Services\BarionService $barion)
             'gateway_url'       => $started['gatewayUrl'] ?? null,
         ]);
 
-        // Állapot mentése
+        // Állapot mentése - change from 'initial' to 'pending'
         \DB::table('payments')->where('id', $payment->id)->update([
             'barion_payment_id' => $started['paymentId'] ?? null,
             'status'            => 'pending',
@@ -137,64 +145,48 @@ public function start(Request $request, \App\Services\BarionService $barion)
         ]);
     } catch (\Illuminate\Http\Client\RequestException $e) {
         \DB::rollBack();
-        $body = $e->response ? ($e->response->json() ?? $e->response->body()) : null;
-        \Log::error('barion.start.http_error', [
+        $body = $e->response ? ($e->response->json() ?? $e->response->body()) : 'N/A';
+        \Log::error('barion.start.request_exception', [
             'payment_id' => $request->payment_id,
-            'message'    => $e->getMessage(),
-            'response'   => $body,
+            'status'     => $e->response ? $e->response->status() : 'N/A',
+            'body'       => $body,
+            'msg'        => $e->getMessage(),
         ]);
-        return response()->json([
-            'success' => false,
-            'message' => 'A Barion válasza hibát jelzett. Kérlek, próbáld újra később.',
-        ], 502);
+        return response()->json(['success' => false, 'message' => 'Barion hiba: ' . $e->getMessage()], 500);
     } catch (\Throwable $e) {
         \DB::rollBack();
         \Log::error('barion.start.throwable', [
             'payment_id' => $request->payment_id,
-            'message'    => $e->getMessage(),
+            'msg'        => $e->getMessage(),
+            'trace'      => $e->getTraceAsString(),
         ]);
-        return response()->json([
-            'success' => false,
-            'message' => 'Váratlan hiba történt a fizetés indításakor.',
-        ], 500);
+        return response()->json(['success' => false, 'message' => 'Hiba történt a fizetés indításakor. Kérlek, próbáld újra pár másodperc múlva.'], 500);
     }
 }
-
 
     /**
-     * Számla (PDF) letöltése – a paymenthez kapcsolt Billingo dokumentumból
+     * Számla letöltése PDF formában (már kiállított számlákhoz).
      */
-   public function invoice(Request $request, int $id, \App\Services\BillingoService $billingo)
-{
-    // Eloquent-tel töltjük, ez nálad eddig is stabilan ment
-    $payment = \App\Models\Payment::findOrFail($id);
+    public function invoice(Request $request, $id)
+    {
+        $orgId = (int) $request->session()->get('org_id');
+        $p = \DB::table('payments')
+            ->where('id', $id)
+            ->where('organization_id', $orgId)
+            ->where('status', 'paid')
+            ->first();
 
-    if (empty($payment->billingo_document_id)) {
-        return back()->with('error', 'Ehhez a fizetéshez még nincs számla.');
+        if (!$p || !$p->invoice_pdf_url) {
+            abort(404, 'Számla nem található vagy még nem lett kiállítva.');
+        }
+
+        return redirect($p->invoice_pdf_url);
     }
 
-    try {
-        $pdf = $billingo->downloadInvoicePdf((int) $payment->billingo_document_id);
-
-        $filename = 'szamla-' . $payment->id . '.pdf';
-        return response($pdf, 200, [
-            'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="'.$filename.'"',
-        ]);
-
-    } catch (\Throwable $e) {
-        // Ha a PDF még nem kész, adjunk felhasználóbarát üzenetet, ne dobjunk hibát
-        \Log::warning('billingo.invoice.not_ready', [
-            'payment_id' => $payment->id,
-            'doc_id'     => $payment->billingo_document_id,
-            'msg'        => $e->getMessage(),
-        ]);
-        return back()->with('error', 'A számla PDF még feldolgozás alatt áll. Kérlek, próbáld újra pár másodperc múlva.');
-    }
-}
-
-
-
+    /**
+     * Státusz frissítése Barion API lekérdezéssel.
+     * Ha sikeres, akkor Billingo számlázás is.
+     */
     public function refresh(Request $request, \App\Services\BarionService $barion, \App\Services\BillingoService $billingo)
 {
     \Log::info('payments.refresh.in', [
@@ -273,66 +265,54 @@ public function start(Request $request, \App\Services\BarionService $barion)
     }
 }
 
-
-
-/**
- * Billingo számla kiállítása – ugyanaz a logika, mint a webhookban
- * $paymentArr: DB-ből kiolvasott payments sor (array-ként)
- */
-    private function issueBillingoInvoice(array $paymentArr, BillingoService $billingo): void
+    /**
+     * Billingo számla kiállítása a payment-hez
+     */
+    private function issueBillingoInvoice(array $payment, BillingoService $billingo): void
     {
-        $orgId = (int) $paymentArr['organization_id'];
-        $payId = (int) $paymentArr['id'];
+        $org = \DB::table('organization')->where('id', $payment['organization_id'])->first();
+        if (!$org) {
+            throw new \Exception('Organization not found: ' . $payment['organization_id']);
+        }
 
-        $org     = DB::table('organization')->where('id', $orgId)->first();
-        $profile = DB::table('organization_profiles')->where('organization_id', $orgId)->first();
+        $profile = \DB::table('organization_profiles')->where('organization_id', $org->id)->first();
+        if (!$profile) {
+            throw new \Exception('Organization profile missing for org: ' . $org->id);
+        }
 
-        // Admin e-mail partnerhez
-        $adminEmail = DB::table('user as u')
+        $partnerId = $billingo->findOrCreatePartner([
+            'name'         => $org->name,
+            'country_code' => $profile->country_code ?? 'HU',
+            'postal_code'  => $profile->postal_code,
+            'city'         => $profile->city,
+            'address'      => trim(($profile->street ?? '') . ' ' . ($profile->house_number ?? '')),
+            'tax_number'   => $profile->tax_number,
+            'emails'       => [$this->getAdminEmail($org->id)],
+        ]);
+
+        $quantity = max(1, (int) ceil($payment['amount_huf'] / 950));
+        $docId    = $billingo->createInvoice($partnerId, $quantity, $payment['amount_huf']);
+
+        $invoiceData = $billingo->getInvoice($docId);
+
+        \DB::table('payments')->where('id', $payment['id'])->update([
+            'billingo_partner_id'    => $partnerId,
+            'billingo_document_id'   => $docId,
+            'billingo_invoice_number'=> $invoiceData['invoice_number'] ?? null,
+            'billingo_issue_date'    => $invoiceData['fulfillment_date'] ?? now()->toDateString(),
+            'invoice_pdf_url'        => $invoiceData['public_url'] ?? null,
+            'updated_at'             => now(),
+        ]);
+    }
+
+    private function getAdminEmail(int $orgId): string
+    {
+        $email = \DB::table('user as u')
             ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
             ->where('ou.organization_id', $orgId)
             ->where('ou.role', 'admin')
             ->value('u.email');
 
-        // Partner létrehozása/frissítése
-        $partnerPayload = [
-            'name'    => $org->name,
-            'address' => [
-                'country_code' => $profile->country_code ?? 'HU',
-                'post_code'    => $profile->postal_code ?? '',
-                'city'         => $profile->city ?? '',
-                'address'      => trim(($profile->street ?? '') . ' ' . ($profile->house_number ?? '')),
-            ],
-            'emails'  => array_filter([$adminEmail]),
-            'taxcode' => $profile->tax_number ?: ($profile->eu_vat_number ?? ''),
-        ];
-
-        $partnerId = $billingo->createPartner($partnerPayload);
-
-        // Tétel mennyisége a 950 Ft egységárból
-        $qty = max(1, (int) ceil(((int) ($paymentArr['amount_huf'] ?? 0)) / 950));
-
-        $docId = $billingo->createInvoice(
-            partnerId: $partnerId,
-            quantity:  $qty,
-            comment:   '360° értékelés – mérés #'.$paymentArr['assessment_id'].' – '.$org->name,
-            paid:      true
-        );
-
-        $doc  = $billingo->getDocument((int) $docId);
-        $meta = $billingo->extractInvoiceMeta($doc);
-
-        $invoiceNumber = $meta['number'] ?? null;
-        $issueDate     = $meta['issueDate'] ?? null;
-        $issueDate     = $issueDate ? substr($issueDate, 0, 10) : null;
-
-        DB::table('payments')->where('id', $payId)->update([
-            'billingo_document_id'    => $docId,
-            'billingo_invoice_number' => $invoiceNumber,
-            'billingo_issue_date'     => $issueDate,
-            'updated_at'              => now(),
-        ]);
+        return $email ?: 'info@example.com';
     }
-
-
 }

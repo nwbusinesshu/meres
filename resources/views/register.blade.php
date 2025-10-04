@@ -34,6 +34,10 @@
             <label>{{ __('register.admin.email') }}</label>
             <input type="email" name="admin_email" class="form-control" required>
           </div>
+          <div class="form-group">
+            <label>{{ __('register.admin.employee_limit') }}</label>
+            <input type="number" name="employee_limit" class="form-control" min="1" placeholder="{{ __('register.admin.employee_limit_placeholder') }}" required>
+          </div>
           <div class="step-actions">
             <button type="button" class="btn btn-primary next-step">{{ __('register.buttons.next') }}</button>
           </div>

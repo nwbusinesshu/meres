@@ -86,7 +86,17 @@ $(document).ready(function(){
     });
 
     // New employee button
-    $(document).on('click', '.trigger-new', function(){
+     $(document).on('click', '.trigger-new', function(){
+        // Check if limit is reached
+        if (window.isEmployeeLimitReached) {
+            Swal.fire({
+                icon: 'warning',
+                title: '{{ __("admin/employees.employee-limit-reached-title") }}',
+                text: '{{ __("admin/employees.employee-limit-reached-modal-text") }}',
+                confirmButtonText: '{{ __("global.ok") }}'
+            });
+            return;
+        }
         openEmployeeModal();
     });
 

@@ -4,7 +4,30 @@
 @endsection
 
 @section('content')
-<h1>{{ __('titles.admin.employees') }}</h1>
+<h1>
+    {{ __('titles.admin.employees') }}
+    
+        <span style="font-size: 0.9em; color: {{ $isLimitReached ? '#dc3545' : '#6c757d' }};">
+            ({{ $currentEmployeeCount }}/{{ $employeeLimit }})
+        </span>
+    
+</h1>
+
+{{-- NEW: Employee Limit Warning --}}
+@if(!$hasClosedAssessment && $employeeLimit)
+    <div class="tile tile-{{ $isLimitReached ? 'danger' : 'warning' }} mb-2">
+        <i class="fa fa-info-circle"></i>
+        <div>
+            @if($isLimitReached)
+                <strong>{{ __('admin/employees.employee-limit-reached-title') }}</strong>
+                <p>{{ __('admin/employees.employee-limit-reached-text', ['limit' => $employeeLimit]) }}</p>
+            @else
+                <strong>{{ __('admin/employees.employee-limit-warning-title') }}</strong>
+                <p>{{ __('admin/employees.employee-limit-warning-text', ['current' => $currentEmployeeCount, 'limit' => $employeeLimit]) }}</p>
+            @endif
+        </div>
+    </div>
+@endif
 
 <div class="mb-2">
     <div class="tile tile-info search-tile" style="margin-bottom:.75rem;">
@@ -14,7 +37,12 @@
             <i class="fa fa-ban clear-search" data-tippy-content="{{ $_('clear-search') }}"></i>
         </div>
     </div>
-    <div class="tile tile-button trigger-new">
+    {{-- Updated: Disable button when limit is reached --}}
+    <div class="tile tile-button trigger-new {{ $isLimitReached ? 'disabled' : '' }}" 
+         @if($isLimitReached) 
+            style="opacity: 0.5; cursor: not-allowed;" 
+            data-tippy-content="{{ __('admin/employees.employee-limit-reached-tooltip') }}"
+         @endif>
         <span><i class="fa fa-user-plus"></i>{{ $_('new-employee') }}</span>
     </div>
     @if(!empty($enableMultiLevel))

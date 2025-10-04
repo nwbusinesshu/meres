@@ -34,58 +34,59 @@ class RegistrationController extends Controller
         $country = strtoupper($request->input('country_code', 'HU'));
 
         $request->validate([
-    // 1) Admin
-    'admin_name'  => 'required|string|max:255',
-    'admin_email' => [
-        'required','email','max:255',
-        \Illuminate\Validation\Rule::unique('user','email'), // tábla: user
-    ],
+            // 1) Admin
+            'admin_name'  => 'required|string|max:255',
+            'admin_email' => [
+                'required','email','max:255',
+                \Illuminate\Validation\Rule::unique('user','email'), // tábla: user
+            ],
+            'employee_limit' => 'required|integer|min:1',
 
-    // 2) Cég + számlázás
-    'org_name'     => 'required|string|max:255',
-    'country_code' => 'required|string|size:2',
-    'postal_code'  => 'nullable|string|max:16',
-    'region'       => 'nullable|string|max:64',
-    'city'         => 'nullable|string|max:64',
-    'street'       => 'nullable|string|max:128',
-    'house_number' => 'nullable|string|max:32',
-    'phone'        => 'nullable|string|max:32',
+            // 2) Cég + számlázás
+            'org_name'     => 'required|string|max:255',
+            'country_code' => 'required|string|size:2',
+            'postal_code'  => 'nullable|string|max:16',
+            'region'       => 'nullable|string|max:64',
+            'city'         => 'nullable|string|max:64',
+            'street'       => 'nullable|string|max:128',
+            'house_number' => 'nullable|string|max:32',
+            'phone'        => 'nullable|string|max:32',
 
-    // 3) Alapbeállítások
-    'ai_telemetry_enabled' => 'nullable|in:on,1,true',
-    'enable_multi_level'   => 'nullable|in:on,1,true',
-    'show_bonus_malus'     => 'nullable|in:on,1,true',
-]);
+            // 3) Alapbeállítások
+            'ai_telemetry_enabled' => 'nullable|in:on,1,true',
+            'enable_multi_level'   => 'nullable|in:on,1,true',
+            'show_bonus_malus'     => 'nullable|in:on,1,true',
+        ]);
 
-// Országfüggő végső ellenőrzések (adószám / EU ÁFA) – hogy race condition esetén se csússzon át
-$country = strtoupper($request->input('country_code', 'HU'));
-$tax     = trim((string) $request->input('tax_number', ''));
-$euVat   = strtoupper(trim((string) $request->input('eu_vat_number', '')));
-$EU      = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','HU'];
+        // Országfüggő végső ellenőrzések (adószám / EU ÁFA) – hogy race condition esetén se csússzon át
+        $country = strtoupper($request->input('country_code', 'HU'));
+        $tax     = trim((string) $request->input('tax_number', ''));
+        $euVat   = strtoupper(trim((string) $request->input('eu_vat_number', '')));
+        $EU      = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','HU'];
 
-if (in_array($country, $EU, true)) {
-    if ($euVat === '' || !preg_match('/^[A-Z]{2}[A-Za-z0-9]{2,12}$/', $euVat)) {
-        return back()->withErrors(['eu_vat_number' => 'Érvénytelen vagy hiányzó EU ÁFA-szám.'])->withInput();
-    }
-    $dup = \Illuminate\Support\Facades\DB::table('organization_profiles')
-        ->whereNotNull('eu_vat_number')
-        ->whereRaw('UPPER(eu_vat_number) = ?', [$euVat])
-        ->exists();
-    if ($dup) {
-        return back()->withErrors(['eu_vat_number' => 'Ezzel az EU ÁFA-számmal már létezik szervezet.'])->withInput();
-    }
-} else {
-    if ($tax === '' || mb_strlen($tax) < 6) {
-        return back()->withErrors(['tax_number' => 'Érvénytelen vagy hiányzó adószám.'])->withInput();
-    }
-    $dup = \Illuminate\Support\Facades\DB::table('organization_profiles')
-        ->whereNotNull('tax_number')
-        ->where('tax_number', $tax)
-        ->exists();
-    if ($dup) {
-        return back()->withErrors(['tax_number' => 'Ezzel az adószámmal már létezik szervezet.'])->withInput();
-    }
-}
+        if (in_array($country, $EU, true)) {
+            if ($euVat === '' || !preg_match('/^[A-Z]{2}[A-Za-z0-9]{2,12}$/', $euVat)) {
+                return back()->withErrors(['eu_vat_number' => 'Érvénytelen vagy hiányzó EU ÁFA-szám.'])->withInput();
+            }
+            $dup = \Illuminate\Support\Facades\DB::table('organization_profiles')
+                ->whereNotNull('eu_vat_number')
+                ->whereRaw('UPPER(eu_vat_number) = ?', [$euVat])
+                ->exists();
+            if ($dup) {
+                return back()->withErrors(['eu_vat_number' => 'Ezzel az EU ÁFA-számmal már létezik szervezet.'])->withInput();
+            }
+        } else {
+            if ($tax === '' || mb_strlen($tax) < 6) {
+                return back()->withErrors(['tax_number' => 'Érvénytelen vagy hiányzó adószám.'])->withInput();
+            }
+            $dup = \Illuminate\Support\Facades\DB::table('organization_profiles')
+                ->whereNotNull('tax_number')
+                ->where('tax_number', $tax)
+                ->exists();
+            if ($dup) {
+                return back()->withErrors(['tax_number' => 'Ezzel az adószámmal már létezik szervezet.'])->withInput();
+            }
+        }
 
         return DB::transaction(function () use ($request, $country) {
 
@@ -116,7 +117,7 @@ if (in_array($country, $EU, true)) {
             // 3) Kapcsolás (pivot) – admin szerep
             $org->users()->attach($user->id, ['role' => 'admin']);
 
-            // 4) Profil (számlázás + telefon) – superadmin store mintájára
+            // 4) Profil (számlázás + telefon + employee_limit) – superadmin store mintájára
             OrganizationProfile::create([
                 'organization_id'   => $org->id,
                 'country_code'      => $country,
@@ -125,88 +126,79 @@ if (in_array($country, $EU, true)) {
                 'city'              => $request->input('city'),
                 'street'            => $request->input('street'),
                 'house_number'      => $request->input('house_number'),
-                'phone'             => $request->input('phone'), // ÚJ mező
+                'phone'             => $request->input('phone'),
                 'tax_number'        => $request->input('tax_number'),
-                'eu_vat_number'     => strtoupper((string) $request->input('eu_vat_number')),
-                'subscription_type' => null,
+                'eu_vat_number'     => $request->input('eu_vat_number'),
+                'employee_limit'    => $request->input('employee_limit'),
+                'subscription_type' => 'pro',
                 'created_at'        => now(),
             ]);
 
-            // 5) Alap CEO rangok átmásolása (ahogy a SuperAdminController.store is teszi)
-            $defaultRanks = \App\Models\CeoRank::whereNull('organization_id')->get();
-            foreach ($defaultRanks as $rank) {
-                \App\Models\CeoRank::create([
-                    'organization_id' => $org->id,
-                    'name'            => $rank->name,
-                    'value'           => $rank->value,
-                    'min'             => $rank->min,
-                    'max'             => $rank->max,
-                    'removed_at'      => null,
-                ]);
-            }
+            // 5) Config (OrgConfigService)
+            OrgConfigService::setBool($org->id, 'ai_telemetry_enabled', (bool) $request->input('ai_telemetry_enabled'));
+            OrgConfigService::setBool($org->id, 'enable_multi_level',   (bool) $request->input('enable_multi_level'));
+            OrgConfigService::setBool($org->id, 'show_bonus_malus',     (bool) $request->input('show_bonus_malus'));
 
-            // 6) Alapbeállítások mentése (checkboxok → bool)
-            $aiTelemetry = $request->boolean('ai_telemetry_enabled');
-            $multiLevel  = $request->boolean('enable_multi_level');
-            $showBM      = $request->boolean('show_bonus_malus');
+            // 6) CEO rangok létrehozása (alapértelmezett 4 szint) – superadmin store mintájára
+            $this->createDefaultCeoRanks($org->id);
 
-            // strict anon nem része a regisztrációs wizardnak – default: OFF (false)
-            OrgConfigService::setBool($org->id, OrgConfigService::AI_TELEMETRY_KEY, $aiTelemetry);          // ai_telemetry_enabled
-            OrgConfigService::setBool($org->id, 'enable_multi_level', $multiLevel);                          // enable_multi_level
-            OrgConfigService::setBool($org->id, 'show_bonus_malus', $showBM);                                // show_bonus_malus
+            // 7) Initial payment létrehozása
+            $employeeLimit = (int) $request->input('employee_limit');
+            $amountHuf = $employeeLimit * 950;
+            
+            DB::table('payments')->insert([
+                'organization_id' => $org->id,
+                'assessment_id'   => null,
+                'amount_huf'      => $amountHuf,
+                'status'          => 'initial',
+                'created_at'      => now(),
+                'updated_at'      => now(),
+            ]);
 
-            // 7) Password-setup email küldése (MEGLÉVŐ SERVICE)
-            PasswordSetupService::createAndSend($org->id, $user->id, null); // setup email küldés :contentReference[oaicite:6]{index=6}
+            // 8) Password setup email küldése
+            PasswordSetupService::createAndSend($org->id, $user->id, $user->id);
 
-            // 8) Válasz – vissza a loginra tájékoztatással
-            return redirect()
-                ->route('login')
-                ->with('success', 'Sikeres regisztráció. Be tudsz lépni OAuth-tal, vagy állítsd be a jelszavad a kiküldött emailből.');
+
+            // redirect welcome screen-re
+            return redirect()->route('login')->with('success', 'Regisztráció sikeres! Elküldtük a jelszóbeállítás linkjét e-mailben.');
         });
     }
 
+    /**
+     * AJAX validáció lépésenként (email egyediség, adószám/EU VAT egyediség).
+     */
     public function validateStepAjax(Request $request)
-{
-    // step: 0 → admin (email), 1 → cég+számlázás (adószám / EU ÁFA)
-    $step = (int) $request->input('step', -1);
+    {
+        $step = (int) $request->input('step', -1);
 
-    if ($step === 0) {
-        // EMAIL egyediség
-        $email = trim((string) $request->input('admin_email', ''));
-        if ($email === '') {
-            return response()->json(['ok' => false, 'errors' => ['admin_email' => 'E-mail szükséges.']], 200);
+        // STEP 0: admin email egyediség
+        if ($step === 0) {
+            $email = trim((string) $request->input('admin_email', ''));
+            if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                return response()->json(['ok' => false, 'errors' => ['admin_email' => 'Érvénytelen e-mail cím.']], 200);
+            }
+            $exists = \App\Models\User::where('email', $email)
+                ->when(Schema::hasColumn('user','removed_at'), fn($q) => $q->whereNull('removed_at'))
+                ->when(Schema::hasColumn('user','deleted_at'), fn($q) => $q->whereNull('deleted_at'))
+                ->exists();
+            if ($exists) {
+                return response()->json(['ok' => false, 'errors' => ['admin_email' => 'Ezzel az e-mail címmel már van aktív felhasználó.']], 200);
+            }
+            return response()->json(['ok' => true], 200);
         }
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return response()->json(['ok' => false, 'errors' => ['admin_email' => 'Érvénytelen e-mail cím.']], 200);
-        }
 
-        // user tábla neve nálunk "user"
-        $exists = \App\Models\User::where('email', $email)->exists();
-        if ($exists) {
-            return response()->json(['ok' => false, 'errors' => ['admin_email' => 'Ezzel az e-mail címmel már van felhasználó.']], 200);
-        }
+        // STEP 1: org name + adószám/EU VAT egyediség
+        if ($step === 1) {
+            $errors = [];
+            $country = strtoupper(trim((string) $request->input('country_code', 'HU')));
+            $tax     = trim((string) $request->input('tax_number', ''));
+            $euVat   = strtoupper(trim((string) $request->input('eu_vat_number', '')));
+            $EU      = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','HU'];
 
-        return response()->json(['ok' => true], 200);
-    }
-
-    if ($step === 1) {
-        // ADÓSZÁM / EU ÁFA egyediség org_profiles-ban
-        $country = strtoupper((string) $request->input('country_code', 'HU'));
-        $tax     = trim((string) $request->input('tax_number', ''));
-        $euVat   = strtoupper(trim((string) $request->input('eu_vat_number', '')));
-
-        $errors = [];
-
-        // EU logika: ha EU ország, EU ÁFA kötelező; különben sima adószám kötelező.
-        $EU = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','HU'];
-
-        if (in_array($country, $EU, true)) {
-            if ($euVat === '') {
-                $errors['eu_vat_number'] = 'EU ÁFA-szám kötelező EU-s országoknál.';
-            } else {
-                // laza minta: 2 betű + 2..12 alfanumerikus
-                if (!preg_match('/^[A-Z]{2}[A-Za-z0-9]{2,12}$/', $euVat)) {
-                    $errors['eu_vat_number'] = 'Érvénytelen EU ÁFA-szám formátum.';
+            if (in_array($country, $EU, true)) {
+                // EU ország: kötelező EU VAT
+                if ($euVat === '' || !preg_match('/^[A-Z]{2}[A-Za-z0-9]{2,12}$/', $euVat)) {
+                    $errors['eu_vat_number'] = 'Érvénytelen EU ÁFA-szám.';
                 } else {
                     $dup = \Illuminate\Support\Facades\DB::table('organization_profiles')
                         ->whereNotNull('eu_vat_number')
@@ -216,10 +208,6 @@ if (in_array($country, $EU, true)) {
                         $errors['eu_vat_number'] = 'Ezzel az EU ÁFA-számmal már létezik szervezet.';
                     }
                 }
-            }
-        } else {
-            if ($tax === '') {
-                $errors['tax_number'] = 'Adószám kötelező nem EU-s országoknál.';
             } else {
                 // engedékeny alapellenőrzés (min. 6 karakter)
                 if (mb_strlen($tax) < 6) {
@@ -234,15 +222,36 @@ if (in_array($country, $EU, true)) {
                     }
                 }
             }
+
+            if (!empty($errors)) {
+                return response()->json(['ok' => false, 'errors' => $errors], 200);
+            }
+            return response()->json(['ok' => true], 200);
         }
 
-        if (!empty($errors)) {
-            return response()->json(['ok' => false, 'errors' => $errors], 200);
-        }
-        return response()->json(['ok' => true], 200);
+        return response()->json(['ok' => false, 'errors' => ['step' => 'Ismeretlen lépés.']], 200);
     }
 
-    return response()->json(['ok' => false, 'errors' => ['step' => 'Ismeretlen lépés.']], 200);
-}
+    /**
+     * Alapértelmezett CEO rangok létrehozása (4 szint).
+     */
+    private function createDefaultCeoRanks(int $orgId): void
+{
+    $ranks = [
+        ['name' => 'Kiemelkedő', 'value' => 100, 'min' => null, 'max' => null],
+        ['name' => 'Jó',         'value' => 80,  'min' => null, 'max' => null],
+        ['name' => 'Megfelelő',  'value' => 60,  'min' => null, 'max' => null],
+        ['name' => 'Fejlesztendő', 'value' => 40, 'min' => null, 'max' => null],
+    ];
 
+    foreach ($ranks as $rank) {
+        \App\Models\CeoRank::create([
+            'organization_id' => $orgId,
+            'name'            => $rank['name'],
+            'value'           => $rank['value'],
+            'min'             => $rank['min'],  // Changed from min_employees
+            'max'             => $rank['max'],  // Changed from max_employees
+        ]);
+    }
+}
 }

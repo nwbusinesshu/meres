@@ -16,6 +16,8 @@ return [
     'admin' => [
         'name' => 'Név',
         'email' => 'E-mail',
+        'employee_limit' => 'Munkavállalók száma',
+        'employee_limit_placeholder' => 'pl. 50',
     ],
 
     // Step 2 - Company and billing

@@ -161,11 +161,14 @@ function isEU(cc) {
     if (!stepEl) return false;
     clearInvalids(stepEl);
 
-    // STEP1: admin név + email
+    // STEP1: admin név + email + employee_limit
     if (idx === 0) {
-      const ok1 = requiredFilled(stepEl, ['admin_name','admin_email']);
+      const ok1 = requiredFilled(stepEl, ['admin_name','admin_email','employee_limit']);
       const emailInput = stepEl.querySelector('[name="admin_email"]');
+      const employeeLimitInput = stepEl.querySelector('[name="employee_limit"]');
       let ok2 = true;
+      let ok3 = true;
+      
       if (emailInput) {
         const good = validateEmail(emailInput.value);
         markInvalid(emailInput, !good);
@@ -174,7 +177,18 @@ function isEU(cc) {
           addErrorBelow(emailInput, 'Adj meg érvényes e-mail címet.');
         }
       }
-      return ok1 && ok2;
+      
+      if (employeeLimitInput) {
+        const val = parseInt(employeeLimitInput.value);
+        const good = !isNaN(val) && val > 0;
+        markInvalid(employeeLimitInput, !good);
+        if (!good) {
+          ok3 = false;
+          addErrorBelow(employeeLimitInput, 'Adj meg legalább 1 munkavállalót.');
+        }
+      }
+      
+      return ok1 && ok2 && ok3;
     }
 
     // STEP2: org + cím + tax/eu vat logika
@@ -217,42 +231,34 @@ function isEU(cc) {
       body: payload
     }).catch(() => null);
 
-    if (!res) return { ok:false, errors:{ _:'Hálózati hiba. Próbáld újra.' } };
+    if (!res) return { ok:false, errors:{ _:'Hálózati hiba. Próbáld újra.' }};
+    const data = await res.json().catch(() => null);
+    if (!data) return { ok:false, errors:{ _:'Hibás válasz a szerverről.' }};
 
-    const data = await res.json().catch(() => ({ ok:false, errors:{ _:'Ismeretlen hiba.' } }));
-
-    // szerver hibák kirajzolása az adott lépésre
     if (!data.ok && data.errors) {
-      const stepEl = steps[stepIndex];
-      // korábbi hibák törlése
-      stepEl.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-      stepEl.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
-
-      Object.entries(data.errors).forEach(([name, msg]) => {
-        // ha nem mezőszintű a hiba (pl. _), tegyük az első címke alá
-        const input = stepEl.querySelector(`[name="${name}"]`) || stepEl.querySelector('input,select,textarea');
-        if (!input) return;
-        input.classList.add('is-invalid');
-        const fb = document.createElement('div');
-        fb.className = 'invalid-feedback';
-        fb.style.display = 'block';
-        fb.textContent = String(msg);
-        input.after(fb);
+      Object.entries(data.errors).forEach(([field, msg]) => {
+        const input = form.querySelector(`[name="${field}"]`);
+        if (input) {
+          markInvalid(input, true);
+          addErrorBelow(input, msg);
+        }
       });
     }
     return data;
   }
 
-  // --- Összegzés felépítése (lépés 4 előtt) ---
+  // --- Összegzés build ---
   function buildSummary() {
-    const data = new FormData(form);
-    const S = (name) => (data.get(name) || '').toString().trim();
-    const B = (name) => data.get(name) ? 'Be' : 'Ki';
+    const S = n => (form.querySelector(`[name="${n}"]`)?.value || '').trim();
+    const B = n => form.querySelector(`[name="${n}"]`)?.checked ? 'Be' : 'Ki';
 
     const summaryHTML = `
       <dl>
         <dt>Admin</dt>
         <dd>${S('admin_name')} &lt;${S('admin_email')}&gt;</dd>
+
+        <dt>Munkavállalói limit</dt>
+        <dd>${S('employee_limit')} fő</dd>
 
         <dt>Cégnév</dt>
         <dd>${S('org_name')}</dd>
@@ -354,12 +360,11 @@ function isEU(cc) {
       sub:   'Nézze át az összegzést. A befejezés után e-mailben kap linket a jelszó beállításához.'
     }
   ];
-  function updateAside(i){
+
+  function updateAside(stepIndex) {
     if (!flowTitle || !flowSubtitle) return;
-    const t = STEP_TEXTS[i] || STEP_TEXTS[0];
+    const t = STEP_TEXTS[stepIndex] || STEP_TEXTS[0];
     flowTitle.textContent = t.title;
     flowSubtitle.textContent = t.sub;
   }
-
-
 </script>

@@ -111,7 +111,7 @@ Route::get('/home-redirect', function(Request $request){
 Route::match(['POST'], '/webhook/barion', [PaymentWebhookController::class, 'barion'])->name('webhook.barion');
 
 // ADMIN ROUTES
-Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'org'])->group(function(){
+Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'org', 'check.initial.payment'])->group(function(){
     Route::get('/home', [HomeController::class, 'admin'])->name('home');
 
     // assessment
