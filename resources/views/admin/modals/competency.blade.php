@@ -26,10 +26,11 @@
           <!-- Content will be dynamically generated for each language -->
         </div>
 
+        
+      </div>
+      <div class="modal-footer">
         <!-- Action buttons -->
-        <div class="modal-actions">
           <button class="btn btn-primary save-competency">{{ __('admin/competencies.save-competency') }}</button>
-        </div>
       </div>
     </div>
   </div>

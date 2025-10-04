@@ -1,3 +1,4 @@
+{{-- resources/views/admin/modals/select.blade.php --}}
 <div class="modal fade modal-drawer" tabindex="-1" role="dialog" id="select-modal">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
@@ -9,10 +10,10 @@
       </div>
       <div class="modal-body">
         <div class="search-row">
-          <span>{{ __('select.search') }}</span>
+          <span>{{ __('global.search') }}</span>
           <div>
             <input type="text" class="form-control select-search-input">
-            <i class="fa fa-ban select-clear-search" data-tippy-content="{{ __('select.clear-search') }}"></i>
+            <i class="fa fa-ban select-clear-search" data-tippy-content="{{ __('global.search-clear') }}"></i>
           </div>
         </div>
 
@@ -21,14 +22,14 @@
           <div class="d-flex justify-content-between align-items-center">
             <div>
               <button type="button" class="btn btn-sm btn-outline-primary select-all-btn">
-                <i class="fa fa-check-double"></i> {{ __('select.select-all') }}
+                <i class="fa fa-check-double"></i> {{ __('global.select-all') }}
               </button>
               <button type="button" class="btn btn-sm btn-outline-secondary clear-all-btn">
-                <i class="fa fa-times"></i> {{ __('select.clear-all') }}
+                <i class="fa fa-times"></i> {{ __('global.clear-all') }}
               </button>
             </div>
             <div class="selected-count">
-              <span class="badge badge-info">0 {{ __('select.selected') }}</span>
+              <span class="badge badge-info">0 {{ __('global.selected') }}</span>
             </div>
           </div>
         </div>
@@ -37,17 +38,15 @@
             
         </div>
 
-        <!-- Multi-select action buttons -->
-        <div class="select-actions" style="display: none;">
-          <div class="d-flex justify-content-between">
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">
-              <i class="fa fa-arrow-left"></i> {{ __('global.cancel') }}
+        
+
+      </div>
+      <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal"> {{ __('global.cancel') }}
             </button>
             <button type="button" class="btn btn-primary add-selected-btn" disabled>
-              <i class="fa fa-plus"></i> {{ __('select.add-selected') }} (<span class="selected-count-text">0</span>)
+              <i class="fa fa-plus"></i> {{ __('global.add-selected') }} (<span class="selected-count-text">0</span>)
             </button>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -55,67 +54,48 @@
 
 <script>
 $(document).ready(function(){
-  $('.select-clear-search').click(function(){
-    $('.select-search-input').val('').trigger(jQuery.Event('keyup', { keyCode: 13 }));
-  });
-
-  // Multi-select functionality
   let selectedItems = [];
   let currentSelectFunction = null;
-  let isMultiSelectMode = false;
+  let isMultiSelectMode = true;
 
-  // Select All functionality
-  $('.select-all-btn').click(function(){
-    $('.select-modal-item:not(.hidden)').each(function(){
-      if (!$(this).hasClass('selected')) {
-        $(this).addClass('selected');
-        updateSelectedItems();
-      }
-    });
-  });
-
-  // Clear All functionality
-  $('.clear-all-btn').click(function(){
-    $('.select-modal-item').removeClass('selected');
+  // Select all items
+  $('.select-all-btn').on('click', function() {
+    $('.select-modal-item:not(.hidden)').addClass('selected');
     updateSelectedItems();
   });
 
-  // Add Selected button functionality
-  $('.add-selected-btn').click(function(){
-    if (selectedItems.length > 0 && currentSelectFunction) {
-      // Process each selected item
-      selectedItems.forEach(function(item) {
-        // Create a temporary jQuery object with the item data
-        let $tempItem = $('<div>').attr({
-          'data-id': item.id,
-          'data-name': item.name
-        });
-        
-        // Call the select function in the context of the temp item
-        currentSelectFunction.call($tempItem[0]);
-      });
-
-      // Clear selections and close modal
-      clearSelections();
-      $('#select-modal').modal('hide');
-    }
+  // Clear all selections
+  $('.clear-all-btn').on('click', function() {
+    clearSelections();
   });
 
+  // Add selected items
+  $('.add-selected-btn').on('click', function() {
+    if (selectedItems.length === 0 || !currentSelectFunction) return;
+    
+    selectedItems.forEach(id => {
+      const $item = $('.select-modal-item[data-id="'+id+'"]');
+      if ($item.length > 0) {
+        currentSelectFunction.call($item[0]);
+      }
+    });
+    
+    $('#select-modal').modal('hide');
+  });
+
+  // Update selected items array and UI
   function updateSelectedItems() {
     selectedItems = [];
-    $('.select-modal-item.selected').each(function(){
-      selectedItems.push({
-        id: $(this).attr('data-id'),
-        name: $(this).attr('data-name')
-      });
+    $('.select-modal-item.selected').each(function() {
+      selectedItems.push($(this).attr('data-id'));
     });
-
+    
     const count = selectedItems.length;
-    $('.selected-count .badge').text(count + ' {{ __('select.selected') }}');
+    $('.selected-count .badge').text(count + ' {{ __('global.selected') }}');
     $('.selected-count-text').text(count);
+    
     $('.add-selected-btn').prop('disabled', count === 0);
-
-    // Update visual state
+    
     if (count > 0) {
       $('.add-selected-btn').removeClass('btn-secondary').addClass('btn-primary');
     } else {
@@ -298,6 +278,7 @@ $(document).ready(function(){
   background-color: #f8f9fa;
   border: 1px solid #dee2e6;
   margin-bottom: 0.5rem;
+  border-radius: 0.375rem;
 }
 
 #select-modal .select-actions {
@@ -317,6 +298,7 @@ $(document).ready(function(){
   transition: all 0.3s ease;
   margin-bottom: 0.25rem;
   border: 2px solid transparent;
+  position: relative;
 }
 
 #select-modal .select-modal-item:hover {
@@ -341,10 +323,6 @@ $(document).ready(function(){
   font-size: 1.2rem;
   color: #2196f3;
   font-weight: bold;
-}
-
-#select-modal .select-modal-item {
-  position: relative; /* For the checkmark positioning */
 }
 
 #select-modal .item-content {
@@ -376,6 +354,10 @@ $(document).ready(function(){
 #select-modal .add-selected-btn:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+#select-modal .btn-sm {
+  font-size: 0.7em;
 }
 
 /* UPDATED: Modal layering styles */

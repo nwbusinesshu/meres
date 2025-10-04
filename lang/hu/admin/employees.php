@@ -88,4 +88,102 @@ return [
 'both-sources' => 'Mindkettő',
 'managed-by-group' => 'Csoport által kezelve (nem törölhető)',
 'remove-manual-only' => 'Manuális hozzárendelés törlése (csoport kompetencia megmarad)',
+'department-create-title' => 'Új részleg létrehozása',
+  
+  'department-edit-title' => 'Részleg szerkesztése',
+  
+  'department-name' => 'Részleg neve',
+  
+  'department-name-placeholder' => 'Pl. IT Részleg',
+  
+  'department-managers' => 'Vezetők',
+  
+  'department-add-manager' => 'Vezető hozzáadása',
+  
+  'department-manager-info' => 'Egy részleghez több vezető is kijelölhető. A vezetők kezelhetik a részleg tagjait és látják az értékeléseket.',
+  
+  'department-manager-remove' => 'Vezető eltávolítása',
+  
+  'department-save-create' => 'Létrehozás',
+  
+  'department-save-changes-title' => 'Változtatások mentése?',
+  
+  'department-create-confirm-title' => 'Részleg létrehozása?',
+  
+  'department-managers-check-text' => 'A vezetők ellenőrzésre kerülnek (nem vezethetnek másik aktív részleget).',
+  
+  'department-managers-limit-text' => 'A vezetők egy időben csak egy részleget vezethetnek.',
+  
+  'department-updated' => 'Részleg frissítve.',
+  
+  'department-created' => 'Részleg létrehozva.',
+  
+  'department-error-load' => 'Nem sikerült betölteni a részleg adatait.',
+  
+  'department-error-name-required' => 'Add meg a részleg nevét.',
+  
+  'department-error-manager-required' => 'Legalább egy vezetőt ki kell jelölni.',
+  
+  'department-error-unknown' => 'Ismeretlen hiba történt.',
+  
+  'department-select-manager-title' => 'Vezető kiválasztása',
+  
+  'department-no-managers-available' => 'Nincs választható vezető',
+  
+  'department-no-managers-selected' => 'Még nincs kiválasztott vezető. Használd a \'Vezető hozzáadása\' gombot.',
+  'position' => 'Beosztása a cégben',
+'type-locked-dept-manager' => 'Ez a dolgozó jelenleg részlegvezető. Amíg részleghez van rendelve mint vezető, a típusa nem módosítható.',
+'type-locked-dept-member' => 'Ez a dolgozó már tagja egy részlegnek, ezért a típus nem módosítható.',
+'error-loading-employee' => 'Nem sikerült betölteni a dolgozó adatait.',
+'error-server' => 'Szerverhiba történt.',
+'bonusmalus-select-level' => 'Válasszon besorolási szintet:',
+'bonusmalus-history' => 'Korábbi besorolások:',
+'bonusmalus-no-history' => 'Nincs korábbi besorolás',
+'new-department' => 'Új részleg',
+'company-network' => 'Cégkapcsolati háló',
+'no-users-at-level' => 'Nincs megjeleníthető felhasználó ezen a szinten.',
+'manager' => 'vezető',
+'manage-members' => 'Tagok kezelése',
+'edit' => 'Szerkesztés',
+'managers' => 'Vezetők',
+'no-manager-assigned' => 'Nincs kijelölt vezető ehhez a részleghez.',
+'members' => 'Tagok',
+'no-members-in-dept' => 'Nincs tag a részlegben.',
+'raters' => 'Értékelők',
+'password-reset-tooltip' => 'Jelszó visszaállító levél küldése (jelszó törlése)',
+// JavaScript strings
+'confirm-delete-user' => 'Felhasználó törlése?',
+'action-irreversible' => 'Ez a művelet nem vonható vissza!',
+'deleted' => 'Törölve',
+'user-deleted-success' => 'A felhasználó sikeresen törölve.',
+'error' => 'Hiba',
+'user-delete-failed' => 'Nem sikerült törölni a felhasználót.',
+'password-reset-confirm' => 'Jelszó visszaállítás?',
+'password-reset-email-info' => 'A felhasználó kap egy e-mailt az új jelszó beállításához.',
+'sent' => 'Elküldve',
+'password-reset-email-sent' => 'Jelszó visszaállító levél elküldve.',
+'password-reset-email-failed' => 'Nem sikerült elküldeni a visszaállító levelet.',
+'confirm-delete-department' => 'Részleg törlése?',
+'department-members-unassigned-info' => 'A részleg minden tagja átkerül a nem besorolt felhasználókhoz.',
+'department-deleted-success' => 'Részleg sikeresen törölve.',
+'department-delete-failed' => 'Nem sikerült törölni a részleget.',
+'select-employee' => 'Dolgozó kiválasztása',
+'no-selectable-employee' => 'Nincs választható dolgozó',
+'confirm-save-dept-members' => 'Részleg tagjainak mentése?',
+'saved' => 'Mentve',
+'dept-members-updated' => 'Részleg tagjai frissítve.',
+'save-changes-failed' => 'Nem sikerült menteni a változtatásokat.',
+'nothing-to-remove' => 'Nincs mit eltávolítani',
+'dept-no-members-currently' => 'A részlegben jelenleg nincsenek tagok.',
+'are-you-sure' => 'Biztos vagy benne?',
+'remove-all-members-warning' => 'Minden tag (:count fő) azonnal eltávolításra kerül a részlegből. A felhasználók megmaradnak a rendszerben, csak nem lesznek részleg tagjai.',
+'yes-remove-everyone-now' => 'Igen, mindenkit eltávolít most',
+'cancel' => 'Mégse',
+'all-members-removed-success' => 'Minden tag eltávolításra került a részlegből.',
+'error-during-removal' => 'Hiba történt az eltávolítás során.',
+'successful' => 'Sikeres',
+'remove' => 'Eltávolítás',
+'dept-members-load-failed' => 'Nem sikerült betölteni a részleg tagjait.',
+
+
 ];

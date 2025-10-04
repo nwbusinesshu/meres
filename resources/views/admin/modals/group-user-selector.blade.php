@@ -12,7 +12,7 @@
 
       <div class="modal-body">
         {{-- Group info display --}}
-        <div class="group-info" style="background-color: #f8f9fa; padding: 0.75rem; margin-bottom: 1rem; border-radius: 0.375rem; border-left: 4px solid #007bff;">
+        <div class="group-info" style="background-color: #f8f9fa; padding: 0.75rem; margin-bottom: 1rem; border-radius: 0.375rem; border-left: 4px solid #007bff; flex-shrink: 0;">
           <strong>{{ __('admin/competencies.group-name') }}:</strong> <span class="group-name-display"></span>
           <br>
           <small class="text-muted" style="font-style: italic;">
@@ -27,128 +27,92 @@
 
         {{-- Action buttons (consistent with departmentuser modal pattern) --}}
         <div class="tile tile-button trigger-add-user">{{ __('admin/competencies.select-users') }}</div>
-        <button class="btn btn-primary save-group-users">{{ __('admin/competencies.save-user-assignments') }}</button>
-        <button class="btn btn-danger trigger-empty-group">{{ __('global.remove-all') }}</button>
+        
 
+      </div>
+
+      <div class="modal-footer">
+<button class="btn btn-primary save-group-users">{{ __('admin/competencies.save-user-assignments') }}</button>
+        <button class="btn btn- secondary btn-danger trigger-empty-group">{{ __('global.remove-all') }}</button>
       </div>
 
     </div>
   </div>
 </div>
 
-<style>
-/* Group users modal styling - consistent with departmentuser modal */
-#group-users-modal .modal-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1em;
-}
-
-#group-users-modal .btn {
-  width: 100%;
-}
-
-#group-users-modal .group-users-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1em;
-  max-height: 300px;
-  height: 300px;
-  overflow-y: scroll;
-  padding-right: 0.5em;
-  border: 1px solid #dee2e6;
-  border-radius: 0.375rem;
-  padding: 1rem;
-}
-
-/* User items styled like dept-member-item */
-.group-user-item {
-  display: flex;
-  gap: 1em;
-  border-bottom: 3px solid var(--info);
-  padding-bottom: 0.5em;
-}
-
-.group-user-item i {
-  display: flex;
-  font-size: 1.2em;
-  color: var(--danger);
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-}
-
-.group-user-item .item-content {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  gap: 0.5em;
-}
-
-.group-user-item .item-content p {
-  font-weight: bold;
-  margin: 0;
-}
-
-.group-user-item .item-content span {
-  font-size: 0.9em;
-  font-weight: normal;
-  font-style: italic;
-  color: var(--silver_chalice);
-}
-
-/* Empty state styling - simple like departmentuser modal */
-.group-users-list:empty::after {
-  content: "{{ __('admin/competencies.no-users-assigned') }}";
-  display: block;
-  text-align: center;
-  padding: 2rem;
-  color: var(--silver_chalice);
-  font-style: italic;
-  font-weight: bold;
-}
-
-</style>
-
 <script>
-// Initialize group users modal functions
+// Initialize group users modal functions  
 (function(){
-  // Add user item to list with consistent styling
-  function addGroupUserItem(uid, name, email){
-    const emailDisplay = email ? 
-      `<span>${email}</span>` : 
-      '<span style="color: #6c757d; font-style: italic;">{{ __("global.no-email") }}</span>';
+  
+  // Add user to the list
+  function addGroupUserItem(userId, userName, userEmail = null){
+    const emailDisplay = userEmail ? `<span>(${userEmail})</span>` : '';
     
     $('.group-users-list').append(`
-      <div class="group-user-item" data-id="${uid}">
+      <div class="group-user-item" data-id="${userId}">
         <i class="fa fa-trash-alt" data-tippy-content="{{ __('admin/competencies.remove-user') }}"></i>
         <div class="item-content">
-          <p>${name}</p>
+          <p>${userName}</p>
           ${emailDisplay}
         </div>
       </div>
     `);
   }
 
-  // Make addGroupUserItem available globally
-  window.addGroupUserItem = addGroupUserItem;
-
-  // Add user button click handler
-  $(document).on('click', '.trigger-add-user', function(){
-    const groupId = $('#group-users-modal').data('group-id');
-
-    // Get currently selected users to exclude them
-    var except = [];
-    $('#group-users-modal .group-user-item').each(function(){
-      except.push($(this).data('id')*1);
+  // Initialize group users modal
+  window.initGroupUsersModal = function(groupId, groupName) {
+    $('#group-users-modal').attr('data-id', groupId);
+    $('.group-name-display').text(groupName);
+    
+    swal_loader.fire();
+    
+    $.ajax({
+      url: "{{ route('admin.competency-group.users.get') }}",
+      method: 'POST',
+      data: { group_id: groupId },
+      headers: {
+        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+      }
+    })
+    .done(function(response){
+      $('.group-users-list').html('');
+      
+      if (response.users && response.users.length > 0) {
+        response.users.forEach(function(user){
+          addGroupUserItem(user.id, user.name, user.email);
+        });
+      }
+      
+      if (window.tippy) tippy('.group-users-list [data-tippy-content]');
+      
+      swal_loader.close();
+      $('#group-users-modal').modal('show');
+    })
+    .fail(function(xhr){
+      swal_loader.close();
+      const errorMsg = xhr.responseJSON?.message || '{{ __('global.error-occurred') }}';
+      swal.fire({
+        icon: 'error',
+        title: '{{ __('global.error') }}',
+        text: errorMsg
+      });
     });
+  };
 
-    // Use select modal with multi-select capability (same as departmentuser)
+  // Add user button
+  $(document).on('click', '.trigger-add-user', function(){
+    const groupId = $('#group-users-modal').attr('data-id');
+    
+    var exceptArray = [];
+    $('#group-users-modal .group-user-item').each(function(){
+      exceptArray.push($(this).data('id') * 1);
+    });
+    
     openSelectModal({
       title: "{{ __('admin/competencies.select-users') }}",
       parentSelector: '#group-users-modal',
-      ajaxRoute: "{{ route('admin.competency-group.users.eligible') }}?group_id="+groupId,
-      itemData: function(item){ 
+      ajaxRoute: "{{ route('admin.employee.all') }}",
+      itemData: function(item){
         return {
           id: item.id,
           name: item.name,
@@ -157,84 +121,70 @@
         };
       },
       selectFunction: function(){
-        const uid = $(this).attr('data-id');
-        const name = $(this).attr('data-name');
-        const email = $(this).find('.item-content span').text() || '';
+        const userId = $(this).attr('data-id');
+        const userName = $(this).attr('data-name');
+        const userEmail = $(this).find('.item-content span').text() || null;
         
-        // Check if not already added
-        if ($('#group-users-modal .group-user-item[data-id="'+uid+'"]').length === 0) {
-          addGroupUserItem(uid, name, email);
+        if ($('#group-users-modal .group-user-item[data-id="'+userId+'"]').length === 0) {
+          addGroupUserItem(userId, userName, userEmail);
           if (window.tippy) tippy('.group-users-list [data-tippy-content]');
         }
       },
-      exceptArray: except,
-      multiSelect: true, // Enable multi-select
-      emptyMessage: '{{ __("global.no-employee") }}'
+      exceptArray: exceptArray,
+      multiSelect: true,
+      emptyMessage: '{{ __('admin/competencies.no-users') }}'
     });
   });
 
-  // Remove individual user
-  $(document).on('click', '#group-users-modal .group-user-item i', function(){
+  // Remove user
+  $(document).on('click', '.group-user-item i', function(){
     $(this).closest('.group-user-item').remove();
-  });
-
-  // Empty all users
-  $(document).on('click', '.trigger-empty-group', function(){
-    swal_confirm.fire({ 
-      title: '{{ __("global.remove-all") }}?',
-      text: '{{ __("admin/competencies.remove-all-users-confirm") }}'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        $('.group-users-list').empty();
-      }
-    });
   });
 
   // Save group users
   $(document).on('click', '.save-group-users', function(){
     const groupId = $('#group-users-modal').attr('data-id');
-    var ids = [];
+    
+    var userIds = [];
     $('#group-users-modal .group-user-item').each(function(){
-      ids.push($(this).data('id')*1);
+      userIds.push($(this).data('id') * 1);
     });
     
-    swal_confirm.fire({ 
-      title: '{{ __("admin/competencies.save-user-assignments") }}?',
-      text: '{{ __("global.changes-will-be-saved") }}'
+    swal_confirm.fire({
+      title: '{{ __('admin/competencies.save-user-assignments-confirm') }}'
     }).then((result) => {
       if (result.isConfirmed) {
         swal_loader.fire();
+        
         $.ajax({
           url: "{{ route('admin.competency-group.users.save') }}",
           method: 'POST',
-          data: { 
+          data: {
             group_id: groupId,
-            user_ids: ids 
+            user_ids: userIds
           },
           headers: {
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
           }
         })
-        .done(function(resp){
+        .done(function(response){
           swal_loader.close();
           $('#group-users-modal').modal('hide');
-          Swal.fire({
+          swal.fire({
             icon: 'success',
-            title: '{{ __("global.success") }}',
-            text: resp.message || '{{ __("admin/competencies.user-assignments-saved") }}',
+            title: '{{ __('global.success') }}',
+            text: response.message || '{{ __('admin/competencies.user-assignments-saved') }}',
             timer: 2000,
             showConfirmButton: false
-          }).then(() => {
-            // Refresh the page to show updated user counts
-            window.location.reload();
           });
+          location.reload();
         })
         .fail(function(xhr){
           swal_loader.close();
-          const errorMsg = xhr.responseJSON?.message || '{{ __("global.error") }}';
-          Swal.fire({ 
-            icon: 'error', 
-            title: '{{ __("global.error") }}', 
+          const errorMsg = xhr.responseJSON?.message || '{{ __('global.error-occurred') }}';
+          swal.fire({
+            icon: 'error',
+            title: '{{ __('global.error') }}',
             text: errorMsg
           });
         });
@@ -242,49 +192,25 @@
     });
   });
 
-})();
-
-// Initialize group users modal
-function initGroupUsersModal(groupId, groupName) {
-  swal_loader.fire();
-  
-  $('#group-users-modal').attr('data-id', groupId);
-  $('.group-name-display').text(groupName);
-  $('.group-users-list').empty();
-
-  // Load existing assigned users
-  $.ajax({
-    url: "{{ route('admin.competency-group.users.get') }}",
-    method: 'POST',
-    data: { group_id: groupId },
-    headers: {
-      'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-    }
-  })
-  .done(function(users) {
-    users.forEach(user => {
-      addGroupUserItem(user.id, user.name, user.email || null);
-    });
-    
-    // Store group ID for use in user selection
-    $('#group-users-modal').data('group-id', groupId);
-    
-    if (window.tippy) tippy('.group-users-list [data-tippy-content]');
-    
-    swal_loader.close();
-    $('#group-users-modal').modal('show');
-  })
-  .fail(function(xhr) {
-    swal_loader.close();
-    const errorMsg = xhr.responseJSON?.message || '{{ __("global.error") }}';
-    Swal.fire({ 
-      icon: 'error', 
-      title: '{{ __("global.error") }}', 
-      text: errorMsg
+  // Empty group (remove all users)
+  $(document).on('click', '.trigger-empty-group', function(){
+    swal_confirm.fire({
+      title: '{{ __('admin/competencies.remove-all-users-confirm') }}',
+      text: '{{ __('admin/competencies.remove-all-users-warning') }}',
+      icon: 'warning'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        $('.group-users-list').html('');
+        swal.fire({
+          icon: 'info',
+          title: '{{ __('global.removed') }}',
+          text: '{{ __('admin/competencies.remember-to-save') }}',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      }
     });
   });
-}
 
-// Make function globally available
-window.initGroupUsersModal = initGroupUsersModal;
+})();
 </script>

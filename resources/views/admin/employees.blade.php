@@ -19,10 +19,10 @@
     </div>
     @if(!empty($enableMultiLevel))
         <div class="tile tile-button trigger-new-dept">
-            <span><i class="fa fa-sitemap"></i> Új részleg</span>
+            <span><i class="fa fa-sitemap"></i> {{ $_('new-department') }}</span>
         </div>
         <div class="tile tile-button network">
-            <span><i class="fa fa-project-diagram"></i> Cégkapcsolati háló</span>
+            <span><i class="fa fa-project-diagram"></i> {{ $_('company-network') }}</span>
         </div>
     @endif
 </div>
@@ -35,7 +35,7 @@
                 @include('admin.partials.user-row', ['user' => $user])
             @endforeach
             @if(collect($ceos)->concat($unassigned)->isEmpty())
-                <div class="tile tile-info">Nincs megjeleníthető felhasználó ezen a szinten.</div>
+                <div class="tile tile-info">{{ $_('no-users-at-level') }}</div>
             @endif
         </div>
 
@@ -49,11 +49,11 @@
                     <span class="dept-title">{{ $d->department_name }}</span>
                     <span class="badge count">{{ $d->members->count() }}</span>
                     {{-- NEW: Show manager count --}}
-                    <span class="badge count-managers" style="background-color: #28a745;">{{ $d->managers->count() }} vezető</span>
+                    <span class="badge count-managers" style="background-color: #28a745;">{{ $d->managers->count() }} {{ $_('manager') }}</span>
                 </div>
                 <div class="actions">
-                    <button class="btn btn-outline-success dept-members" data-tippy-content="Tagok kezelése"><i class="fa fa-users"></i></button>
-                    <button class="btn btn-outline-primary dept-edit" data-tippy-content="Szerkesztés"><i class="fa fa-pen"></i></button>
+                    <button class="btn btn-outline-success dept-members" data-tippy-content="{{ $_('manage-members') }}"><i class="fa fa-users"></i></button>
+                    <button class="btn btn-outline-primary dept-edit" data-tippy-content="{{ $_('edit') }}"><i class="fa fa-pen"></i></button>
                     <button class="btn btn-outline-danger dept-remove" data-tippy-content="{{ $_('remove') }}"><i class="fa fa-trash-alt"></i></button>
                 </div>
             </div>
@@ -65,7 +65,7 @@
                     <div class="managers-section">
                         <div class="section-header">
                             <h6 class="text-success mb-2">
-                                <i class="fa fa-user-tie"></i> Vezetők ({{ $d->managers->count() }})
+                                <i class="fa fa-user-tie"></i> {{ $_('managers') }} ({{ $d->managers->count() }})
                             </h6>
                         </div>
                         @foreach($d->managers as $manager)
@@ -95,7 +95,7 @@
                     <div class="no-managers-warning">
                         <div class="alert alert-warning small py-2">
                             <i class="fa fa-exclamation-triangle"></i> 
-                            Nincs kijelölt vezető ehhez a részleghez.
+                            {{ $_('no-manager-assigned') }}
                         </div>
                     </div>
                 @endif
@@ -105,7 +105,7 @@
                     <div class="members-section">
                         <div class="section-header">
                             <h6 class="text-primary mb-2">
-                                <i class="fa fa-users"></i> Tagok ({{ $d->members->count() }})
+                                <i class="fa fa-users"></i> {{ $_('members') }} ({{ $d->members->count() }})
                             </h6>
                         </div>
                         @foreach($d->members as $user)
@@ -113,7 +113,7 @@
                         @endforeach
                     </div>
                 @else
-                    <div class="tile tile-info">Nincs tag a részlegben.</div>
+                    <div class="tile tile-info">{{ $_('no-members-in-dept') }}</div>
                 @endif
             </div>
         </div>
@@ -126,7 +126,7 @@
         <table class="table table-hover">
             <thead>
                 <th>{{ __('global.name') }}</th>
-                <th>Értékelők</th>
+                <th>{{ $_('raters') }}</th>
                 <th>{{ __('global.type') }}</th>
                 @if(!empty($showBonusMalus))
                 <th>{{ __('global.bonusmalus') }}</th>
@@ -154,7 +154,7 @@
                         </div>
                     </td>
                     
-                    <td data-col="Értékelők">
+                    <td data-col="{{ $_('raters') }}">
                         <div class="rater-counter {{ $raterClass }}">
                             {{ $raterCount }}
                         </div>
@@ -203,7 +203,7 @@
                             <button class="btn btn-outline-warning datas" data-tippy-content="{{ $_('datas') }}">
                                 <i class="fa fa-user-gear"></i>
                             </button>
-                            <button class="btn btn-outline-secondary password-reset" data-tippy-content="Jelszó visszaállító levél küldése (jelszó törlése)">
+                            <button class="btn btn-outline-secondary password-reset" data-tippy-content="{{ $_('password-reset-tooltip') }}">
                                 <i class="fa fa-key"></i>
                             </button>
                             <button class="btn btn-outline-danger remove" data-tippy-content="{{ $_('remove') }}">

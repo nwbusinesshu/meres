@@ -1,55 +1,4 @@
-<style>
-/* Capsule toggle button for relation type */
-.relation-list .relation-type-toggle {
-  display: inline-flex !important;
-  flex-wrap: nowrap !important;
-  white-space: nowrap !important;
-  flex: 0 0 auto;            /* fix szélesség, a tartalma határozza meg */
-  flex-shrink: 0 !important; /* NE zsugorodjon a szülő flex miatt */
-  overflow: hidden;
-  border: 2px solid var(--info);
-  background: var(--alabaster);
-  max-width: 70%;
-}
-
-/* A gombok se nyúljanak, se törjenek */
-.relation-list .relation-type-toggle .toggle-option {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto !important;
-  padding: 0.4em 1em;
-  white-space: nowrap;
-  border: 0;
-}
-
-.relation-type-toggle .toggle-option:hover {
-  background: rgba(68, 163, 188, 0.1);
-}
-
-.relation-type-toggle .toggle-option.active {
-  background: var(--info);
-  color: white;
-  font-weight: 600;
-}
-
-.relation-type-toggle .toggle-option:first-child {
-  border-right: 1px solid var(--info);
-}
-
-/* Disabled state for self-relation */
-.relation-type-toggle.disabled {
-  opacity: 0.5;
-  pointer-events: none;
-  border-color: var(--silver_chalice);
-}
-
-.relation-type-toggle.disabled .toggle-option {
-  cursor: not-allowed;
-  color: var(--silver_chalice);
-}
-</style>
-
+{{-- resources/views/admin/modals/relations.blade.php --}}
 <div class="modal fade modal-drawer" tabindex="-1" role="dialog" id="relations-modal">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
@@ -61,14 +10,82 @@
       </div>
       <div class="modal-body">
         <div class="relation-list">
-
+          {{-- Relations populated dynamically --}}
         </div>
         <div class="tile tile-button trigger-new-relation">{{ __('admin/employees.add-new-relation') }}</div>
-        <button class="btn btn-primary save-relation">{{ __('admin/employees.save-relation') }}</button>
+        
       </div>
+      <div class="modal-footer">
+                <button class="btn btn-primary save-relation">{{ __('admin/employees.save-relation') }}</button>
+            </div>
     </div>
   </div>
 </div>
+
+<style>
+/* Capsule toggle button for relation type - COMPACT ELEGANT PILL */
+.relation-list .relation-type-toggle {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f8f9fa;
+  width: auto !important;
+  max-width: none !important;
+  margin-top: 0.3rem;
+  height: 28px;
+}
+
+.relation-list .relation-type-toggle .toggle-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.65rem;
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  color: #666;
+  line-height: 1;
+}
+
+.relation-type-toggle .toggle-option:hover:not(.active) {
+  background: rgba(0, 123, 255, 0.08);
+  color: #333;
+}
+
+.relation-type-toggle .toggle-option.active {
+  background: var(--info);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.relation-type-toggle .toggle-option:first-child {
+  border-right: 1px solid #e0e0e0;
+}
+
+.relation-type-toggle .toggle-option.active:first-child {
+  border-right-color: var(--info);
+}
+
+/* Disabled state for self-relation */
+.relation-type-toggle.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  border-color: #d0d0d0;
+  background: #f0f0f0;
+}
+
+.relation-type-toggle.disabled .toggle-option {
+  cursor: not-allowed;
+  color: #999;
+}
+</style>
 
 <script>
 function addNewRelationItem(uid, name, type = 'colleague'){
@@ -216,98 +233,81 @@ $(document).ready(function(){
               conflictHtml += '<ul style="margin: 10px 0;">';
               
               response.conflicts.forEach(function(conflict) {
-                let currentTypeText = conflict.current_type === 'subordinate' ? 'beosztott' : 'kolléga';
-                let existingTypeText = conflict.existing_reverse_type === 'subordinate' ? 'beosztott' : 'kolléga';
-                let expectedTypeText = conflict.expected_reverse_type === 'subordinate' ? 'beosztott' : 'kolléga';
+                let currentTypeText = conflict.current_type === 'subordinate' ? 
+                  '{{ __('userrelationtypes.subordinate') }}' : 
+                  '{{ __('userrelationtypes.colleague') }}';
+                let oppositeTypeText = conflict.opposite_type === 'subordinate' ? 
+                  '{{ __('userrelationtypes.subordinate') }}' : 
+                  '{{ __('userrelationtypes.colleague') }}';
                 
-                conflictHtml += '<li style="margin: 5px 0;">';
-                conflictHtml += '<strong>' + conflict.target_name + '</strong>: ';
-                conflictHtml += 'Ön ' + currentTypeText + ' viszonyban értékeli, de ';
-                conflictHtml += conflict.target_name + ' már ' + existingTypeText + ' viszonyban értékeli Önt. ';
-                conflictHtml += 'Automatikusan ' + expectedTypeText + ' viszonyra változik.';
-                conflictHtml += '</li>';
+                conflictHtml += `<li>${conflict.target_name}: Te "${currentTypeText}", ő "${oppositeTypeText}"</li>`;
               });
               
               conflictHtml += '</ul>';
-              conflictHtml += '<p style="margin-top: 10px;"><strong>Mit szeretne tenni?</strong></p>';
+              conflictHtml += '<p>Folytatod a mentést? Ez felülírja az ellentétes beállításokat.</p>';
               conflictHtml += '</div>';
               
-              // Show conflict dialog with Cancel and Fix buttons
-              Swal.fire({
+              // Ask for confirmation to override
+              swal.fire({
                 title: 'Kapcsolat ütközések',
                 html: conflictHtml,
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonText: 'Javítás és mentés',
-                cancelButtonText: 'Mégse',
-                confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-                width: '600px',
-              }).then((fixResult) => {
-                if (fixResult.isConfirmed) {
-                  // User clicked "Fix" - resend with force_fix flag
+                confirmButtonText: 'Igen, mentés',
+                cancelButtonText: 'Mégsem'
+              }).then((confirmResult) => {
+                if (confirmResult.isConfirmed) {
+                  // Second attempt - force save
                   swal_loader.fire();
-                  
                   $.ajax({
                     url: "{{ route('admin.employee.relations.save') }}",
                     method: 'POST',
                     data: {
                       id: $('#relations-modal').attr('data-id'),
                       relations: relations,
-                      force_fix: true
+                      force: true  // Override conflicts
                     },
-                    success: function(fixResponse) {
+                    success: function(finalResponse) {
                       swal_loader.close();
-                      Swal.fire({
+                      $('#relations-modal').modal('hide');
+                      swal.fire({
                         icon: 'success',
-                        title: 'Siker',
-                        text: '{{ __('admin/employees.save-relation-success') }}',
-                        timer: 1500,
-                        showConfirmButton: false
-                      }).then(() => {
-                        window.location.reload();
+                        title: 'Mentve',
+                        text: finalResponse.message,
+                        timer: 2000
                       });
+                      location.reload();
                     },
                     error: function(xhr) {
                       swal_loader.close();
-                      let errorMsg = 'Hiba történt a mentés során.';
-                      if (xhr.responseJSON && xhr.responseJSON.message) {
-                        errorMsg = xhr.responseJSON.message;
-                      }
-                      Swal.fire({
+                      swal.fire({
                         icon: 'error',
                         title: 'Hiba',
-                        text: errorMsg
+                        text: xhr.responseJSON?.message || 'Hiba történt a mentés során'
                       });
                     }
                   });
                 }
               });
-              
             } else {
-              // No conflicts - success!
+              // No conflicts, save successful
               swal_loader.close();
-              Swal.fire({
+              $('#relations-modal').modal('hide');
+              swal.fire({
                 icon: 'success',
-                title: 'Siker',
-                text: '{{ __('admin/employees.save-relation-success') }}',
-                timer: 1500,
-                showConfirmButton: false
-              }).then(() => {
-                window.location.reload();
+                title: 'Mentve',
+                text: response.message,
+                timer: 2000
               });
+              location.reload();
             }
           },
           error: function(xhr) {
             swal_loader.close();
-            let errorMsg = 'Hiba történt a mentés során.';
-            if (xhr.responseJSON && xhr.responseJSON.message) {
-              errorMsg = xhr.responseJSON.message;
-            }
-            Swal.fire({
+            swal.fire({
               icon: 'error',
               title: 'Hiba',
-              text: errorMsg
+              text: xhr.responseJSON?.message || 'Hiba történt a mentés során'
             });
           }
         });

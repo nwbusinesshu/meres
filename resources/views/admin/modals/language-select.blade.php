@@ -25,7 +25,11 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <div class="modal-footer">
         <button class="btn btn-primary save-languages">{{ __('admin/competencies.save-languages') }}</button>
+
       </div>
     </div>
   </div>
@@ -41,7 +45,6 @@
 
 .language-section {
   border: 1px solid #dee2e6;
-  border-radius: 0.375rem;
   padding: 1rem;
 }
 
@@ -68,7 +71,6 @@
   align-items: center;
   padding: 0.5rem;
   border: 1px solid #dee2e6;
-  border-radius: 0.25rem;
   background-color: #fff;
   cursor: pointer;
   transition: all 0.2s;
@@ -132,7 +134,6 @@
   background-color: #dc3545;
   color: white;
   border: none;
-  border-radius: 0.25rem;
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
   cursor: pointer;
@@ -147,7 +148,6 @@
   background-color: #28a745;
   color: white;
   border: none;
-  border-radius: 0.25rem;
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
   cursor: pointer;

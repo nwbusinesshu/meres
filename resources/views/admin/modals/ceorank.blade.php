@@ -58,6 +58,10 @@
           </div>
         </div>
 
+        
+      </div>
+
+      <div class="modal-footer">
         <div class="modal-actions">
           <button class="btn btn-primary save-rank">{{ __('admin/ceoranks.save-rank') }}</button>
         </div>
@@ -574,7 +578,7 @@ function addRankTranslationButton() {
     $('#ceorank-modal .ai-translate-rank').remove();
     
     const aiButton = $(`
-        <button type="button" class="btn btn-outline-primary ai-translate-rank disabled" style="margin-right: 0.5rem;" disabled>
+        <button type="button" class="btn btn-outline-primary ai-translate-rank disabled" style="margin-left: 0.5rem;" disabled>
             <i class="fa fa-robot"></i> {{ __('admin/ceoranks.ai-translate') }}
         </button>
     `);
@@ -586,7 +590,7 @@ function addRankTranslationButton() {
     console.log('Save button found:', saveButton.length);
     
     if (saveButton.length > 0) {
-        aiButton.insertBefore(saveButton);
+        aiButton.insertAfter(saveButton);
         console.log('AI button inserted before save button');
     } else {
         // Fallback: append to modal actions

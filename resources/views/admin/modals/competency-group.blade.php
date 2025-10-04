@@ -24,8 +24,12 @@
 
         {{-- Action buttons (consistent with departmentuser modal pattern) --}}
         <div class="tile tile-button trigger-add-competencies">{{ __('admin/competencies.add-competencies') }}</div>
-        <button class="btn btn-primary save-competency-group">{{ __('admin/competencies.save-group') }}</button>
+        
 
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-primary save-competency-group">{{ __('admin/competencies.save-group') }}</button>
       </div>
 
     </div>
@@ -33,82 +37,7 @@
 </div>
 
 <style>
-/* Competency group modal styling - consistent with departmentuser modal */
-#competency-group-modal .modal-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1em;
-}
-
-#competency-group-modal .btn {
-  width: 100%;
-}
-
-#competency-group-modal .competency-group-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1em;
-  max-height: 300px;
-  height: 300px;
-  overflow-y: scroll;
-  padding-right: 0.5em;
-  border: 1px solid #dee2e6;
-  border-radius: 0.375rem;
-  padding: 1rem;
-}
-
-/* Competency items styled like dept-member-item */
-.group-competency-item {
-  display: flex;
-  gap: 1em;
-  border-bottom: 3px solid var(--info);
-  padding-bottom: 0.5em;
-}
-
-.group-competency-item i {
-  display: flex;
-  font-size: 1.2em;
-  color: var(--danger);
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-}
-
-.group-competency-item .item-content {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  gap: 0.5em;
-}
-
-.group-competency-item .item-content p {
-  font-weight: bold;
-  margin: 0;
-}
-
-.group-competency-item .item-content span {
-  font-size: 0.9em;
-  font-weight: normal;
-  font-style: italic;
-  color: var(--silver_chalice);
-}
-
-/* Empty state styling */
-.competency-group-list:empty::after {
-  content: "{{ __('admin/competencies.no-competencies-selected') }}";
-  display: block;
-  text-align: center;
-  padding: 2rem;
-  color: var(--silver_chalice);
-  font-style: italic;
-  font-weight: bold;
-}
-
-/* Form styling */
-#competency-group-modal .form-group {
-  margin-bottom: 1rem;
-}
-
+/* Minimal modal-specific styling - main layout handled by admin.employees.css */
 #competency-group-modal .form-group label {
   font-weight: 600;
   margin-bottom: 0.5rem;
@@ -161,105 +90,107 @@ window.addGroupCompetencyItem = function(competencyId, competencyName, competenc
         return {
           id: item.id,
           name: item.name,
+          top: null,
           bottom: item.description || null
-        }; 
+        };
       },
       selectFunction: function(){
-        // This function is called for each selected item in multi-select mode
-        const selectedId = $(this).attr('data-id');
-        const selectedName = $(this).attr('data-name');
-        const selectedDescription = $(this).find('.item-content span').last().text() || null;
+        const competencyId = $(this).attr('data-id');
+        const competencyName = $(this).attr('data-name');
+        const description = $(this).find('.item-content span').text() || null;
         
-        // Check if competency already exists to prevent duplicates
-        if ($('#competency-group-modal .group-competency-item[data-id="' + selectedId + '"]').length === 0) {
-          // FIXED: Now using the global function
-          window.addGroupCompetencyItem(selectedId, selectedName, selectedDescription);
+        // Check if not already added
+        if ($('#competency-group-modal .group-competency-item[data-id="'+competencyId+'"]').length === 0) {
+          window.addGroupCompetencyItem(competencyId, competencyName, description);
+          if (window.tippy) tippy('.competency-group-list [data-tippy-content]');
         }
       },
       exceptArray: exceptArray,
-      exceptFunction: function(item){
-        return !exceptArray.includes(item.id);
-      },
-      emptyMessage: "{{ __('admin/competencies.no-available-competencies') }}",
-      multiSelect: true
+      multiSelect: true,
+      emptyMessage: '{{ __('admin/competencies.no-competencies') }}'
     });
   });
 
   // Save competency group
   $(document).on('click', '.save-competency-group', function(){
+    const groupId = $('#competency-group-modal').attr('data-id');
     const groupName = $('.group-name-input').val().trim();
     
+    // Validation
     if (!groupName) {
       swal.fire({
         icon: 'warning',
-        title: '{{ __('admin/competencies.group-name-required') }}',
-        text: '{{ __('admin/competencies.please-enter-group-name') }}'
+        title: '{{ __('global.validation-error') }}',
+        text: '{{ __('admin/competencies.group-name-required') }}'
       });
       return;
     }
-
-    const competencyIds = [];
+    
+    var competencyIds = [];
     $('#competency-group-modal .group-competency-item').each(function(){
-      competencyIds.push($(this).attr('data-id') * 1);
+      competencyIds.push($(this).data('id') * 1);
     });
-
+    
     if (competencyIds.length === 0) {
       swal.fire({
-        icon: 'warning', 
-        title: '{{ __('admin/competencies.no-competencies-selected') }}',
-        text: '{{ __('admin/competencies.please-select-competencies') }}'
+        icon: 'warning',
+        title: '{{ __('global.validation-error') }}',
+        text: '{{ __('admin/competencies.select-at-least-one-competency') }}'
       });
       return;
     }
-
-    swal_loader.fire();
-
-    const isEdit = $('#competency-group-modal').attr('data-id');
     
-    $.ajax({
-      url: "{{ route('admin.competency-group.save') }}",
-      method: 'POST',
-      data: {
-        id: isEdit || null,
-        name: groupName,
-        competency_ids: competencyIds,
-        _token: $('meta[name="csrf-token"]').attr('content')
-      },
-      success: function(response) {
-        if (response.ok) {
-          swal_loader.close();
-          
-          // Show success message
-          swal.fire({
-            icon: 'success',
-            title: isEdit ? 
-              '{{ __('admin/competencies.group-updated-success') }}' : 
-              '{{ __('admin/competencies.group-created-success') }}',
-            timer: 2000,
-            showConfirmButton: false
-          }).then(() => {
-            $('#competency-group-modal').modal('hide');
-            location.reload(); // Reload to show the new group
-          });
-        }
-      },
-      error: function(xhr) {
-        swal_loader.close();
-        // Handle validation errors
-        if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.errors) {
-          const errors = Object.values(xhr.responseJSON.errors).flat();
-          swal.fire({
-            icon: 'error',
-            title: '{{ __('global.validation-error') }}',
-            html: errors.join('<br>')
-          });
-        } else {
-          swal.fire({
-            icon: 'error',
-            title: '{{ __('global.error') }}',
-            text: xhr.responseJSON?.message || '{{ __('global.error-occurred') }}'
-          });
-        }
+    swal_confirm.fire({
+      title: groupId ? '{{ __('admin/competencies.update-group-confirm') }}' : '{{ __('admin/competencies.create-group-confirm') }}'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        swal_loader.fire();
+        
+        $.ajax({
+          url: "{{ route('admin.competency-group.save') }}",
+          method: 'POST',
+          data: {
+            id: groupId,
+            name: groupName,
+            competency_ids: competencyIds
+          },
+          headers: {
+            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+          },
+          success: function(response) {
+            swal_loader.close();
+            swal.fire({
+              icon: 'success',
+              title: '{{ __('global.success') }}',
+              text: groupId ? 
+                '{{ __('admin/competencies.group-updated-success') }}' : 
+                '{{ __('admin/competencies.group-created-success') }}',
+              timer: 2000,
+              showConfirmButton: false
+            }).then(() => {
+              $('#competency-group-modal').modal('hide');
+              location.reload(); // Reload to show the new group
+            });
+          },
+          error: function(xhr) {
+            swal_loader.close();
+            // Handle validation errors
+            if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.errors) {
+              const errors = Object.values(xhr.responseJSON.errors).flat();
+              swal.fire({
+                icon: 'error',
+                title: '{{ __('global.validation-error') }}',
+                html: errors.join('<br>')
+              });
+            } else {
+              swal.fire({
+                icon: 'error',
+                title: '{{ __('global.error') }}',
+                text: xhr.responseJSON?.message || '{{ __('global.error-occurred') }}'
+              });
+            }
+          }
+        });
       }
     });
   });

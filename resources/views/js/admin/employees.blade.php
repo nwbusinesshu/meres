@@ -1,4 +1,40 @@
 <script>
+// === TRANSLATIONS ===
+const translations = {
+    confirmDeleteUser: @json($_('confirm-delete-user')),
+    actionIrreversible: @json($_('action-irreversible')),
+    deleted: @json($_('deleted')),
+    userDeletedSuccess: @json($_('user-deleted-success')),
+    error: @json($_('error')),
+    userDeleteFailed: @json($_('user-delete-failed')),
+    passwordResetConfirm: @json($_('password-reset-confirm')),
+    passwordResetEmailInfo: @json($_('password-reset-email-info')),
+    sent: @json($_('sent')),
+    passwordResetEmailSent: @json($_('password-reset-email-sent')),
+    passwordResetEmailFailed: @json($_('password-reset-email-failed')),
+    confirmDeleteDepartment: @json($_('confirm-delete-department')),
+    departmentMembersUnassignedInfo: @json($_('department-members-unassigned-info')),
+    departmentDeletedSuccess: @json($_('department-deleted-success')),
+    departmentDeleteFailed: @json($_('department-delete-failed')),
+    selectEmployee: @json($_('select-employee')),
+    noSelectableEmployee: @json($_('no-selectable-employee')),
+    confirmSaveDeptMembers: @json($_('confirm-save-dept-members')),
+    saved: @json($_('saved')),
+    deptMembersUpdated: @json($_('dept-members-updated')),
+    saveChangesFailed: @json($_('save-changes-failed')),
+    nothingToRemove: @json($_('nothing-to-remove')),
+    deptNoMembersCurrently: @json($_('dept-no-members-currently')),
+    areYouSure: @json($_('are-you-sure')),
+    removeAllMembersWarning: @json($_('remove-all-members-warning')),
+    yesRemoveEveryoneNow: @json($_('yes-remove-everyone-now')),
+    cancel: @json($_('cancel')),
+    allMembersRemovedSuccess: @json($_('all-members-removed-success')),
+    errorDuringRemoval: @json($_('error-during-removal')),
+    successful: @json($_('successful')),
+    remove: @json($_('remove')),
+    deptMembersLoadFailed: @json($_('dept-members-load-failed'))
+};
+
 // === COMPLETE EMPLOYEES.BLADE.PHP JAVASCRIPT FIXES ===
 
 // Helper functions (keep existing)
@@ -89,8 +125,8 @@ $(document).ready(function(){
         if (!userId) return;
         
         swal_confirm.fire({
-            title: 'Felhasználó törlése?',
-            text: 'Ez a művelet nem vonható vissza!'
+            title: translations.confirmDeleteUser,
+            text: translations.actionIrreversible
         }).then((result) => {
             if (result.isConfirmed) {
                 swal_loader.fire();
@@ -102,16 +138,16 @@ $(document).ready(function(){
                         swal_loader.close();
                         Swal.fire({ 
                             icon: 'success', 
-                            title: 'Törölve', 
-                            text: 'A felhasználó sikeresen törölve.' 
+                            title: translations.deleted, 
+                            text: translations.userDeletedSuccess
                         }).then(() => window.location.reload());
                     },
                     error: function() {
                         swal_loader.close();
                         Swal.fire({ 
                             icon: 'error', 
-                            title: 'Hiba', 
-                            text: 'Nem sikerült törölni a felhasználót.' 
+                            title: translations.error, 
+                            text: translations.userDeleteFailed
                         });
                     }
                 });
@@ -127,8 +163,8 @@ $(document).ready(function(){
         if (!userId) return;
 
         const result = await swal_confirm.fire({
-            title: 'Jelszó visszaállítás?',
-            text: 'A felhasználó kap egy e-mailt az új jelszó beállításához.'
+            title: translations.passwordResetConfirm,
+            text: translations.passwordResetEmailInfo
         });
 
         if (!result.isConfirmed) return;
@@ -154,11 +190,11 @@ $(document).ready(function(){
                 if (hasSwal) {
                     await Swal.fire({ 
                         icon: 'success', 
-                        title: 'Elküldve', 
-                        text: data.message || 'Jelszó visszaállító levél elküldve.' 
+                        title: translations.sent, 
+                        text: data.message || translations.passwordResetEmailSent
                     });
                 } else {
-                    alert('Jelszó visszaállító levél elküldve.');
+                    alert(translations.passwordResetEmailSent);
                 }
             } else {
                 throw new Error('HTTP ' + response.status);
@@ -168,11 +204,11 @@ $(document).ready(function(){
             if (hasSwal) {
                 await Swal.fire({ 
                     icon: 'error', 
-                    title: 'Hiba', 
-                    text: 'Nem sikerült elküldeni a visszaállító levelet.' 
+                    title: translations.error, 
+                    text: translations.passwordResetEmailFailed
                 });
             } else {
-                alert('Nem sikerült elküldeni a visszaállító levelet.');
+                alert(translations.passwordResetEmailFailed);
             }
         }
     });
@@ -244,8 +280,8 @@ $(document).ready(function(){
         if (!deptId) return;
         
         swal_confirm.fire({
-            title: 'Részleg törlése?',
-            text: 'A részleg minden tagja átkerül a nem besorolt felhasználókhoz.',
+            title: translations.confirmDeleteDepartment,
+            text: translations.departmentMembersUnassignedInfo,
             icon: 'warning'
         }).then((result) => {
             if (result.isConfirmed) {
@@ -268,8 +304,8 @@ $(document).ready(function(){
                     swal_loader.close();
                     Swal.fire({ 
                         icon: 'success', 
-                        title: 'Törölve', 
-                        text: 'Részleg sikeresen törölve.' 
+                        title: translations.deleted, 
+                        text: translations.departmentDeletedSuccess
                     }).then(() => {
                         window.location.reload();
                     });
@@ -278,8 +314,8 @@ $(document).ready(function(){
                     swal_loader.close();
                     Swal.fire({ 
                         icon: 'error', 
-                        title: 'Hiba', 
-                        text: 'Nem sikerült törölni a részleget.' 
+                        title: translations.error, 
+                        text: translations.departmentDeleteFailed
                     });
                     console.error(err);
                 });
@@ -365,7 +401,7 @@ $(document).ready(function(){
         
         // Use the same select modal pattern as relations/competencies
         openSelectModal({
-            title: "Dolgozó kiválasztása",
+            title: translations.selectEmployee,
             parentSelector: '#dept-members-modal',
             ajaxRoute: "{{ route('admin.employee.department.eligible') }}?department_id="+deptId,
             itemData: function(item){ 
@@ -389,7 +425,7 @@ $(document).ready(function(){
             },
             exceptArray: except,
             multiSelect: true, // Enable multi-select like competencies
-            emptyMessage: 'Nincs választható dolgozó'
+            emptyMessage: translations.noSelectableEmployee
         });
     });
 
@@ -407,7 +443,7 @@ $(document).ready(function(){
         });
         
         swal_confirm.fire({ 
-            title: 'Részleg tagjainak mentése?' 
+            title: translations.confirmSaveDeptMembers
         }).then(function(r){
             if (!r.isConfirmed) return;
             
@@ -422,16 +458,16 @@ $(document).ready(function(){
                     $('#dept-members-modal').modal('hide');
                     Swal.fire({ 
                         icon: 'success', 
-                        title: 'Mentve',
-                        text: 'Részleg tagjai frissítve.'
+                        title: translations.saved,
+                        text: translations.deptMembersUpdated
                     }).then(() => window.location.reload());
                 },
                 error: function() {
                     swal_loader.close();
                     Swal.fire({ 
                         icon: 'error', 
-                        title: 'Hiba', 
-                        text: 'Nem sikerült menteni a változtatásokat.' 
+                        title: translations.error, 
+                        text: translations.saveChangesFailed
                     });
                 }
             });
@@ -446,19 +482,19 @@ $(document).ready(function(){
         if (memberCount === 0) {
             Swal.fire({
                 icon: 'info',
-                title: 'Nincs mit eltávolítani',
-                text: 'A részlegben jelenleg nincsenek tagok.'
+                title: translations.nothingToRemove,
+                text: translations.deptNoMembersCurrently
             });
             return;
         }
 
         Swal.fire({
             icon: 'warning',
-            title: 'Biztos vagy benne?',
-            text: `Minden tag (${memberCount} fő) azonnal eltávolításra kerül a részlegből. A felhasználók megmaradnak a rendszerben, csak nem lesznek részleg tagjai.`,
+            title: translations.areYouSure,
+            text: translations.removeAllMembersWarning.replace(':count', memberCount),
             showCancelButton: true,
-            confirmButtonText: 'Igen, mindenkit eltávolít most',
-            cancelButtonText: 'Mégse',
+            confirmButtonText: translations.yesRemoveEveryoneNow,
+            cancelButtonText: translations.cancel,
             confirmButtonColor: '#d33'
         }).then((result) => {
             if (result.isConfirmed) {
@@ -478,17 +514,17 @@ $(document).ready(function(){
                         $('#dept-members-modal').modal('hide');
                         
                         // Set toast message for after page reload
-                        sessionStorage.setItem('dept_empty_success_toast', 'Minden tag eltávolításra került a részlegből.');
+                        sessionStorage.setItem('dept_empty_success_toast', translations.allMembersRemovedSuccess);
                         
                         // Reload page immediately
                         window.location.reload();
                     },
                     error: function(xhr) {
                         swal_loader.close();
-                        const errorMsg = xhr.responseJSON?.message || 'Hiba történt az eltávolítás során.';
+                        const errorMsg = xhr.responseJSON?.message || translations.errorDuringRemoval;
                         Swal.fire({
                             icon: 'error',
-                            title: 'Hiba',
+                            title: translations.error,
                             text: errorMsg
                         });
                     }
@@ -504,7 +540,7 @@ $(document).ready(function(){
         
         Swal.fire({
             icon: 'success',
-            title: 'Sikeres',
+            title: translations.successful,
             text: message,
             timer: 3000,
             showConfirmButton: false
@@ -518,7 +554,7 @@ $(document).ready(function(){
         const mail = email ? ' <span class="text-muted small">(' + email + ')</span>' : '';
         $('.dept-members-list').append(
             '<div class="dept-member-item" data-id="'+uid+'">' +
-                '<i class="fa fa-trash-alt" data-tippy-content="Eltávolítás"></i>' +
+                '<i class="fa fa-trash-alt" data-tippy-content="' + translations.remove + '"></i>' +
                 '<div>' +
                     '<p>'+name+mail+'</p>' +
                 '</div>' +
@@ -548,54 +584,14 @@ $(document).ready(function(){
                 swal_loader.close();
                 Swal.fire({ 
                     icon: 'error', 
-                    title: 'Hiba', 
-                    text: 'Nem sikerült betölteni a részleg tagjait.' 
+                    title: translations.error, 
+                    text: translations.deptMembersLoadFailed
                 });
             }
         });
     }
 
-    function initBonusMalusModal(uid){
-    swal_loader.fire();
-    $('#bonusmalus-modal').attr('data-id', uid);
-    
-    $.ajax({
-        url: "{{ route('admin.employee.bonusmalus.get') }}",
-        method: 'POST',
-        data: { 
-            id: uid,
-            _token: "{{ csrf_token() }}"
-        },
-        headers: {
-            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-        }
-    })
-    .done(function(response){
-        $('.bonusmalus-history').html('');
-
-        if(response.length > 1){
-            for(let i = 1; i < response.length; i++){
-                $('.bonusmalus-history').prepend('<p>'+response[i].month.substring(0, 7).replace('-','.')+'.: <span>'+bonusMalus[response[i].level]+'</span></p>');
-            }
-        }
-
-        if(response.length > 0) {
-            $('.bonusmalus-select').val(response[0].level);
-        }
-
-        swal_loader.close();
-        $('#bonusmalus-modal').modal();
-    })
-    .fail(function(xhr) {
-        swal_loader.close();
-        const errorMsg = xhr.responseJSON?.message || 'Nem sikerült betölteni a bonus/malus adatokat.';
-        Swal.fire({ 
-            icon: 'error', 
-            title: 'Hiba', 
-            text: errorMsg
-        });
-    });
-}
+   
 
 // Make sure bonusMalus variable is available
 if (typeof bonusMalus === 'undefined') {

@@ -204,6 +204,7 @@
 				'htmlContainer' : 'swal2-loader-html',
 			},
 			heightAuto: false,
+			scrollbarPadding: false
 		});
 
 		const swal_confirm = swal_locked.mixin({

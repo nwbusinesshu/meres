@@ -65,6 +65,7 @@
 html,body{
   min-height:100%;
   font-family: 'Outfit', sans-serif;
+  scrollbar-gutter: stable
 }
 
 /* A teljes görgetősáv stílusa */
@@ -96,6 +97,10 @@ html,body{
   padding-right:0px!important;
 }
 
+.modal-footer {
+  justify-content: flex-start;
+}
+
 
 h1,h2,h3,h4,h5,h6{
   font-family: 'Poppins', sans-serif;
@@ -103,6 +108,11 @@ h1,h2,h3,h4,h5,h6{
   color: var(--outer_space);
   margin: 0;
   transition: color 0.3s ease; /* ADDED for dark mode */
+}
+
+.title h4 {
+  margin-top: 2rem;
+  margin-bottom: 1rem;
 }
 p{
   margin: 0;
@@ -176,6 +186,31 @@ button.swal2-styled{
   justify-content: center;
   align-items: center;
 }
+
+/* ========== SWAL2 CUSTOM STYLING ========== */
+/* Remove border radius from popup */
+.swal2-popup {
+  border-radius: 0 !important;
+}
+
+/* Remove border radius from buttons */
+.swal2-confirm,
+.swal2-cancel,
+.swal2-deny {
+  border-radius: 0 !important;
+}
+
+/* Optional: Remove border radius from input fields in Swal */
+.swal2-input,
+.swal2-textarea,
+.swal2-select {
+  border-radius: 0 !important;
+}
+.swal2-container {
+  background-color: rgba(0, 0, 0, .7)!important;
+  backdrop-filter: blur(4px)!important;
+}
+
 .page-container{
   background: url('../logo/quarma_wm.svg'), var(--bg);
   background-repeat: no-repeat;
@@ -431,13 +466,17 @@ button.swal2-styled{
     margin-top: 15vh;  /* pl. a kijelző 15%-a */
   }
 
-  .modal-content {
-    border-radius: 0;
-    border-left: 4px solid var(--pelorous);
-    background-color: var(--alabaster); /* ADDED for dark mode */
-    color: var(--outer_space); /* ADDED for dark mode */
-    transition: all 0.3s ease; /* ADDED for dark mode */
-  }
+.modal-content {
+  border-radius: 0;
+  border-left: 4px solid var(--pelorous);
+  background-color: var(--alabaster); /* ADDED for dark mode */
+  color: var(--outer_space); /* ADDED for dark mode */
+  transition: all 0.3s ease; /* ADDED for dark mode */
+}
+
+.modal-drawer {
+  backdrop-filter: blur(4px) !important;
+}
 
 #select-modal .modal-body{
   display: flex;

@@ -7,9 +7,7 @@
 <h1>{{ __('payment.title') }}</h1>
 
 {{-- Nyitott tartozások --}}
-<div class="tile">
-  <h3>{{ __('payment.sections.open') }}</h3>
-  
+<div class="title"><h4>{{ __('payment.sections.open') }}</h4></div>
   {{-- Desktop Table --}}
   <table class="table table-hover payment-table">
     <thead>
@@ -128,12 +126,9 @@
       </div>
     @endforelse
   </div>
-</div>
 
 {{-- Korábban rendezettek --}}
-<div class="tile">
-  <h3>{{ __('payment.sections.settled') }}</h3>
-  
+<div class="title"><h4>{{ __('payment.sections.settled') }}</h4></div>  
   {{-- Desktop Table --}}
   <table class="table table-hover payment-table">
     <thead>
@@ -253,7 +248,6 @@
       </div>
     @endforelse
   </div>
-</div>
 @endsection
 
 @section('scripts')

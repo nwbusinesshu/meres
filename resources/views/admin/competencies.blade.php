@@ -98,7 +98,8 @@
   <div class="tile tile-button create-competency">
     <span><i class="fa fa-circle-plus"></i>{{ $_('create-competency') }}</span>
   </div>
-  {{-- NEW: Create Group Button - ONLY ADDITION --}}
+</div>
+<div class="fixed-row">
   <div class="tile tile-button create-competency-group" onclick="initCreateCompetencyGroupModal()">
     <span><i class="fa fa-layer-group"></i>{{ __('admin/competencies.create-group') }}</span>
   </div>
@@ -146,9 +147,7 @@
 {{-- Szervezeti kompetenciák (CRUD) --}}
 {{-- ============================ --}}
 <div class="competency-list competency-list--org">
-  <div class="tile tile-info" style="margin-top: 20px;">
-    <span><strong>{{ $_('org-competencies') }}</strong></span>
-  </div>
+  <div class="title"><h4>{{ $_('org-competencies') }}</h4></div>
 
   @forelse ($orgCompetencies as $comp)
     @php
@@ -263,14 +262,12 @@
       </div>
     </div>
   @empty
-    <div class="no-competency"><p>{{ $_('no-competency') }}</p></div>
+    <div class="no-competency tile tile-info"><p>{{ $_('no-competency') }}</p></div>
   @endforelse
 
 {{-- NEW: Competency Groups Section - WITH PROPER TITLE --}}
 <div class="competency-list competency-list--groups">
-  <div class="tile tile-info" style="margin-top: 20px;">
-    <span><strong>{{ __('admin/competencies.competency-groups') }}</strong></span>
-  </div>
+  <div class="title"><h4>{{ __('admin/competencies.competency-groups') }}</h4></div>
 
   @forelse ($competencyGroups as $group)
     @php
@@ -332,7 +329,7 @@
       </div>
     </div>
   @empty
-    <div class="no-competency"><p>{{ __('admin/competencies.no-groups') }}</p></div>
+    <div class="no-competency tile tile-info"><p>{{ __('admin/competencies.no-groups') }}</p></div>
   @endforelse
 </div>
 
@@ -340,9 +337,7 @@
 {{-- Globális kompetenciák (read-only) --}}
 {{-- ============================ --}}
 <div class="competency-list competency-list--global">
-  <div class="tile tile-info" style="margin-top: 10px;">
-    <span><strong>{{ $_('glob-competencies') }}</strong> <small class="text-muted"></small></span>
-  </div>
+  <div class="title"><h4>{{ $_('glob-competencies') }}</h4></div>
 
   @forelse ($globals as $comp)
     @php
@@ -432,7 +427,7 @@
       </div>
     </div>
   @empty
-    <div class="no-competency"><p>{{ $_('no-competency') }}</p></div>
+    <div class="no-competency tile tile-info"><p>{{ $_('no-competency') }}</p></div>
   @endforelse
 </div>
 

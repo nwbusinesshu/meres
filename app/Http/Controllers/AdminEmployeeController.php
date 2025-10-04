@@ -102,6 +102,8 @@ public function index(Request $request)
         // FIXED: Add rater counts to CEOs and unassigned
         $ceos = $this->addRaterCounts($ceos, $orgId);
         $unassigned = $this->addRaterCounts($unassigned, $orgId);
+        $ceos = $this->attachBonusMalus($ceos);
+        $unassigned = $this->attachBonusMalus($unassigned);
 
         // ===== Részlegek listája =====
         $departments = collect();
@@ -140,6 +142,8 @@ public function index(Request $request)
             // FIXED: Add rater counts to managers and members
             $managers = $this->addRaterCounts($managers, $orgId);
             $members = $this->addRaterCounts($members, $orgId);
+            $managers = $this->attachBonusMalus($managers);
+            $members = $this->attachBonusMalus($members);
 
             $deptData = (object) [
                 'id' => $dept->id,

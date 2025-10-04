@@ -38,14 +38,15 @@
           </div>
         </div>
         <div class="form-row">
-  <div class="form-group">
-    <label>Pozíció</label>
-    <input type="text" class="form-control position">
-  </div>
-</div>
-
-        <button class="btn btn-primary trigger-submit"></button>
+          <div class="form-group">
+            <label>{{ __('admin/employees.position') }}</label>
+            <input type="text" class="form-control position">
+          </div>
+        </div>
       </div>
+      <div class="modal-footer">
+           <button class="btn btn-primary trigger-submit"></button>
+           </div>     
     </div>
   </div>
 </div>
@@ -84,7 +85,7 @@
       $type.val('manager');
       $type.prop('disabled', true);
       $hint
-        .text('Ez a dolgozó jelenleg részlegvezető. Amíg részleghez van rendelve mint vezető, a típusa nem módosítható.')
+        .text('{{ __('admin/employees.type-locked-dept-manager') }}')
         .removeClass('d-none');
       return; // a teljes tiltás mindent lefed
     }
@@ -95,7 +96,7 @@
       $type.val('normal');
       $type.prop('disabled', true);
       $hint
-        .text('Ez a dolgozó már tagja egy részlegnek, ezért a típus nem módosítható.')
+        .text('{{ __('admin/employees.type-locked-dept-member') }}')
         .removeClass('d-none');
       return;
     }
@@ -151,7 +152,7 @@
       })
       .fail(function(){
         swal_loader.close();
-        Swal.fire('Hiba', 'Nem sikerült betölteni a dolgozó adatait.', 'error');
+        Swal.fire('{{ __('global.error') }}', '{{ __('admin/employees.error-loading-employee') }}', 'error');
       });
     }
   }
@@ -188,17 +189,16 @@
             const msg = (uid && parseInt(uid) > 0)
               ? "{{ __('admin/employees.modify-employee-success') }}"
               : "{{ __('admin/employees.new-employee-success') }}";
-            Swal.fire('OK', msg, 'success').then(() => window.location.reload());
+            Swal.fire('{{ __('global.success') }}', msg, 'success').then(() => window.location.reload());
           })
           .fail(function(xhr){
             swal_loader.close();
-            let msg = 'Szerverhiba történt.';
+            let msg = '{{ __('admin/employees.error-server') }}';
             if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
-            Swal.fire('Hiba', msg, 'error');
+            Swal.fire('{{ __('global.error') }}', msg, 'error');
           });
         }
       });
     });
   });
 </script>
-

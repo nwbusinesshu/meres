@@ -204,4 +204,13 @@ return [
     'footer-data-handling' => 'Adatkezelés', 
     'footer-contact' => 'Kapcsolat',
     'footer-cookie-settings' => 'Süti beállítások',
+
+    'select-all' => 'Összes kiválasztása',
+  
+  'clear-all' => 'Kijelölések törlése',
+  
+  'selected' => 'kiválasztva',
+  
+  'add-selected' => 'Kiválasztottak hozzáadása',
+  'position' => 'Beosztás',
 ];

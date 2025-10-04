@@ -3,7 +3,7 @@
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Új részleg létrehozása</h5>
+                <h5 class="modal-title">{{ __('admin/employees.department-create-title') }}</h5>
                 <button type="button" class="close" data-dismiss="modal">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -12,30 +12,30 @@
                 <div class="alert alert-danger d-none" id="dept-error"></div>
                 
                 <div class="form-group">
-                    <label for="dept-name">Részleg neve <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control dept-name" id="dept-name" placeholder="Pl. IT Részleg">
+                    <label for="dept-name">{{ __('admin/employees.department-name') }} <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control dept-name" id="dept-name" placeholder="{{ __('admin/employees.department-name-placeholder') }}">
                 </div>
 
                 {{-- Managers List (like relations/competencies) --}}
                 <div class="form-group">
-                    <label>Vezetők <span class="text-danger">*</span></label>
+                    <label>{{ __('admin/employees.department-managers') }} <span class="text-danger">*</span></label>
                     <div class="managers-list">
                         {{-- Dynamic content will be populated here --}}
                     </div>
-                    <div class="tile tile-button trigger-new-manager">Vezető hozzáadása</div>
+                    <div class="tile tile-button trigger-new-manager">{{ __('admin/employees.department-add-manager') }}</div>
                 </div>
 
                 <div class="form-group">
                     <small class="text-muted">
                         <i class="fa fa-info-circle"></i> 
-                        Egy részleghez több vezető is kijelölhető. A vezetők kezelhetik a részleg tagjait és látják az értékeléseket.
+                        {{ __('admin/employees.department-manager-info') }}
                     </small>
                 </div>
 
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Mégse</button>
-                <button type="button" class="btn btn-primary trigger-submit-dept">Létrehozás</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">{{ __('global.cancel') }}</button>
+                <button type="button" class="btn btn-primary trigger-submit-dept">{{ __('global.save') }}</button>
             </div>
         </div>
     </div>
@@ -47,7 +47,7 @@ function addNewManagerItem(uid, name, email = null){
     const emailDisplay = email ? ' <span class="text-muted small">(' + email + ')</span>' : '';
     $('.managers-list').append(''
         +'<div class="manager-item" data-id="'+uid+'">'
-        +'<i class="fa fa-trash-alt" data-tippy-content="Vezető eltávolítása"></i>'
+        +'<i class="fa fa-trash-alt" data-tippy-content="{{ __('admin/employees.department-manager-remove') }}"></i>'
         +'<div>'
         +'<p>'+name+emailDisplay+'</p>'
         +'</div>'
@@ -57,8 +57,8 @@ function addNewManagerItem(uid, name, email = null){
 // Initialize department modal (create new)
 function initNewDepartmentModal(){
     $('#department-modal').attr('data-id', ''); // empty = CREATE
-    $('#department-modal .modal-title').text('Új részleg létrehozása');
-    $('#department-modal .trigger-submit-dept').text('Létrehozás');
+    $('#department-modal .modal-title').text('{{ __('admin/employees.department-create-title') }}');
+    $('#department-modal .trigger-submit-dept').text('{{ __('admin/employees.department-save-create') }}');
     $('#department-modal .dept-name').val('');
     $('.managers-list').html('');
     $('#dept-error').addClass('d-none').text('');
@@ -84,8 +84,8 @@ function initEditDepartmentModal(deptId){
         return r.json();
     })
     .then(data => {
-        $('#department-modal .modal-title').text('Részleg szerkesztése');
-        $('#department-modal .trigger-submit-dept').text('Mentés');
+        $('#department-modal .modal-title').text('{{ __('admin/employees.department-edit-title') }}');
+        $('#department-modal .trigger-submit-dept').text('{{ __('global.save') }}');
         $('#department-modal').attr('data-id', String(data.department.id));
         $('#department-modal .dept-name').val(data.department.department_name);
         
@@ -103,7 +103,7 @@ function initEditDepartmentModal(deptId){
     })
     .catch(err => {
         swal_loader.close();
-        Swal.fire({ icon:'error', title:'Hiba', text:'Nem sikerült betölteni a részleg adatait.' });
+        Swal.fire({ icon:'error', title:'{{ __('global.error') }}', text:'{{ __('admin/employees.department-error-load') }}' });
         console.error(err);
     });
 }
@@ -118,7 +118,7 @@ $(document).ready(function(){
         
         // Use the select modal pattern like relations/competencies
         openSelectModal({
-            title: "Vezető kiválasztása",
+            title: "{{ __('admin/employees.department-select-manager-title') }}",
             parentSelector: '#department-modal',
             ajaxRoute: "{{ route('admin.employee.get-eligible-managers') }}",
             itemData: function(item){ return {
@@ -140,7 +140,7 @@ $(document).ready(function(){
             },
             exceptArray: exceptArray,
             multiSelect: true,  // Enable multi-select like competencies
-            emptyMessage: 'Nincs választható vezető'
+            emptyMessage: '{{ __('admin/employees.department-no-managers-available') }}'
         });
     });
 
@@ -161,22 +161,22 @@ $(document).ready(function(){
         });
 
         if (!name) {
-            $('#dept-error').removeClass('d-none').text('Add meg a részleg nevét.');
+            $('#dept-error').removeClass('d-none').text('{{ __('admin/employees.department-error-name-required') }}');
             return;
         }
 
         if (managerIds.length === 0) {
-            $('#dept-error').removeClass('d-none').text('Legalább egy vezetőt ki kell jelölni.');
+            $('#dept-error').removeClass('d-none').text('{{ __('admin/employees.department-error-manager-required') }}');
             return;
         }
 
         const isEdit = !!id;
         const url = isEdit ? "{{ route('admin.employee.department.update') }}" : "{{ route('admin.employee.department.store') }}";
-        const title = isEdit ? 'Változtatások mentése?' : 'Részleg létrehozása?';
+        const title = isEdit ? '{{ __('admin/employees.department-save-changes-title') }}' : '{{ __('admin/employees.department-create-confirm-title') }}';
 
         swal_confirm.fire({
             title: title,
-            text: isEdit ? 'A vezetők ellenőrzésre kerülnek (nem vezethetnek másik aktív részleget).' : 'A vezetők egy időben csak egy részleget vezethetnek.'
+            text: isEdit ? '{{ __('admin/employees.department-managers-check-text') }}' : '{{ __('admin/employees.department-managers-limit-text') }}'
         }).then((res) => {
             if(!res.isConfirmed) return;
 
@@ -205,14 +205,14 @@ $(document).ready(function(){
                 swal_loader.close();
                 $('#department-modal').modal('hide');
                 
-                const successText = isEdit ? 'Részleg frissítve.' : 'Részleg létrehozva.';
-                Swal.fire({ icon:'success', title:'Sikeres', text: successText }).then(() => {
+                const successText = isEdit ? '{{ __('admin/employees.department-updated') }}' : '{{ __('admin/employees.department-created') }}';
+                Swal.fire({ icon:'success', title:'{{ __('global.success') }}', text: successText }).then(() => {
                     window.location.reload();
                 });
             })
             .catch(err => {
                 swal_loader.close();
-                const errorMsg = err.message || 'Ismeretlen hiba történt.';
+                const errorMsg = err.message || '{{ __('admin/employees.department-error-unknown') }}';
                 $('#dept-error').removeClass('d-none').text(errorMsg);
                 console.error(err);
             });
@@ -273,7 +273,7 @@ $(document).ready(function(){
 }
 
 .managers-list:empty::after {
-    content: "Még nincs kiválasztott vezető. Használd a 'Vezető hozzáadása' gombot.";
+    content: "{{ __('admin/employees.department-no-managers-selected') }}";
     display: block;
     text-align: center;
     padding: 2rem;

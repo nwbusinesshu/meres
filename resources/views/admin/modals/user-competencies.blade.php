@@ -9,79 +9,53 @@
         </button>
       </div>
       <div class="modal-body">
-        {{-- Group-based competencies section --}}
-        <div class="competency-groups-section">
-          <h6 class="section-header">
-            <i class="fa fa-users"></i> {{ __('admin/employees.from-groups') }}
-          </h6>
-          <div class="competency-list competency-list-groups">
-            {{-- Populated dynamically --}}
-          </div>
-        </div>
-
-        {{-- Manual competencies section --}}
-        <div class="competency-manual-section">
-          <h6 class="section-header">
-            <i class="fa fa-hand-pointer"></i> {{ __('admin/employees.manually-added') }}
-          </h6>
-          <div class="competency-list competency-list-manual">
-            {{-- Populated dynamically --}}
-          </div>
+        {{-- Single unified competency list --}}
+        <div class="competency-list">
+          {{-- All competencies populated dynamically --}}
         </div>
 
         <div class="tile tile-button trigger-new-competency">{{ __('admin/employees.add-new-competencies') }}</div>
-        <button class="btn btn-primary save-competency">{{ __('admin/employees.save-competencies') }}</button>
+        
       </div>
+      <div class="modal-footer">
+                <button class="btn btn-primary save-competency">{{ __('admin/employees.save-competencies') }}</button>
+       </div>
     </div>
   </div>
 </div>
 
 <style>
-/* Competency sections styling */
+/* Simplified single list design */
 #user-competencies-modal .modal-body {
   display: flex;
   flex-direction: column;
-  gap: 1.5em;
-}
-
-#user-competencies-modal .section-header {
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  padding: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  gap: 1em;
+  height: 100%;
 }
 
 #user-competencies-modal .competency-list {
   display: flex;
   flex-direction: column;
   gap: 0.75em;
-  max-height: 200px;
+  flex-grow: 1;
+  max-height: 60vh;
   overflow-y: auto;
   padding: 0.5em;
   border: 1px solid #e5e7eb;
   background: #f9fafb;
 }
 
+/* Empty state message */
 #user-competencies-modal .competency-list:empty::after {
-  content: attr(data-empty-message);
+  content: 'Nincs hozzáadott kompetencia';
   display: block;
   text-align: center;
-  padding: 1rem;
+  padding: 2rem;
   color: #9ca3af;
   font-style: italic;
 }
 
-#user-competencies-modal .competency-list-groups:empty::after {
-  content: '{{ __('admin/employees.no-group-competencies') }}';
-}
-
-#user-competencies-modal .competency-list-manual:empty::after {
-  content: '{{ __('admin/employees.no-manual-competencies') }}';
-}
-
-/* Group-based competencies - blue border only */
+/* Competency item type styling */
 #user-competencies-modal .competency-item.from-group {
   background: white;
   border-left: 4px solid #3b82f6;
@@ -95,7 +69,6 @@
   opacity: 0.5;
 }
 
-/* Manual competencies - green border only */
 #user-competencies-modal .competency-item.manual {
   background: white;
   border-left: 4px solid #10b981;
@@ -108,7 +81,6 @@
   cursor: pointer;
 }
 
-/* Shared competencies - orange border only */
 #user-competencies-modal .competency-item.both-sources {
   background: white;
   border-left: 4px solid #f59e0b;
@@ -121,7 +93,7 @@
   cursor: pointer;
 }
 
-/* Common competency item styling */
+/* Common item styling */
 #user-competencies-modal .competency-item {
   display: flex;
   gap: 1em;
@@ -170,6 +142,7 @@
   font-size: 0.7em;
   font-weight: 600;
   text-transform: uppercase;
+  border-radius: 3px;
 }
 
 #user-competencies-modal .competency-item div .source-badge.manual {
@@ -190,16 +163,14 @@
 
 <script>
 function addCompetencyItem(uid, name, isFromGroup, isManual, groupNames) {
-  // Determine the class and container
+  // Determine the class and styling
   let itemClass = '';
-  let container = '';
   let iconHtml = '';
   let badgeHtml = '';
   
   if (isFromGroup && isManual) {
     // Both sources
     itemClass = 'both-sources';
-    container = '.competency-list-manual'; // Show in manual section since it can be removed
     iconHtml = '<i class="fa fa-trash-alt" data-tippy-content="{{ __('admin/employees.remove-manual-only') }}"></i>';
     badgeHtml = `<span class="source-badge both">{{ __('admin/employees.both-sources') }}</span>`;
     if (groupNames) {
@@ -208,7 +179,6 @@ function addCompetencyItem(uid, name, isFromGroup, isManual, groupNames) {
   } else if (isFromGroup) {
     // Only from group(s)
     itemClass = 'from-group';
-    container = '.competency-list-groups';
     iconHtml = '<i class="fa fa-lock" data-tippy-content="{{ __('admin/employees.managed-by-group') }}"></i>';
     badgeHtml = `<span class="source-badge group">{{ __('admin/employees.from-group') }}</span>`;
     if (groupNames) {
@@ -217,12 +187,12 @@ function addCompetencyItem(uid, name, isFromGroup, isManual, groupNames) {
   } else {
     // Only manual
     itemClass = 'manual';
-    container = '.competency-list-manual';
     iconHtml = '<i class="fa fa-trash-alt" data-tippy-content="{{ __('admin/employees.remove-competency') }}"></i>';
     badgeHtml = `<span class="source-badge manual">{{ __('admin/employees.manual') }}</span>`;
   }
   
-  $(container).append(`
+  // Append to the single list
+  $('.competency-list').append(`
     <div class="competency-item ${itemClass}" data-id="${uid}">
       ${iconHtml}
       <div>
@@ -241,9 +211,8 @@ function initCompetenciesModal(uid){
     data: { id: uid },
   })
   .done(function(response){
-    // Clear both lists
-    $('.competency-list-groups').html('');
-    $('.competency-list-manual').html('');
+    // Clear the list
+    $('.competency-list').html('');
 
     response.forEach(item => {
       addCompetencyItem(
@@ -261,69 +230,88 @@ function initCompetenciesModal(uid){
 
     $('#user-competencies-modal').modal();
   });
+}
 
-  $(document).ready(function(){
-    $('.trigger-new-competency').click(function(){
-      var exceptArray = [];
-      $('#user-competencies-modal .competency-item').each(function(){
-        exceptArray.push($(this).attr('data-id')*1);
-      });
-      
-      openSelectModal({
-        title: "{{ __('admin/employees.select-competency') }}",
-        parentSelector: '#user-competencies-modal',
-        ajaxRoute: "{{ route('admin.competency.all') }}",
-        itemData: function(item){ return {
-          id: item.id,
-          name: item.name,
-        }; },
-        selectFunction: function(){
-          const selectedId = $(this).attr('data-id');
-          const selectedName = $(this).attr('data-name');
-          
-          // Check if competency already exists
-          if ($('#user-competencies-modal .competency-item[data-id="'+selectedId+'"]').length === 0) {
-            // Add as manual only
-            addCompetencyItem(selectedId, selectedName, false, true, null);
-            tippy('#user-competencies-modal [data-tippy-content]');
-          }
-        },
-        exceptArray: exceptArray,
-        multiSelect: true,
-        emptyMessage: '{{ __('admin/competencies.no-competency') }}'
-      });
+$(document).ready(function(){
+  $('.trigger-new-competency').click(function(){
+    var exceptArray = [];
+    $('#user-competencies-modal .competency-item').each(function(){
+      exceptArray.push($(this).attr('data-id')*1);
     });
-
-    // Only allow removing manual or both-source competencies
-    $(document).on('click', '#user-competencies-modal .competency-item.manual i, #user-competencies-modal .competency-item.both-sources i', function(){
-      $(this).parents('.competency-item').remove();
-    });
-
-    $('.save-competency').click(function(){
-      swal_confirm.fire({
-        title: '{{ __('admin/employees.save-competencies-confirm') }}'
-      }).then((result) => {
-        if (result.isConfirmed) {
-          swal_loader.fire();
-
-          var comps = [];
-
-          // Collect ALL competencies (both from groups and manual)
-          $('#user-competencies-modal .competency-item').each(function(){
-            comps.push($(this).attr('data-id')*1);
-          });
-
-          $.ajax({
-            url: "{{ route('admin.employee.competencies.save') }}",
-            data: {
-              id: $('#user-competencies-modal').attr('data-id'),
-              competencies: comps
-            },
-            successMessage: "{{ __('admin/employees.save-competencies-success') }}",
-          });
+    
+    openSelectModal({
+      title: "{{ __('admin/employees.select-competency') }}",
+      parentSelector: '#user-competencies-modal',
+      ajaxRoute: "{{ route('admin.competency.all') }}",
+      itemData: function(item){ return {
+        id: item.id,
+        name: item.name,
+        top: null,
+        bottom: item.description || null
+      }; },
+      selectFunction: function(){
+        const selectedId = $(this).attr('data-id');
+        const selectedName = $(this).attr('data-name');
+        
+        if ($('#user-competencies-modal .competency-item[data-id="'+selectedId+'"]').length === 0) {
+          // Add as manual competency
+          addCompetencyItem(selectedId, selectedName, false, true, null);
+          tippy('#user-competencies-modal [data-tippy-content]');
         }
-      });
+      },
+      exceptArray: exceptArray,
+      multiSelect: true,
+      emptyMessage: '{{ __('admin/employees.no-competencies') }}'
     });
   });
-}
+
+  // Handle remove for manual competencies only
+  $(document).on('click', '#user-competencies-modal .competency-item.manual i, #user-competencies-modal .competency-item.both-sources i', function(){
+    $(this).closest('.competency-item').remove();
+  });
+
+  $('.save-competency').click(function(){
+    swal_confirm.fire({
+      title: '{{ __('admin/employees.save-competency-confirm') }}'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        swal_loader.fire();
+
+        var competencies = [];
+
+        // Only get manual competencies (excluding those that are ONLY from groups)
+        $('#user-competencies-modal .competency-item.manual, #user-competencies-modal .competency-item.both-sources').each(function(){
+          competencies.push($(this).attr('data-id')*1);
+        });
+
+        $.ajax({
+          url: "{{ route('admin.employee.competencies.save') }}",
+          method: 'POST',
+          data: {
+            id: $('#user-competencies-modal').attr('data-id'),
+            competencies: competencies
+          },
+        })
+        .done(function(response){
+          swal_loader.close();
+          $('#user-competencies-modal').modal('hide');
+          Swal.fire({
+            icon: 'success',
+            title: '{{ __('global.success') }}',
+            text: response.message
+          });
+          location.reload();
+        })
+        .fail(function(xhr){
+          swal_loader.close();
+          Swal.fire({
+            icon: 'error',
+            title: '{{ __('global.error') }}',
+            text: xhr.responseJSON?.message || '{{ __('global.error-occurred') }}'
+          });
+        });
+      }
+    });
+  });
+});
 </script>

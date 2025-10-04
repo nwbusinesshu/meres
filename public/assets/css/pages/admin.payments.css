@@ -19,7 +19,6 @@
     border-radius: 0.25rem;
     margin-bottom: 1rem;
     padding: 1rem;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
   }
   
   .payment-card-header {
@@ -116,7 +115,6 @@
     background: #fff;
     border: 1px solid #e9ecef;
     overflow: hidden; /* radiust érvényesíti a thead-re is */
-    box-shadow: 0 6px 16px rgba(16,24,40,.06);
   }
 
   .payment-table thead th {

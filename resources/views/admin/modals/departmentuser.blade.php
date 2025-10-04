@@ -1,3 +1,4 @@
+{{-- resources/views/admin/modals/departmentuser.blade.php --}}
 @if(!empty($enableMultiLevel) && $enableMultiLevel)
 <div class="modal fade modal-drawer" tabindex="-1" role="dialog" id="dept-members-modal">
   <div class="modal-dialog" role="document">
@@ -26,77 +27,6 @@
     </div>
   </div>
 </div>
-
-<style>
-/* Department members modal styling - consistent with user-competency modal */
-#dept-members-modal .modal-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1em;
-}
-
-#dept-members-modal .btn {
-  width: 100%;
-}
-
-#dept-members-modal .dept-members-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1em;
-  max-height: 300px;
-  height: 300px;
-  overflow-y: scroll;
-  padding-right: 0.5em;
-}
-
-/* Member items styled like competency-item */
-.dept-member-item {
-  display: flex;
-  gap: 1em;
-  border-bottom: 3px solid var(--info);
-  padding-bottom: 0.5em;
-}
-
-.dept-member-item i {
-  display: flex;
-  font-size: 1.2em;
-  color: var(--danger);
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-}
-
-.dept-member-item .item-content {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  gap: 0.5em;
-}
-
-.dept-member-item .item-content p {
-  font-weight: bold;
-  margin: 0;
-}
-
-.dept-member-item .item-content span {
-  font-size: 0.9em;
-  font-weight: normal;
-  font-style: italic;
-  color: var(--silver_chalice);
-}
-
-/* Empty state styling - simple like competency modal */
-.dept-members-list:empty::after {
-  content: "Nincs tag a részlegben. Használd az 'Új tag hozzáadása' gombot.";
-  display: block;
-  text-align: center;
-  padding: 2rem;
-  color: var(--silver_chalice);
-  font-style: italic;
-  font-weight: bold;
-}
-
-</style>
 
 <script>
 // Initialize department members modal functions
@@ -231,16 +161,15 @@
             timer: 2000,
             showConfirmButton: false
           });
-          // Refresh the page to show updates
-          setTimeout(() => window.location.reload(), 1000);
+          location.reload();
         })
-        .fail(function(xhr) {
+        .fail(function(xhr){
           swal_loader.close();
-          const errorMsg = xhr.responseJSON?.message || 'Nem sikerült menteni a változtatásokat.';
+          const errorMsg = xhr.responseJSON?.message || 'Nem sikerült menteni a részleg tagjait.';
           Swal.fire({ 
             icon: 'error', 
             title: 'Hiba', 
-            text: errorMsg
+            text: errorMsg 
           });
         });
       }
@@ -249,17 +178,17 @@
 
   // Empty department (remove all members)
   $(document).on('click', '.trigger-empty-department', function(){
-    swal_confirm.fire({ 
-      title: 'Minden tag eltávolítása?',
-      text: 'Ez a művelet eltávolítja az összes tagot a részlegből.',
+    swal_confirm.fire({
+      title: 'Összes tag eltávolítása?',
+      text: 'Ez az összes tagot eltávolítja a részlegből.',
       icon: 'warning'
     }).then((result) => {
       if (result.isConfirmed) {
         $('.dept-members-list').html('');
         Swal.fire({
-          icon: 'success',
-          title: 'Eltávolítva',
-          text: 'Minden tag eltávolítva. Ne felejtsd el menteni!',
+          icon: 'info',
+          title: 'Tagok törölve',
+          text: 'Ne felejts el menteni a változtatásokat!',
           timer: 2000,
           showConfirmButton: false
         });
