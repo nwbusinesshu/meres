@@ -406,6 +406,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   form.addEventListener('submit', function (e) {
+    // Validate all previous steps
     for (let i = 0; i < steps.length - 1; i++) {
       if (!validateStep(i)) {
         e.preventDefault();
@@ -415,7 +416,23 @@ document.addEventListener('DOMContentLoaded', function () {
         return false;
       }
     }
+    
+    @if (config('services.recaptcha.key'))
+    // Prevent default submission to get reCAPTCHA token first
+    e.preventDefault();
+    
+    // Get reCAPTCHA v3 token
+    grecaptcha.ready(function() {
+      grecaptcha.execute('{{ config('services.recaptcha.key') }}', {action: 'register'}).then(function(token) {
+        document.getElementById('g-recaptcha-response').value = token;
+        form.submit();
+      });
+    });
+    
+    return false;
+    @else
     return true;
+    @endif
   });
 
   // --- Setup guide step texts ---

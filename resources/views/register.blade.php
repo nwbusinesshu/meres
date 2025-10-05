@@ -1,9 +1,11 @@
 @extends('layouts.master')
 
 @section('head-extra')
-@if (config('services.recaptcha.key'))
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-  @endif
+@once
+    @if (config('services.recaptcha.key'))
+      <script src="https://www.google.com/recaptcha/api.js?render={{ config('services.recaptcha.key') }}" async></script>
+    @endif
+  @endonce
 @endsection
 
 @section('content')
@@ -44,6 +46,7 @@
           <div class="step-actions">
             <button type="button" class="btn btn-primary next-step">{{ __('register.buttons.next') }}</button>
           </div>
+
           @if ($errors->any())
             <div class="alert alert-danger mt-3">
               {{ $errors->first() }}
@@ -189,9 +192,12 @@
         <section class="reg-step" data-step="3" hidden>
           <h3>{{ __('register.step4_title') }}</h3>
           <div class="summary"><!-- JS tölti fel --></div>
+          
+          {{-- Hidden input for reCAPTCHA v3 token --}}
           @if (config('services.recaptcha.key'))
-            <div class="g-recaptcha mb-3" data-sitekey="{{ config('services.recaptcha.key') }}"></div>
+            <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
           @endif
+          
           <div class="step-actions">
             <button type="button" class="btn btn-secondary prev-step">{{ __('register.buttons.back') }}</button>
             <button type="submit" class="btn btn-success btn-block">{{ __('register.buttons.finalize') }}</button>

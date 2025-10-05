@@ -130,6 +130,7 @@ return [
         'email_required' => 'E-mail szükséges.',
         'email_invalid' => 'Érvénytelen e-mail cím.',
         'email_in_use' => 'Ez az e-mail cím már használatban van.',
+        'recaptcha_failed' => 'Kérjük, erősítsd meg, hogy nem vagy robot.',
     ],
 
     'success_message' => 'Sikeres regisztráció. Be tudsz lépni OAuth-tal, vagy állítsd be a jelszavad a kiküldött emailből.',

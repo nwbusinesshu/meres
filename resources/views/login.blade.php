@@ -1,9 +1,11 @@
 @extends('layouts.master')
 
 @section('head-extra')
-  @if (config('services.recaptcha.key'))
-    <script src="https://www.google.com/recaptcha/api.js?render=6LfHfd8rAAAAAE9KpD1CEk3UkexVkRou9vJFLfEY"></script>
-  @endif
+  @once
+    @if (config('services.recaptcha.key'))
+      <script src="https://www.google.com/recaptcha/api.js?render={{ config('services.recaptcha.key') }}" async></script>
+    @endif
+  @endonce
 @endsection
 
 @section('content')
@@ -72,7 +74,7 @@
 
   @else
     {{-- Regular Login Form --}}
-    <form method="POST" action="{{ route('attempt-password-login') }}" class="w-100" style="max-width:420px;margin:0 auto;">
+    <form method="POST" action="{{ route('attempt-password-login') }}" id="login-form" class="w-100" style="max-width:420px;margin:0 auto;">
       @csrf
 
       <img class="quarma-360" src="{{ asset('assets/logo/quarma360.svg') }}" alt="chaos-360">
@@ -106,10 +108,9 @@
         </label>
       </div>
 
+      {{-- Hidden input for reCAPTCHA v3 token --}}
       @if (config('services.recaptcha.key'))
-        <div class="form-group mt-3">
-          <div class="g-recaptcha" data-sitekey="{{ config('services.recaptcha.key') }}"></div>
-        </div>
+        <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
       @endif
 
       <button type="submit" class="btn btn-primary mt-3">

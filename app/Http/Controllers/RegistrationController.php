@@ -82,6 +82,13 @@ class RegistrationController extends Controller
 
         $request->validate($rules);
 
+        // reCAPTCHA validation
+        if (!\App\Services\RecaptchaService::validateRequest($request)) {
+            return back()
+                ->withErrors(['g-recaptcha-response' => __('auth.recaptcha_failed')])
+                ->withInput($request->except('g-recaptcha-response'));
+        }
+
         // Additional validation: uniqueness checks for tax numbers
         $tax = trim((string) $request->input('tax_number', ''));
         $euVat = strtoupper(trim((string) $request->input('eu_vat_number', '')));

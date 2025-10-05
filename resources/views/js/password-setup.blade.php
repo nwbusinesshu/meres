@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const confirmInput = document.getElementById('ps-password-confirmation');
   const submitBtn = document.getElementById('submit-btn');
   const matchIndicator = document.getElementById('password-match');
+  const passwordSetupForm = document.getElementById('password-setup-form');
   
   // Translation strings
   const translations = {
@@ -118,8 +119,8 @@ document.addEventListener('DOMContentLoaded', function() {
   passwordInput.addEventListener('input', validatePassword);
   confirmInput.addEventListener('input', checkPasswordMatch);
   
-  // Prevent form submission if validation fails
-  document.getElementById('password-setup-form').addEventListener('submit', function(e) {
+  // Form submission with reCAPTCHA v3
+  passwordSetupForm.addEventListener('submit', function(e) {
     const allValid = validationState.length && 
                      validationState.letter && 
                      validationState.number && 
@@ -129,7 +130,21 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!allValid) {
       e.preventDefault();
       alert(translations.validationAlert);
+      return;
     }
+    
+    @if (config('services.recaptcha.key'))
+    // Prevent default submission
+    e.preventDefault();
+    
+    // Get reCAPTCHA v3 token
+    grecaptcha.ready(function() {
+      grecaptcha.execute('{{ config('services.recaptcha.key') }}', {action: 'password_setup'}).then(function(token) {
+        document.getElementById('g-recaptcha-response').value = token;
+        passwordSetupForm.submit();
+      });
+    });
+    @endif
   });
 });
 </script>

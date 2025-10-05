@@ -1,9 +1,11 @@
 @extends('layouts.master')
 
 @section('head-extra')
-@if (config('services.recaptcha.key'))
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-  @endif
+@once
+    @if (config('services.recaptcha.key'))
+      <script src="https://www.google.com/recaptcha/api.js?render={{ config('services.recaptcha.key') }}" async></script>
+    @endif
+  @endonce
 @endsection
 
 @section('content')
@@ -74,10 +76,9 @@
       <div id="password-match" class="password-match-indicator"></div>
     </div>
 
+    {{-- Hidden input for reCAPTCHA v3 token --}}
     @if (config('services.recaptcha.key'))
-      <div class="form-group mb-3">
-        <div class="g-recaptcha" data-sitekey="{{ config('services.recaptcha.key') }}"></div>
-      </div>
+      <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
     @endif
 
     <button type="submit" class="btn btn-primary" id="submit-btn" disabled>
@@ -125,4 +126,5 @@
 @endsection
 
 @section('scripts')
+
 @endsection

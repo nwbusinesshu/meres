@@ -22,6 +22,26 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// reCAPTCHA v3 for login form
+@if (config('services.recaptcha.key') && !session('show_verification'))
+document.addEventListener('DOMContentLoaded', function() {
+  const loginForm = document.getElementById('login-form');
+  
+  if (loginForm) {
+    loginForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      grecaptcha.ready(function() {
+        grecaptcha.execute('{{ config('services.recaptcha.key') }}', {action: 'login'}).then(function(token) {
+          document.getElementById('g-recaptcha-response').value = token;
+          loginForm.submit();
+        });
+      });
+    });
+  }
+});
+@endif
+
 // Resend code function
 function resendCode() {
     const btn = document.getElementById('resend-code-btn');

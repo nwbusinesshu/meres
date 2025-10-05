@@ -128,7 +128,7 @@ class LoginController extends Controller
 
         if (! RecaptchaService::verifyToken($data['g-recaptcha-response'] ?? null, $request->ip())) {
             return back()
-                ->withErrors(['g-recaptcha-response' => 'Kérjük, erősítsd meg, hogy nem vagy robot.'])
+                ->withErrors(['email' => __('auth.recaptcha_failed')])
                 ->withInput($request->except(['password', 'g-recaptcha-response']));
         }
 
