@@ -185,10 +185,10 @@ return [
 'remove' => 'Eltávolítás',
 'dept-members-load-failed' => 'Nem sikerült betölteni a részleg tagjait.',
 "employee-limit-reached-title" => "Munkavállaló limit elérve",
-  "employee-limit-reached-text" => "Elérte a maximális :limit fős munkavállalói létszámot. Az első értékelés lezárása után korlátlanul hozhat létre új munkavállalókat.",
+  "employee-limit-reached-text" => "Elérte a maximális :limit fős munkavállalói létszámot. Folytathatja a regisztrációkat, de az első mérési időszak elindításakor további költségekre kell számítania!",
   "employee-limit-warning-title" => "Munkavállaló limit figyelmeztetés",
-  "employee-limit-warning-text" => "Jelenleg :current/:limit munkavállalót regisztrált. Az első értékelés lezárása után korlátlanul hozhat létre új munkavállalókat.",
-  "employee-limit-reached-tooltip" => "Elérte a munkavállalói limitet. Új munkavállaló hozzáadásához zárjon le egy értékelést.",
+  "employee-limit-warning-text" => "Jelenleg :current/:limit munkavállalót regisztrált. A limit átlépése esetén további költségek merülhetnek fel a mérési időszak elindításakor.",
+  "employee-limit-reached-tooltip" => "Elérte a munkavállalói limitet.",
   "employee-limit-reached-modal-text" => "Az első regisztrációs díj fix számú munkavállalóra vonatkozik. Az első értékelés lezárása után korlátlanul hozhat létre új munkavállalókat.",
     "employees-registered" => "munkavállaló regisztrálva",
 

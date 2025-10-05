@@ -16,7 +16,7 @@ return [
         'actions'        => 'Művelet',
         'issue_date'     => 'Kiállítás dátuma',
         'payment_date'   => 'Fizetés dátuma',
-        'invoice_number' => 'Számlaszám',
+        'invoice_number' => 'Számla szám',
     ],
 
     'actions' => [
@@ -25,6 +25,7 @@ return [
     ],
 
     'status' => [
+        'initial' => 'Belépő',
         'pending' => 'Folyamatban',
         'failed'  => 'Sikertelen',
         'paid'    => 'Rendezve',
@@ -32,6 +33,7 @@ return [
 
     'invoice' => [
         'processing' => 'Feldolgozás alatt',
+        'downloading' => 'Számla letöltése folyamatban',
     ],
 
     'empty' => [

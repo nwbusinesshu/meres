@@ -39,8 +39,67 @@ class BillingoService
     }
 
     /**
-     * Partner létrehozása (vagy később ide tehetünk keresést és upsertet is)
-     * Swagger minta: PartnerUpsert (name, address{country_code,post_code,city,address}, emails[], taxcode) 
+     * Partner keresése név alapján
+     */
+    public function searchPartner(string $name): ?array
+    {
+        try {
+            $res = Http::withHeaders($this->headers())
+                ->get($this->base . '/partners', ['name' => $name]);
+
+            if (!$res->successful()) {
+                Log::warning('billingo.partner.search_failed', [
+                    'name'   => $name,
+                    'status' => $res->status(),
+                ]);
+                return null;
+            }
+
+            $data = $res->json('data', []);
+            return !empty($data) ? $data[0] : null;
+        } catch (\Throwable $e) {
+            Log::error('billingo.partner.search_error', [
+                'name' => $name,
+                'msg'  => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Partner létrehozása vagy megkeresése
+     */
+    public function findOrCreatePartner(array $partnerData): int
+    {
+        // Normalize and validate data with defaults
+        $payload = [
+            'name'    => $partnerData['name'] ?? 'N/A',
+            'address' => [
+                'country_code' => $partnerData['country_code'] ?? 'HU',
+                'post_code'    => !empty($partnerData['postal_code']) ? $partnerData['postal_code'] : '1000',  // Default Budapest
+                'city'         => !empty($partnerData['city']) ? $partnerData['city'] : 'Budapest',
+                'address'      => !empty($partnerData['address']) ? $partnerData['address'] : 'N/A',
+            ],
+            'emails'  => !empty($partnerData['emails']) ? array_values(array_filter($partnerData['emails'])) : [],
+            'taxcode' => $partnerData['tax_number'] ?? '',
+        ];
+
+        Log::info('billingo.partner.payload', ['payload' => $payload]);
+
+        // Try to find existing partner
+        $existing = $this->searchPartner($payload['name']);
+        if ($existing && isset($existing['id'])) {
+            Log::info('billingo.partner.found', ['partner_id' => $existing['id'], 'name' => $payload['name']]);
+            return (int) $existing['id'];
+        }
+
+        // Create new partner
+        Log::info('billingo.partner.creating', ['name' => $payload['name']]);
+        return $this->createPartner($payload);
+    }
+
+    /**
+     * Partner létrehozása
      */
     public function createPartner(array $partner): int
     {
@@ -48,12 +107,14 @@ class BillingoService
             ->post($this->base . '/partners', $partner)
             ->throw();
 
-        return (int) $res->json('id');
+        $partnerId = (int) $res->json('id');
+        Log::info('billingo.partner.created', ['partner_id' => $partnerId]);
+        
+        return $partnerId;
     }
 
     /**
-     * Számla létrehozása (DocumentInsert) – product_id + quantity alapján
-     * Kötelező: partner_id, block_id, bank_account_id; példa a Billingo Swagger mintában. 
+     * Számla létrehozása
      */
     public function createInvoice(int $partnerId, int $quantity, string $comment = '', bool $paid = true): int
     {
@@ -63,7 +124,7 @@ class BillingoService
             'partner_id'      => $partnerId,
             'block_id'        => $this->blockId,
             'bank_account_id' => $this->bankAccountId,
-            'type'            => 'invoice',      // vagy 'advance' – mi sima számlát kérünk
+            'type'            => 'invoice',
             'fulfillment_date'=> $today,
             'due_date'        => $today,
             'payment_method'  => 'bankcard',
@@ -78,69 +139,75 @@ class BillingoService
             'comment'         => $comment,
         ];
 
+        Log::info('billingo.invoice.creating', [
+            'partner_id' => $partnerId,
+            'quantity'   => $quantity,
+            'comment'    => $comment,
+        ]);
+
         $res = Http::withHeaders($this->headers())
             ->post($this->base . '/documents', $body)
             ->throw();
 
-        return (int) $res->json('id'); // a létrejött dokumentum azonosítója
-    }
+        $docId = (int) $res->json('id');
+        Log::info('billingo.invoice.created', ['document_id' => $docId]);
 
-    /**
-     * Számla PDF letöltése és visszaadása binárisan.
-     * (A v3-ban elérhető a /documents/{id}/download végpont.)
-     */
+        return $docId;
+    }
 
     public function getPublicUrl(int $documentId): ?string
-{
-    $res = \Illuminate\Support\Facades\Http::withHeaders([
-            'X-API-KEY' => $this->apiKey,
-            'Accept'    => 'application/json',
-        ])->get($this->base . '/v3/documents/' . $documentId . '/public-url')
-          ->throw()
-          ->json();
-
-    return $res['public_url'] ?? null;
-}
-
-    /**
-     * PDF letöltés közvetlenül a /documents/{id}/download végpontról.
-     * 200 → PDF; 404 → még nem kész; egyéb → hiba
-     */
-    public function downloadInvoicePdf(int $documentId): string
     {
-        $url = $this->base . "/documents/{$documentId}/download";
+        try {
+            $res = Http::withHeaders([
+                    'X-API-KEY' => $this->apiKey,
+                    'Accept'    => 'application/json',
+                ])
+                ->get($this->base . '/documents/' . $documentId . '/public-url')
+                ->throw()
+                ->json();
 
-        $res = Http::withHeaders($this->headers)
-            ->accept('application/pdf')
-            ->get($url);
-
-        if ($res->status() === 200) {
-            $ct = strtolower($res->header('Content-Type') ?? '');
-            if (str_contains($ct, 'application/pdf')) {
-                return $res->body();
-            }
-        }
-
-        if ($res->status() === 404) {
-            Log::warning('billingo.invoice.not_ready', [
-                'doc_id' => $documentId,
-                'msg'    => 'Billingo download failed: HTTP 404',
+            return $res['public_url'] ?? null;
+        } catch (\Throwable $e) {
+            Log::error('billingo.public_url.error', [
+                'document_id' => $documentId,
+                'msg'         => $e->getMessage(),
             ]);
-            throw new \RuntimeException('not_ready');
+            return null;
         }
-
-        Log::error('billingo.invoice.download_error', [
-            'doc_id' => $documentId,
-            'status' => $res->status(),
-            'body'   => $res->body(),
-        ]);
-        throw new \RuntimeException('download_failed');
     }
 
+    public function downloadInvoicePdf(int $documentId): string
+{
+    // FIXED: Correct URL path
+    $url = $this->base . "/documents/{$documentId}/download";
 
-     /**
-     * Számla meta lekérés a /documents/{id}-ről.
-     */
+    $res = Http::withHeaders($this->headers())
+        ->accept('application/pdf')
+        ->get($url);
+
+    if ($res->status() === 200) {
+        $ct = strtolower($res->header('Content-Type') ?? '');
+        if (str_contains($ct, 'application/pdf')) {
+            return $res->body();
+        }
+    }
+
+    if ($res->status() === 404) {
+        Log::warning('billingo.invoice.not_ready', [
+            'doc_id' => $documentId,
+            'msg'    => 'Billingo download failed: HTTP 404',
+        ]);
+        throw new \RuntimeException('not_ready');
+    }
+
+    Log::error('billingo.invoice.download_error', [
+        'doc_id' => $documentId,
+        'status' => $res->status(),
+        'body'   => $res->body(),
+    ]);
+    throw new \RuntimeException('download_failed');
+}
+
     public function getDocument(int $documentId): array
     {
         $url = $this->base . "/documents/{$documentId}";
@@ -161,13 +228,9 @@ class BillingoService
         throw new \RuntimeException('document_fetch_failed');
     }
 
-    /**
-     * Dokumentum meta kinyerése: számlaszám + kiállítás dátum.
-     */
     public function extractInvoiceMeta(array $doc): array
     {
         $number = $doc['invoice_number'] ?? $doc['document_number'] ?? null;
-        // Billingo v3-nál több elnevezés is előfordult már → próbáljuk sorban
         $issue  = $doc['issue_date'] ?? $doc['invoice_date'] ?? $doc['fulfillment_date'] ?? null;
 
         return [
@@ -175,5 +238,22 @@ class BillingoService
             'issueDate' => $issue,
         ];
     }
-}
 
+    /**
+     * Számla teljes adatainak lekérése
+     */
+    public function getInvoiceWithMetadata(int $documentId): array
+    {
+        $doc = $this->getDocument($documentId);
+        $meta = $this->extractInvoiceMeta($doc);
+        $publicUrl = $this->getPublicUrl($documentId);
+
+        return [
+            'invoice_number' => $meta['number'],
+            'issue_date'     => $meta['issueDate'],
+            'fulfillment_date' => $doc['fulfillment_date'] ?? null,
+            'public_url'     => $publicUrl,
+            'document'       => $doc,
+        ];
+    }
+}

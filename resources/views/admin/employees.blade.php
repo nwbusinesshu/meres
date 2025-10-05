@@ -14,10 +14,21 @@
 </h1>
 
 {{-- NEW: Employee Limit Warning --}}
-@if(!$hasClosedAssessment && $employeeLimit)
-    <div class="tile tile-{{ $isLimitReached ? 'danger' : 'warning' }} mb-2">
-        <i class="fa fa-info-circle"></i>
+
+
+<div class="mb-2">
+    <div class="tile tile-info search-tile" style="margin-bottom:.75rem;">
+        <p>{{ $_('search') }}</p>
         <div>
+            <input type="text" class="form-control search-input" @if ($users->count() < 5) readonly @endif>
+            <i class="fa fa-ban clear-search" data-tippy-content="{{ $_('clear-search') }}"></i>
+        </div>
+    </div>
+    @if(!$hasClosedAssessment && $employeeLimit)
+    <div class="tile tile-{{ $isLimitReached ? 'danger' : 'warning' }}">
+        <div>
+                    <i class="fa fa-info-circle"></i>
+
             @if($isLimitReached)
                 <strong>{{ __('admin/employees.employee-limit-reached-title') }}</strong>
                 <p>{{ __('admin/employees.employee-limit-reached-text', ['limit' => $employeeLimit]) }}</p>
@@ -28,15 +39,6 @@
         </div>
     </div>
 @endif
-
-<div class="mb-2">
-    <div class="tile tile-info search-tile" style="margin-bottom:.75rem;">
-        <p>{{ $_('search') }}</p>
-        <div>
-            <input type="text" class="form-control search-input" @if ($users->count() < 5) readonly @endif>
-            <i class="fa fa-ban clear-search" data-tippy-content="{{ $_('clear-search') }}"></i>
-        </div>
-    </div>
     {{-- Updated: Disable button when limit is reached --}}
     <div class="tile tile-button trigger-new {{ $isLimitReached ? 'disabled' : '' }}" 
          @if($isLimitReached) 

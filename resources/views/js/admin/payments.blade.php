@@ -64,4 +64,25 @@ $(function(){
   });
 });
 }
+// Prevent loader for download links
+$(document).on('click', 'a.no-loader', function(e) {
+  // Don't trigger any global loader
+  e.stopPropagation();
+  
+  // Optional: Show a brief toast message
+  toast('info', '{{ __("payment.invoice.downloading") }}');
+});
+
+// Alternative: If there's still a global loader showing, hide it after click
+$(document).on('click', 'a[href*="payments/invoice"]', function() {
+  // Hide any loaders after a short delay (file download should start by then)
+  setTimeout(function() {
+    if (typeof swal_loader !== 'undefined' && swal_loader.close) {
+      swal_loader.close();
+    }
+    if (typeof Swal !== 'undefined' && Swal.close) {
+      Swal.close();
+    }
+  }, 500);
+});
 </script>

@@ -170,16 +170,17 @@
           </td>
 
           {{-- Művelet: letöltés --}}
-          <td>
-            @if(!empty($row->billingo_document_id))
-              <a href="{{ route('admin.payments.invoice', $row->id) }}"
-                 class="btn btn-sm btn-outline-primary" target="_blank">
-                <i class="fa fa-file-pdf"></i> {{ __('payment.actions.download_invoice') }}
-              </a>
-            @else
-              <span class="text-muted">{{ __('payment.invoice.processing') }}</span>
-            @endif
-          </td>
+        <td>
+          @if(!empty($row->billingo_document_id))
+            <a href="{{ route('admin.payments.invoice', $row->id) }}"
+               class="btn btn-sm btn-outline-primary no-loader"
+               download>
+              <i class="fa fa-file-pdf"></i> {{ __('payment.actions.download_invoice') }}
+            </a>
+          @else
+            <span class="text-muted">{{ __('payment.invoice.processing') }}</span>
+          @endif
+        </td>
         </tr>
       @empty
         <tr><td colspan="5" class="text-muted">{{ __('payment.empty.settled') }}</td></tr>
@@ -232,15 +233,16 @@
         </div>
         
         <div class="payment-card-actions">
-          @if(!empty($row->billingo_document_id))
-            <a href="{{ route('admin.payments.invoice', $row->id) }}"
-               class="btn btn-outline-primary" target="_blank">
-              <i class="fa fa-file-pdf"></i> {{ __('payment.actions.download_invoice') }}
-            </a>
-          @else
-            <div class="text-muted text-center py-2">{{ __('payment.invoice.processing') }}</div>
-          @endif
-        </div>
+        @if(!empty($row->billingo_document_id))
+          <a href="{{ route('admin.payments.invoice', $row->id) }}"
+             class="btn btn-outline-primary no-loader"
+             download>
+            <i class="fa fa-file-pdf"></i> {{ __('payment.actions.download_invoice') }}
+          </a>
+        @else
+          <div class="text-muted text-center py-2">{{ __('payment.invoice.processing') }}</div>
+        @endif
+      </div>
       </div>
     @empty
       <div class="payment-empty-mobile">

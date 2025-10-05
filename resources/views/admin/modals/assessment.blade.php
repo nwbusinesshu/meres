@@ -48,8 +48,9 @@
 
         <div class="tile tile-warning">
           <p>{!! __('admin/home.assessment-warning') !!}</p>
-        </div>
-
+        </div>    
+      </div>
+      <div class="modal-footer">
         <button class="btn btn-primary save-assessment">{{ __('admin/home.save-assessment') }}</button>
       </div>
     </div>

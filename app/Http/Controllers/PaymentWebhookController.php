@@ -12,38 +12,32 @@ class PaymentWebhookController extends Controller
 {
     public function barion(Request $request, BarionService $barion, BillingoService $billingo)
     {
-        // 1) Bemenet log
         Log::info('webhook.barion.in', [
             'body'    => $request->all(),
             'headers' => $request->headers->all(),
         ]);
 
-        // 2) PaymentId több néven is jöhet
         $barionId = $request->input('PaymentId')
                  ?: $request->input('paymentId')
                  ?: $request->input('Id');
 
         if (!$barionId) {
             Log::warning('webhook.barion.missing_payment_id');
-            // Mindig 200-zal válaszoljunk, különben jön a CallbackFailed e-mail
             return response('OK', 200);
         }
 
         try {
-            // 3) Barion állapot lekérdezése (POSKey KELL!)
             $state  = $barion->getPaymentState($barionId);
             $status = strtoupper((string) ($state['Status'] ?? ''));
 
             Log::info('webhook.barion.state', ['barion_id' => $barionId, 'status' => $status]);
 
-            // 4) Saját payment sor megkeresése
             $payment = DB::table('payments')
                 ->where('barion_payment_id', $barionId)
                 ->first();
 
             if (!$payment) {
                 Log::warning('webhook.barion.payment_not_found', ['barion_id' => $barionId]);
-                // Ilyenkor is 200 – a Barionnak elég, hogy fogadtuk
                 return response('OK', 200);
             }
 
@@ -55,15 +49,15 @@ class PaymentWebhookController extends Controller
                         'updated_at'=> now(),
                     ]);
 
-                    // Számla, ha még nincs
                     $hasDoc = DB::table('payments')->where('id', $payment->id)->value('billingo_document_id');
                     if (!$hasDoc) {
                         try {
-                            $this->issueBillingoInvoice((array) $payment, $billingo);
+                            $this->issueBillingoInvoiceWithRetry((array) $payment, $billingo);
                         } catch (\Throwable $e) {
                             Log::error('webhook.billingo.issue_error', [
                                 'payment_id' => $payment->id,
-                                'msg'        => $e->getMessage()
+                                'msg'        => $e->getMessage(),
+                                'trace'      => $e->getTraceAsString(),
                             ]);
                         }
                     }
@@ -76,7 +70,6 @@ class PaymentWebhookController extends Controller
                 ]);
             }
 
-            // 5) A LEGFONTOSABB: mindig 200-zal zárjunk
             return response('OK', 200);
 
         } catch (\Throwable $e) {
@@ -84,14 +77,54 @@ class PaymentWebhookController extends Controller
                 'barion_id' => $barionId,
                 'msg'       => $e->getMessage(),
             ]);
-            // A Barion ne próbálgassa végtelenül → 200
             return response('OK', 200);
         }
     }
 
-    /**
-     * Billingo számla kiállítás – egyszerű, termék alapú sorral
-     */
+    private function issueBillingoInvoiceWithRetry(array $payment, BillingoService $billingo, int $maxRetries = 3): void
+    {
+        $lastException = null;
+        
+        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+            try {
+                Log::info('webhook.billingo.invoice.attempt', [
+                    'payment_id' => $payment['id'],
+                    'attempt'    => $attempt,
+                    'max'        => $maxRetries,
+                ]);
+                
+                $this->issueBillingoInvoice($payment, $billingo);
+                
+                Log::info('webhook.billingo.invoice.success', [
+                    'payment_id' => $payment['id'],
+                    'attempt'    => $attempt,
+                ]);
+                
+                return;
+                
+            } catch (\Throwable $e) {
+                $lastException = $e;
+                Log::warning('webhook.billingo.invoice.retry', [
+                    'payment_id' => $payment['id'],
+                    'attempt'    => $attempt,
+                    'error'      => $e->getMessage(),
+                ]);
+                
+                if ($attempt < $maxRetries) {
+                    sleep(pow(2, $attempt));
+                }
+            }
+        }
+        
+        Log::error('webhook.billingo.invoice.all_retries_failed', [
+            'payment_id' => $payment['id'],
+            'attempts'   => $maxRetries,
+            'last_error' => $lastException ? $lastException->getMessage() : 'Unknown',
+        ]);
+        
+        throw $lastException ?? new \Exception('Invoice creation failed after ' . $maxRetries . ' attempts');
+    }
+
     private function issueBillingoInvoice(array $paymentArr, BillingoService $billingo): void
     {
         $orgId = (int) $paymentArr['organization_id'];
@@ -100,41 +133,82 @@ class PaymentWebhookController extends Controller
         $org     = DB::table('organization')->where('id', $orgId)->first();
         $profile = DB::table('organization_profiles')->where('organization_id', $orgId)->first();
 
-        // Admin e-mail partnerhez
+        if (!$org) {
+            throw new \Exception('Organization not found: ' . $orgId);
+        }
+
         $adminEmail = DB::table('user as u')
             ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
             ->where('ou.organization_id', $orgId)
             ->where('ou.role', 'admin')
             ->value('u.email');
 
-        // Partner létrehozása/frissítése
-        $partnerPayload = [
-            'name'    => $org->name,
-            'address' => [
-                'country_code' => $profile->country_code ?? 'HU',
-                'post_code'    => $profile->postal_code ?? '',
-                'city'         => $profile->city ?? '',
-                'address'      => trim(($profile->street ?? '') . ' ' . ($profile->house_number ?? '')),
-            ],
-            'emails'  => array_filter([$adminEmail]),
-            'taxcode' => $profile->tax_number ?: ($profile->eu_vat_number ?? ''),
-        ];
+        Log::info('webhook.billingo.invoice.data', [
+            'org_name'    => $org->name ?? 'N/A',
+            'postal_code' => $profile->postal_code ?? 'missing',
+            'city'        => $profile->city ?? 'missing',
+            'admin_email' => $adminEmail ?? 'missing',
+        ]);
 
-        $partnerId = $billingo->createPartner($partnerPayload);
+        // Use findOrCreatePartner for consistency with AdminPaymentController
+        $partnerId = $billingo->findOrCreatePartner([
+            'name'         => $org->name,
+            'country_code' => $profile->country_code ?? 'HU',
+            'postal_code'  => $profile->postal_code,  // Will use default if empty
+            'city'         => $profile->city,
+            'address'      => trim(($profile->street ?? '') . ' ' . ($profile->house_number ?? '')),
+            'tax_number'   => $profile->tax_number,
+            'emails'       => array_filter([$adminEmail]),
+        ]);
 
-        // Tétel mennyisége a 950 Ft egységárból
+        Log::info('webhook.billingo.partner.resolved', [
+            'payment_id' => $payId,
+            'partner_id' => $partnerId,
+        ]);
+
         $qty = max(1, (int) ceil(((int) ($paymentArr['amount_huf'] ?? 0)) / 950));
+        
+        $comment = '360° értékelés';
+        if (!empty($paymentArr['assessment_id'])) {
+            $comment .= ' – mérés #' . $paymentArr['assessment_id'];
+        }
+        $comment .= ' – ' . $org->name;
 
         $docId = $billingo->createInvoice(
             partnerId: $partnerId,
             quantity:  $qty,
-            comment:   '360° értékelés – mérés #'.$paymentArr['assessment_id'].' – '.$org->name,
+            comment:   $comment,
             paid:      true
         );
 
+        Log::info('webhook.billingo.invoice.created', [
+            'payment_id'  => $payId,
+            'document_id' => $docId,
+        ]);
+
+        // FIXED: Fetch complete invoice metadata
+        $invoiceData = $billingo->getInvoiceWithMetadata($docId);
+
+        Log::info('webhook.billingo.invoice.metadata_fetched', [
+            'payment_id'     => $payId,
+            'invoice_number' => $invoiceData['invoice_number'] ?? null,
+            'public_url'     => $invoiceData['public_url'] ?? null,
+        ]);
+
+        // FIXED: Store ALL invoice metadata
         DB::table('payments')->where('id', $payId)->update([
-            'billingo_document_id' => $docId,
-            'updated_at'           => now(),
+            'billingo_partner_id'    => $partnerId,
+            'billingo_document_id'   => $docId,
+            'billingo_invoice_number'=> $invoiceData['invoice_number'] ?? null,
+            'billingo_issue_date'    => $invoiceData['issue_date'] ?? $invoiceData['fulfillment_date'] ?? now()->toDateString(),
+            'invoice_pdf_url'        => $invoiceData['public_url'] ?? null,
+            'updated_at'             => now(),
+        ]);
+
+        Log::info('webhook.billingo.invoice.complete', [
+            'payment_id'     => $payId,
+            'document_id'    => $docId,
+            'invoice_number' => $invoiceData['invoice_number'] ?? null,
         ]);
     }
 }

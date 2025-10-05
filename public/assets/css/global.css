@@ -206,7 +206,8 @@ button.swal2-styled{
 .swal2-select {
   border-radius: 0 !important;
 }
-.swal2-container {
+
+.swal2-center {
   background-color: rgba(0, 0, 0, .7)!important;
   backdrop-filter: blur(4px)!important;
 }
