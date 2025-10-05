@@ -4,6 +4,8 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 use App\Exceptions\AuthFailException;
 use App\Models\Enums\UserType;
@@ -67,6 +69,8 @@ class Auth
 
   /**
    * Jogosultság ellenőrzés az adott route-hoz kért $utype alapján
+   * 
+   * SECURITY FIX: Admins now require 'admin' role in the current organization
    */
   public static function isAuthorized($utype)
   {
@@ -75,15 +79,65 @@ class Auth
     }
 
     $current = session('utype');
+    $uid = session('uid');
+    $orgId = session('org_id');
 
-    // ⬇⬇ Globális felülbírálók
+    // ========================================
+    // SUPERADMIN: Full system access (developers)
+    // ========================================
     if ($current === UserType::SUPERADMIN) {
-      return true; // superadmin mindenhova bemehet
-    }
-    if ($current === UserType::ADMIN) {
-      return true; // admin is mindenhova bemehet (megtartva a régi viselkedést)
+      return true;
     }
 
+    // ========================================
+    // ADMIN: Organization-level authorization
+    // ========================================
+    if ($current === UserType::ADMIN) {
+      // Admin routes require both:
+      // 1. User type = 'admin'
+      // 2. Role = 'admin' in current organization
+      
+      if ($utype === UserType::ADMIN) {
+        // Check if user has admin role in the current organization
+        if (!$orgId) {
+          Log::warning('Auth: Admin user without org_id in session', [
+            'user_id' => $uid,
+            'utype' => $current
+          ]);
+          return false;
+        }
+
+        $hasAdminRole = DB::table('organization_user')
+          ->where('organization_id', $orgId)
+          ->where('user_id', $uid)
+          ->where('role', 'admin')
+          ->exists();
+
+        if (!$hasAdminRole) {
+          Log::warning('Auth: Admin user lacks admin role in current org', [
+            'user_id' => $uid,
+            'org_id' => $orgId,
+            'requested_route_type' => $utype
+          ]);
+          return false;
+        }
+
+        return true;
+      }
+
+      // Admins can also access NORMAL routes (for viewing assessments, results, etc.)
+      if ($utype === UserType::NORMAL) {
+        return true;
+      }
+
+      // Admins cannot access other route types (CEO-only, MANAGER-only)
+      return false;
+    }
+
+    // ========================================
+    // Regular users: Standard authorization
+    // ========================================
+    
     // Pontos egyezés
     if ($utype === $current) {
       return true;
@@ -94,8 +148,9 @@ class Auth
       return true;
     }
 
-    if($utype == UserType::NORMAL && $current == UserType::MANAGER){
-    return true;
+    // MANAGER használhat "normal" felületet is
+    if ($utype === UserType::NORMAL && $current === UserType::MANAGER) {
+      return true;
     }
 
     return false;
