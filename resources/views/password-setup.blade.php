@@ -1,7 +1,9 @@
 @extends('layouts.master')
 
 @section('head-extra')
-
+@if (config('services.recaptcha.key'))
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+  @endif
 @endsection
 
 @section('content')
@@ -71,6 +73,12 @@
       <!-- Password Match Indicator -->
       <div id="password-match" class="password-match-indicator"></div>
     </div>
+
+    @if (config('services.recaptcha.key'))
+      <div class="form-group mb-3">
+        <div class="g-recaptcha" data-sitekey="{{ config('services.recaptcha.key') }}"></div>
+      </div>
+    @endif
 
     <button type="submit" class="btn btn-primary" id="submit-btn" disabled>
       {{ __('password-setup.submit') }}

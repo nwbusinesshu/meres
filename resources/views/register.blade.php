@@ -1,6 +1,9 @@
 @extends('layouts.master')
 
 @section('head-extra')
+@if (config('services.recaptcha.key'))
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+  @endif
 @endsection
 
 @section('content')
@@ -186,6 +189,9 @@
         <section class="reg-step" data-step="3" hidden>
           <h3>{{ __('register.step4_title') }}</h3>
           <div class="summary"><!-- JS tölti fel --></div>
+          @if (config('services.recaptcha.key'))
+            <div class="g-recaptcha mb-3" data-sitekey="{{ config('services.recaptcha.key') }}"></div>
+          @endif
           <div class="step-actions">
             <button type="button" class="btn btn-secondary prev-step">{{ __('register.buttons.back') }}</button>
             <button type="submit" class="btn btn-success btn-block">{{ __('register.buttons.finalize') }}</button>

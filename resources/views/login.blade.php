@@ -1,6 +1,9 @@
 @extends('layouts.master')
 
 @section('head-extra')
+  @if (config('services.recaptcha.key'))
+    <script src="https://www.google.com/recaptcha/api.js?render=6LfHfd8rAAAAAE9KpD1CEk3UkexVkRou9vJFLfEY"></script>
+  @endif
 @endsection
 
 @section('content')
@@ -102,6 +105,12 @@
           {{ $_('remember_me') ?? 'Emlékezz rám' }}
         </label>
       </div>
+
+      @if (config('services.recaptcha.key'))
+        <div class="form-group mt-3">
+          <div class="g-recaptcha" data-sitekey="{{ config('services.recaptcha.key') }}"></div>
+        </div>
+      @endif
 
       <button type="submit" class="btn btn-primary mt-3">
         {{ $_('login_button') }}

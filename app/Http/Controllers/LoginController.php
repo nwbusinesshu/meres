@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Facades\Log;
+use App\Services\RecaptchaService;
 
 class LoginController extends Controller
 {
@@ -113,11 +114,23 @@ class LoginController extends Controller
      */
     public function passwordLogin(Request $request)
     {
-        $data = $request->validate([
+        $rules = [
             'email'    => 'required|email',
             'password' => 'required|string|min:6',
             'remember' => 'nullable|boolean',
-        ]);
+        ];
+
+         if (RecaptchaService::isEnabled()) {
+            $rules['g-recaptcha-response'] = 'required|string';
+        }
+
+        $data = $request->validate($rules);
+
+        if (! RecaptchaService::verifyToken($data['g-recaptcha-response'] ?? null, $request->ip())) {
+            return back()
+                ->withErrors(['g-recaptcha-response' => 'Kérjük, erősítsd meg, hogy nem vagy robot.'])
+                ->withInput($request->except(['password', 'g-recaptcha-response']));
+        }
 
         /** @var User|null $user */
         $user = User::where('email', $data['email'])
@@ -128,7 +141,7 @@ class LoginController extends Controller
         if (! $user || empty($user->password) || ! Hash::check($data['password'], $user->password)) {
             return back()
                 ->withErrors(['email' => 'Hibás email/jelszó, vagy ehhez a fiókhoz még nincs jelszó beállítva.'])
-                ->withInput(['email' => $data['email']]);
+                ->withInput($request->except(['password', 'g-recaptcha-response']));
         }
 
         // Password is correct - now trigger 2FA

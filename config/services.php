@@ -43,5 +43,11 @@ return [
     'redirect'      => env('MICROSOFT_REDIRECT_URI', 'https://staging.nwbusiness.hu/auth/microsoft/callback'),
     'tenant'        => env('MICROSOFT_TENANT', 'common'),
     ],
+
+    
+    'recaptcha' => [
+        'key' => env('RECAPTCHA_SITE_KEY'),
+        'secret' => env('RECAPTCHA_SECRET_KEY'),
+    ],
 ];
 
