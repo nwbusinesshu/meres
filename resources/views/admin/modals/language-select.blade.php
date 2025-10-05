@@ -172,6 +172,9 @@ let availableLanguages = [];
 let userDefaultLanguage = '';
 
 function initLanguageModal() {
+  // ✅ FIXED: Show loader when opening modal
+  swal_loader.fire();
+  
   // Get available languages from config
   $.ajax({
     url: "{{ route('admin.languages.available') }}",
@@ -184,6 +187,7 @@ function initLanguageModal() {
       getSelectedLanguages();
     },
     error: function() {
+      swal_loader.close();
       swal.fire({
         icon: 'error',
         title: '{{ __('global.error') }}',
@@ -206,12 +210,14 @@ function getSelectedLanguages() {
       }
       
       renderLanguageLists();
+      swal_loader.close();
       $('#language-select-modal').modal('show');
     },
     error: function() {
       // Default to user's language if error
       selectedLanguages = [userDefaultLanguage];
       renderLanguageLists();
+      swal_loader.close();
       $('#language-select-modal').modal('show');
     }
   });
@@ -304,6 +310,10 @@ $(document).ready(function() {
   $('.save-languages').click(function() {
     swal_loader.fire();
     
+    // ✅ FIXED: Close modal BEFORE AJAX
+    $('#language-select-modal').modal('hide');
+    
+    // ✅ FIXED: Use successMessage property
     $.ajax({
       url: "{{ route('admin.languages.save') }}",
       method: 'POST',
@@ -311,18 +321,7 @@ $(document).ready(function() {
         languages: selectedLanguages,
         _token: '{{ csrf_token() }}'
       },
-      success: function(response) {
-        swal_loader.close();
-        $('#language-select-modal').modal('hide');
-        
-        swal.fire({
-          icon: 'success',
-          title: '{{ __('global.success') }}',
-          text: '{{ __('admin/competencies.languages-saved-successfully') }}',
-          timer: 2000,
-          showConfirmButton: false
-        });
-      },
+      successMessage: '{{ __('admin/competencies.languages-saved-successfully') }}',
       error: function() {
         swal_loader.close();
         swal.fire({

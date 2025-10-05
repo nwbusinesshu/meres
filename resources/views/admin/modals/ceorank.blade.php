@@ -591,7 +591,7 @@ function addRankTranslationButton() {
     
     if (saveButton.length > 0) {
         aiButton.insertAfter(saveButton);
-        console.log('AI button inserted before save button');
+        console.log('AI button inserted after save button');
     } else {
         // Fallback: append to modal actions
         $('.modal-actions').prepend(aiButton);
@@ -683,13 +683,8 @@ function translateRankName(nameToTranslate, sourceLanguage, targetLanguages) {
                 updateAllRankLanguageContent();
                 updateTabStates();
                 
-                swal.fire({
-                    icon: 'success',
-                    title: '{{ __('admin/ceoranks.translation-success') }}',
-                    text: '{{ __('admin/ceoranks.ai-translations-generated') }}',
-                    timer: 3000,
-                    showConfirmButton: false
-                });
+                // ✅ FIXED: Use toast instead of swal.fire
+                window.toast('success', '{{ __('admin/ceoranks.translation-success') }}');
             }
         },
         error: function(xhr) {

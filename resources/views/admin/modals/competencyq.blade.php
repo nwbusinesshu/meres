@@ -33,8 +33,9 @@
             <input class="form-control scale" type="number" step="1" min="3" max="10"/>
           </div>
         </div>
-
-        <button class="btn btn-primary save-question">{{ __('admin/competencies.question-save') }}</button>
+      </div>
+      <div class="modal-footer">
+      <button class="btn btn-primary save-question">{{ __('admin/competencies.question-save') }}</button>
       </div>
     </div>
   </div>
@@ -382,7 +383,6 @@ function setupQuestionModal() {
             <div class="translation-field" data-field="min_label">
               <label>{{ __('admin/competencies.min-label') }}</label>
               <input class="form-control min-label" type="text"
-                     
                      value="${qTranslations.min_label[lang] || ''}">
             </div>
           </div>
@@ -390,7 +390,6 @@ function setupQuestionModal() {
             <div class="translation-field" data-field="max_label">
               <label>{{ __('admin/competencies.max-label') }}</label>
               <input class="form-control max-label" type="text"
-                     
                      value="${qTranslations.max_label[lang] || ''}">
             </div>
           </div>
@@ -477,7 +476,7 @@ function translateCompetencyQuestion(questionData, sourceLanguage, targetLanguag
   
   // 🔥 CONTEXT-AWARE ROUTE SELECTION
   const isGlobalMode = window.globalCompetencyMode || false;
-  const translateUrl = isGlobalMode ? 
+  const translateUrl = isGlobalMode ?
     "{{ route('superadmin.competency.translate-question') }}" : 
     "{{ route('admin.competency.translate-question') }}";
   
@@ -511,13 +510,8 @@ function translateCompetencyQuestion(questionData, sourceLanguage, targetLanguag
         updateAllLanguageContent();
         updateLanguageTabs();
         
-        swal.fire({
-          icon: 'success',
-          title: '{{ __('admin/competencies.translation-success') }}',
-          text: '{{ __('admin/competencies.question-ai-translations-generated') }}',
-          timer: 3000,
-          showConfirmButton: false
-        });
+        // ✅ FIXED: Use toast instead of swal.fire
+        window.toast('success', '{{ __('admin/competencies.translation-success') }}');
       } else {
         swal.fire({
           icon: 'error',
@@ -584,13 +578,13 @@ function addQuestionTranslationButton() {
   // Add AI translate button if it doesn't exist
   if ($('#competencyq-modal .ai-translate-question').length === 0) {
     const aiButton = $(`
-      <button type="button" class="btn btn-outline-primary ai-translate-question disabled" style="margin-bottom: 0.5rem;" disabled>
+      <button type="button" class="btn btn-outline-primary ai-translate-question disabled" disabled>
         <i class="fa fa-robot"></i> {{ __('admin/competencies.ai-translate') }}
       </button>
     `);
     
     // Insert before the save button
-    aiButton.insertBefore('#competencyq-modal .save-question');
+    aiButton.insertAfter('#competencyq-modal .save-question');
   }
   
   // Always initialize after adding button
@@ -657,82 +651,76 @@ function initQuestionTranslationButton() {
     
     const currentLangContent = $('.language-content.active');
     const questionData = {
-      question: currentLangContent.find('.question').val()?.trim(),
-      question_self: currentLangContent.find('.question-self').val()?.trim(),
-      min_label: currentLangContent.find('.min-label').val()?.trim(),
-      max_label: currentLangContent.find('.max-label').val()?.trim()
+      question: currentLangContent.find('.question').val()?.trim() || '',
+      question_self: currentLangContent.find('.question-self').val()?.trim() || '',
+      min_label: currentLangContent.find('.min-label').val()?.trim() || '',
+      max_label: currentLangContent.find('.max-label').val()?.trim() || ''
     };
     
-    const sourceLanguage = qOriginalLanguage;
-    const targetLanguages = qSelectedLanguages.filter(lang => lang !== sourceLanguage);
+    const targetLanguages = qSelectedLanguages.filter(lang => lang !== qOriginalLanguage);
     
-    // Validate all fields are filled
     if (!questionData.question || !questionData.question_self || !questionData.min_label || !questionData.max_label) {
       swal.fire({
         icon: 'warning',
-        title: '{{ __('global.warning') }}',
-        text: '{{ __('admin/competencies.fill-all-fields-first') }}'
+        title: '{{ __('admin/competencies.fill-all-fields-first') }}',
+        text: '{{ __('admin/competencies.enter-all-question-fields') }}'
       });
       return;
     }
     
     if (targetLanguages.length === 0) {
       swal.fire({
-        icon: 'info',
-        title: '{{ __('global.info') }}',
-        text: '{{ __('admin/competencies.no-target-languages') }}'
+        icon: 'warning',
+        title: '{{ __('admin/competencies.no-target-languages') }}',
+        text: '{{ __('admin/competencies.select-additional-languages') }}'
       });
       return;
     }
     
-    translateCompetencyQuestion(questionData, sourceLanguage, targetLanguages);
+    translateCompetencyQuestion(questionData, qOriginalLanguage, targetLanguages);
   });
 }
 
-$(document).ready(function() {
-// Carousel navigation - existing code
-const tabsContainer = $('.language-tabs');
+// Carousel navigation
+$(document).ready(function(){
+  const tabsContainer = $('.language-tabs');
 
-// Balra lapozás (vissza a végére, ha az elején van)
-$('.carousel-prev').on('click', function() {
-  const currentScroll = tabsContainer.scrollLeft();
-  const firstTab = tabsContainer.find('.language-tab').first();
-  const firstTabWidth = firstTab.outerWidth(true);
+  // Previous button
+  $('.carousel-prev').off('click').on('click', function() {
+    const currentScroll = tabsContainer.scrollLeft();
+    const firstTab = tabsContainer.find('.language-tab').first();
+    const firstTabWidth = firstTab.outerWidth(true);
 
-  if (currentScroll === 0) {
-    // Ha az elején van, ugorjon a végére
-    tabsContainer.animate({
-      scrollLeft: tabsContainer.prop('scrollWidth') - tabsContainer.prop('clientWidth')
-    }, 200);
-  } else {
-    // Vissza a balra lapozás
-    tabsContainer.animate({
-      scrollLeft: currentScroll - firstTabWidth - 5 // a gap értékét is figyelembe véve
-    }, 200);
-  }
-});
+    if (currentScroll === 0) {
+      tabsContainer.animate({
+        scrollLeft: tabsContainer.prop('scrollWidth') - tabsContainer.prop('clientWidth')
+      }, 200);
+    } else {
+      tabsContainer.animate({
+        scrollLeft: currentScroll - firstTabWidth - 5
+      }, 200);
+    }
+  });
 
-// Jobbra lapozás (vissza az elejére, ha a végén van)
-$('.carousel-next').on('click', function() {
-  const currentScroll = tabsContainer.scrollLeft();
-  const scrollEnd = tabsContainer.prop('scrollWidth') - tabsContainer.prop('clientWidth');
-  const firstTab = tabsContainer.find('.language-tab').first();
-  const firstTabWidth = firstTab.outerWidth(true);
+  // Next button
+  $('.carousel-next').off('click').on('click', function() {
+    const currentScroll = tabsContainer.scrollLeft();
+    const scrollEnd = tabsContainer.prop('scrollWidth') - tabsContainer.prop('clientWidth');
+    const firstTab = tabsContainer.find('.language-tab').first();
+    const firstTabWidth = firstTab.outerWidth(true);
 
-  if (currentScroll >= scrollEnd - 5) { // kis hibahatárral
-    // Ha a végén van, ugorjon az elejére
-    tabsContainer.animate({
-      scrollLeft: 0
-    }, 200);
-  } else {
-    // Tovább a jobbra lapozás
-    tabsContainer.animate({
-      scrollLeft: currentScroll + firstTabWidth + 5
-    }, 200);
-  }
-});
+    if (currentScroll >= scrollEnd - 5) {
+      tabsContainer.animate({
+        scrollLeft: 0
+      }, 200);
+    } else {
+      tabsContainer.animate({
+        scrollLeft: currentScroll + firstTabWidth + 5
+      }, 200);
+    }
+  });
 
-  // SAVE BUTTON FUNCTIONALITY - RESTORED
+  // SAVE BUTTON FUNCTIONALITY
   $('.save-question').click(function(){
     swal_confirm.fire({
       title: '{{ __('admin/competencies.question-save-confirm') }}'
@@ -785,25 +773,15 @@ $('.carousel-next').on('click', function() {
         console.log('🔥 Saving to URL:', saveUrl);
         console.log('🔥 Data:', data);
         
+        // ✅ FIXED: Close modal BEFORE AJAX
+        $('#competencyq-modal').modal('hide');
+        
+        // ✅ FIXED: Use successMessage property
         $.ajax({
           url: saveUrl,
           method: 'POST',
           data: data,
-          success: function(response) {
-            console.log('🔥 SUCCESS:', response);
-            swal_loader.close();
-            $('#competencyq-modal').modal('hide');
-            
-            swal.fire({
-              icon: 'success',
-              title: '{{ __('global.success') }}',
-              text: '{{ __('admin/competencies.question-save-success') }}',
-              timer: 2000,
-              showConfirmButton: false
-            }).then(() => {
-              location.reload();
-            });
-          },
+          successMessage: '{{ __('admin/competencies.question-save-success') }}',
           error: function(xhr) {
             console.error('🔥 ERROR:', xhr);
             swal_loader.close();

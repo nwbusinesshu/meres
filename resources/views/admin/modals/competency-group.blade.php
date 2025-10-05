@@ -146,6 +146,15 @@ window.addGroupCompetencyItem = function(competencyId, competencyName, competenc
       if (result.isConfirmed) {
         swal_loader.fire();
         
+        // Determine success message
+        const successMsg = groupId ? 
+          '{{ __('admin/competencies.group-updated-success') }}' : 
+          '{{ __('admin/competencies.group-created-success') }}';
+        
+        // ✅ FIXED: Close modal BEFORE AJAX
+        $('#competency-group-modal').modal('hide');
+        
+        // ✅ FIXED: Use successMessage property
         $.ajax({
           url: "{{ route('admin.competency-group.save') }}",
           method: 'POST',
@@ -157,21 +166,7 @@ window.addGroupCompetencyItem = function(competencyId, competencyName, competenc
           headers: {
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
           },
-          success: function(response) {
-            swal_loader.close();
-            swal.fire({
-              icon: 'success',
-              title: '{{ __('global.success') }}',
-              text: groupId ? 
-                '{{ __('admin/competencies.group-updated-success') }}' : 
-                '{{ __('admin/competencies.group-created-success') }}',
-              timer: 2000,
-              showConfirmButton: false
-            }).then(() => {
-              $('#competency-group-modal').modal('hide');
-              location.reload(); // Reload to show the new group
-            });
-          },
+          successMessage: successMsg,
           error: function(xhr) {
             swal_loader.close();
             // Handle validation errors
@@ -199,10 +194,12 @@ window.addGroupCompetencyItem = function(competencyId, competencyName, competenc
 
 // FIXED: Initialize create new group modal - now uses global function
 window.initCreateCompetencyGroupModal = function() {
+  swal_loader.fire();
   $('#competency-group-modal').removeAttr('data-id');
   $('#competency-group-modal .modal-title').text("{{ __('admin/competencies.create-competency-group') }}");
   $('.group-name-input').val('');
   $('.competency-group-list').html('');
+  swal_loader.close();
   $('#competency-group-modal').modal('show');
 };
 

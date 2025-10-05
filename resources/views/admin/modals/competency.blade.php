@@ -603,12 +603,8 @@ function translateCompetencyName(nameToTranslate, descriptionToTranslate, source
         updateAllCompetencyLanguageContent();
         updateCompetencyLanguageTabs();
         
-        swal.fire({
-          icon: 'success',
-          title: '{{ __('admin/competencies.translation-success') }}',
-          timer: 2000,
-          showConfirmButton: false
-        });
+        // ✅ FIXED: Use toast instead of swal.fire
+        window.toast('success', '{{ __('admin/competencies.translation-success') }}');
       }
     },
     error: function(xhr) {
@@ -668,6 +664,10 @@ $(document).ready(function() {
           ? "{{ route('superadmin.competency.save') }}"
           : "{{ route('admin.competency.save') }}";
 
+        // ✅ FIXED: Close modal BEFORE AJAX
+        $('#competency-modal').modal('hide');
+
+        // ✅ FIXED: Use successMessage property
         $.ajax({
           url: saveUrl,
           method: 'POST',
@@ -680,17 +680,7 @@ $(document).ready(function() {
             original_language: compOriginalLanguage,
             _token: '{{ csrf_token() }}'
           },
-          success: function(response) {
-            swal_loader.close();
-            $('#competency-modal').modal('hide');
-            swal.fire({
-              icon: 'success',
-              title: '{{ __('global.success') }}',
-              text: '{{ __('admin/competencies.save-competency-success') }}',
-              timer: 2000,
-              showConfirmButton: false
-            }).then(() => location.reload());
-          },
+          successMessage: '{{ __('admin/competencies.save-competency-success') }}',
           error: function(xhr) {
             swal_loader.close();
             swal.fire({
@@ -705,6 +695,5 @@ $(document).ready(function() {
   });
 });
 
-// tedd globálissá, ha kívülről hívod (pl. kattintás handler másik fájlban)
 window.openCompetencyModal = openCompetencyModal;
 </script>
