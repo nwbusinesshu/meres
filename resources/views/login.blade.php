@@ -39,7 +39,7 @@
 
       <div class="d-flex justify-content-between align-items-center mt-3">
         <button type="submit" class="btn btn-primary">
-          {{ $_('verify_and_login') ?? 'Ellenőrzés és belépés' }}
+          {{ $_('verify_and_login') ?? 'Belépés' }}
         </button>
         
         <button type="button" id="resend-code-btn" class="btn btn-link p-0" onclick="resendCode()">

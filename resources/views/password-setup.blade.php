@@ -1,14 +1,11 @@
 @extends('layouts.master')
 
 @section('head-extra')
-  {{-- opcionális saját CSS a laphoz; ha még nincs, maradhat így is --}}
-  <link rel="stylesheet" href="{{ asset('assets/css/pages/password-setup.css') }}">
 @endsection
 
 @section('content')
 <div class="tile">
-  <img class="chaos-360" src="{{ asset('assets/logo/quarma360.svg') }}" alt="quarma-360">
-  <h3> Új jelszó beállítása</h3>
+  
 
   {{-- Jelszó beállítás --}}
   <form method="POST"
@@ -16,6 +13,9 @@
         class="w-100"
         style="max-width:420px;margin:0 auto;">
     @csrf
+
+    <img class="quarma-360" src="{{ asset('assets/logo/quarma360.svg') }}" alt="quarma-360">
+    <h4> Új jelszó beállítása</h4>
 
     <div class="form-group">
       <label for="ps-email">E-mail</label>
@@ -47,7 +47,7 @@
              autocomplete="new-password">
     </div>
 
-    <button type="submit" class="btn btn-primary btn-block mt-3">
+    <button type="submit" class="btn btn-primary">
       Jelszó beállítása
     </button>
 
@@ -79,7 +79,7 @@
   <a href="{{ route('trigger-microsoft-login') }}" role="button" class="btn btn-outline-secondary btn-block trigger-microsoft-login" style="max-width:420px;margin:0 auto;">
     Belépés Microsofttal <i class="fa-brands fa-microsoft"></i> </a>
 
-  <img class="mewocont-logo" src="{{ asset('assets/logo/nwb_logo.svg') }}" alt="">
+  <img class="nwb-logo" src="{{ asset('assets/logo/nwb_logo.svg') }}" alt="">
 </div>
 @endsection
 

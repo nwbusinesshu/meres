@@ -23,7 +23,7 @@
       <form id="register-form" method="POST" action="{{ route('register.perform') }}" class="w-100" style="max-width:640px;">
         @csrf
 
-        {{-- STEP 1 – Admin --}}
+        {{-- STEP 1 – Admin + Employee Count --}}
         <section class="reg-step" data-step="0">
           <h3>{{ __('register.step1_title') }}</h3>
           <div class="form-group">
@@ -36,7 +36,7 @@
           </div>
           <div class="form-group">
             <label>{{ __('register.admin.employee_limit') }}</label>
-            <input type="number" name="employee_limit" class="form-control" min="1" placeholder="{{ __('register.admin.employee_limit_placeholder') }}" required>
+            <input type="number" name="employee_limit" class="form-control" min="1" required>
           </div>
           <div class="step-actions">
             <button type="button" class="btn btn-primary next-step">{{ __('register.buttons.next') }}</button>
@@ -51,6 +51,7 @@
         {{-- STEP 2 – Cég + számlázás --}}
         <section class="reg-step" data-step="1" hidden>
           <h3>{{ __('register.step2_title') }}</h3>
+          
           <div class="form-group">
             <label>{{ __('register.company.name') }}</label>
             <input type="text" name="org_name" class="form-control" required>
@@ -91,35 +92,35 @@
             </div>
             <div class="form-group">
               <label>{{ __('register.company.postal_code') }}</label>
-              <input type="text" name="postal_code" class="form-control">
+              <input type="text" name="postal_code" class="form-control" required>
             </div>
           </div>
 
           <div class="form-row two">
-            <div class="form-group">
+            <div class="form-group region-field">
               <label>{{ __('register.company.region') }}</label>
               <input type="text" name="region" class="form-control">
             </div>
             <div class="form-group">
               <label>{{ __('register.company.city') }}</label>
-              <input type="text" name="city" class="form-control">
+              <input type="text" name="city" class="form-control" required>
             </div>
           </div>
 
           <div class="form-row two">
             <div class="form-group">
               <label>{{ __('register.company.street') }}</label>
-              <input type="text" name="street" class="form-control">
+              <input type="text" name="street" class="form-control" required>
             </div>
             <div class="form-group">
               <label>{{ __('register.company.house_number') }}</label>
-              <input type="text" name="house_number" class="form-control">
+              <input type="text" name="house_number" class="form-control" required>
             </div>
           </div>
 
           <div class="form-group">
             <label>{{ __('register.company.phone') }}</label>
-            <input type="text" name="phone" class="form-control" placeholder="{{ __('register.company.phone_placeholder') }}">
+            <input type="text" name="phone" class="form-control" placeholder="{{ __('register.company.phone_placeholder') }}" required>
           </div>
 
           <div class="form-row two">
@@ -196,7 +197,7 @@
 
   <img class="nwb-logo" src="{{ asset('assets/logo/nwb_logo.svg') }}" alt="">
 </div>
- <div class="footnote">
+<div class="footnote">
     {{ __('register.footer.already_have_account') }} <a href="{{ route('login') }}">{{ __('register.footer.login') }}</a>
   </div>
 
