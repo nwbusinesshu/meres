@@ -140,4 +140,11 @@ return [
         'phone' => 'telefonszám',
         'tax' => 'adószám',
     ],
+    'password' => [
+    'letters' => 'A :attribute legalább egy betűt kell tartalmazzon.',
+    'mixed' => 'A :attribute legalább egy nagybetűt és egy kisbetűt kell tartalmazzon.',
+    'numbers' => 'A :attribute legalább egy számot kell tartalmazzon.',
+    'symbols' => 'A :attribute legalább egy speciális karaktert kell tartalmazzon.',
+    'uncompromised' => 'A megadott :attribute adatszivárgásban szerepelt. Kérjük, válassz másik jelszót.',
+],
 ];

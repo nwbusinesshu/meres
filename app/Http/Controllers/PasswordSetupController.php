@@ -8,7 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
-use App\Models\User; 
+use App\Models\User;
+use Illuminate\Validation\Rules\Password;
 
 class PasswordSetupController extends Controller
 {
@@ -24,7 +25,6 @@ class PasswordSetupController extends Controller
             ->first();
 
         if (!$row) {
-            // lejárt/érvénytelen
             return redirect()->route('login')->with('error', 'A link/token lejárt vagy nem létezik. Kérelem nem teljesíthető.');
         }
 
@@ -39,13 +39,12 @@ class PasswordSetupController extends Controller
             'email' => $user->email,
             'token' => $token,
             'user'  => $user,
-            'org'   => $organization, // Pass organization to view
+            'org'   => $organization,
         ]);
     }
 
     public function store(Request $request, string $token)
     {
-        // FIXED: Look up organization from password_setup table instead of URL parameter
         $ps = DB::table('password_setup as ps')
             ->join('organization as o', 'o.id', '=', 'ps.organization_id')
             ->select('ps.*', 'o.slug as org_slug')
@@ -65,22 +64,31 @@ class PasswordSetupController extends Controller
             return redirect()->route('login')->with('error', 'A felhasználói fiók nem aktív.');
         }
 
+        // SECURITY FIX: Enforce strong password requirements (12+ chars, letters, numbers, not compromised)
         $data = $request->validate([
-            'password' => 'required|string|min:8|confirmed',
+            'password' => [
+                'required',
+                'string',
+                'confirmed',
+                Password::min(12)
+                    ->letters()
+                    ->numbers()
+                    ->uncompromised(),
+            ],
         ]);
 
-        // jelszó mentése + email verifikáció
+        // Save password + email verification
         $user->password = Hash::make($data['password']);
         if (empty($user->email_verified_at)) {
             $user->email_verified_at = now();
         }
         $user->save();
 
-        // token lezárása
+        // Mark token as used
         $passwordSetup->used_at = now();
         $passwordSetup->save();
 
-        // beléptetés + session
+        // Login user + session
         $request->session()->regenerate();
         Auth::login($user, false);
 
@@ -92,7 +100,7 @@ class PasswordSetupController extends Controller
             'org_id'  => $organization->id,
         ]);
 
-        // login napló (minimális – csak a meglévő oszlopokra)
+        // Login log
         try {
             $user->logins()->create([
                 'logged_in_at' => now()->format('Y-m-d H:i:s'),
@@ -101,7 +109,7 @@ class PasswordSetupController extends Controller
                 'user_agent'   => substr($request->userAgent(), 0, 255),
             ]);
         } catch (\Throwable $e) {
-            // csendben tovább; ha később bővítjük a táblát ip/ua-val, itt írjuk hozzá
+            // Silent fail - non-critical
         }
 
         return redirect()->route('home-redirect')->with('success', 'Jelszó beállítva, beléptél a rendszerbe.');
