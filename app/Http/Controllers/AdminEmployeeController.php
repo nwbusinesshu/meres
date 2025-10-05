@@ -382,41 +382,48 @@ private function getRaterCounts($userIds, $orgId)
 
         public function getEmployee(Request $request)
 {
-    $orgId = (int) session('org_id');
+    // SECURITY FIX: Add validation
+    $request->validate([
+        'id' => 'required|integer|exists:user,id'
+    ]);
 
-    /** @var \App\Models\User $u */
-    $u = \App\Models\User::findOrFail($request->id);
+    $orgId = session('org_id');
+    $u = User::findOrFail($request->id);
 
-    // UPDATED: Check if user is a department manager using the new structure
-    $isDeptManager = \DB::table('organization_department_managers as odm')
+    // SECURITY: Verify user belongs to this organization
+    $belongsToOrg = $u->organizations()->where('organization_id', $orgId)->exists();
+    if (!$belongsToOrg) {
+        abort(403, 'User does not belong to your organization');
+    }
+
+    // Rest of the method remains unchanged...
+    $isDeptManager = DB::table('organization_department_managers as odm')
         ->join('organization_departments as d', 'd.id', '=', 'odm.department_id')
         ->where('d.organization_id', $orgId)
         ->where('odm.manager_id', $u->id)
         ->whereNull('d.removed_at')
         ->exists();
 
-    // částleg-tag?
-    $deptId = \DB::table('organization_user')
+    $deptId = DB::table('organization_user')
         ->where('organization_id', $orgId)
         ->where('user_id', $u->id)
-        ->value('department_id'); // NULL ha nincs részleghez rendelve
+        ->value('department_id');
 
     $position = DB::table('organization_user')
-    ->where('organization_id', $orgId)
-    ->where('user_id', $u->id)
-    ->value('position');
+        ->where('organization_id', $orgId)
+        ->where('user_id', $u->id)
+        ->value('position');
 
     return response()->json([
         'id'                => $u->id,
         'name'              => $u->name,
         'email'             => $u->email,
-        'type'              => $u->type,            // 'normal' | 'manager' | 'ceo'
+        'type'              => $u->type,
         'has_auto_level_up' => (int) $u->has_auto_level_up,
-
         'is_dept_manager'   => (bool) $isDeptManager,
         'is_in_department'  => !is_null($deptId),
-        'position' => $position,
-        'department_id'     => $deptId,             // opcionális, but useful for UI
+        'position'          => $position,
+        'department_id'     => $deptId,
     ]);
 }
 
@@ -705,38 +712,77 @@ public function PasswordReset(Request $request)
 
 
 
-    public function removeEmployee(Request $request){
+    public function removeEmployee(Request $request)
+    {
+        // SECURITY FIX: Add validation
+        $request->validate([
+            'id' => 'required|integer|exists:user,id'
+        ]);
+
         $user = User::findOrFail($request->id);
-        AjaxService::DBTransaction(function() use (&$user){
+        
+        // Additional security check: verify user belongs to current org
+        $orgId = session('org_id');
+        $belongsToOrg = $user->organizations()->where('organization_id', $orgId)->exists();
+        
+        if (!$belongsToOrg) {
+            abort(403, 'User does not belong to your organization');
+        }
+        
+        AjaxService::DBTransaction(function() use (&$user, $orgId){
             $user->removed_at = date('Y-m-d H:i:s');
             $user->save();
 
-            UserRelation::where('organization_id', session('org_id'))
+            UserRelation::where('organization_id', $orgId)
                 ->where(function($q) use ($user) {
                     $q->where('target_id', $user->id)
                       ->orWhere('user_id', $user->id);
                 })
                 ->delete();
         });
+        
+        return response()->json(['ok' => true]);
     }
 
+    /**
+     * Get all employees for selection/autocomplete
+     * 
+     * SECURITY FIX: Properly sanitize LIKE pattern to prevent SQL injection
+     * and wildcard character abuse
+     */
     public function getAllEmployee(Request $request)
     {
+        // SECURITY: Validate input before using in query
+        $request->validate([
+            'search' => 'nullable|string|max:255',
+            'except' => 'nullable|array',
+            'except.*' => 'integer',
+            'id' => 'nullable|integer'
+        ]);
+
         $query = User::whereNull('removed_at')
             ->where('type', '!=', UserType::ADMIN)
             ->whereHas('organizations', function ($q) {
                 $q->where('organization_id', session('org_id'));
             });
 
+        // SECURITY FIX: Escape LIKE wildcards and use parameterized binding
         if ($request->has('search') && $request->search) {
-            $query->where('name', 'like', "%{$request->search}%");
+            $searchTerm = $request->search;
+            
+            // Escape SQL LIKE special characters (_ and %)
+            // This prevents users from using wildcards to bypass search restrictions
+            $escapedSearch = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $searchTerm);
+            
+            // Use parameterized binding - Laravel automatically escapes the value
+            $query->where('name', 'like', '%' . $escapedSearch . '%');
         }
 
         if ($request->has('except') && is_array($request->except)) {
             $query->whereNotIn('id', $request->except);
         }
 
-        // Ne jelenjen meg önmaga
+        // Don't show self
         if ($request->has('id') && is_numeric($request->id)) {
             $query->where('id', '!=', $request->id);
         }
@@ -747,16 +793,28 @@ public function PasswordReset(Request $request)
 
     public function getEmployeeRelations(Request $request)
     {
+        // SECURITY FIX: Add validation
+        $request->validate([
+            'id' => 'required|integer|exists:user,id'
+        ]);
+
         $user = User::findOrFail($request->id);
+        
+        // SECURITY: Verify user belongs to current org
+        $orgId = session('org_id');
+        $belongsToOrg = $user->organizations()->where('organization_id', $orgId)->exists();
+        
+        if (!$belongsToOrg) {
+            abort(403, 'User does not belong to your organization');
+        }
 
         return $user->allRelations()
             ->with('target')
-            ->where('organization_id', session('org_id'))   // ← ez kell
-            ->whereHas('target.organizations', function ($q) {
-                $q->where('organization_id', session('org_id'));
+            ->where('organization_id', $orgId)
+            ->whereHas('target.organizations', function ($q) use ($orgId) {
+                $q->where('organization_id', $orgId);
             })
             ->get();
-
     }
 
     public function saveEmployeeRelations(Request $request)
@@ -955,8 +1013,19 @@ private function getExpectedReverseType($type)
 
 
     public function getEmployeeCompetencies(Request $request){
+
+        $request->validate([
+        'id' => 'required|integer|exists:user,id'
+    ]);
+
     $orgId = session('org_id');
     $user = User::findOrFail($request->id);
+
+    $belongsToOrg = $user->organizations()->where('organization_id', $orgId)->exists();
+    
+    if (!$belongsToOrg) {
+        abort(403, 'User does not belong to your organization');
+    }
 
     // Get all competencies with their sources
     $competenciesWithSources = DB::table('user_competency as uc')
@@ -1104,8 +1173,24 @@ private function getExpectedReverseType($type)
     }
 }
 
-    public function getBonusMalus(Request $request){
-        return User::findOrFail($request->id)->bonusMalus->take(4);
+    public function getBonusMalus(Request $request)
+    {
+        // SECURITY FIX: Add validation
+        $request->validate([
+            'id' => 'required|integer|exists:user,id'
+        ]);
+
+        $user = User::findOrFail($request->id);
+        
+        // SECURITY: Verify user belongs to current org
+        $orgId = session('org_id');
+        $belongsToOrg = $user->organizations()->where('organization_id', $orgId)->exists();
+        
+        if (!$belongsToOrg) {
+            abort(403, 'User does not belong to your organization');
+        }
+        
+        return $user->bonusMalus()->take(4)->get();
     }
 
     public function setBonusMalus(Request $request){
@@ -1213,6 +1298,10 @@ private function getExpectedReverseType($type)
 
 public function getDepartment(Request $request)
 {
+    $request->validate([
+        'id' => 'required|integer'
+    ]);
+
     $orgId = (int) session('org_id');
 
     $data = $request->validate([
@@ -1367,6 +1456,10 @@ public function updateDepartment(Request $request)
 
 public function getDepartmentMembers(Request $request)
 {
+    $request->validate([
+        'department_id' => 'required|integer'
+    ]);
+
     $orgId = (int) session('org_id');
 
     $data = $request->validate([
@@ -1500,29 +1593,44 @@ public function saveDepartmentMembers(Request $request)
 
 public function deleteDepartment(Request $request)
 {
+    // SECURITY FIX: Use Laravel validation instead of manual checks
+    $validated = $request->validate([
+        'id' => 'required|integer|min:1'
+    ]);
+
     $orgId = (int) session('org_id');
-    $deptId = (int) $request->input('id');
-    
-    if (!$deptId) {
+    $deptId = $validated['id'];
+
+    if (!$orgId) {
         return response()->json([
-            'message' => 'Nincs megadva részleg ID.',
-            'errors' => ['id' => ['Részleg ID kötelező.']],
+            'message' => 'Nincs kiválasztott szervezet.',
+            'errors' => ['org' => ['Nincs kiválasztott szervezet.']]
         ], 422);
     }
 
+    // CRITICAL FIX: Check department ownership BEFORE transaction
+    $department = DB::table('organization_departments')
+        ->where('id', $deptId)
+        ->where('organization_id', $orgId)
+        ->whereNull('removed_at')
+        ->first();
+
+    if (!$department) {
+        Log::warning('Attempted to delete non-existent or wrong organization department', [
+            'department_id' => $deptId,
+            'org_id' => $orgId,
+            'admin_id' => session('uid')
+        ]);
+
+        return response()->json([
+            'message' => 'A részleg nem található vagy nem a szervezetedhez tartozik.',
+            'errors' => ['department' => ['A részleg nem található.']]
+        ], 404);
+    }
+
     try {
-        DB::transaction(function () use ($orgId, $deptId) {
-            // Check if department exists and belongs to the organization
-            $department = DB::table('organization_departments')
-                ->where('id', $deptId)
-                ->where('organization_id', $orgId)
-                ->whereNull('removed_at')
-                ->first();
-
-            if (!$department) {
-                throw new \Exception('A részleg nem található vagy már törölve lett.');
-            }
-
+        // FIXED: Pass $department to the closure
+        DB::transaction(function () use ($orgId, $deptId, $department) {
             // 1. Remove all members from the department
             DB::table('organization_user')
                 ->where('organization_id', $orgId)
@@ -1532,6 +1640,7 @@ public function deleteDepartment(Request $request)
             // 2. Remove all manager assignments
             DB::table('organization_department_managers')
                 ->where('department_id', $deptId)
+                ->where('organization_id', $orgId)
                 ->delete();
 
             // 3. Mark the department as removed (soft delete)
@@ -1541,12 +1650,19 @@ public function deleteDepartment(Request $request)
                 ->update(['removed_at' => now()]);
         });
 
+        Log::info('Department deleted successfully', [
+            'department_id' => $deptId,
+            'department_name' => $department->department_name,
+            'org_id' => $orgId,
+            'deleted_by' => session('uid')
+        ]);
+
         return response()->json([
             'message' => 'A részleg sikeresen törölve lett. Minden felhasználó eltávolításra került a részlegből.',
             'success' => true
         ]);
 
-    } catch (\Exception $e) {
+    } catch (\Throwable $e) {
         Log::error('Department deletion failed', [
             'department_id' => $deptId,
             'organization_id' => $orgId,
@@ -1555,8 +1671,8 @@ public function deleteDepartment(Request $request)
         ]);
 
         return response()->json([
-            'message' => 'Hiba történt a részleg törlésekor: ' . $e->getMessage(),
-            'errors' => ['general' => ['A részleg törlése sikertelen volt.']],
+            'message' => 'Hiba történt a részleg törlésekor.',
+            'errors' => ['general' => ['A részleg törlése sikertelen volt.']]
         ], 500);
     }
 }
@@ -1564,7 +1680,21 @@ public function deleteDepartment(Request $request)
 
     public function getNetworkData(Request $request)
 {
+    $request->validate([
+        'user_id' => 'nullable|integer|exists:user,id'
+    ]);
+
     $orgId = (int) session('org_id');
+
+    if ($request->has('user_id')) {
+        $user = User::find($request->user_id);
+        if ($user) {
+            $belongsToOrg = $user->organizations()->where('organization_id', $orgId)->exists();
+            if (!$belongsToOrg) {
+                abort(403, 'User does not belong to your organization');
+            }
+        }
+    }
     
     try {
         // UPDATED: Get all users in the organization with proper multi-manager support

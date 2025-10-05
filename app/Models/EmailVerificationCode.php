@@ -55,17 +55,23 @@ class EmailVerificationCode extends Model
 
     /**
      * Verify a code for the given email and session
+     * 
+     * SECURITY FIX: Uses hash_equals() for constant-time comparison
+     * to prevent timing attacks that could reveal partial verification codes.
      */
     public static function verifyCode(string $email, string $code, string $sessionId): bool
     {
+        // Retrieve the verification code record without comparing the code value in the WHERE clause
+        // This prevents timing attacks on the database query itself
         $verificationCode = static::where('email', $email)
-            ->where('code', $code)
             ->where('session_id', $sessionId)
             ->whereNull('used_at')
             ->where('expires_at', '>', now())
             ->first();
 
-        if ($verificationCode) {
+        // Use constant-time comparison to prevent timing attacks
+        // hash_equals() takes the same amount of time regardless of where strings differ
+        if ($verificationCode && hash_equals($verificationCode->code, $code)) {
             $verificationCode->update(['used_at' => now()]);
             return true;
         }

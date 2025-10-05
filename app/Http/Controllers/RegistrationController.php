@@ -113,7 +113,7 @@ class RegistrationController extends Controller
                 }
                 $dup = DB::table('organization_profiles')
                     ->whereNotNull('eu_vat_number')
-                    ->whereRaw('UPPER(eu_vat_number) = ?', [$euVat])
+                    ->where(DB::raw('UPPER(TRIM(eu_vat_number))'), '=', $euVat)
                     ->exists();
                 if ($dup) {
                     return back()->withErrors(['eu_vat_number' => __('register.errors.eu_vat_exists')])->withInput();
@@ -126,7 +126,7 @@ class RegistrationController extends Controller
             }
             $dup = DB::table('organization_profiles')
                 ->whereNotNull('eu_vat_number')
-                ->whereRaw('UPPER(eu_vat_number) = ?', [$euVat])
+                ->where(DB::raw('UPPER(TRIM(eu_vat_number))'), '=', $euVat)
                 ->exists();
             if ($dup) {
                 return back()->withErrors(['eu_vat_number' => __('register.errors.eu_vat_exists')])->withInput();
@@ -286,7 +286,7 @@ class RegistrationController extends Controller
                     } else {
                         $dup = DB::table('organization_profiles')
                             ->whereNotNull('eu_vat_number')
-                            ->whereRaw('UPPER(eu_vat_number) = ?', [$euVat])
+                            ->where(DB::raw('UPPER(TRIM(eu_vat_number))'), '=', $euVat)
                             ->exists();
                         if ($dup) {
                             $errors['eu_vat_number'] = __('register.errors.eu_vat_exists');
@@ -301,7 +301,7 @@ class RegistrationController extends Controller
                     } else {
                         $dup = DB::table('organization_profiles')
                             ->whereNotNull('eu_vat_number')
-                            ->whereRaw('UPPER(eu_vat_number) = ?', [$euVat])
+                            ->where(DB::raw('UPPER(TRIM(eu_vat_number))'), '=', $euVat)
                             ->exists();
                         if ($dup) {
                             $errors['eu_vat_number'] = __('register.errors.eu_vat_exists');
