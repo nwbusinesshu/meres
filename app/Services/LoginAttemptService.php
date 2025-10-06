@@ -10,7 +10,9 @@ use Carbon\Carbon;
  * Login Attempt Service
  * 
  * Handles persistent account lockout mechanism based on failed login attempts.
- * Tracks attempts per email + IP address combination.
+ * Tracks attempts per EMAIL ONLY (IP address stored for logging purposes).
+ * 
+ * SECURITY: Account lockout is GLOBAL per email - blocks all login methods (password + OAuth).
  * 
  * Configuration via .env:
  * - LOGIN_MAX_ATTEMPTS: Maximum failed attempts before lockout (default: 5)
@@ -20,15 +22,15 @@ use Carbon\Carbon;
 class LoginAttemptService
 {
     /**
-     * Check if an account is locked
+     * Check if an account is locked (EMAIL-ONLY CHECK)
      *
      * @param string $email
-     * @param string $ipAddress
+     * @param string|null $ipAddress (optional, used for logging only)
      * @return array ['locked' => bool, 'minutes_remaining' => int]
      */
-    public static function isLocked(string $email, string $ipAddress): array
+    public static function isLocked(string $email, ?string $ipAddress = null): array
     {
-        $attempt = self::getAttempt($email, $ipAddress);
+        $attempt = self::getAttempt($email);
         
         if (!$attempt) {
             return ['locked' => false, 'minutes_remaining' => 0];
@@ -36,6 +38,13 @@ class LoginAttemptService
         
         // Check if locked and not expired
         if ($attempt->isLocked()) {
+            Log::info('login_attempt.check_locked', [
+                'email' => $email,
+                'ip' => $ipAddress,
+                'locked_until' => $attempt->locked_until,
+                'minutes_remaining' => $attempt->getRemainingLockoutMinutes(),
+            ]);
+            
             return [
                 'locked' => true,
                 'minutes_remaining' => $attempt->getRemainingLockoutMinutes()
@@ -44,7 +53,7 @@ class LoginAttemptService
         
         // Check if lockout has expired - auto-unlock
         if (!is_null($attempt->locked_until) && !$attempt->isLocked()) {
-            self::clearAttempts($email, $ipAddress);
+            self::clearAttempts($email);
             return ['locked' => false, 'minutes_remaining' => 0];
         }
         
@@ -52,10 +61,10 @@ class LoginAttemptService
     }
 
     /**
-     * Record a failed login attempt
+     * Record a failed login attempt (EMAIL-ONLY TRACKING)
      *
      * @param string $email
-     * @param string $ipAddress
+     * @param string $ipAddress (stored for audit trail)
      * @return array ['locked' => bool, 'attempts' => int, 'minutes_remaining' => int]
      */
     public static function recordFailedAttempt(string $email, string $ipAddress): array
@@ -64,7 +73,7 @@ class LoginAttemptService
         $lockoutMinutes = (int) env('LOGIN_LOCKOUT_MINUTES', 30);
         $decayMinutes = (int) env('LOGIN_DECAY_MINUTES', 60);
         
-        $attempt = self::getAttempt($email, $ipAddress);
+        $attempt = self::getAttempt($email);
         
         if (!$attempt) {
             // Create new attempt record
@@ -93,6 +102,7 @@ class LoginAttemptService
             $attempt->failed_attempts = 1;
             $attempt->locked_until = null;
             $attempt->last_attempt_at = now();
+            $attempt->ip_address = $ipAddress; // Update to latest IP
             $attempt->save();
             
             Log::info('login_attempt.reset_after_decay', [
@@ -111,6 +121,7 @@ class LoginAttemptService
         // Increment failed attempts
         $attempt->failed_attempts += 1;
         $attempt->last_attempt_at = now();
+        $attempt->ip_address = $ipAddress; // Update to latest IP
         
         // Lock account if max attempts reached
         if ($attempt->failed_attempts >= $maxAttempts) {
@@ -141,22 +152,21 @@ class LoginAttemptService
     }
 
     /**
-     * Clear failed attempts on successful login
+     * Clear failed attempts on successful login (EMAIL-ONLY)
      *
      * @param string $email
-     * @param string $ipAddress
+     * @param string|null $ipAddress (optional, used for logging only)
      * @return void
      */
-    public static function clearAttempts(string $email, string $ipAddress): void
+    public static function clearAttempts(string $email, ?string $ipAddress = null): void
     {
-        $deleted = LoginAttempt::where('email', $email)
-            ->where('ip_address', $ipAddress)
-            ->delete();
+        $deleted = LoginAttempt::where('email', $email)->delete();
         
         if ($deleted > 0) {
             Log::info('login_attempt.cleared', [
                 'email' => $email,
                 'ip' => $ipAddress,
+                'records_deleted' => $deleted,
             ]);
         }
     }
@@ -182,16 +192,16 @@ class LoginAttemptService
     }
 
     /**
-     * Get login attempt record
+     * Get login attempt record (EMAIL-ONLY)
      *
      * @param string $email
-     * @param string $ipAddress
      * @return LoginAttempt|null
      */
-    protected static function getAttempt(string $email, string $ipAddress): ?LoginAttempt
+    protected static function getAttempt(string $email): ?LoginAttempt
     {
+        // Get the most recent attempt for this email (regardless of IP)
         return LoginAttempt::where('email', $email)
-            ->where('ip_address', $ipAddress)
+            ->orderBy('last_attempt_at', 'desc')
             ->first();
     }
 

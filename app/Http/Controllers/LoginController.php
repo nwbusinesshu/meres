@@ -115,235 +115,252 @@ class LoginController extends Controller
     /**
      * Handle OAuth login with optional 2FA enforcement
      * 
+     * Security Logic:
+     * - LOCKOUT CHECK: Block locked accounts (both password and OAuth)
+     * - Superadmins: Always skip 2FA (trusted system administrators)
+     * - Regular users: If ANY organization requires 2FA, enforce it (strictest security)
+     * - Users with no orgs: Skip 2FA (they can't access anything anyway)
+     * 
      * @param Request $request
      * @param User $user
      * @param string|null $avatar
      * @param string $provider OAuth provider name (for logging)
      * @return \Illuminate\Http\RedirectResponse
      */
-    /**
- * Handle OAuth login with optional 2FA enforcement
- * 
- * Security Logic:
- * - Superadmins: Always skip 2FA (trusted system administrators)
- * - Regular users: If ANY organization requires 2FA, enforce it (strictest security)
- * - Users with no orgs: Skip 2FA (they can't access anything anyway)
- * 
- * @param Request $request
- * @param User $user
- * @param string|null $avatar
- * @param string $provider OAuth provider name (for logging)
- * @return \Illuminate\Http\RedirectResponse
- */
-private function handleOAuthLogin(Request $request, User $user, ?string $avatar, string $provider)
-{
-    // SUPERADMINS: Always skip 2FA (they're trusted system administrators)
-    if ($user->type === UserType::SUPERADMIN) {
-        Log::info('OAuth login: Superadmin - 2FA bypassed', [
-            'provider' => $provider,
-            'user_id' => $user->id,
-        ]);
-        return $this->finishLogin($request, $user, $avatar, false);
-    }
+    private function handleOAuthLogin(Request $request, User $user, ?string $avatar, string $provider)
+    {
+        $email = $user->email;
+        $ipAddress = $request->ip();
 
-    // Get user's organizations to check security settings
-    $orgIds = $user->organizations()->pluck('organization.id')->toArray();
-    
-    // Default: OAuth bypasses 2FA (current behavior)
-    $forceOauth2fa = false;
-    
-    // STRICTEST SECURITY: If ANY organization requires 2FA, enforce it
-    // This prevents users from bypassing 2FA by joining a less secure organization
-    foreach ($orgIds as $orgId) {
-        if (OrgConfigService::getBool($orgId, 'force_oauth_2fa', false)) {
-            $forceOauth2fa = true;
+        // SECURITY: Check if account is locked (EMAIL-BASED GLOBAL LOCKOUT)
+        $lockStatus = \App\Services\LoginAttemptService::isLocked($email, $ipAddress);
+        if ($lockStatus['locked']) {
+            Log::warning('oauth_login.blocked_locked_account', [
+                'email' => $email,
+                'ip' => $ipAddress,
+                'provider' => $provider,
+                'minutes_remaining' => $lockStatus['minutes_remaining'],
+            ]);
+
+            return redirect('login')->with('error', __('auth.account_locked_oauth', [
+                'minutes' => $lockStatus['minutes_remaining']
+            ]));
+        }
+
+        // SUPERADMINS: Always skip 2FA (they're trusted system administrators)
+        if ($user->type === UserType::SUPERADMIN) {
+            Log::info('OAuth login: superadmin bypassing 2FA', [
+                'provider' => $provider,
+                'user_id' => $user->id,
+            ]);
+            return $this->finishLogin($request, $user, $avatar, false);
+        }
+
+        // Get all organizations this user belongs to
+        $orgIds = $user->organizations()->pluck('organization.id')->toArray();
+
+        // Users without organizations: skip 2FA (they can't access anything anyway)
+        if (count($orgIds) === 0) {
+            Log::info('OAuth login: no organizations, 2FA skipped', [
+                'provider' => $provider,
+                'user_id' => $user->id,
+            ]);
+            return $this->finishLogin($request, $user, $avatar, false);
+        }
+
+        // Check if ANY organization requires OAuth 2FA
+        // SECURITY: Use the strictest setting - if any org requires it, enforce it
+        $requiresOAuth2FA = false;
+        foreach ($orgIds as $orgId) {
+            if (OrgConfigService::getValue($orgId, 'force_oauth_2fa', false)) {
+                $requiresOAuth2FA = true;
+                break;
+            }
+        }
+
+        // If 2FA required: generate and send verification code
+        if ($requiresOAuth2FA) {
             Log::info('OAuth login: 2FA enforced by organization', [
                 'provider' => $provider,
                 'user_id' => $user->id,
-                'email' => $user->email,
-                'org_id' => $orgId,
+                'enforcing_org_ids' => $orgIds,
             ]);
-            break; // If any org requires it, enforce 2FA
-        }
-    }
 
-    // If organization enforces 2FA for OAuth, trigger email verification
-    if ($forceOauth2fa) {
-        // Store user info in session for 2FA verification
-        session([
-            'pending_2fa_user_id' => $user->id,
-            'pending_2fa_remember' => false, // OAuth logins don't use "remember me"
-            'pending_2fa_email' => $user->email,
-            'pending_2fa_avatar' => $avatar, // Store avatar for later use
-        ]);
-
-        // Generate and send verification code
-        $verificationCode = EmailVerificationCode::createForEmail(
-            $user->email,
-            session()->getId(),
-            $request->ip(),
-            $request->userAgent()
-        );
-
-        // Send email with verification code
-        try {
-            Notification::route('mail', $user->email)
-                ->notify(new EmailVerificationCodeNotification($verificationCode->code, $user->name));
-        } catch (\Throwable $e) {
-            Log::error('Failed to send OAuth 2FA verification email', [
-                'provider' => $provider,
-                'email' => $user->email,
-                'error' => $e->getMessage()
+            // Store pending login in session
+            session([
+                'pending_2fa_user_id' => $user->id,
+                'pending_2fa_email' => $user->email,
+                'pending_2fa_remember' => false, // OAuth doesn't support remember
+                'pending_2fa_avatar' => $avatar,
             ]);
-            
-            return redirect('login')
-                ->with('error', 'Hiba történt az ellenőrző kód küldése során. Kérjük, próbáld újra.');
+
+            // Generate and send verification code
+            $code = EmailVerificationCode::generateCode($user->email, session()->getId());
+            try {
+                $user->notify(new EmailVerificationCodeNotification($code));
+                Log::info('2FA code sent (OAuth)', [
+                    'provider' => $provider,
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                ]);
+            } catch (\Throwable $e) {
+                Log::error('Failed to send 2FA code (OAuth)', [
+                    'provider' => $provider,
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+                return redirect('login')->with('error', 'Hiba történt az ellenőrző kód küldése közben. Kérjük, próbáld újra.');
+            }
+
+            // Redirect back to login page with verification step
+            return redirect('login')->with([
+                'show_verification' => true,
+                'verification_email' => $user->email,
+                'success' => 'Ellenőrző kódot küldtünk a ' . $user->email . ' címre. A kód 10 percig érvényes.'
+            ]);
         }
 
-        // Redirect back to login page with verification step
-        return redirect('login')->with([
-            'show_verification' => true,
-            'verification_email' => $user->email,
-            'success' => 'Ellenőrző kódot küldtünk a ' . $user->email . ' címre. A kód 10 percig érvényes.'
+        // Default behavior: OAuth login bypasses 2FA
+        Log::info('OAuth login: 2FA bypassed', [
+            'provider' => $provider,
+            'user_id' => $user->id,
+            'reason' => count($orgIds) === 0 ? 'no_organizations' : 'no_org_requires_2fa',
         ]);
+
+        return $this->finishLogin($request, $user, $avatar, false);
     }
-
-    // Default behavior: OAuth login bypasses 2FA
-    Log::info('OAuth login: 2FA bypassed', [
-        'provider' => $provider,
-        'user_id' => $user->id,
-        'reason' => count($orgIds) === 0 ? 'no_organizations' : 'no_org_requires_2fa',
-    ]);
-
-    return $this->finishLogin($request, $user, $avatar, false);
-}
 
     /**
- * POST /attempt-password-login   (Email + password login with account lockout)
- * Modified for 2FA and persistent account lockout
- */
-public function passwordLogin(Request $request)
-{
-    $rules = [
-        'email'    => 'required|email',
-        'password' => 'required|string|min:6',
-        'remember' => 'nullable|boolean',
-    ];
+     * POST /attempt-password-login   (Email + password login with account lockout)
+     * Modified for 2FA and persistent account lockout
+     */
+    public function passwordLogin(Request $request)
+    {
+        $rules = [
+            'email'    => 'required|email',
+            'password' => 'required|string|min:6',
+            'remember' => 'nullable|boolean',
+        ];
 
-    if (RecaptchaService::isEnabled()) {
-        $rules['g-recaptcha-response'] = 'required|string';
-    }
+        if (RecaptchaService::isEnabled()) {
+            $rules['g-recaptcha-response'] = 'required|string';
+        }
 
-    $data = $request->validate($rules);
+        $data = $request->validate($rules);
 
-    // SECURITY: Check reCAPTCHA first
-    if (!RecaptchaService::verifyToken($data['g-recaptcha-response'] ?? null, $request->ip())) {
-        return back()
-            ->withErrors(['email' => __('auth.recaptcha_failed')])
-            ->withInput($request->except(['password', 'g-recaptcha-response']));
-    }
+        // SECURITY: Check reCAPTCHA first
+        if (!RecaptchaService::verifyToken($data['g-recaptcha-response'] ?? null, $request->ip())) {
+            return back()
+                ->withErrors(['email' => __('auth.recaptcha_failed')])
+                ->withInput($request->except(['password', 'g-recaptcha-response']));
+        }
 
-    $email = $data['email'];
-    $ipAddress = $request->ip();
+        $email = $data['email'];
+        $ipAddress = $request->ip();
 
-    // SECURITY: Check if account is locked
-    $lockStatus = \App\Services\LoginAttemptService::isLocked($email, $ipAddress);
-    if ($lockStatus['locked']) {
-        Log::warning('login_attempt.blocked_locked_account', [
-            'email' => $email,
-            'ip' => $ipAddress,
-            'minutes_remaining' => $lockStatus['minutes_remaining'],
-        ]);
-
-        return back()
-            ->withErrors([
-                'email' => __('auth.lockout', [
-                    'minutes' => $lockStatus['minutes_remaining']
-                ])
-            ])
-            ->withInput(['email' => $email]);
-    }
-
-    /** @var User|null $user */
-    $user = User::where('email', $email)
-        ->whereNull('removed_at')
-        ->first();
-
-    // SECURITY: Check credentials
-    if (!$user || empty($user->password) || !Hash::check($data['password'], $user->password)) {
-        // Record failed attempt
-        $attemptResult = \App\Services\LoginAttemptService::recordFailedAttempt($email, $ipAddress);
-        
-        // Customize error message based on lockout status
-        if ($attemptResult['locked']) {
-            $errorMessage = __('auth.lockout', [
-                'minutes' => $attemptResult['minutes_remaining']
+        // SECURITY: Check if account is locked
+        $lockStatus = \App\Services\LoginAttemptService::isLocked($email, $ipAddress);
+        if ($lockStatus['locked']) {
+            Log::warning('login_attempt.blocked_locked_account', [
+                'email' => $email,
+                'ip' => $ipAddress,
+                'minutes_remaining' => $lockStatus['minutes_remaining'],
             ]);
-        } else {
-            $maxAttempts = (int) env('LOGIN_MAX_ATTEMPTS', 5);
-            $remainingAttempts = $maxAttempts - $attemptResult['attempts'];
+
+            return back()
+                ->withErrors([
+                    'email' => __('auth.lockout', [
+                        'minutes' => $lockStatus['minutes_remaining']
+                    ])
+                ])
+                ->withInput(['email' => $email]);
+        }
+
+        /** @var User|null $user */
+        $user = User::where('email', $email)
+            ->whereNull('removed_at')
+            ->first();
+
+        // SECURITY: Check credentials
+        if (!$user || empty($user->password) || !Hash::check($data['password'], $user->password)) {
+            // Record failed attempt
+            $attemptResult = \App\Services\LoginAttemptService::recordFailedAttempt($email, $ipAddress);
             
-            if ($remainingAttempts <= 2 && $remainingAttempts > 0) {
-                $errorMessage = 'Hibás email/jelszó. ' . $remainingAttempts . ' próbálkozás maradt.';
+            // Customize error message based on lockout status
+            if ($attemptResult['locked']) {
+                $errorMessage = __('auth.lockout', [
+                    'minutes' => $attemptResult['minutes_remaining']
+                ]);
             } else {
-                $errorMessage = 'Hibás email/jelszó, vagy ehhez a fiókhoz még nincs jelszó beállítva.';
+                $maxAttempts = (int) env('LOGIN_MAX_ATTEMPTS', 5);
+                $remainingAttempts = $maxAttempts - $attemptResult['attempts'];
+                
+                if ($remainingAttempts <= 2 && $remainingAttempts > 0) {
+                    $errorMessage = 'Hibás email/jelszó. ' . $remainingAttempts . ' próbálkozás maradt.';
+                } else {
+                    $errorMessage = 'Hibás email/jelszó, vagy ehhez a fiókhoz még nincs jelszó beállítva.';
+                }
+            }
+            
+            return back()
+                ->withErrors(['email' => $errorMessage])
+                ->withInput($request->except(['password', 'g-recaptcha-response']));
+        }
+
+        // SUCCESS: Password is correct - clear failed attempts
+        \App\Services\LoginAttemptService::clearAttempts($email, $ipAddress);
+
+        // Continue with 2FA flow
+        $remember = (bool)($data['remember'] ?? false);
+
+        // Get all organizations this user belongs to
+        $orgIds = $user->organizations()->pluck('organization.id')->toArray();
+
+        // Users without organizations or superadmins: skip 2FA
+        if (count($orgIds) === 0 || $user->type === UserType::SUPERADMIN) {
+            return $this->finishLogin($request, $user, null, $remember);
+        }
+
+        // Check if ANY organization requires 2FA for password logins
+        $requires2FA = false;
+        foreach ($orgIds as $orgId) {
+            if (OrgConfigService::getValue($orgId, 'force_2fa', false)) {
+                $requires2FA = true;
+                break;
             }
         }
-        
-        return back()
-            ->withErrors(['email' => $errorMessage])
-            ->withInput($request->except(['password', 'g-recaptcha-response']));
+
+        if ($requires2FA) {
+            // Store pending login in session
+            session([
+                'pending_2fa_user_id' => $user->id,
+                'pending_2fa_email' => $user->email,
+                'pending_2fa_remember' => $remember,
+            ]);
+
+            // Generate and send verification code
+            $code = EmailVerificationCode::generateCode($user->email, session()->getId());
+            try {
+                $user->notify(new EmailVerificationCodeNotification($code));
+            } catch (\Throwable $e) {
+                Log::error('Failed to send 2FA code', [
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+                return back()->with('error', 'Hiba történt az ellenőrző kód küldése közben. Kérjük, próbáld újra.');
+            }
+
+            // Redirect back to login page with verification step
+            return redirect('login')->with([
+                'show_verification' => true,
+                'verification_email' => $user->email,
+                'success' => 'Ellenőrző kódot küldtünk a ' . $user->email . ' címre. A kód 10 percig érvényes.'
+            ]);
+        }
+
+        // No 2FA required - finish login directly
+        return $this->finishLogin($request, $user, null, $remember);
     }
-
-    // SUCCESS: Password is correct - clear failed attempts
-    \App\Services\LoginAttemptService::clearAttempts($email, $ipAddress);
-
-    // Continue with 2FA flow
-    $remember = (bool)($data['remember'] ?? false);
-    
-    // Store user info and remember preference in session for later use
-    session([
-        'pending_2fa_user_id' => $user->id,
-        'pending_2fa_remember' => $remember,
-        'pending_2fa_email' => $user->email,
-    ]);
-
-    // Generate and send verification code
-    $verificationCode = EmailVerificationCode::createForEmail(
-        $user->email,
-        session()->getId(),
-        $request->ip(),
-        $request->userAgent()
-    );
-
-    // Send email with verification code
-    try {
-        Notification::route('mail', $user->email)
-            ->notify(new EmailVerificationCodeNotification($verificationCode->code, $user->name));
-    } catch (\Throwable $e) {
-        Log::error('Failed to send verification email', [
-            'email' => $user->email,
-            'error' => $e->getMessage()
-        ]);
-        
-        return back()
-            ->withErrors(['email' => 'Hiba történt az ellenőrző kód küldése során. Kérjük, próbáld újra.'])
-            ->withInput(['email' => $data['email']]);
-    }
-
-    Log::info('login.password_verified_2fa_sent', [
-        'user_id' => $user->id,
-        'email' => $user->email,
-        'ip' => $ipAddress,
-    ]);
-
-    // Redirect back to login page with verification step
-    return back()->with([
-        'show_verification' => true,
-        'verification_email' => $user->email,
-        'success' => 'Ellenőrző kódot küldtünk a ' . $user->email . ' címre. A kód 10 percig érvényes.'
-    ]);
-}
 
     /**
      * POST /verify-2fa-code
@@ -413,26 +430,17 @@ public function passwordLogin(Request $request)
                 ->withErrors(['verification_code' => 'A felhasználói fiók nem aktív.']);
         }
 
-        // Generate and send new verification code
-        $verificationCode = EmailVerificationCode::createForEmail(
-            $user->email,
-            session()->getId(),
-            $request->ip(),
-            $request->userAgent()
-        );
-
-        // Send email with verification code
+        // Generate and send new code
+        $code = EmailVerificationCode::generateCode($email, session()->getId());
         try {
-            Notification::route('mail', $user->email)
-                ->notify(new EmailVerificationCodeNotification($verificationCode->code, $user->name));
+            $user->notify(new EmailVerificationCodeNotification($code));
         } catch (\Throwable $e) {
-            Log::error('Failed to resend verification email', [
-                'email' => $user->email,
-                'error' => $e->getMessage()
+            Log::error('Failed to resend 2FA code', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
             ]);
-            
             return back()
-                ->withErrors(['verification_code' => 'Hiba történt az ellenőrző kód küldése során. Kérjük, próbáld újra.'])
+                ->withErrors(['verification_code' => 'Hiba történt az ellenőrző kód küldése közben. Kérjük, próbáld újra.'])
                 ->with([
                     'show_verification' => true,
                     'verification_email' => $email
