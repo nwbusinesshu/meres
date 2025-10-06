@@ -69,5 +69,8 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'org' => \App\Http\Middleware\SetOrganization::class,
         'check.initial.payment' => \App\Http\Middleware\CheckInitialPayment::class,
+        
+        // NEW: Barion webhook security
+        'barion.webhook.ip' => \App\Http\Middleware\BarionWebhookIpWhitelist::class,
     ];
 }

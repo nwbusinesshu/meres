@@ -16,9 +16,20 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
+        // Existing monthly user level handling
         $schedule->call(function () {
             UserService::handleNewMonthLevels();
         })->monthly();
+        
+        // NEW: Clean up old webhook events daily at 3 AM
+        $schedule->command('webhook:cleanup --days=30')
+            ->dailyAt('03:00')
+            ->onSuccess(function () {
+                \Log::info('webhook.cleanup.scheduled.success');
+            })
+            ->onFailure(function () {
+                \Log::error('webhook.cleanup.scheduled.failed');
+            });
     }
 
     /**

@@ -45,8 +45,28 @@ class RouteServiceProvider extends ServiceProvider
      */
     protected function configureRateLimiting()
     {
+        // Standard API rate limiter
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
+        
+        // Webhook-specific rate limiter
+        // Protects against webhook flooding/DDoS even from whitelisted IPs
+        RateLimiter::for('webhook', function (Request $request) {
+            $limit = (int) env('WEBHOOK_RATE_LIMIT', 100);
+            
+            return Limit::perMinute($limit)
+                ->by($request->ip())
+                ->response(function (Request $request, array $headers) {
+                    \Log::warning('webhook.rate_limit_exceeded', [
+                        'ip' => $request->ip(),
+                        'path' => $request->path(),
+                        'headers' => $request->headers->all(),
+                        'timestamp' => now()->toDateTimeString(),
+                    ]);
+                    
+                    return response('Too Many Requests', 429, $headers);
+                });
         });
     }
 }

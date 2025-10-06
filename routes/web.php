@@ -107,9 +107,11 @@ Route::get('/home-redirect', function(Request $request){
     return redirect()->route($target);
 })->name('home-redirect')->middleware('auth:'.UserType::NORMAL);
 
-// webhook (outside of auth)
-Route::match(['POST'], '/webhook/barion', [PaymentWebhookController::class, 'barion'])->name('webhook.barion');
-
+// webhook (outside of auth) - PROTECTED BY IP WHITELIST
+Route::match(['POST'], '/webhook/barion', [PaymentWebhookController::class, 'barion'])
+    ->name('webhook.barion')
+    ->middleware(['barion.webhook.ip', 'throttle:webhook']);
+    
 // ADMIN ROUTES
 Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'org', 'check.initial.payment'])->group(function(){
     Route::get('/home', [HomeController::class, 'admin'])->name('home');
