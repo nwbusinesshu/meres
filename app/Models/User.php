@@ -8,22 +8,43 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\Hash;     // <-- HOZZÁADVA
-use Illuminate\Support\Str;              // <-- HOZZÁADVA
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
     use Notifiable;
+    
     protected $table = 'user';
-	public $timestamps = false;
-	protected $guarded = [];
-	protected $hidden = [
+    public $timestamps = false;
+    
+    /**
+     * SECURITY FIX: Removed $guarded = [] and implemented strict $fillable whitelist
+     * 
+     * Fields intentionally EXCLUDED from mass assignment for security:
+     * - type: Prevents privilege escalation (user cannot set themselves as admin/CEO)
+     * - removed_at: Prevents restoring deleted users
+     * - email_verified_at: Must be controlled by verification process
+     * - remember_token: Managed by framework
+     * - has_auto_level_up: Business logic controlled
+     * - created_at, updated_at: Automatic timestamps
+     */
+    protected $fillable = [
+        'email',
+        'name',
+        'password',  // Note: setPasswordAttribute handles hashing
+        'locale',
+    ];
+    
+    protected $hidden = [
         'password',
         'remember_token',
     ];
+    
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+    
     protected $appends = ['has_password', 'login_mode_text'];
 
     public function setPasswordAttribute($value)
@@ -56,8 +77,8 @@ class User extends Authenticatable
     }
 
     public function organizations(){
-    return $this->belongsToMany(\App\Models\Organization::class, 'organization_user', 'user_id', 'organization_id')
-        ->withPivot('role');
+        return $this->belongsToMany(\App\Models\Organization::class, 'organization_user', 'user_id', 'organization_id')
+            ->withPivot('role');
     }
 
     public function getLastLogin(){
@@ -71,16 +92,17 @@ class User extends Authenticatable
     public function allRelations(){
         return $this->hasMany(UserRelation::class, 'user_id', 'id');
     }
+    
     public function relations(){
-    return $this->allRelations()
-        ->where('organization_id', session('org_id'))
-        ->where('type', '!=', UserRelationType::SELF);
-}
+        return $this->allRelations()
+            ->where('organization_id', session('org_id'))
+            ->where('type', '!=', UserRelationType::SELF);
+    }
 
     public function competencies()
     {
-      return $this->belongsToMany(Competency::class, 'user_competency', 'user_id', 'competency_id')
-                 ->withPivot('organization_id');
+        return $this->belongsToMany(Competency::class, 'user_competency', 'user_id', 'competency_id')
+                    ->withPivot('organization_id');
     }
     
     public function competencySubmits($assessmentId = 0){
@@ -111,20 +133,20 @@ class User extends Authenticatable
     }
 
     public function competencyQuestions(){
-    $orgId = session('org_id');
-    return $this->hasManyThrough(
-        CompetencyQuestion::class,
-        UserCompetency::class,
-        'user_id',
-        'competency_id',
-        'id',
-        'competency_id'
-    )
-    ->whereNull('competency_question.removed_at')
-    ->whereHas('competency', function($q) use ($orgId) {
-        $q->whereNull('organization_id')->orWhere('organization_id', $orgId);
-    });
-}
+        $orgId = session('org_id');
+        return $this->hasManyThrough(
+            CompetencyQuestion::class,
+            UserCompetency::class,
+            'user_id',
+            'competency_id',
+            'id',
+            'competency_id'
+        )
+        ->whereNull('competency_question.removed_at')
+        ->whereHas('competency', function($q) use ($orgId) {
+            $q->whereNull('organization_id')->orWhere('organization_id', $orgId);
+        });
+    }
 
     public function assessedCompetencies($assessmentId, $type){
         if($assessmentId == 0){
@@ -138,12 +160,13 @@ class User extends Authenticatable
     public function bonusMalus(){
         return $this->hasMany(UserBonusMalus::class,'user_id', 'id')->orderByDesc('month');
     }
+    
     public function getBonusMalusInMonth($month){
-    $last = $this->bonusMalus()->first();
-    return $this->bonusMalus()->where('month', $month)->first() ?? new UserBonusMalus([
-        "user_id" => $this->id,
-        "level" => $last ? $last->level : 0,
-        "month" => $month
-    ]);
+        $last = $this->bonusMalus()->first();
+        return $this->bonusMalus()->where('month', $month)->first() ?? new UserBonusMalus([
+            "user_id" => $this->id,
+            "level" => $last ? $last->level : 0,
+            "month" => $month
+        ]);
     }
 }
