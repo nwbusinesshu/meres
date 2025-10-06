@@ -19,7 +19,25 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
+    /*
+    |--------------------------------------------------------------------------
+    | Allowed Origins
+    |--------------------------------------------------------------------------
+    |
+    | SECURITY: Restrict CORS to specific domains only.
+    | Use CORS_ALLOWED_ORIGINS in .env as a comma-separated list of domains.
+    | Example: CORS_ALLOWED_ORIGINS="https://yourdomain.com,https://app.yourdomain.com"
+    |
+    */
+    'allowed_origins' => array_filter(
+        array_map(
+            'trim',
+            explode(',', env('CORS_ALLOWED_ORIGINS', env('APP_URL', 'http://localhost')))
+        ),
+        function($origin) {
+            return !empty($origin);
+        }
+    ),
 
     'allowed_origins_patterns' => [],
 

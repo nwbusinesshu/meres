@@ -30,6 +30,9 @@ class Kernel extends ConsoleKernel
             ->onFailure(function () {
                 \Log::error('webhook.cleanup.scheduled.failed');
             });
+
+        // Clean up expired login attempts daily
+            $schedule->command('login-attempts:cleanup')->daily();
     }
 
     /**

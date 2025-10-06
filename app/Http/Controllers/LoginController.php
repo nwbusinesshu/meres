@@ -219,81 +219,131 @@ private function handleOAuthLogin(Request $request, User $user, ?string $avatar,
 }
 
     /**
-     * POST /attempt-password-login   (Email + jelszó belépés)
-     * Modified for 2FA - now triggers email verification instead of direct login
-     */
-    public function passwordLogin(Request $request)
-    {
-        $rules = [
-            'email'    => 'required|email',
-            'password' => 'required|string|min:6',
-            'remember' => 'nullable|boolean',
-        ];
+ * POST /attempt-password-login   (Email + password login with account lockout)
+ * Modified for 2FA and persistent account lockout
+ */
+public function passwordLogin(Request $request)
+{
+    $rules = [
+        'email'    => 'required|email',
+        'password' => 'required|string|min:6',
+        'remember' => 'nullable|boolean',
+    ];
 
-         if (RecaptchaService::isEnabled()) {
-            $rules['g-recaptcha-response'] = 'required|string';
-        }
-
-        $data = $request->validate($rules);
-
-        if (! RecaptchaService::verifyToken($data['g-recaptcha-response'] ?? null, $request->ip())) {
-            return back()
-                ->withErrors(['email' => __('auth.recaptcha_failed')])
-                ->withInput($request->except(['password', 'g-recaptcha-response']));
-        }
-
-        /** @var User|null $user */
-        $user = User::where('email', $data['email'])
-            ->whereNull('removed_at')
-            ->first();
-
-        // Ha nincs user, nincs jelszó (Google-only), vagy rossz a jelszó → hiba
-        if (! $user || empty($user->password) || ! Hash::check($data['password'], $user->password)) {
-            return back()
-                ->withErrors(['email' => 'Hibás email/jelszó, vagy ehhez a fiókhoz még nincs jelszó beállítva.'])
-                ->withInput($request->except(['password', 'g-recaptcha-response']));
-        }
-
-        // Password is correct - now trigger 2FA
-        $remember = (bool)($data['remember'] ?? false);
-        
-        // Store user info and remember preference in session for later use
-        session([
-            'pending_2fa_user_id' => $user->id,
-            'pending_2fa_remember' => $remember,
-            'pending_2fa_email' => $user->email,
-        ]);
-
-        // Generate and send verification code
-        $verificationCode = EmailVerificationCode::createForEmail(
-            $user->email,
-            session()->getId(),
-            $request->ip(),
-            $request->userAgent()
-        );
-
-        // Send email with verification code
-        try {
-            Notification::route('mail', $user->email)
-                ->notify(new EmailVerificationCodeNotification($verificationCode->code, $user->name));
-        } catch (\Throwable $e) {
-            Log::error('Failed to send verification email', [
-                'email' => $user->email,
-                'error' => $e->getMessage()
-            ]);
-            
-            return back()
-                ->withErrors(['email' => 'Hiba történt az ellenőrző kód küldése során. Kérjük, próbáld újra.'])
-                ->withInput(['email' => $data['email']]);
-        }
-
-        // Redirect back to login page with verification step
-        return back()->with([
-            'show_verification' => true,
-            'verification_email' => $user->email,
-            'success' => 'Ellenőrző kódot küldtünk a ' . $user->email . ' címre. A kód 10 percig érvényes.'
-        ]);
+    if (RecaptchaService::isEnabled()) {
+        $rules['g-recaptcha-response'] = 'required|string';
     }
+
+    $data = $request->validate($rules);
+
+    // SECURITY: Check reCAPTCHA first
+    if (!RecaptchaService::verifyToken($data['g-recaptcha-response'] ?? null, $request->ip())) {
+        return back()
+            ->withErrors(['email' => __('auth.recaptcha_failed')])
+            ->withInput($request->except(['password', 'g-recaptcha-response']));
+    }
+
+    $email = $data['email'];
+    $ipAddress = $request->ip();
+
+    // SECURITY: Check if account is locked
+    $lockStatus = \App\Services\LoginAttemptService::isLocked($email, $ipAddress);
+    if ($lockStatus['locked']) {
+        Log::warning('login_attempt.blocked_locked_account', [
+            'email' => $email,
+            'ip' => $ipAddress,
+            'minutes_remaining' => $lockStatus['minutes_remaining'],
+        ]);
+
+        return back()
+            ->withErrors([
+                'email' => __('auth.lockout', [
+                    'minutes' => $lockStatus['minutes_remaining']
+                ])
+            ])
+            ->withInput(['email' => $email]);
+    }
+
+    /** @var User|null $user */
+    $user = User::where('email', $email)
+        ->whereNull('removed_at')
+        ->first();
+
+    // SECURITY: Check credentials
+    if (!$user || empty($user->password) || !Hash::check($data['password'], $user->password)) {
+        // Record failed attempt
+        $attemptResult = \App\Services\LoginAttemptService::recordFailedAttempt($email, $ipAddress);
+        
+        // Customize error message based on lockout status
+        if ($attemptResult['locked']) {
+            $errorMessage = __('auth.lockout', [
+                'minutes' => $attemptResult['minutes_remaining']
+            ]);
+        } else {
+            $maxAttempts = (int) env('LOGIN_MAX_ATTEMPTS', 5);
+            $remainingAttempts = $maxAttempts - $attemptResult['attempts'];
+            
+            if ($remainingAttempts <= 2 && $remainingAttempts > 0) {
+                $errorMessage = 'Hibás email/jelszó. ' . $remainingAttempts . ' próbálkozás maradt.';
+            } else {
+                $errorMessage = 'Hibás email/jelszó, vagy ehhez a fiókhoz még nincs jelszó beállítva.';
+            }
+        }
+        
+        return back()
+            ->withErrors(['email' => $errorMessage])
+            ->withInput($request->except(['password', 'g-recaptcha-response']));
+    }
+
+    // SUCCESS: Password is correct - clear failed attempts
+    \App\Services\LoginAttemptService::clearAttempts($email, $ipAddress);
+
+    // Continue with 2FA flow
+    $remember = (bool)($data['remember'] ?? false);
+    
+    // Store user info and remember preference in session for later use
+    session([
+        'pending_2fa_user_id' => $user->id,
+        'pending_2fa_remember' => $remember,
+        'pending_2fa_email' => $user->email,
+    ]);
+
+    // Generate and send verification code
+    $verificationCode = EmailVerificationCode::createForEmail(
+        $user->email,
+        session()->getId(),
+        $request->ip(),
+        $request->userAgent()
+    );
+
+    // Send email with verification code
+    try {
+        Notification::route('mail', $user->email)
+            ->notify(new EmailVerificationCodeNotification($verificationCode->code, $user->name));
+    } catch (\Throwable $e) {
+        Log::error('Failed to send verification email', [
+            'email' => $user->email,
+            'error' => $e->getMessage()
+        ]);
+        
+        return back()
+            ->withErrors(['email' => 'Hiba történt az ellenőrző kód küldése során. Kérjük, próbáld újra.'])
+            ->withInput(['email' => $data['email']]);
+    }
+
+    Log::info('login.password_verified_2fa_sent', [
+        'user_id' => $user->id,
+        'email' => $user->email,
+        'ip' => $ipAddress,
+    ]);
+
+    // Redirect back to login page with verification step
+    return back()->with([
+        'show_verification' => true,
+        'verification_email' => $user->email,
+        'success' => 'Ellenőrző kódot küldtünk a ' . $user->email . ' címre. A kód 10 percig érvényes.'
+    ]);
+}
 
     /**
      * POST /verify-2fa-code
