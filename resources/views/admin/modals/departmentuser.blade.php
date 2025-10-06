@@ -5,8 +5,8 @@
     <div class="modal-content">
 
       <div class="modal-header">
-        <h5 class="modal-title">Részleg tagjai</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Bezárás">
+        <h5 class="modal-title">{{ __('admin/employees.department-members-title') }}</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="{{ __('admin/employees.department-members-close') }}">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
@@ -18,9 +18,9 @@
         </div>
 
         {{-- Action buttons (consistent with user-competency modal pattern) --}}
-        <div class="tile tile-button trigger-add-member">Új tag hozzáadása</div>
-        <button class="btn btn-primary save-dept-members">Mentés</button>
-        <button class="btn btn-danger trigger-empty-department">Összes eltávolítása</button>
+        <div class="tile tile-button trigger-add-member">{{ __('admin/employees.department-add-member') }}</div>
+        <button class="btn btn-primary save-dept-members">{{ __('admin/employees.department-save-members') }}</button>
+        <button class="btn btn-danger trigger-empty-department">{{ __('admin/employees.department-remove-all-members') }}</button>
 
       </div>
 
@@ -36,7 +36,7 @@
     const emailDisplay = email ? '<span>(' + email + ')</span>' : '';
     $('.dept-members-list').append(
       '<div class="dept-member-item" data-id="'+uid+'">' +
-        '<i class="fa fa-trash-alt" data-tippy-content="Eltávolítás"></i>' +
+        '<i class="fa fa-trash-alt" data-tippy-content="{{ __('admin/employees.department-member-remove-tooltip') }}"></i>' +
         '<div class="item-content">' +
           '<p>'+name+'</p>' +
           emailDisplay +
@@ -69,10 +69,10 @@
     })
     .fail(function(xhr) {
       swal_loader.close();
-      const errorMsg = xhr.responseJSON?.message || 'Nem sikerült betölteni a részleg tagjait.';
+      const errorMsg = xhr.responseJSON?.message || '{{ __("admin/employees.department-members-load-error") }}';
       Swal.fire({ 
         icon: 'error', 
-        title: 'Hiba', 
+        title: '{{ __("admin/employees.department-error-title") }}',
         text: errorMsg
       });
     });
@@ -93,7 +93,7 @@
 
     // Use select modal with multi-select capability
     openSelectModal({
-      title: "Dolgozó kiválasztása",
+      title: "{{ __('admin/employees.department-select-employee-title') }}",
       parentSelector: '#dept-members-modal',
       ajaxRoute: "{{ route('admin.employee.department.eligible') }}?department_id="+deptId,
       itemData: function(item){ 
@@ -117,7 +117,7 @@
       },
       exceptArray: except,
       multiSelect: true, // Enable multi-select
-      emptyMessage: 'Nincs választható dolgozó'
+      emptyMessage: '{{ __("admin/employees.department-no-selectable-employee") }}'
     });
   });
 
@@ -135,8 +135,9 @@
     });
     
     swal_confirm.fire({ 
-      title: 'Részleg tagjainak mentése?',
-      text: 'A változtatások mentésre kerülnek.'
+      title: '{{ __("admin/employees.department-save-members-confirm-title") }}',
+      text: '{{ __("admin/employees.department-save-members-confirm-text") }}'
+    })
     }).then((result) => {
       if (result.isConfirmed) {
         swal_loader.fire();
@@ -156,8 +157,8 @@
           $('#dept-members-modal').modal('hide');
           Swal.fire({
             icon: 'success',
-            title: 'Mentve',
-            text: resp.message || 'Részleg tagjai frissítve.',
+            title: '{{ __("admin/employees.department-members-save-success-title") }}',
+            text: '{{ __("admin/employees.department-members-save-success-text") }}',
             timer: 2000,
             showConfirmButton: false
           });
@@ -165,10 +166,10 @@
         })
         .fail(function(xhr){
           swal_loader.close();
-          const errorMsg = xhr.responseJSON?.message || 'Nem sikerült menteni a részleg tagjait.';
+          const errorMsg = xhr.responseJSON?.message || '{{ __("admin/employees.department-members-save-error") }}';
           Swal.fire({ 
             icon: 'error', 
-            title: 'Hiba', 
+            title: '{{ __("admin/employees.department-save-error-title") }}', 
             text: errorMsg 
           });
         });
@@ -179,19 +180,19 @@
   // Empty department (remove all members)
   $(document).on('click', '.trigger-empty-department', function(){
     swal_confirm.fire({
-      title: 'Összes tag eltávolítása?',
-      text: 'Ez az összes tagot eltávolítja a részlegből.',
-      icon: 'warning'
+        title: '{{ __("admin/employees.department-empty-all-title") }}',
+        text: '{{ __("admin/employees.department-empty-all-text") }}',
+        icon: 'warning'
     }).then((result) => {
       if (result.isConfirmed) {
         $('.dept-members-list').html('');
         Swal.fire({
-          icon: 'info',
-          title: 'Tagok törölve',
-          text: 'Ne felejts el menteni a változtatásokat!',
-          timer: 2000,
-          showConfirmButton: false
-        });
+        icon: 'info',
+        title: '{{ __("admin/employees.department-empty-success-title") }}',
+        text: '{{ __("admin/employees.department-empty-success-text") }}',
+        timer: 2000,
+        showConfirmButton: false
+      });
       }
     });
   });

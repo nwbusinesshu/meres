@@ -183,6 +183,7 @@ return [
 'error-during-removal' => 'Hiba történt az eltávolítás során.',
 'successful' => 'Sikeres',
 'remove' => 'Eltávolítás',
+"no-competencies-added" => "Nincs hozzáadott kompetencia",
 'dept-members-load-failed' => 'Nem sikerült betölteni a részleg tagjait.',
 "employee-limit-reached-title" => "Munkavállaló limit elérve",
   "employee-limit-reached-text" => "Elérte a maximális :limit fős munkavállalói létszámot. Folytathatja a regisztrációkat, de az első mérési időszak elindításakor további költségekre kell számítania!",
@@ -200,6 +201,28 @@ return [
 'account-unlocked-success' => 'Fiók sikeresen feloldva. A felhasználó most már be tud jelentkezni.',
 'account-unlock-failed' => 'Nem sikerült feloldani a fiókot.',
 'account-locked-status' => 'Fiók zárolva',
+// Department members modal
+"department-members-title" => "Részleg tagjai",
+"department-members-close" => "Bezárás",
+"department-add-member" => "Új tag hozzáadása",
+"department-save-members" => "Mentés",
+"department-remove-all-members" => "Összes eltávolítása",
+"department-member-remove-tooltip" => "Eltávolítás",
+"department-members-load-error" => "Nem sikerült betölteni a részleg tagjait.",
+"department-members-save-error" => "Nem sikerült menteni a részleg tagjait.",
+"department-members-save-success-title" => "Mentve",
+"department-members-save-success-text" => "Részleg tagjai sikeresen frissítve!",
+"department-empty-all-title" => "Összes tag eltávolítása?",
+"department-empty-all-text" => "Ez az összes tagot eltávolítja a részlegből.",
+"department-empty-success-title" => "Tagok törölve",
+"department-empty-success-text" => "Ne felejts el menteni a változtatásokat!",
+"department-save-error-title" => "Hiba",
+// Additional department member modal texts
+"department-error-title" => "Hiba",
+"department-select-employee-title" => "Dolgozó kiválasztása",
+"department-no-selectable-employee" => "Nincs választható dolgozó",
+"department-save-members-confirm-title" => "Részleg tagjainak mentése?",
+"department-save-members-confirm-text" => "A változtatások mentésre kerülnek.",
 
 
 ];

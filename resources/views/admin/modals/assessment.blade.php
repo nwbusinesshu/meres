@@ -28,20 +28,20 @@
               <input type="radio" id="scope-org" name="assessment-scope" class="assessment-scope__radio" checked>
               <label for="scope-org" class="assessment-scope__option">
                 <div class="assessment-scope__text">
-                  <span class="assessment-scope__title">Futtatás teljes cégben</span>
-                  <span class="assessment-scope__desc">Minden, a szervezethez tartozó felhasználóra</span>
+                  <span class="assessment-scope__title">{{ __('admin/home.scope-company-title') }}</span>
+                  <span class="assessment-scope__desc">{{ __('admin/home.scope-company-desc') }}</span>
                 </div>
               </label>
 
               {{-- Kiválasztott részlegekben (tiltott, SOON) --}}
-              <input type="radio" id="scope-depts" name="assessment-scope" class="assessment-scope__radio" disabled>
-              <label for="scope-depts" class="assessment-scope__option assessment-scope__option--disabled" title="Hamarosan elérhető">
-                <div class="assessment-scope__text">
-                  <span class="assessment-scope__title">Futtatás kiválasztott részlegekben</span>
-                  <span class="assessment-scope__desc">Csak meghatározott részlegekben</span>
-                </div>
-                <span class="badge badge-warning">SOON</span>
-              </label>
+              <<input type="radio" id="scope-depts" name="assessment-scope" class="assessment-scope__radio" disabled>
+                <label for="scope-depts" class="assessment-scope__option assessment-scope__option--disabled" title="{{ __('admin/home.scope-coming-soon') }}">
+                  <div class="assessment-scope__text">
+                    <span class="assessment-scope__title">{{ __('admin/home.scope-departments-title') }}</span>
+                    <span class="assessment-scope__desc">{{ __('admin/home.scope-departments-desc') }}</span>
+                  </div>
+                  <span class="badge badge-warning">{{ __('admin/home.scope-soon-badge') }}</span>
+                </label>
             </div>
           </div>
         </div>
@@ -142,7 +142,7 @@ function openAssessmentModal(id = 0){
     })
     .fail(function(){
       swal_loader.close();
-      Swal.fire('Hiba', 'Nem sikerült betölteni az értékelést.', 'error');
+      Swal.fire('{{ __("admin/home.assessment-load-error-title") }}', '{{ __("admin/home.assessment-load-error-message") }}', 'error');
     });
   }
 }

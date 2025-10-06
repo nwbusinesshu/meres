@@ -40,4 +40,16 @@
     
     "employees-detailed" => "Alkalmazottak részletesen",
     "pay-before-closing" => "Lezárás előtt fizetés",
+
+    // Assessment scope options
+"scope-company-title" => "Futtatás teljes cégben",
+"scope-company-desc" => "Minden, a szervezethez tartozó felhasználóra",
+"scope-departments-title" => "Futtatás kiválasztott részlegekben",
+"scope-departments-desc" => "Csak meghatározott részlegekben",
+"scope-soon-badge" => "SOON",
+"scope-coming-soon" => "Hamarosan elérhető",
+
+// Error messages
+"assessment-load-error-title" => "Hiba",
+"assessment-load-error-message" => "Nem sikerült betölteni az értékelést.",
   ];

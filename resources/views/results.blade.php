@@ -14,12 +14,12 @@
   @if($prevAssessment)
     href="{{ route(Route::currentRouteName(), $prevAssessment->id) }}{{ request()->has('as') ? '?as=' . request('as') : '' }}"
   @endif
-  aria-label="Előző lezárt időszak"
+  aria-label="{{ __('results.previous-closed-period') }}"
 >
   <i class="fa fa-chevron-left" aria-hidden="true"></i>
 </a>
 
-    <div class="period-chip" title="Lezárás dátuma">
+    <div class="period-chip" title="{{ __('results.closure-date') }}">
       <i class="fa fa-calendar" aria-hidden="true"></i>
       {{-- YYYY.MM --}}
       <span>{{ \Carbon\Carbon::parse($assessment->closed_at)->format('Y.m') }}</span>
@@ -30,7 +30,7 @@
   @if($nextAssessment)
     href="{{ route(Route::currentRouteName(), $nextAssessment->id) }}{{ request()->has('as') ? '?as=' . request('as') : '' }}"
   @endif
-  aria-label="Következő lezárt időszak"
+  title="{{ __('results.next-closed-period') }}"
 >
   <i class="fa fa-chevron-right" aria-hidden="true"></i>
 </a>
@@ -136,7 +136,7 @@
   @endphp
 
   <div class="tile tile-info" style="padding:16px;">
-    <h3 class="mb-2">Idősoros teljesítmény</h3>
+    <h3 class="mb-2">{{ __('results.time-series-performance') }}</h3>
     <div class="chartjs-wrap">
       <canvas id="resultsTrendChart"></canvas>
     </div>
@@ -148,11 +148,11 @@
       const currentIdx = @json($currentIdx);
 
       const datasets = [
-        { key: 'Összpont',   data: @json($seriesTotal),     color: '#2F6FEB' },
-        { key: 'Önértékelés',data: @json($seriesSelf),      color: '#10B981' },
-        { key: 'Kollégák',   data: @json($seriesEmployees), color: '#F59E0B' },
-        { key: 'Vezetők',    data: @json($seriesLeaders),   color: '#EF4444' },
-      ].filter(ds => Array.isArray(ds.data) && ds.data.some(v => v !== null)); // csak ami nem teljesen üres
+        { key: '{{ __("results.total-points") }}',   data: @json($seriesTotal),     color: '#2F6FEB' },
+        { key: '{{ __("results.self-assessment") }}',data: @json($seriesSelf),      color: '#10B981' },
+        { key: '{{ __("results.colleagues-rating") }}',   data: @json($seriesEmployees), color: '#F59E0B' },
+        { key: '{{ __("results.managers-rating") }}',    data: @json($seriesLeaders),   color: '#EF4444' },
+      ].filter(ds => Array.isArray(ds.data) && ds.data.some(v => v !== null));
 
       const ctx = document.getElementById('resultsTrendChart').getContext('2d');
 
@@ -214,7 +214,7 @@
   <div class="mb-4">
     <a href="{{ route('admin.results.index') }}" class="btn btn-primary">
       <i class="fa fa-arrow-left"></i>
-      Vissza az összesített eredményekhez
+      {{ __('results.back-to-admin-results') }}
     </a>
   </div>
 @endif

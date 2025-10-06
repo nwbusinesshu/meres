@@ -25,5 +25,6 @@ return [
   "send-in-confirm" => "Biztosan beküldöd a válaszokat?",
   
   "send-in-success" => "A válaszok sikeresen beküldésre kerültek!",
+  "telemetry-toast" => "Az oldalon telemetria fut",
 
 ];

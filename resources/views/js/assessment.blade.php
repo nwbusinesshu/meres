@@ -87,7 +87,7 @@ function showTelemetryToast(){
       toast: true,
       position: 'bottom',
       icon: 'info',
-      title: 'Az oldalon telemetria fut.',
+      title: '{{ __("assessment.telemetry-toast") }}',
       showConfirmButton: false,
       timer: 4000,
       timerProgressBar: true
@@ -97,7 +97,7 @@ function showTelemetryToast(){
   // Régi SweetAlert (swal v1)
   if (typeof window.swal === 'function') {
     swal({
-      text: 'Az oldalon telemetria fut',
+      title: '{{ __("assessment.telemetry-toast") }}',
       icon: 'info',
       buttons: false,
       timer: 4000

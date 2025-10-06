@@ -47,7 +47,7 @@
 
 /* Empty state message */
 #user-competencies-modal .competency-list:empty::after {
-  content: 'Nincs hozzáadott kompetencia';
+  content: '{{ __("admin/employees.no-competencies-added") }}';
   display: block;
   text-align: center;
   padding: 2rem;

@@ -153,4 +153,5 @@ return [
   'invalid-users' => 'Néhány kiválasztott felhasználó érvénytelen.',
   'users-already-assigned' => 'A következő felhasználók már más csoporthoz vannak rendelve: :users',
   'one-user-per-group-note' => 'Megjegyzés: Egy felhasználó csak egy kompetencia csoporthoz rendelhető hozzá.',
+  "no-competencies-available" => "Nincs elérhető kompetencia",
 ];
