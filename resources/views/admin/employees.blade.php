@@ -233,9 +233,15 @@
                             <button class="btn btn-outline-warning datas" data-tippy-content="{{ $_('datas') }}">
                                 <i class="fa fa-user-gear"></i>
                             </button>
-                            <button class="btn btn-outline-secondary password-reset" data-tippy-content="{{ $_('password-reset-tooltip') }}">
-                                <i class="fa fa-key"></i>
-                            </button>
+                            @if(!empty($user->is_locked))
+                                <button class="btn btn-outline-danger unlock-account" data-tippy-content="{{ __('admin/employees.unlock-account-tooltip') }}">
+                                    <i class="fa fa-lock"></i>
+                                </button>
+                            @else
+                                <button class="btn btn-outline-secondary password-reset" data-tippy-content="{{ __('admin/employees.password-reset') }}">
+                                    <i class="fa fa-key"></i>
+                                </button>
+                            @endif
                             <button class="btn btn-outline-danger remove" data-tippy-content="{{ $_('remove') }}">
                                 <i class="fa fa-trash-alt"></i>
                             </button>

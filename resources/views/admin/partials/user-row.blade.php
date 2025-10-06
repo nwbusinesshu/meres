@@ -85,9 +85,15 @@
                 <i class="fa fa-user-gear"></i>
             </button>
 
-            <button class="btn btn-outline-secondary password-reset" data-tippy-content="{{ __('admin/employees.password-reset') }}">
-                <i class="fa fa-key"></i>
-            </button>
+            @if(!empty($user->is_locked))
+                <button class="btn btn-outline-danger unlock-account" data-tippy-content="{{ __('admin/employees.unlock-account-tooltip') }}">
+                    <i class="fa fa-lock"></i>
+                </button>
+            @else
+                <button class="btn btn-outline-secondary password-reset" data-tippy-content="{{ __('admin/employees.password-reset') }}">
+                    <i class="fa fa-key"></i>
+                </button>
+            @endif
 
             @php $deleteDisabled = !empty($lockDelete); @endphp
             <button

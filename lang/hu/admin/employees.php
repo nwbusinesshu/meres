@@ -192,5 +192,14 @@ return [
   "employee-limit-reached-modal-text" => "Az első regisztrációs díj fix számú munkavállalóra vonatkozik. Az első értékelés lezárása után korlátlanul hozhat létre új munkavállalókat.",
     "employees-registered" => "munkavállaló regisztrálva",
 
+    'unlock-account' => 'Fiók feloldása',
+'unlock-account-tooltip' => 'Fiók feloldása (sikertelen bejelentkezések törlése)',
+'unlock-account-confirm' => 'Fiók feloldása?',
+'unlock-account-info' => 'A felhasználó újra be tud majd jelentkezni. Minden sikertelen bejelentkezési kísérlet törlésre kerül.',
+'unlocked' => 'Feloldva',
+'account-unlocked-success' => 'Fiók sikeresen feloldva. A felhasználó most már be tud jelentkezni.',
+'account-unlock-failed' => 'Nem sikerült feloldani a fiókot.',
+'account-locked-status' => 'Fiók zárolva',
+
 
 ];

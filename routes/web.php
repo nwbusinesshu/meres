@@ -137,6 +137,7 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         Route::post('/bonusmalus/get', 'getBonusMalus')->name('bonusmalus.get');
         Route::post('/bonusmalus/set', 'setBonusMalus')->name('bonusmalus.set');
         Route::post('/password-reset', 'passwordReset')->name('password-reset');
+        Route::post('/unlock-account', 'unlockAccount')->name('unlock-account');
         Route::post('/department', 'storeDepartment')->name('department.store');
         Route::post('/department/get', 'getDepartment')->name('department.get');
         Route::post('/department/update', 'updateDepartment')->name('department.update');

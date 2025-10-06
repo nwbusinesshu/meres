@@ -1,38 +1,43 @@
 <script>
 // === TRANSLATIONS ===
 const translations = {
-    confirmDeleteUser: @json($_('confirm-delete-user')),
-    actionIrreversible: @json($_('action-irreversible')),
-    deleted: @json($_('deleted')),
-    userDeletedSuccess: @json($_('user-deleted-success')),
-    error: @json($_('error')),
-    userDeleteFailed: @json($_('user-delete-failed')),
-    passwordResetConfirm: @json($_('password-reset-confirm')),
-    passwordResetEmailInfo: @json($_('password-reset-email-info')),
-    sent: @json($_('sent')),
-    passwordResetEmailSent: @json($_('password-reset-email-sent')),
-    passwordResetEmailFailed: @json($_('password-reset-email-failed')),
-    confirmDeleteDepartment: @json($_('confirm-delete-department')),
-    departmentMembersUnassignedInfo: @json($_('department-members-unassigned-info')),
-    departmentDeletedSuccess: @json($_('department-deleted-success')),
-    departmentDeleteFailed: @json($_('department-delete-failed')),
-    selectEmployee: @json($_('select-employee')),
-    noSelectableEmployee: @json($_('no-selectable-employee')),
-    confirmSaveDeptMembers: @json($_('confirm-save-dept-members')),
-    saved: @json($_('saved')),
-    deptMembersUpdated: @json($_('dept-members-updated')),
-    saveChangesFailed: @json($_('save-changes-failed')),
-    nothingToRemove: @json($_('nothing-to-remove')),
-    deptNoMembersCurrently: @json($_('dept-no-members-currently')),
-    areYouSure: @json($_('are-you-sure')),
-    removeAllMembersWarning: @json($_('remove-all-members-warning')),
-    yesRemoveEveryoneNow: @json($_('yes-remove-everyone-now')),
-    cancel: @json($_('cancel')),
-    allMembersRemovedSuccess: @json($_('all-members-removed-success')),
-    errorDuringRemoval: @json($_('error-during-removal')),
-    successful: @json($_('successful')),
-    remove: @json($_('remove')),
-    deptMembersLoadFailed: @json($_('dept-members-load-failed'))
+    confirmDeleteUser: @json(__('admin/employees.confirm-delete-user')),
+    actionIrreversible: @json(__('admin/employees.action-irreversible')),
+    deleted: @json(__('admin/employees.deleted')),
+    userDeletedSuccess: @json(__('admin/employees.user-deleted-success')),
+    error: @json(__('admin/employees.error')),
+    userDeleteFailed: @json(__('admin/employees.user-delete-failed')),
+    passwordResetConfirm: @json(__('admin/employees.password-reset-confirm')),
+    passwordResetEmailInfo: @json(__('admin/employees.password-reset-email-info')),
+    sent: @json(__('admin/employees.sent')),
+    passwordResetEmailSent: @json(__('admin/employees.password-reset-email-sent')),
+    passwordResetEmailFailed: @json(__('admin/employees.password-reset-email-failed')),
+    unlockAccountConfirm: @json(__('admin/employees.unlock-account-confirm')),
+    unlockAccountInfo: @json(__('admin/employees.unlock-account-info')),
+    unlocked: @json(__('admin/employees.unlocked')),
+    accountUnlockedSuccess: @json(__('admin/employees.account-unlocked-success')),
+    accountUnlockFailed: @json(__('admin/employees.account-unlock-failed')),
+    confirmDeleteDepartment: @json(__('admin/employees.confirm-delete-department')),
+    departmentMembersUnassignedInfo: @json(__('admin/employees.department-members-unassigned-info')),
+    departmentDeletedSuccess: @json(__('admin/employees.department-deleted-success')),
+    departmentDeleteFailed: @json(__('admin/employees.department-delete-failed')),
+    selectEmployee: @json(__('admin/employees.select-employee')),
+    noSelectableEmployee: @json(__('admin/employees.no-selectable-employee')),
+    confirmSaveDeptMembers: @json(__('admin/employees.confirm-save-dept-members')),
+    saved: @json(__('admin/employees.saved')),
+    deptMembersUpdated: @json(__('admin/employees.dept-members-updated')),
+    saveChangesFailed: @json(__('admin/employees.save-changes-failed')),
+    nothingToRemove: @json(__('admin/employees.nothing-to-remove')),
+    deptNoMembersCurrently: @json(__('admin/employees.dept-no-members-currently')),
+    areYouSure: @json(__('admin/employees.are-you-sure')),
+    removeAllMembersWarning: @json(__('admin/employees.remove-all-members-warning')),
+    yesRemoveEveryoneNow: @json(__('admin/employees.yes-remove-everyone-now')),
+    cancel: @json(__('admin/employees.cancel')),
+    allMembersRemovedSuccess: @json(__('admin/employees.all-members-removed-success')),
+    errorDuringRemoval: @json(__('admin/employees.error-during-removal')),
+    successful: @json(__('admin/employees.successful')),
+    remove: @json(__('admin/employees.remove')),
+    deptMembersLoadFailed: @json(__('admin/employees.dept-members-load-failed'))
 };
 
 // === COMPLETE EMPLOYEES.BLADE.PHP JAVASCRIPT FIXES ===
@@ -222,6 +227,77 @@ $(document).ready(function(){
             }
         }
     });
+
+    $(document).on('click', '.unlock-account', async function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    const userId = getUserIdFromAny(this);
+    if (!userId) return;
+
+    const result = await swal_confirm.fire({
+        title: translations.unlockAccountConfirm,
+        text: translations.unlockAccountInfo,
+        icon: 'warning'
+    });
+
+    if (!result.isConfirmed) return;
+
+    const hasSwal = typeof swal_loader !== 'undefined' && swal_loader.fire;
+    if (hasSwal) swal_loader.fire();
+
+    try {
+        const response = await fetch("{{ route('admin.employee.unlock-account') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ user_id: userId })
+        });
+
+        const data = await response.json();
+
+        if (hasSwal) swal_loader.close();
+
+        if (data.ok) {
+            // Replace unlock button with password reset button
+            const $button = $(`.unlock-account[data-user-id="${userId}"]`);
+            if ($button.length) {
+                $button.removeClass('btn-outline-danger unlock-account')
+                       .addClass('btn-outline-secondary password-reset')
+                       .attr('data-tippy-content', '{{ $_('password-reset-tooltip') }}')
+                       .html('<i class="fa fa-key"></i>');
+                
+                // Reinitialize tippy for this button
+                if (typeof tippy !== 'undefined') {
+                    tippy($button[0], {
+                        content: '{{ $_('password-reset-tooltip') }}'
+                    });
+                }
+            }
+
+            Swal.fire({ 
+                icon: 'success', 
+                title: translations.unlocked, 
+                text: translations.accountUnlockedSuccess
+            });
+        } else {
+            Swal.fire({ 
+                icon: 'error', 
+                title: translations.error, 
+                text: data.message || translations.accountUnlockFailed
+            });
+        }
+    } catch (error) {
+        if (hasSwal) swal_loader.close();
+        Swal.fire({ 
+            icon: 'error', 
+            title: translations.error, 
+            text: translations.accountUnlockFailed
+        });
+    }
+});
 
     // ========== SEARCH (legacy table only) ==========
     $(document).on('keyup', '.search-input', function(e){

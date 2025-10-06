@@ -77,6 +77,7 @@ public function index(Request $request)
     $users = \App\Services\UserService::getUsers()->map(function ($user) {
         // bonusMalus feltöltése biztonságosan (nincs eager load, nincs created_at ordering)
         $user['bonusMalus'] = $user->bonusMalus()->first()?->level ?? null;
+        $user['is_locked'] = $this->isUserLocked($user->email);
         return $user;
     });
 
@@ -135,6 +136,16 @@ public function index(Request $request)
         $ceos = $this->attachBonusMalus($ceos);
         $unassigned = $this->attachBonusMalus($unassigned);
 
+        $ceos = $ceos->map(function($user) {
+            $user->is_locked = $this->isUserLocked($user->email);
+            return $user;
+        });
+
+        $unassigned = $unassigned->map(function($user) {
+            $user->is_locked = $this->isUserLocked($user->email);
+            return $user;
+        });
+
         // ===== Részlegek listája =====
         $departments = collect();
         $rawDepartments = DB::table('organization_departments as od')
@@ -174,6 +185,15 @@ public function index(Request $request)
             $members = $this->addRaterCounts($members, $orgId);
             $managers = $this->attachBonusMalus($managers);
             $members = $this->attachBonusMalus($members);
+
+            $managers = $managers->map(function($user) {
+                $user->is_locked = $this->isUserLocked($user->email);
+                return $user;
+            });
+            $members = $members->map(function($user) {
+                $user->is_locked = $this->isUserLocked($user->email);
+                return $user;
+            });
 
             $deptData = (object) [
                 'id' => $dept->id,
@@ -1884,6 +1904,80 @@ public function deleteDepartment(Request $request)
 
         return response()->json([
             'message' => 'Failed to fetch network data: ' . $e->getMessage(),
+        ], 500);
+    }
+}
+
+/**
+ * Check if a user email has any active lockout records
+ * 
+ * @param string $email
+ * @return bool
+ */
+private function isUserLocked(string $email): bool
+{
+    // Check if there are ANY lockout records for this email (regardless of IP)
+    $lockoutStatus = \App\Services\LoginAttemptService::getLockoutStatus($email);
+    
+    // User is considered locked if they have any locked IP addresses
+    return !empty($lockoutStatus['locked']);
+}
+
+/**
+ * Unlock a user account (admin action)
+ * 
+ * POST /admin/employee/unlock-account
+ */
+public function unlockAccount(Request $request)
+{
+    $request->validate([
+        'user_id' => 'required|integer|exists:user,id'
+    ]);
+
+    $orgId = (int) session('org_id');
+    $adminId = (int) session('uid');
+    
+    /** @var User $user */
+    $user = User::findOrFail($request->input('user_id'));
+
+    // Security: verify user belongs to current organization
+    $inOrg = $user->organizations()->where('organization.id', $orgId)->exists();
+    if (!$inOrg) {
+        return response()->json([
+            'ok' => false,
+            'message' => 'A felhasználó nem tagja az aktuális szervezetnek.',
+        ], 403);
+    }
+
+    try {
+        // Clear all lockout attempts for this email
+        $deletedRecords = \App\Services\LoginAttemptService::adminUnlock($user->email);
+
+        Log::info('employee.account_unlocked', [
+            'org_id' => $orgId,
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'by_admin' => $adminId,
+            'deleted_records' => $deletedRecords,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Fiók feloldva. A felhasználó most már be tud jelentkezni.',
+            'deleted_records' => $deletedRecords,
+        ]);
+
+    } catch (\Throwable $e) {
+        Log::error('employee.account_unlock_failed', [
+            'org_id' => $orgId,
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'error' => $e->getMessage(),
+        ]);
+
+        return response()->json([
+            'ok' => false,
+            'message' => 'Sikertelen művelet: szerverhiba!',
         ], 500);
     }
 }
