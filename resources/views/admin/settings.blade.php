@@ -73,8 +73,10 @@
       <span class="slider"></span>
     </label>
   </div>
+  </div>
 
   {{-- Easy Relation Setup --}}
+  <div class="settings-grid">
   <div class="tile tile-info">
     <div class="text">
       <div class="title"><h3>Kapcsolatok egyszerűsített beállítása</h3></div>
@@ -90,6 +92,27 @@
     </div>
     <label class="switch">
       <input type="checkbox" id="toggle-easy-relation" {{ $easyRelationSetup ? 'checked' : '' }}>
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  {{-- ===== SECURITY SETTINGS ===== --}}
+  {{-- Force 2FA for OAuth Users --}}
+  <div class="tile tile-info">
+    <div class="text">
+      <div class="title"><h3>2FA kényszerítés OAuth bejelentkezésnél</h3></div>
+      <div class="meta">
+        Ha be van kapcsolva, a Google és Microsoft OAuth bejelentkezéseknél is kötelező a kétfaktoros azonosítás (email ellenőrző kód).
+        <br>
+        <strong>Kikapcsolva (alapértelmezett):</strong> OAuth felhasználók közvetlenül bejelentkeznek 2FA nélkül, mivel a Google/Microsoft már biztosít erős hitelesítést.
+        <br>
+        <strong>Bekapcsolva:</strong> Minden felhasználónak email kóddal kell megerősítenie a bejelentkezést, függetlenül a belépési módtól.
+        <br>
+        <em>Ajánlott csak nagyon bizalmas adatokat kezelő szervezeteknek.</em>
+      </div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="toggle-force-oauth-2fa" {{ $forceOauth2fa ? 'checked' : '' }}>
       <span class="slider"></span>
     </label>
   </div>

@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', function() {
     warn_bonus_malus_on: 'Biztosan megjeleníted a Bonus/Malus kategóriákat a felhasználói felületen?',
     warn_easy_relation_off: 'Biztosan kikapcsolod az egyszerűsített kapcsolatbeállítást? Ezután a kapcsolatokat manuálisan kell beállítani mindkét irányban.',
 warn_easy_relation_on: 'Biztosan bekapcsolod az egyszerűsített kapcsolatbeállítást? A kapcsolatok automatikusan kétirányúan állítódnak be.',
+warn_force_oauth_2fa_on: 'Biztosan bekapcsolod a 2FA kényszerítést OAuth belépéseknél? A Google és Microsoft bejelentkezéseknél is email ellenőrző kódot kell majd megadni.', // NEW
+  warn_force_oauth_2fa_off: 'Biztosan kikapcsolod a 2FA kényszerítést OAuth belépéseknél? A Google és Microsoft bejelentkezések 2FA nélkül történnek majd.', // NEW
     saved:          @json(__('admin/settings.settings.saved')),
     saved:          @json(__('admin/settings.settings.saved')),
     error:          @json(__('admin/settings.settings.error')),
@@ -20,8 +22,10 @@ warn_easy_relation_on: 'Biztosan bekapcsolod az egyszerűsített kapcsolatbeáll
   const strictEl = document.getElementById('toggle-strict');
   const aiEl     = document.getElementById('toggle-ai');
   const multiEl  = document.getElementById('toggle-multi');
-  const bonusMalusEl = document.getElementById('toggle-bonus-malus');  // ADD THIS LINE
+  const bonusMalusEl = document.getElementById('toggle-bonus-malus');
   const easyRelationEl = document.getElementById('toggle-easy-relation');
+  const forceOauth2faEl = document.getElementById('toggle-force-oauth-2fa');
+
 
 
   // --- Reload utáni toast ---
@@ -155,6 +159,23 @@ easyRelationEl?.addEventListener('change', async (e) => {
   try {
     await postToggle('easy_relation_setup', nextVal ? '1' : '0');
     reloadWithToast(nextVal ? 'Egyszerűsített kapcsolatbeállítás bekapcsolva.' : 'Egyszerűsített kapcsolatbeállítás kikapcsolva.');
+  } catch (err) {
+    e.target.checked = !nextVal;
+    Swal.fire({ icon: 'error', title: T.error, text: String(err) });
+  }
+});
+
+forceOauth2faEl?.addEventListener('change', async (e) => {
+  const nextVal = e.target.checked;
+  const warnMsg = nextVal ? T.warn_force_oauth_2fa_on : T.warn_force_oauth_2fa_off;
+  const ok = await warnConfirm(warnMsg);
+  if (!ok) { e.target.checked = !nextVal; return; }
+
+  try {
+    await postToggle('force_oauth_2fa', nextVal ? '1' : '0');
+    reloadWithToast(nextVal 
+      ? '2FA kényszerítés OAuth belépéseknél bekapcsolva.' 
+      : '2FA kényszerítés OAuth belépéseknél kikapcsolva.');
   } catch (err) {
     e.target.checked = !nextVal;
     Swal.fire({ icon: 'error', title: T.error, text: String(err) });

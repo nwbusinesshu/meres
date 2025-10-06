@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Notification;
 use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Facades\Log;
 use App\Services\RecaptchaService;
+use App\Services\OrgConfigService;
 
 class LoginController extends Controller
 {
@@ -69,8 +70,11 @@ class LoginController extends Controller
             abort(403);
         }
 
-        // OAuth login bypasses 2FA - proceed directly to finish login
-        return $this->finishLogin($request, $user, $u->getAvatar(), false);
+        // SECURITY DECISION: Check if organization enforces 2FA for OAuth logins
+        // By default, OAuth logins bypass 2FA because Google/Microsoft provide strong authentication
+        // including 2FA, device verification, and anomaly detection.
+        // Admins can override this by enabling 'force_oauth_2fa' setting.
+        return $this->handleOAuthLogin($request, $user, $u->getAvatar(), 'Google');
     }
 
     public function attemptMicrosoftLogin(Request $request)
@@ -104,9 +108,115 @@ class LoginController extends Controller
 
         Log::info('Microsoft login sikeres', ['user_id' => $user->id]);
 
-        // OAuth login bypasses 2FA - proceed directly to finish login
-        return $this->finishLogin($request, $user, $u->getAvatar(), false);
+        // SECURITY DECISION: Check if organization enforces 2FA for OAuth logins
+        return $this->handleOAuthLogin($request, $user, $u->getAvatar(), 'Microsoft');
     }
+
+    /**
+     * Handle OAuth login with optional 2FA enforcement
+     * 
+     * @param Request $request
+     * @param User $user
+     * @param string|null $avatar
+     * @param string $provider OAuth provider name (for logging)
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    /**
+ * Handle OAuth login with optional 2FA enforcement
+ * 
+ * Security Logic:
+ * - Superadmins: Always skip 2FA (trusted system administrators)
+ * - Regular users: If ANY organization requires 2FA, enforce it (strictest security)
+ * - Users with no orgs: Skip 2FA (they can't access anything anyway)
+ * 
+ * @param Request $request
+ * @param User $user
+ * @param string|null $avatar
+ * @param string $provider OAuth provider name (for logging)
+ * @return \Illuminate\Http\RedirectResponse
+ */
+private function handleOAuthLogin(Request $request, User $user, ?string $avatar, string $provider)
+{
+    // SUPERADMINS: Always skip 2FA (they're trusted system administrators)
+    if ($user->type === UserType::SUPERADMIN) {
+        Log::info('OAuth login: Superadmin - 2FA bypassed', [
+            'provider' => $provider,
+            'user_id' => $user->id,
+        ]);
+        return $this->finishLogin($request, $user, $avatar, false);
+    }
+
+    // Get user's organizations to check security settings
+    $orgIds = $user->organizations()->pluck('organization.id')->toArray();
+    
+    // Default: OAuth bypasses 2FA (current behavior)
+    $forceOauth2fa = false;
+    
+    // STRICTEST SECURITY: If ANY organization requires 2FA, enforce it
+    // This prevents users from bypassing 2FA by joining a less secure organization
+    foreach ($orgIds as $orgId) {
+        if (OrgConfigService::getBool($orgId, 'force_oauth_2fa', false)) {
+            $forceOauth2fa = true;
+            Log::info('OAuth login: 2FA enforced by organization', [
+                'provider' => $provider,
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'org_id' => $orgId,
+            ]);
+            break; // If any org requires it, enforce 2FA
+        }
+    }
+
+    // If organization enforces 2FA for OAuth, trigger email verification
+    if ($forceOauth2fa) {
+        // Store user info in session for 2FA verification
+        session([
+            'pending_2fa_user_id' => $user->id,
+            'pending_2fa_remember' => false, // OAuth logins don't use "remember me"
+            'pending_2fa_email' => $user->email,
+            'pending_2fa_avatar' => $avatar, // Store avatar for later use
+        ]);
+
+        // Generate and send verification code
+        $verificationCode = EmailVerificationCode::createForEmail(
+            $user->email,
+            session()->getId(),
+            $request->ip(),
+            $request->userAgent()
+        );
+
+        // Send email with verification code
+        try {
+            Notification::route('mail', $user->email)
+                ->notify(new EmailVerificationCodeNotification($verificationCode->code, $user->name));
+        } catch (\Throwable $e) {
+            Log::error('Failed to send OAuth 2FA verification email', [
+                'provider' => $provider,
+                'email' => $user->email,
+                'error' => $e->getMessage()
+            ]);
+            
+            return redirect('login')
+                ->with('error', 'Hiba történt az ellenőrző kód küldése során. Kérjük, próbáld újra.');
+        }
+
+        // Redirect back to login page with verification step
+        return redirect('login')->with([
+            'show_verification' => true,
+            'verification_email' => $user->email,
+            'success' => 'Ellenőrző kódot küldtünk a ' . $user->email . ' címre. A kód 10 percig érvényes.'
+        ]);
+    }
+
+    // Default behavior: OAuth login bypasses 2FA
+    Log::info('OAuth login: 2FA bypassed', [
+        'provider' => $provider,
+        'user_id' => $user->id,
+        'reason' => count($orgIds) === 0 ? 'no_organizations' : 'no_org_requires_2fa',
+    ]);
+
+    return $this->finishLogin($request, $user, $avatar, false);
+}
 
     /**
      * POST /attempt-password-login   (Email + jelszó belépés)
@@ -204,6 +314,7 @@ class LoginController extends Controller
         $userId = session('pending_2fa_user_id');
         $email = session('pending_2fa_email');
         $remember = session('pending_2fa_remember', false);
+        $avatar = session('pending_2fa_avatar', null); // Get stored avatar for OAuth logins
 
         // Verify the code
         if (!EmailVerificationCode::verifyCode($email, $data['verification_code'], session()->getId())) {
@@ -218,16 +329,16 @@ class LoginController extends Controller
         // Code is valid - get user and finish login
         $user = User::find($userId);
         if (!$user || !is_null($user->removed_at)) {
-            session()->forget(['pending_2fa_user_id', 'pending_2fa_remember', 'pending_2fa_email']);
+            session()->forget(['pending_2fa_user_id', 'pending_2fa_remember', 'pending_2fa_email', 'pending_2fa_avatar']);
             return redirect()->route('login')
                 ->withErrors(['verification_code' => 'A felhasználói fiók nem aktív.']);
         }
 
         // Clear 2FA session data
-        session()->forget(['pending_2fa_user_id', 'pending_2fa_remember', 'pending_2fa_email']);
+        session()->forget(['pending_2fa_user_id', 'pending_2fa_remember', 'pending_2fa_email', 'pending_2fa_avatar']);
 
         // Complete the login process
-        return $this->finishLogin($request, $user, null, $remember);
+        return $this->finishLogin($request, $user, $avatar, $remember);
     }
 
     /**
@@ -247,7 +358,7 @@ class LoginController extends Controller
 
         $user = User::find($userId);
         if (!$user || !is_null($user->removed_at)) {
-            session()->forget(['pending_2fa_user_id', 'pending_2fa_remember', 'pending_2fa_email']);
+            session()->forget(['pending_2fa_user_id', 'pending_2fa_remember', 'pending_2fa_email', 'pending_2fa_avatar']);
             return redirect()->route('login')
                 ->withErrors(['verification_code' => 'A felhasználói fiók nem aktív.']);
         }

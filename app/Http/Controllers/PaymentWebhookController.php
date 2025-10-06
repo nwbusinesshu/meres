@@ -12,9 +12,15 @@ class PaymentWebhookController extends Controller
 {
     public function barion(Request $request, BarionService $barion, BillingoService $billingo)
     {
+        $requestStartTime = microtime(true);
+        
+        // Enhanced structured logging
         Log::info('webhook.barion.in', [
             'body'    => $request->all(),
             'headers' => $request->headers->all(),
+            'ip'      => $request->ip(),
+            'method'  => $request->method(),
+            'timestamp' => now()->toIso8601String(),
         ]);
 
         $barionId = $request->input('PaymentId')
@@ -22,8 +28,34 @@ class PaymentWebhookController extends Controller
                  ?: $request->input('Id');
 
         if (!$barionId) {
-            Log::warning('webhook.barion.missing_payment_id');
+            Log::warning('webhook.barion.missing_payment_id', [
+                'ip' => $request->ip(),
+                'body' => $request->all(),
+            ]);
             return response('OK', 200);
+        }
+
+        // ENHANCED VALIDATION: PaymentId format validation
+        $validationResult = $this->validatePaymentId($barionId);
+        if (!$validationResult['valid']) {
+            Log::warning('webhook.barion.invalid_payment_id_format', [
+                'payment_id' => $barionId,
+                'reason' => $validationResult['reason'],
+                'ip' => $request->ip(),
+            ]);
+            // Still return OK to not reveal validation logic to attacker
+            return response('OK', 200);
+        }
+
+        // ENHANCED VALIDATION: Suspicious pattern detection
+        $suspiciousPatterns = $this->detectSuspiciousPatterns($barionId, $request->ip());
+        if (!empty($suspiciousPatterns)) {
+            Log::warning('webhook.barion.suspicious_patterns_detected', [
+                'payment_id' => $barionId,
+                'patterns' => $suspiciousPatterns,
+                'ip' => $request->ip(),
+            ]);
+            // Continue processing but flag for review
         }
 
         // IDEMPOTENCY CHECK - Prevent duplicate processing
@@ -41,6 +73,7 @@ class PaymentWebhookController extends Controller
                 'event_id' => $existingEvent->id,
                 'status' => $existingEvent->status,
                 'original_timestamp' => $existingEvent->created_at,
+                'time_since_original' => now()->diffInSeconds($existingEvent->created_at) . 's',
             ]);
             
             // If already completed, return success
@@ -66,7 +99,14 @@ class PaymentWebhookController extends Controller
                 'event_signature' => $eventSignature,
                 'source_ip' => $request->ip(),
                 'status' => 'processing',
-                'request_data' => json_encode($request->all()),
+                'request_data' => json_encode([
+                    'body' => $request->all(),
+                    'headers' => [
+                        'user_agent' => $request->userAgent(),
+                        'content_type' => $request->header('Content-Type'),
+                    ],
+                    'suspicious_patterns' => $suspiciousPatterns,
+                ]),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -87,24 +127,46 @@ class PaymentWebhookController extends Controller
             $state  = $barion->getPaymentState($barionId);
             $status = strtoupper((string) ($state['Status'] ?? ''));
 
-            Log::info('webhook.barion.state', ['barion_id' => $barionId, 'status' => $status]);
+            Log::info('webhook.barion.state', [
+                'barion_id' => $barionId,
+                'status' => $status,
+                'processing_time_ms' => round((microtime(true) - $requestStartTime) * 1000, 2),
+            ]);
 
             $payment = DB::table('payments')
                 ->where('barion_payment_id', $barionId)
                 ->first();
 
             if (!$payment) {
-                Log::warning('webhook.barion.payment_not_found', ['barion_id' => $barionId]);
+                Log::warning('webhook.barion.payment_not_found', [
+                    'barion_id' => $barionId,
+                    'barion_status' => $status,
+                ]);
                 
                 // Mark event as completed even though payment not found
                 DB::table('webhook_events')->where('id', $webhookEventId)->update([
                     'status' => 'completed',
-                    'response_data' => json_encode(['result' => 'payment_not_found']),
+                    'response_data' => json_encode([
+                        'result' => 'payment_not_found',
+                        'barion_status' => $status,
+                    ]),
                     'processed_at' => now(),
                     'updated_at' => now(),
                 ]);
                 
                 return response('OK', 200);
+            }
+
+            // ENHANCED VALIDATION: Check payment state consistency
+            $stateValidation = $this->validatePaymentState($payment, $status);
+            if (!$stateValidation['valid']) {
+                Log::warning('webhook.barion.inconsistent_state', [
+                    'payment_id' => $payment->id,
+                    'barion_id' => $barionId,
+                    'current_status' => $payment->status,
+                    'barion_status' => $status,
+                    'reason' => $stateValidation['reason'],
+                ]);
             }
 
             if ($status === 'SUCCEEDED') {
@@ -113,6 +175,13 @@ class PaymentWebhookController extends Controller
                         'status'    => 'paid',
                         'paid_at'   => now(),
                         'updated_at'=> now(),
+                    ]);
+
+                    Log::info('webhook.barion.payment_marked_paid', [
+                        'payment_id' => $payment->id,
+                        'barion_id' => $barionId,
+                        'amount_huf' => $payment->amount_huf,
+                        'organization_id' => $payment->organization_id,
                     ]);
 
                     $hasDoc = DB::table('payments')->where('id', $payment->id)->value('billingo_document_id');
@@ -134,7 +203,15 @@ class PaymentWebhookController extends Controller
                     'status'     => 'failed',
                     'updated_at' => now(),
                 ]);
+                
+                Log::info('webhook.barion.payment_marked_failed', [
+                    'payment_id' => $payment->id,
+                    'barion_id' => $barionId,
+                    'barion_status' => $status,
+                ]);
             }
+
+            $processingTime = round((microtime(true) - $requestStartTime) * 1000, 2);
 
             // Mark webhook event as successfully completed
             DB::table('webhook_events')->where('id', $webhookEventId)->update([
@@ -143,17 +220,28 @@ class PaymentWebhookController extends Controller
                     'barion_status' => $status,
                     'payment_id' => $payment->id,
                     'payment_status' => $payment->status,
+                    'processing_time_ms' => $processingTime,
                 ]),
                 'processed_at' => now(),
                 'updated_at' => now(),
             ]);
 
+            Log::info('webhook.barion.completed', [
+                'barion_id' => $barionId,
+                'payment_id' => $payment->id,
+                'final_status' => $payment->status,
+                'processing_time_ms' => $processingTime,
+            ]);
+
             return response('OK', 200);
 
         } catch (\Throwable $e) {
+            $processingTime = round((microtime(true) - $requestStartTime) * 1000, 2);
+            
             Log::error('webhook.barion.error', [
                 'barion_id' => $barionId,
                 'msg'       => $e->getMessage(),
+                'processing_time_ms' => $processingTime,
             ]);
             
             // Mark webhook event as failed
@@ -162,6 +250,7 @@ class PaymentWebhookController extends Controller
                 'response_data' => json_encode([
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString(),
+                    'processing_time_ms' => $processingTime,
                 ]),
                 'processed_at' => now(),
                 'updated_at' => now(),
@@ -169,6 +258,112 @@ class PaymentWebhookController extends Controller
             
             return response('OK', 200);
         }
+    }
+    
+    /**
+     * Validate PaymentId format.
+     * Barion PaymentIds are 32-character lowercase hexadecimal strings.
+     * 
+     * @param string $paymentId
+     * @return array ['valid' => bool, 'reason' => string]
+     */
+    private function validatePaymentId(string $paymentId): array
+    {
+        // Check length
+        if (strlen($paymentId) !== 32) {
+            return [
+                'valid' => false,
+                'reason' => 'Invalid length: ' . strlen($paymentId) . ' (expected 32)'
+            ];
+        }
+        
+        // Check if hexadecimal
+        if (!ctype_xdigit($paymentId)) {
+            return [
+                'valid' => false,
+                'reason' => 'Contains non-hexadecimal characters'
+            ];
+        }
+        
+        // Check if lowercase (Barion uses lowercase)
+        if ($paymentId !== strtolower($paymentId)) {
+            return [
+                'valid' => false,
+                'reason' => 'Contains uppercase characters (expected lowercase)'
+            ];
+        }
+        
+        return ['valid' => true, 'reason' => null];
+    }
+    
+    /**
+     * Detect suspicious patterns in webhook requests.
+     * 
+     * @param string $paymentId
+     * @param string $sourceIp
+     * @return array List of detected suspicious patterns
+     */
+    private function detectSuspiciousPatterns(string $paymentId, string $sourceIp): array
+    {
+        $patterns = [];
+        
+        // Check for rapid repeated requests (within last 5 seconds)
+        $recentCount = DB::table('webhook_events')
+            ->where('external_id', $paymentId)
+            ->where('source_ip', $sourceIp)
+            ->where('created_at', '>', now()->subSeconds(5))
+            ->count();
+        
+        if ($recentCount > 2) {
+            $patterns[] = "rapid_requests_count_{$recentCount}_in_5s";
+        }
+        
+        // Check for same payment from multiple IPs (potential attack)
+        $uniqueIps = DB::table('webhook_events')
+            ->where('external_id', $paymentId)
+            ->where('created_at', '>', now()->subMinutes(5))
+            ->distinct('source_ip')
+            ->count('source_ip');
+        
+        if ($uniqueIps > 2) {
+            $patterns[] = "multiple_ips_count_{$uniqueIps}_for_same_payment";
+        }
+        
+        // Check for sequential test-looking PaymentIds
+        if (preg_match('/test|demo|sample|dummy|fake/i', $paymentId)) {
+            $patterns[] = 'test_payment_id_pattern';
+        }
+        
+        return $patterns;
+    }
+    
+    /**
+     * Validate payment state consistency.
+     * 
+     * @param object $payment
+     * @param string $barionStatus
+     * @return array ['valid' => bool, 'reason' => string]
+     */
+    private function validatePaymentState($payment, string $barionStatus): array
+    {
+        // If payment is already paid, Barion should report SUCCEEDED
+        if ($payment->status === 'paid' && $barionStatus !== 'SUCCEEDED') {
+            return [
+                'valid' => false,
+                'reason' => "Payment marked paid but Barion reports {$barionStatus}"
+            ];
+        }
+        
+        // If Barion reports SUCCEEDED but we're receiving notification again
+        // (This is actually handled by idempotency, but log it as suspicious)
+        if ($payment->status === 'paid' && $barionStatus === 'SUCCEEDED') {
+            return [
+                'valid' => true,
+                'reason' => 'Duplicate success notification (handled by idempotency)'
+            ];
+        }
+        
+        return ['valid' => true, 'reason' => null];
     }
     
     /**

@@ -16,7 +16,8 @@ class AdminSettingsController extends Controller
         $strictAnon = OrgConfigService::getBool($orgId, OrgConfigService::STRICT_ANON_KEY, false);
         $aiTelemetry = OrgConfigService::getBool($orgId, OrgConfigService::AI_TELEMETRY_KEY, true);
         $showBonusMalus = OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
-        $easyRelationSetup = OrgConfigService::getBool($orgId, 'easy_relation_setup', false); // NEW
+        $easyRelationSetup = OrgConfigService::getBool($orgId, 'easy_relation_setup', false);
+        $forceOauth2fa = OrgConfigService::getBool($orgId, 'force_oauth_2fa', false); // NEW
 
         // kizárólagosság biztosítása (ha strict anon ON, akkor AI OFF)
         if ($strictAnon && $aiTelemetry) {
@@ -52,7 +53,8 @@ class AdminSettingsController extends Controller
             'strictAnon'           => $strictAnon,
             'aiTelemetry'          => $aiTelemetry,
             'showBonusMalus'       => $showBonusMalus,
-            'easyRelationSetup'    => $easyRelationSetup, // NEW
+            'easyRelationSetup'    => $easyRelationSetup,
+            'forceOauth2fa'        => $forceOauth2fa, // NEW
             'threshold_mode'       => $thresholdMode,
             'threshold_min_abs_up' => $thresholdMinAbsUp,
             'threshold_top_pct'    => $thresholdTopPct,
@@ -74,7 +76,7 @@ class AdminSettingsController extends Controller
     public function toggle(Request $request)
     {
         $request->validate([
-            'key'   => 'required|in:strict_anonymous_mode,ai_telemetry_enabled,enable_multi_level,show_bonus_malus,easy_relation_setup', // UPDATED: Added easy_relation_setup
+            'key'   => 'required|in:strict_anonymous_mode,ai_telemetry_enabled,enable_multi_level,show_bonus_malus,easy_relation_setup,force_oauth_2fa', // UPDATED: Added force_oauth_2fa
             'value' => 'required|boolean',
         ]);
 
@@ -82,7 +84,13 @@ class AdminSettingsController extends Controller
         $key   = (string) $request->input('key');
         $val   = (bool) $request->boolean('value');
 
-        // NEW: Handle easy relation setup toggle
+        // NEW: Handle force OAuth 2FA toggle
+        if ($key === 'force_oauth_2fa') {
+            OrgConfigService::setBool($orgId, 'force_oauth_2fa', $val);
+            return response()->json(['ok' => true]);
+        }
+
+        // Handle easy relation setup toggle
         if ($key === 'easy_relation_setup') {
             OrgConfigService::setBool($orgId, 'easy_relation_setup', $val);
             return response()->json(['ok' => true]);
@@ -157,49 +165,44 @@ class AdminSettingsController extends Controller
             OrgConfigService::set($orgId, 'threshold_min_abs_up', $minAbs);
         }
         if ($request->exists('threshold_top_pct')) {
-            $topPct = max(0, min(100, (int)$request->input('threshold_top_pct')));
+            $topPct = max(1, min(50, (int)$request->input('threshold_top_pct')));
             OrgConfigService::set($orgId, 'threshold_top_pct', $topPct);
         }
         if ($request->exists('threshold_bottom_pct')) {
-            $btmPct = max(0, min(100, (int)$request->input('threshold_bottom_pct')));
-            OrgConfigService::set($orgId, 'threshold_bottom_pct', $btmPct);
+            $bottomPct = max(1, min(50, (int)$request->input('threshold_bottom_pct')));
+            OrgConfigService::set($orgId, 'threshold_bottom_pct', $bottomPct);
         }
-
-        // === 4) HYBRID finomhangolás ===
         if ($request->exists('threshold_grace_points')) {
             $grace = max(0, min(20, (int)$request->input('threshold_grace_points')));
             OrgConfigService::set($orgId, 'threshold_grace_points', $grace);
         }
         if ($request->exists('threshold_gap_min')) {
-            $gap = max(0, min(10, (int)$request->input('threshold_gap_min')));
+            $gap = max(0, min(20, (int)$request->input('threshold_gap_min')));
             OrgConfigService::set($orgId, 'threshold_gap_min', $gap);
         }
 
-        // === 5) SUGGESTED policy (AI) ===
+        // === 4) SUGGESTED policy beállítások ===
         if ($request->exists('target_promo_rate_max_pct')) {
-            $v = max(0, min(100, (int)$request->input('target_promo_rate_max_pct')));
-            OrgConfigService::set($orgId, 'target_promo_rate_max', $v / 100.0);
+            $pct = max(0, min(100, (int)$request->input('target_promo_rate_max_pct')));
+            OrgConfigService::set($orgId, 'target_promo_rate_max', $pct / 100.0);
         }
         if ($request->exists('target_demotion_rate_max_pct')) {
-            $v = max(0, min(100, (int)$request->input('target_demotion_rate_max_pct')));
-            OrgConfigService::set($orgId, 'target_demotion_rate_max', $v / 100.0);
+            $pct = max(0, min(100, (int)$request->input('target_demotion_rate_max_pct')));
+            OrgConfigService::set($orgId, 'target_demotion_rate_max', $pct / 100.0);
         }
-        if ($request->exists('never_below_abs_min_for_promo')) {
-            // üres → töröljük (NULL)
-            $raw = $request->input('never_below_abs_min_for_promo');
-            if ($raw === null || $raw === '') {
-                OrgConfigService::set($orgId, 'never_below_abs_min_for_promo', null);
-            } else {
-                OrgConfigService::set($orgId, 'never_below_abs_min_for_promo', (int) $raw);
-            }
+        if ($request->has('never_below_abs_min_for_promo')) {
+            $val = $request->input('never_below_abs_min_for_promo');
+            OrgConfigService::set($orgId, 'never_below_abs_min_for_promo', $val === '' ? null : $val);
         }
-        // checkboxok/kapcsolók
-        $useTrust = $request->boolean('use_telemetry_trust'); // 0/1-ből bool lesz
-        $noForced = $request->boolean('no_forced_demotion_if_high_cohesion');
+        if ($request->has('use_telemetry_trust')) {
+            $bool = $request->boolean('use_telemetry_trust');
+            OrgConfigService::setBool($orgId, 'use_telemetry_trust', $bool);
+        }
+        if ($request->has('no_forced_demotion_if_high_cohesion')) {
+            $bool = $request->boolean('no_forced_demotion_if_high_cohesion');
+            OrgConfigService::setBool($orgId, 'no_forced_demotion_if_high_cohesion', $bool);
+        }
 
-        OrgConfigService::setBool($orgId, 'use_telemetry_trust', $useTrust);
-        OrgConfigService::setBool($orgId, 'no_forced_demotion_if_high_cohesion', $noForced);
-
-        return redirect()->back()->with('success', 'Ponthatár mód és beállítások mentve.');
+        return redirect()->route('admin.settings.index')->with('success', 'Beállítások elmentve!');
     }
 }
