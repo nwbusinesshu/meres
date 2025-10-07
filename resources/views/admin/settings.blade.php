@@ -107,7 +107,7 @@
   if (!$aiTelemetry)          $suggestedErrors[] = 'Nem választható, mert az AI telemetria le van tiltva.';
 @endphp
 
-<form method="POST" action="{{ route('admin.settings.scoring.update') }}" id="scoring-form">
+<form method="POST" action="{{ route('admin.settings.save') }}" id="scoring-form">
   @csrf
   <input type="hidden" name="threshold_mode" id="config-mode" value="{{ $activeMode }}">
 
@@ -116,20 +116,20 @@
       <div class="title"><h3>{{ $_('settings.mode.title') }}</h3></div>
       <div class="meta">{{ $_('settings.mode.meta') }}</div>
     </div>
-    <div class="radios">
-      <label>
+    <div class="mode-switch" id="threshold-mode-switch">
+      <label class="mode-option">
         <input type="radio" name="threshold_mode" value="fixed" {{ $activeMode==='fixed'?'checked':'' }}>
         <span>{{ $_('settings.mode.options.fixed') }}</span>
       </label>
-      <label>
+      <label class="mode-option">
         <input type="radio" name="threshold_mode" value="hybrid" {{ $activeMode==='hybrid'?'checked':'' }}>
         <span>{{ $_('settings.mode.options.hybrid') }}</span>
       </label>
-      <label>
+      <label class="mode-option">
         <input type="radio" name="threshold_mode" value="dynamic" {{ $activeMode==='dynamic'?'checked':'' }}>
         <span>{{ $_('settings.mode.options.dynamic') }}</span>
       </label>
-      <label class="{{ !$canUseSuggested ? 'disabled' : '' }}">
+      <label class="mode-option {{ !$canUseSuggested ? 'disabled' : '' }}">
         <input type="radio" name="threshold_mode" value="suggested"
                {{ $activeMode==='suggested'?'checked':'' }}
                {{ !$canUseSuggested ? 'disabled' : '' }}>
