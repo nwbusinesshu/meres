@@ -58,7 +58,7 @@
                 $house  = $org->profile->house_number ?? null;
 
                 // Address assembly: "HU-6500 Baja, Dózsa György u. 12"
-                $$addressCode = '';
+                $addressCode = '';
                   if ($cc && $pc) {
                       $addressCode = $cc . '-' . $pc;
                   } elseif ($pc) {

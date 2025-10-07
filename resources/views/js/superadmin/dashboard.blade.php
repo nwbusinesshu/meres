@@ -73,9 +73,26 @@ $(document).ready(function () {
 
 <script>
 // Country options from Laravel translations
-const COUNTRY_OPTIONS = @json(array_map(function($code, $name) {
-  return ['code' => $code, 'name' => $name];
-}, array_keys(__('global.countries')), __('global.countries')));
+@php
+  $countries = __('global.countries');
+  $countryOptions = [];
+  foreach ($countries as $code => $name) {
+    $countryOptions[] = ['code' => $code, 'name' => $name];
+  }
+@endphp
+const COUNTRY_OPTIONS = @json($countryOptions);
+
+function populateCountries($select, selectedCode) {
+  if (!$select || $select.length === 0) return;
+  $select.empty();
+  // placeholder
+  $select.append($('<option>', {value: '', text: '{{ __("global.select") }}'}));
+  COUNTRY_OPTIONS.forEach(c => {
+    $select.append($('<option>', {value: c.code, text: `${c.name} (${c.code})`}));
+  });
+  const val = (selectedCode || 'HU').toUpperCase();
+  $select.val(val);
+}
 
 function populateCountries($select, selectedCode) {
   if (!$select || $select.length === 0) return;
