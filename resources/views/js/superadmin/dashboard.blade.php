@@ -70,42 +70,12 @@ $(document).ready(function () {
   });
 });
 </script>
+
 <script>
-// Rövid, EU-központú országlista (később bővíthető)
-const COUNTRY_OPTIONS = [
-  {code: 'HU', name: 'Magyarország'},
-  {code: 'AT', name: 'Ausztria'},
-  {code: 'BE', name: 'Belgium'},
-  {code: 'BG', name: 'Bulgária'},
-  {code: 'HR', name: 'Horvátország'},
-  {code: 'CY', name: 'Ciprus'},
-  {code: 'CZ', name: 'Csehország'},
-  {code: 'DK', name: 'Dánia'},
-  {code: 'EE', name: 'Észtország'},
-  {code: 'FI', name: 'Finnország'},
-  {code: 'FR', name: 'Franciaország'},
-  {code: 'DE', name: 'Németország'},
-  {code: 'GR', name: 'Görögország'},
-  {code: 'IE', name: 'Írország'},
-  {code: 'IT', name: 'Olaszország'},
-  {code: 'LV', name: 'Lettország'},
-  {code: 'LT', name: 'Litvánia'},
-  {code: 'LU', name: 'Luxemburg'},
-  {code: 'MT', name: 'Málta'},
-  {code: 'NL', name: 'Hollandia'},
-  {code: 'PL', name: 'Lengyelország'},
-  {code: 'PT', name: 'Portugália'},
-  {code: 'RO', name: 'Románia'},
-  {code: 'SK', name: 'Szlovákia'},
-  {code: 'SI', name: 'Szlovénia'},
-  {code: 'ES', name: 'Spanyolország'},
-  {code: 'SE', name: 'Svédország'},
-  // pár gyakori EU-n kívüli
-  {code: 'GB', name: 'Egyesült Királyság'},
-  {code: 'CH', name: 'Svájc'},
-  {code: 'NO', name: 'Norvégia'},
-  {code: 'US', name: 'USA'}
-];
+// Country options from Laravel translations
+const COUNTRY_OPTIONS = @json(array_map(function($code, $name) {
+  return ['code' => $code, 'name' => $name];
+}, array_keys(__('global.countries')), __('global.countries')));
 
 function populateCountries($select, selectedCode) {
   if (!$select || $select.length === 0) return;
@@ -128,21 +98,19 @@ $(document).on('submit', '#form-org-create', function(e) {
   const tax  = ($('#tax-number').val() || '').trim();
   const eu   = ($('#eu-vat-number').val() || '').trim().toUpperCase();
 
-  // kliens oldali ellenőrzés
+  // Client-side validation
   if (code === 'HU') {
     if (!tax || !HU_TAX_REGEX.test(tax)) {
-      alert('Kérlek, adj meg érvényes magyar adószámot a formátumban: 12345678-1-23');
+      alert('{{ __("global.validation-hu-tax-number") }}');
       return;
     }
-    // EU VAT nem kötelező HU esetén, de ha megadták, legyen normális
     if (eu && !EU_VAT_REGEX.test(eu)) {
-      alert('Az EU adószám formátuma hibás (pl. DE123456789).');
+      alert('{{ __("global.validation-eu-vat-format") }}');
       return;
     }
   } else {
-    // nem HU: tax_number nem kell, EU VAT kötelező
     if (!eu || !EU_VAT_REGEX.test(eu)) {
-      alert('Kérlek, adj meg érvényes EU adószámot (pl. DE123456789).');
+      alert('{{ __("global.validation-eu-vat-required") }}');
       return;
     }
   }
@@ -181,11 +149,10 @@ $(document).on('submit', '#form-org-create', function(e) {
       if (errors) {
         for (let field in errors) { msg += errors[field][0] + '\n'; }
       }
-      alert(msg || 'Hiba történt.');
+      alert(msg || '{{ __("global.error-occurred") }}');
     });
 });
 </script>
-
 
 <script>
 $(document).on('click', '.edit-org', function () {
@@ -194,13 +161,13 @@ $(document).on('click', '.edit-org', function () {
 
   $('#edit-org-id').val(orgId);
 
-  // Országlista egyszeri feltöltése
+  // Populate country list once
   if (!$('#edit-country-code').data('populated')) {
     populateCountries($('#edit-country-code'));
     $('#edit-country-code').data('populated', true);
   }
 
-  // reset
+  // Reset form
   $('#edit-org-name').val('');
   $('#edit-subscription-type').val('');
   $('#edit-country-code').val('HU');
@@ -231,7 +198,7 @@ $(document).on('click', '.edit-org', function () {
     $('#edit-tax-number').val(data.tax_number || '');
     $('#edit-eu-vat-number').val((data.eu_vat_number || '').toUpperCase());
 
-    // kötelezőség / láthatóság
+    // Update required fields and visibility
     updateEditTaxVisibility();
     $('#edit-country-code').off('change._country').on('change._country', updateEditTaxVisibility);
 
@@ -247,11 +214,10 @@ $(document).on('click', '.edit-org', function () {
 
     $('#modal-org-edit').modal('show');
   }).fail(function () {
-    alert('Nem sikerült lekérni a cég adatait.');
+    alert('{{ __("global.fetch-org-data-failed") }}');
   });
 });
 </script>
-
 
 <script>
 $(document).on('submit', '#form-org-edit', function(e) {
@@ -263,16 +229,16 @@ $(document).on('submit', '#form-org-edit', function(e) {
 
   if (code === 'HU') {
     if (!tax || !HU_TAX_REGEX.test(tax)) {
-      alert('Kérlek, adj meg érvényes magyar adószámot: 12345678-1-23');
+      alert('{{ __("global.validation-hu-tax-number") }}');
       return;
     }
     if (eu && !EU_VAT_REGEX.test(eu)) {
-      alert('Az EU adószám formátuma hibás (pl. DE123456789).');
+      alert('{{ __("global.validation-eu-vat-format") }}');
       return;
     }
   } else {
     if (!eu || !EU_VAT_REGEX.test(eu)) {
-      alert('Kérlek, adj meg érvényes EU adószámot (pl. DE123456789).');
+      alert('{{ __("global.validation-eu-vat-required") }}');
       return;
     }
   }
@@ -311,11 +277,10 @@ $(document).on('submit', '#form-org-edit', function(e) {
       if (errors) {
         for (let field in errors) { msg += errors[field][0] + '\n'; }
       }
-      alert(msg || 'Hiba történt.');
+      alert(msg || '{{ __("global.error-occurred") }}');
     });
 });
 </script>
-
 
 <script>
 $(document).on('click', '.remove-org', function () {
@@ -331,7 +296,7 @@ $(document).on('click', '.remove-org', function () {
       location.reload();
     }
   }).fail(function() {
-    alert('Nem sikerült törölni.');
+    alert('{{ __("global.delete-failed") }}');
   });
 });
 </script>
@@ -357,9 +322,9 @@ $(document).ready(function () {
 
     $rows.each(function () {
       const textToSearch = [
-  $(this).find('td[data-col="{{ __('global.name') }}"]').text(),
-  $(this).find('td[data-col="{{ __('global.admin') }}"]').text(),
-].join(' ').toLowerCase();
+        $(this).find('td[data-col="{{ __('global.name') }}"]').text(),
+        $(this).find('td[data-col="{{ __('global.admin') }}"]').text(),
+      ].join(' ').toLowerCase();
       const isMatch = textToSearch.includes(search);
 
       $(this).toggle(isMatch);
@@ -375,10 +340,26 @@ $(document).ready(function () {
     $input.val('').trigger('input');
   });
 
-  // Ha readonly a mező (pl. kevés org esetén), ne csináljon semmit
+  // If readonly field (e.g., few orgs), do nothing
   if ($input.prop('readonly')) {
     $input.closest('.org-search').addClass('disabled');
   }
 });
 </script>
 
+<script>
+$(document).on('click', '.trigger-new', function() {
+  // Populate country list + default HU
+  if (!$('#country-code').data('populated')) {
+    populateCountries($('#country-code'));
+    $('#country-code').data('populated', true);
+  }
+  $('#country-code').val('HU');
+
+  // Update required/visibility
+  updateCreateTaxVisibility();
+  $('#country-code').off('change._country').on('change._country', updateCreateTaxVisibility);
+
+  $('#modal-org-create').modal('show');
+});
+</script>

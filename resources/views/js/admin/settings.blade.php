@@ -1,22 +1,21 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const T = {
-    confirm:        @json(__('admin/settings.settings.confirm')),
-    warn_strict_on: @json(__('admin/settings.settings.warn_strict_on')),
-    warn_ai_on:     @json(__('admin/settings.settings.warn_ai_on')),
-    warn_ai_off:    @json(__('admin/settings.settings.warn_ai_off')),
-    warn_multi_on:  'Biztosan bekapcsolod a Többszintű részlegkezelést? A döntés végleges, később nem kapcsolható ki. Mielőtt bekapcsolod, tájékozódj a következményeiről a dokumentációban!',
-    warn_bonus_malus_off: 'Biztosan elrejted a Bonus/Malus kategóriákat? A besorolások továbbra is számolódnak, de nem lesznek láthatók a felhasználói felületen.',
-    warn_bonus_malus_on: 'Biztosan megjeleníted a Bonus/Malus kategóriákat a felhasználói felületen?',
-    warn_easy_relation_off: 'Biztosan kikapcsolod az egyszerűsített kapcsolatbeállítást? Ezután a kapcsolatokat manuálisan kell beállítani mindkét irányban.',
-warn_easy_relation_on: 'Biztosan bekapcsolod az egyszerűsített kapcsolatbeállítást? A kapcsolatok automatikusan kétirányúan állítódnak be.',
-warn_force_oauth_2fa_on: 'Biztosan bekapcsolod a 2FA kényszerítést OAuth belépéseknél? A Google és Microsoft bejelentkezéseknél is email ellenőrző kódot kell majd megadni.', // NEW
-  warn_force_oauth_2fa_off: 'Biztosan kikapcsolod a 2FA kényszerítést OAuth belépéseknél? A Google és Microsoft bejelentkezések 2FA nélkül történnek majd.', // NEW
-    saved:          @json(__('admin/settings.settings.saved')),
-    saved:          @json(__('admin/settings.settings.saved')),
-    error:          @json(__('admin/settings.settings.error')),
-    yes:            @json(__('global.swal-confirm')),
-    no:             @json(__('global.swal-cancel')),
+    confirm:                 @json(__('admin/settings.settings.confirm')),
+    warn_strict_on:          @json(__('admin/settings.settings.warn_strict_on')),
+    warn_ai_on:              @json(__('admin/settings.settings.warn_ai_on')),
+    warn_ai_off:             @json(__('admin/settings.settings.warn_ai_off')),
+    warn_multi_on:           @json(__('admin/settings.settings.warn_multi_on')),
+    warn_bonus_malus_off:    @json(__('admin/settings.settings.warn_bonus_malus_off')),
+    warn_bonus_malus_on:     @json(__('admin/settings.settings.warn_bonus_malus_on')),
+    warn_easy_relation_off:  @json(__('admin/settings.settings.warn_easy_relation_off')),
+    warn_easy_relation_on:   @json(__('admin/settings.settings.warn_easy_relation_on')),
+    warn_force_oauth_2fa_on: @json(__('admin/settings.settings.warn_force_oauth_2fa_on')),
+    warn_force_oauth_2fa_off:@json(__('admin/settings.settings.warn_force_oauth_2fa_off')),
+    saved:                   @json(__('admin/settings.settings.saved')),
+    error:                   @json(__('admin/settings.settings.error')),
+    yes:                     @json(__('global.swal-confirm')),
+    no:                      @json(__('global.swal-cancel')),
   };
 
   const strictEl = document.getElementById('toggle-strict');
@@ -26,8 +25,6 @@ warn_force_oauth_2fa_on: 'Biztosan bekapcsolod a 2FA kényszerítést OAuth bel�
   const easyRelationEl = document.getElementById('toggle-easy-relation');
   const forceOauth2faEl = document.getElementById('toggle-force-oauth-2fa');
 
-
-
   // --- Reload utáni toast ---
   (function showSavedToastOnLoad(){
     const key = 'settings_saved_toast';
@@ -36,7 +33,7 @@ warn_force_oauth_2fa_on: 'Biztosan bekapcsolod a 2FA kényszerítést OAuth bel�
       sessionStorage.removeItem(key);
       Swal.fire({
         toast: true,
-        position: 'bottom',   // lent középen
+        position: 'bottom',
         icon: 'success',
         title: msg,
         timer: 1600,
@@ -72,9 +69,7 @@ warn_force_oauth_2fa_on: 'Biztosan bekapcsolod a 2FA kényszerítést OAuth bel�
   }
 
   function reloadWithToast(msg) {
-    // jelzés elmentése a következő betöltésre
     sessionStorage.setItem('settings_saved_toast', msg || T.saved);
-    // kis késleltetéssel töltsük újra, hogy a UI ne villogjon
     setTimeout(() => window.location.reload(), 50);
   }
 
@@ -84,56 +79,43 @@ warn_force_oauth_2fa_on: 'Biztosan bekapcsolod a 2FA kényszerítést OAuth bel�
     if (!ok) { e.target.checked = !nextVal; return; }
 
     try {
-      await postToggle('strict_anonymous_mode', nextVal ? 1 : 0);
-      // UI állapot azonnal (opcionális), a reload úgyis frissít mindent
-      if (nextVal) { if (aiEl) { aiEl.checked = false; aiEl.setAttribute('disabled','disabled'); } }
-      else { aiEl?.removeAttribute('disabled'); }
+      await postToggle('strict_anonymous_mode', nextVal ? '1' : '0');
       reloadWithToast(T.saved);
     } catch (err) {
       e.target.checked = !nextVal;
-      Swal.fire({ icon:'error', title:T.error, text:String(err) });
+      Swal.fire({ icon: 'error', title: T.error, text: String(err) });
     }
   });
 
   aiEl?.addEventListener('change', async (e) => {
     const nextVal = e.target.checked;
-    const ok = await warnConfirm(nextVal ? T.warn_ai_on : T.warn_ai_off);
+    const warnMsg = nextVal ? T.warn_ai_on : T.warn_ai_off;
+    const ok = await warnConfirm(warnMsg);
     if (!ok) { e.target.checked = !nextVal; return; }
 
     try {
-      await postToggle('ai_telemetry_enabled', nextVal ? 1 : 0);
-      reloadWithToast(T.saved);
+      await postToggle('ai_telemetry_enabled', nextVal ? '1' : '0');
+      reloadWithToast(nextVal ? 'AI telemetria bekapcsolva.' : 'AI telemetria kikapcsolva.');
     } catch (err) {
       e.target.checked = !nextVal;
-      Swal.fire({ icon:'error', title:T.error, text:String(err) });
+      Swal.fire({ icon: 'error', title: T.error, text: String(err) });
     }
   });
 
   multiEl?.addEventListener('change', async (e) => {
     const nextVal = e.target.checked;
-
-    // csak bekapcsolásra van értelme (kikapcsolás nem engedélyezett)
-    if (!nextVal) { 
-      // visszapattintjuk vizuálisan is
-      e.target.checked = true;
-      return;
-    }
-
     const ok = await warnConfirm(T.warn_multi_on);
-    if (!ok) { e.target.checked = false; return; }
+    if (!ok) { e.target.checked = !nextVal; return; }
 
     try {
-      await postToggle('enable_multi_level', 1);
-      // végleges: azonnal tiltjuk a kapcsolót, és újratöltünk
-      e.target.setAttribute('disabled','disabled');
-      reloadWithToast(T.saved);
+      await postToggle('enable_multi_level', nextVal ? '1' : '0');
+      reloadWithToast('Multi-level részlegkezelés bekapcsolva.');
     } catch (err) {
-      e.target.checked = false;
-      Swal.fire({ icon:'error', title:T.error, text:String(err) });
+      e.target.checked = !nextVal;
+      Swal.fire({ icon: 'error', title: T.error, text: String(err) });
     }
   });
 
-  // NEW: Bonus/Malus toggle handler
   bonusMalusEl?.addEventListener('change', async (e) => {
     const nextVal = e.target.checked;
     const warnMsg = nextVal ? T.warn_bonus_malus_on : T.warn_bonus_malus_off;
@@ -142,51 +124,46 @@ warn_force_oauth_2fa_on: 'Biztosan bekapcsolod a 2FA kényszerítést OAuth bel�
 
     try {
       await postToggle('show_bonus_malus', nextVal ? '1' : '0');
-      reloadWithToast(nextVal ? 'Bonus/Malus kategóriák megjelenítése bekapcsolva.' : 'Bonus/Malus kategóriák elrejtve.');
+      reloadWithToast(nextVal ? 'Bonus/Malus megjelenítés bekapcsolva.' : 'Bonus/Malus megjelenítés kikapcsolva.');
     } catch (err) {
       e.target.checked = !nextVal;
       Swal.fire({ icon: 'error', title: T.error, text: String(err) });
     }
   });
 
-  // NEW: Easy Relation Setup toggle handler
-easyRelationEl?.addEventListener('change', async (e) => {
-  const nextVal = e.target.checked;
-  const warnMsg = nextVal ? T.warn_easy_relation_on : T.warn_easy_relation_off;
-  const ok = await warnConfirm(warnMsg);
-  if (!ok) { e.target.checked = !nextVal; return; }
+  easyRelationEl?.addEventListener('change', async (e) => {
+    const nextVal = e.target.checked;
+    const warnMsg = nextVal ? T.warn_easy_relation_on : T.warn_easy_relation_off;
+    const ok = await warnConfirm(warnMsg);
+    if (!ok) { e.target.checked = !nextVal; return; }
 
-  try {
-    await postToggle('easy_relation_setup', nextVal ? '1' : '0');
-    reloadWithToast(nextVal ? 'Egyszerűsített kapcsolatbeállítás bekapcsolva.' : 'Egyszerűsített kapcsolatbeállítás kikapcsolva.');
-  } catch (err) {
-    e.target.checked = !nextVal;
-    Swal.fire({ icon: 'error', title: T.error, text: String(err) });
-  }
+    try {
+      await postToggle('easy_relation_setup', nextVal ? '1' : '0');
+      reloadWithToast(nextVal ? 'Egyszerűsített kapcsolatbeállítás bekapcsolva.' : 'Egyszerűsített kapcsolatbeállítás kikapcsolva.');
+    } catch (err) {
+      e.target.checked = !nextVal;
+      Swal.fire({ icon: 'error', title: T.error, text: String(err) });
+    }
+  });
+
+  forceOauth2faEl?.addEventListener('change', async (e) => {
+    const nextVal = e.target.checked;
+    const warnMsg = nextVal ? T.warn_force_oauth_2fa_on : T.warn_force_oauth_2fa_off;
+    const ok = await warnConfirm(warnMsg);
+    if (!ok) { e.target.checked = !nextVal; return; }
+
+    try {
+      await postToggle('force_oauth_2fa', nextVal ? '1' : '0');
+      reloadWithToast(nextVal 
+        ? '2FA kényszerítés OAuth belépéseknél bekapcsolva.' 
+        : '2FA kényszerítés OAuth belépéseknél kikapcsolva.');
+    } catch (err) {
+      e.target.checked = !nextVal;
+      Swal.fire({ icon: 'error', title: T.error, text: String(err) });
+    }
+  });
 });
-
-forceOauth2faEl?.addEventListener('change', async (e) => {
-  const nextVal = e.target.checked;
-  const warnMsg = nextVal ? T.warn_force_oauth_2fa_on : T.warn_force_oauth_2fa_off;
-  const ok = await warnConfirm(warnMsg);
-  if (!ok) { e.target.checked = !nextVal; return; }
-
-  try {
-    await postToggle('force_oauth_2fa', nextVal ? '1' : '0');
-    reloadWithToast(nextVal 
-      ? '2FA kényszerítés OAuth belépéseknél bekapcsolva.' 
-      : '2FA kényszerítés OAuth belépéseknél kikapcsolva.');
-  } catch (err) {
-    e.target.checked = !nextVal;
-    Swal.fire({ icon: 'error', title: T.error, text: String(err) });
-  }
-});
-
-});
-
-
 </script>
-
 
 <script>
 (function(){
@@ -199,12 +176,9 @@ forceOauth2faEl?.addEventListener('change', async (e) => {
   const hiddenMode = $('#config-mode');
 
   function setActivePane(mode){
-    // elrejtés
     panes.forEach(p => p.classList.remove('active'));
-    // megjelenítés
     const pane = document.querySelector('.mode-pane.mode-' + mode);
     if (pane) pane.classList.add('active');
-    // hidden input frissítése (a config formnak)
     if (hiddenMode) hiddenMode.value = mode;
   }
 
@@ -213,12 +187,9 @@ forceOauth2faEl?.addEventListener('change', async (e) => {
     return r ? r.value : (hiddenMode?.value || 'fixed');
   }
 
-  // Események
   radios.forEach(radio => {
     radio.addEventListener('change', function(){
       setActivePane(this.value);
-      // ha azt szeretnéd, hogy a mód azonnal mentődjön:
-      // document.getElementById('mode-form').submit();
     });
   });
 
@@ -236,4 +207,3 @@ forceOauth2faEl?.addEventListener('change', async (e) => {
   setActivePane(getCurrentMode());
 })();
 </script>
-

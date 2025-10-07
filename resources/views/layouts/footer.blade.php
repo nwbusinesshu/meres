@@ -11,7 +11,7 @@
     </div>
 
     {{-- THEME TOGGLE BUTTON --}}
-    <button id="theme-toggle-btn" class="footer-theme-toggle" title="Toggle Dark/Light Mode" aria-label="Toggle theme">
+    <button id="theme-toggle-btn" class="footer-theme-toggle" title="{{ __('global.theme-toggle-title') }}" aria-label="{{ __('global.theme-toggle-aria') }}">
       <i class="fa fa-sun theme-icon-light"></i>
       <i class="fa fa-moon theme-icon-dark"></i>
     </button>

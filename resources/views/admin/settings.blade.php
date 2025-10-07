@@ -38,16 +38,11 @@
   {{-- Multi-level részlegkezelés --}}
   <div class="tile tile-info">
     <div class="text">
-      <div class="title"><h3>Multi-level részlegkezelés</h3></div>
-      <div class="meta">
-        A részlegvezetői (manager) szint bekapcsolása után a felhasználók részleg(ek)be sorolhatók,
-        és a vezetők a saját részlegük beosztottait rangsorolhatják.
-        <br>
-        <strong>Visszavonhatatlan:</strong> a bekapcsolás után nem lehet kikapcsolni.
-      </div>
+      <div class="title"><h3>{{ $_('settings.multi_level.title') }}</h3></div>
+      <div class="meta">{!! $_('settings.multi_level.description') !!}</div>
       @if($enableMultiLevel)
         <div class="alert alert-warning" style="margin-top:.5rem;">
-          A Többszintű részlegkezelés <strong>be van kapcsolva</strong>, és <u>nem kapcsolható ki</u>.
+          {!! $_('settings.multi_level.enabled_alert') !!}
         </div>
       @endif
     </div>
@@ -61,34 +56,22 @@
   {{-- Bonus/Malus megjelenítés --}}
   <div class="tile tile-info">
     <div class="text">
-      <div class="title"><h3>Jutalmazási bónuszrendszer</h3></div>
-      <div class="meta">
-        A Bonus/Malus besorolások megjelenítésének ki- és bekapcsolása a felhasználói felületen.
-        Kikapcsolás esetén a számítások továbbra is működnek, de a kategóriák nem jelennek meg
-        az alkalmazott listában és a kapcsolódó szerkesztési lehetőségek sem lesznek elérhetők.
-      </div>
+      <div class="title"><h3>{{ $_('settings.bonus_malus.title') }}</h3></div>
+      <div class="meta">{{ $_('settings.bonus_malus.description') }}</div>
     </div>
     <label class="switch">
       <input type="checkbox" id="toggle-bonus-malus" {{ $showBonusMalus ? 'checked' : '' }}>
       <span class="slider"></span>
     </label>
   </div>
-  </div>
+</div>
 
-  {{-- Easy Relation Setup --}}
-  <div class="settings-grid">
+{{-- Easy Relation Setup --}}
+<div class="settings-grid">
   <div class="tile tile-info">
     <div class="text">
-      <div class="title"><h3>Kapcsolatok egyszerűsített beállítása</h3></div>
-      <div class="meta">
-        Ha be van kapcsolva, a kapcsolatok kétirányúan állítódnak be automatikusan.
-        <br>
-        <strong>Alárendelt → Kolléga:</strong> Ha X beosztottként értékeli Y-t, akkor Y automatikusan kollégaként értékeli X-et.
-        <br>
-        <strong>Kolléga → Kolléga:</strong> Ha X kollégaként értékeli Y-t, akkor Y is kollégaként értékeli X-et.
-        <br>
-        Ütközés esetén a rendszer figyelmeztetést ad, és lehetőséget biztosít a javításra.
-      </div>
+      <div class="title"><h3>{{ $_('settings.easy_relations.title') }}</h3></div>
+      <div class="meta">{!! $_('settings.easy_relations.description') !!}</div>
     </div>
     <label class="switch">
       <input type="checkbox" id="toggle-easy-relation" {{ $easyRelationSetup ? 'checked' : '' }}>
@@ -100,16 +83,8 @@
   {{-- Force 2FA for OAuth Users --}}
   <div class="tile tile-info">
     <div class="text">
-      <div class="title"><h3>2FA kényszerítés OAuth bejelentkezésnél</h3></div>
-      <div class="meta">
-        Ha be van kapcsolva, a Google és Microsoft OAuth bejelentkezéseknél is kötelező a kétfaktoros azonosítás (email ellenőrző kód).
-        <br>
-        <strong>Kikapcsolva (alapértelmezett):</strong> OAuth felhasználók közvetlenül bejelentkeznek 2FA nélkül, mivel a Google/Microsoft már biztosít erős hitelesítést.
-        <br>
-        <strong>Bekapcsolva:</strong> Minden felhasználónak email kóddal kell megerősítenie a bejelentkezést, függetlenül a belépési módtól.
-        <br>
-        <em>Ajánlott csak nagyon bizalmas adatokat kezelő szervezeteknek.</em>
-      </div>
+      <div class="title"><h3>{{ $_('settings.oauth_2fa.title') }}</h3></div>
+      <div class="meta">{!! $_('settings.oauth_2fa.description') !!}</div>
     </div>
     <label class="switch">
       <input type="checkbox" id="toggle-force-oauth-2fa" {{ $forceOauth2fa ? 'checked' : '' }}>
@@ -117,8 +92,6 @@
     </label>
   </div>
 </div>
-
-
 
 {{-- ===== PONTOZÁSI MÓDSZER ===== --}}
 <h3 class="settings-subtitle" style="margin-top:1.2rem;">{{ $_('settings.scoring_subtitle') }}</h3>
@@ -134,55 +107,45 @@
   if (!$aiTelemetry)          $suggestedErrors[] = 'Nem választható, mert az AI telemetria le van tiltva.';
 @endphp
 
-{{-- 1) Mód mentése --}}
-<form method="POST" action="{{ route('admin.settings.save') }}" id="mode-form">
-  @csrf
-  <div class="">
-    <div class="tile tile-info tile-full">
-      <div class="text">
-        <div class="title"><h3>{{ $_('settings.mode.title') }}</h3></div>
-        <div class="meta">{{ $_('settings.mode.meta') }}</div>
-
-        <div class="mode-switch" id="threshold-mode-switch">
-          <label class="mode-option">
-            <input type="radio" name="threshold_mode" value="fixed" {{ $activeMode==='fixed' ? 'checked' : '' }}>
-            <span>{{ $_('settings.mode.options.fixed') }}</span>
-          </label>
-          <label class="mode-option">
-            <input type="radio" name="threshold_mode" value="hybrid" {{ $activeMode==='hybrid' ? 'checked' : '' }}>
-            <span>{{ $_('settings.mode.options.hybrid') }}</span>
-          </label>
-          <label class="mode-option">
-            <input type="radio" name="threshold_mode" value="dynamic" {{ $activeMode==='dynamic' ? 'checked' : '' }}>
-            <span>{{ $_('settings.mode.options.dynamic') }}</span>
-          </label>
-              <div class="mode-option-wrapper">
-        <label class="mode-option {{ $canUseSuggested ? '' : 'disabled-option' }}">
-          <input type="radio" name="threshold_mode" value="suggested"
-                 {{ $activeMode==='suggested' ? 'checked' : '' }}
-                 {{ $canUseSuggested ? '' : 'disabled' }}>
-          <span>{{ $_('settings.mode.options.suggested') }}</span>
-        </label>
-        @if(!$canUseSuggested && !empty($suggestedErrors))
-      <ul class="mode-error-list">
-        @foreach($suggestedErrors as $msg)
-          <li class="mode-error">{{ $msg }}</li>
-        @endforeach
-      </ul>
-    @endif
-        </div>
-      </div>
-    </div>
-  </div>
-</form>
-
-{{-- 2) Konfiguráció --}}
-<form method="POST" action="{{ route('admin.settings.save') }}" id="config-form" style="margin-top:.8rem;">
+<form method="POST" action="{{ route('admin.settings.scoring.update') }}" id="scoring-form">
   @csrf
   <input type="hidden" name="threshold_mode" id="config-mode" value="{{ $activeMode }}">
 
-  <div class="settings-grid">
+  <div class="tile tile-info mode-selector">
+    <div class="text">
+      <div class="title"><h3>{{ $_('settings.mode.title') }}</h3></div>
+      <div class="meta">{{ $_('settings.mode.meta') }}</div>
+    </div>
+    <div class="radios">
+      <label>
+        <input type="radio" name="threshold_mode" value="fixed" {{ $activeMode==='fixed'?'checked':'' }}>
+        <span>{{ $_('settings.mode.options.fixed') }}</span>
+      </label>
+      <label>
+        <input type="radio" name="threshold_mode" value="hybrid" {{ $activeMode==='hybrid'?'checked':'' }}>
+        <span>{{ $_('settings.mode.options.hybrid') }}</span>
+      </label>
+      <label>
+        <input type="radio" name="threshold_mode" value="dynamic" {{ $activeMode==='dynamic'?'checked':'' }}>
+        <span>{{ $_('settings.mode.options.dynamic') }}</span>
+      </label>
+      <label class="{{ !$canUseSuggested ? 'disabled' : '' }}">
+        <input type="radio" name="threshold_mode" value="suggested"
+               {{ $activeMode==='suggested'?'checked':'' }}
+               {{ !$canUseSuggested ? 'disabled' : '' }}>
+        <span>
+          {{ $_('settings.mode.options.suggested') }}
+          @if(!$canUseSuggested)
+            <i class="fa fa-info-circle" style="margin-left:0.25rem; color:#999;"
+               title="{{ implode(' ', $suggestedErrors) }}"></i>
+          @endif
+        </span>
+      </label>
+    </div>
+  </div>
 
+  {{-- Módszerenkénti panelek --}}
+  <div class="modes-container">
     {{-- FIXED --}}
     <div class="tile tile-info tile-full mode-pane mode-fixed {{ $activeMode==='fixed' ? 'active' : '' }}">
       <div class="text">
@@ -274,34 +237,22 @@
 
       <div class="fields two-col">
         <label class="field">
+          <span>{{ $_('settings.hybrid.fields.normal_level_down') }}</span>
+          <input type="number" min="0" max="100" name="normal_level_down" value="{{ old('normal_level_down', $normal_level_down ?? 70) }}">
+        </label>
+        <label class="field">
           <span>{{ $_('settings.hybrid.fields.threshold_min_abs_up') }}</span>
-          <input type="number" min="0" max="100" name="threshold_min_abs_up"
-                 value="{{ old('threshold_min_abs_up', $threshold_min_abs_up ?? 80) }}">
+          <input type="number" min="0" max="100" name="threshold_min_abs_up" value="{{ old('threshold_min_abs_up', $threshold_min_abs_up ?? 80) }}">
         </label>
         <label class="field">
           <span>{{ $_('settings.hybrid.fields.threshold_top_pct') }}</span>
-          <input type="number" min="0" max="100" name="threshold_top_pct"
-                 value="{{ old('threshold_top_pct', $threshold_top_pct ?? 15) }}">
-        </label>
-      </div>
-
-      <div class="fields two-col">
-        <label class="field">
-          <span>Grace (pont): Ha a felső ponthatár kiszámolva valójában alacsonyabb lenne, mint az alsó fix küszöb (pl. a csapat nagyon gyengén teljesített), akkor a rendszer engedheti, hogy a felső küszöb kicsit a minimum alá is essen. Így a legjobb teljesítők akkor is kaphatnak előrelépést, ha a csapat összességében gyenge volt.</span>
-          <input type="number" min="0" max="20" name="threshold_grace_points"
-                 value="{{ old('threshold_grace_points', $threshold_grace_points ?? 5) }}">
-        </label>
-        <label class="field">
-          <span>Gap (stagnálási rés, pont): Ez az a biztonsági sáv a fel- és lefokozási határ között, ahol a dolgozó nem lép sehová (stagnál). ? Biztosítja, hogy mindig legyen egy „közép zóna”, ahol senki sem lép se fel, se le → így nincs az a helyzet, hogy egy hajszálnyi különbség miatt valaki feljut, a másik meg visszaesik.</span>
-          <input type="number" min="0" max="10" name="threshold_gap_min"
-                 value="{{ old('threshold_gap_min', $threshold_gap_min ?? 2) }}">
+          <input type="number" min="0" max="100" name="threshold_top_pct" value="{{ old('threshold_top_pct', $threshold_top_pct ?? 15) }}">
         </label>
       </div>
       <div>
-    <button class="btn btn-primary" type="submit">{{ $_('settings.buttons.save_settings') }}</button>
-  </div>
+        <button class="btn btn-primary" type="submit">{{ $_('settings.buttons.save_settings') }}</button>
       </div>
-
+    </div>
 
     {{-- DYNAMIC --}}
     <div class="tile tile-info tile-full mode-pane mode-dynamic {{ $activeMode==='dynamic' ? 'active' : '' }}">
@@ -355,86 +306,83 @@
       </div>
     </div>
 
-    <!-- SUGGESTED -->
-<div class="tile tile-info tile-full mode-pane mode-suggested {{ $activeMode==='suggested' ? 'active' : '' }}">
-  <div class="text">
-    <div class="title"><h3>{{ $_('settings.suggested.title') }}</h3></div>
-    <div class="meta">{{ $_('settings.suggested.meta') }}</div>
+    {{-- SUGGESTED --}}
+    <div class="tile tile-info tile-full mode-pane mode-suggested {{ $activeMode==='suggested' ? 'active' : '' }}">
+      <div class="text">
+        <div class="title"><h3>{{ $_('settings.suggested.title') }}</h3></div>
+        <div class="meta">{{ $_('settings.suggested.meta') }}</div>
 
-    <div class="mode-explainer">
-      <div class="chunk">
-        {!! $_('settings.suggested.description_html')!!}
+        <div class="mode-explainer">
+          <div class="chunk">{!! $_('settings.suggested.description_html') !!}</div>
+
+          <div class="columns">
+            <div class="col">
+              <div class="label">Pro</div>
+              <ul>
+                @foreach($_('settings.suggested.pros') as $p)
+                  <li>{{ $p }}</li>
+                @endforeach
+              </ul>
+            </div>
+            <div class="col">
+              <div class="label">Contra</div>
+              <ul>
+                @foreach($_('settings.suggested.cons') as $c)
+                  <li>{{ $c }}</li>
+                @endforeach
+              </ul>
+            </div>
+          </div>
+
+          <div class="footnote">
+            <strong>Ajánlott használat:</strong>
+            {{ $_('settings.suggested.when') }}
+          </div>
+        </div>
+        {{-- /Leírás-doboz --}}
       </div>
-      <div class="columns"> <div class="col"> <div class="label">Pro</div> <ul> @foreach($_('settings.suggested.pros') as $p) <li>{{ $p }}</li> @endforeach </ul> </div> <div class="col"> <div class="label">Contra</div> <ul> @foreach($_('settings.suggested.cons') as $c) <li>{{ $c }}</li> @endforeach </ul> </div> </div> <div class="footnote"> <strong>Ajánlott használat:</strong> {{ $_('settings.suggested.when') }} 
-      </div> 
-    </div> {{-- /Leírás-doboz --}} 
-  </div>
-<div class="title"><h4>Haladó beállítások</h4></div>
-  <div class="fields two-col">
 
-    <label class="field">
-      <span>Max. előléptetési ráta (%): Az AI legfeljebb a csapat hány százalékát engedheti feljebb egy mérésben.Megakadályozza, hogy az AI „túl sok” embert engedjen egyszerre előléptetni, így megmarad a szűrő szerepe.</span>
-      <input type="number" min="0" max="100" name="target_promo_rate_max_pct"
-             value="{{ old('target_promo_rate_max_pct', $target_promo_rate_max_pct ?? 20) }}">
-    </label>
-    <label class="field">
-      <span>Max. lefokozási ráta (%): Az AI legfeljebb a csapat hány százalékát ejtheti vissza. Nem fordulhat elő, hogy egy rossz mérés miatt hirtelen a fél csapat visszaesik.</span>
-      <input type="number" min="0" max="100" name="target_demotion_rate_max_pct"
-             value="{{ old('target_demotion_rate_max_pct', $target_demotion_rate_max_pct ?? 10) }}">
-    </label>
-  </div>
-
-  <div class="fields two-col">
-    <label class="field">
-      <span>Előléptetés absz. minimum (0–100, üres = nincs): Bármilyen gyengén is teljesít a csapat, az AI soha nem teheti az előléptetés határát ennél alacsonyabb pontra. Megakadályozza, hogy túl alacsonyan legyen a mérce.</span>
-      <input type="number" min="0" max="100" name="never_below_abs_min_for_promo"
-             value="{{ old('never_below_abs_min_for_promo', $never_below_abs_min_for_promo) }}">
-    </label>
-    <div class="field">
-  <div class="ai-toggles">
-
-    <div class="ai-toggle">
-      <div class="ai-toggle-row">
-        <span class="label">Telemetria figyelembevétele</span>
-        <label class="switch">
-          {{-- 0-s hidden, hogy kikapcsolva is legyen POST érték --}}
-          <input type="hidden" name="use_telemetry_trust" value="0">
-          <input type="checkbox" name="use_telemetry_trust" value="1"
-            {{ old('use_telemetry_trust', $use_telemetry_trust ?? true) ? 'checked' : '' }}>
-          <span class="slider"></span>
+      <div class="title"><h4>{{ $_('settings.suggested.advanced_settings') }}</h4></div>
+      <div class="fields two-col">
+        <label class="field">
+          <span>{{ $_('settings.suggested.fields.target_promo_rate_max_pct') }}</span>
+          <input type="number" min="0" max="100" name="target_promo_rate_max_pct"
+                 value="{{ old('target_promo_rate_max_pct', $target_promo_rate_max_pct ?? 20) }}">
         </label>
-</div>
-      <div class="hint">
-        Az AI beleszámolja az értékelések megbízhatóságát (pl. gyorsan kattintgatott, elfogult, túl egységes kitöltés stb.).
-      </div>
-    </div>
-
-    <div class="ai-toggle">
-      <div class="ai-toggle-row">
-        <span class="label">Ne erőltesse a lefokozást magas kohéziónál</span>
-        <label class="switch">
-          <input type="hidden" name="no_forced_demotion_if_high_cohesion" value="0">
-          <input type="checkbox" name="no_forced_demotion_if_high_cohesion" value="1"
-            {{ old('no_forced_demotion_if_high_cohesion', $no_forced_demotion_if_high_cohesion ?? true) ? 'checked' : '' }}>
-          <span class="slider"></span>
+        <label class="field">
+          <span>{{ $_('settings.suggested.fields.target_demotion_rate_max_pct') }}</span>
+          <input type="number" min="0" max="100" name="target_demotion_rate_max_pct"
+                 value="{{ old('target_demotion_rate_max_pct', $target_demotion_rate_max_pct ?? 10) }}">
         </label>
       </div>
-      <div class="hint">
-        Ha a csapat teljesítménye nagyon egységes és jó (pl. mindenki 80 felett van,
-        alig van szórás), akkor az AI inkább ne is keressen mindenáron „vesztest”.
+
+      <div class="fields two-col">
+        <label class="field">
+          <span>{{ $_('settings.suggested.fields.never_below_abs_min_for_promo') }}</span>
+          <input type="number" min="0" max="100" name="never_below_abs_min_for_promo"
+                 value="{{ old('never_below_abs_min_for_promo', $never_below_abs_min_for_promo ?? '') }}"
+                 placeholder="üres = nincs korlátozás">
+        </label>
+      </div>
+
+      <div class="fields">
+        <label class="field checkbox-field">
+          <input type="checkbox" name="use_telemetry_trust"
+                 {{ old('use_telemetry_trust', $use_telemetry_trust ?? true) ? 'checked' : '' }}>
+          <span>{{ $_('settings.suggested.fields.use_telemetry_trust') }}</span>
+        </label>
+
+        <label class="field checkbox-field">
+          <input type="checkbox" name="no_forced_demotion_if_high_cohesion"
+                 {{ old('no_forced_demotion_if_high_cohesion', $no_forced_demotion_if_high_cohesion ?? false) ? 'checked' : '' }}>
+          <span>{{ $_('settings.suggested.fields.no_forced_demotion_if_high_cohesion') }}</span>
+        </label>
+      </div>
+
+      <div>
+        <button class="btn btn-primary" type="submit">{{ $_('settings.buttons.save_settings') }}</button>
       </div>
     </div>
-
-  </div>
-</div>
-
-  </div>
-
-  <div>
-    <button class="btn btn-primary" type="submit">{{ $_('settings.buttons.save_settings') }}</button>
-  </div>
-</div>
-
   </div>
 </form>
 @endsection

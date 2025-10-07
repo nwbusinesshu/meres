@@ -224,5 +224,46 @@ return [
 "department-save-members-confirm-title" => "Részleg tagjainak mentése?",
 "department-save-members-confirm-text" => "A változtatások mentésre kerülnek.",
 
+'relation-conflicts-title' => 'Kapcsolat ütközések',
+'relation-conflicts-intro' => 'A következő kapcsolatokban ütközések vannak:',
+'relation-conflicts-question' => 'Folytatod a mentést? Ez felülírja az ellentétes beállításokat.',
+'relation-conflict-you' => 'Te',
+'relation-conflict-they' => 'ő',
+'relation-save-confirm-button' => 'Igen, mentés',
+'relation-save-error-message' => 'Hiba történt a mentés során',
+
+// Network modal
+'network-modal-title' => 'Cégkapcsolati háló', // Already exists as 'company-network'
+'network-layout-label' => 'Layout',
+'network-filter-department-label' => 'Részleg szűrése',
+'network-actions-label' => 'Műveletek',
+'network-layout-cose' => 'Force-directed (COSE)',
+'network-layout-circle' => 'Kör',
+'network-layout-grid' => 'Rács',
+'network-layout-hierarchical' => 'Hierarchikus',
+'network-layout-concentric' => 'Koncentrikus',
+'network-all-departments' => 'Minden részleg',
+'network-fit-to-view' => 'Illesztés a nézethez',
+'network-reset' => 'Visszaállítás',
+'network-node-types' => 'Csomópont típusok',
+'network-relationship-types' => 'Viszony típusok',
+'network-ceo' => 'CEO',
+'network-manager' => 'Vezető',
+'network-employee' => 'Alkalmazott',
+'network-superior' => 'Felettes',
+'network-colleague' => 'Kollega',
+'network-subordinate' => 'Beosztott',
+
+// Network error messages
+'network-error-container-not-found' => 'A hálózati megjelenítő konténer nem található.',
+'network-error-processing-data' => 'Hiba a hálózati adatok feldolgozásakor: ',
+'network-error-load-failed' => 'Nem sikerült betölteni a hálózati adatokat.',
+'network-error-server' => ' Szerverhiba: ',
+'network-error-unknown' => 'Ismeretlen hiba',
+'network-error-server-occurred' => ' Szerverhiba történt.',
+'network-error-endpoint-not-found' => ' Az endpoint nem található.',
+'network-error-connection-lost' => ' Hálózati kapcsolat megszakadt.',
+'network-error-timeout' => ' A kérés túllépte az időkorlátot.',
+
 
 ];

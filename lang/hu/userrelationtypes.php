@@ -2,6 +2,7 @@
 return [
   "colleague" => "Mellérendelő viszony",
   "subordinate" => "Beosztotti viszony",
+  'superior' => 'Felettesi viszony',
   "self" => "Önértékelés",
   "for-you" => [
     "colleague" => "kollégád",

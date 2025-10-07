@@ -229,7 +229,7 @@ $(document).ready(function(){
               
               // Build conflict message
               let conflictHtml = '<div style="text-align: left;">';
-              conflictHtml += '<p><strong>A következő kapcsolatokban ütközések vannak:</strong></p>';
+              conflictHtml += '<p><strong>{{ __('admin/employees.relation-conflicts-intro') }}</strong></p>';
               conflictHtml += '<ul style="margin: 10px 0;">';
               
               response.conflicts.forEach(function(conflict) {
@@ -240,21 +240,21 @@ $(document).ready(function(){
                   '{{ __('userrelationtypes.subordinate') }}' : 
                   '{{ __('userrelationtypes.colleague') }}';
                 
-                conflictHtml += `<li>${conflict.target_name}: Te "${currentTypeText}", ő "${oppositeTypeText}"</li>`;
+                conflictHtml += `<li>${conflict.target_name}: {{ __('admin/employees.relation-conflict-you') }} "${currentTypeText}", {{ __('admin/employees.relation-conflict-they') }} "${oppositeTypeText}"</li>`;
               });
               
               conflictHtml += '</ul>';
-              conflictHtml += '<p>Folytatod a mentést? Ez felülírja az ellentétes beállításokat.</p>';
+              conflictHtml += '<p>{{ __('admin/employees.relation-conflicts-question') }}</p>';
               conflictHtml += '</div>';
               
               // Ask for confirmation to override
               swal.fire({
-                title: 'Kapcsolat ütközések',
+                title: '{{ __('admin/employees.relation-conflicts-title') }}',
                 html: conflictHtml,
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonText: 'Igen, mentés',
-                cancelButtonText: 'Mégsem'
+                confirmButtonText: '{{ __('admin/employees.relation-save-confirm-button') }}',
+                cancelButtonText: '{{ __('global.swal-cancel') }}'
               }).then((confirmResult) => {
                 if (confirmResult.isConfirmed) {
                   // Second attempt - force save
@@ -272,7 +272,7 @@ $(document).ready(function(){
                       $('#relations-modal').modal('hide');
                       swal.fire({
                         icon: 'success',
-                        title: 'Mentve',
+                        title: '{{ __('global.swal-success') }}',
                         text: finalResponse.message,
                         timer: 2000
                       });
@@ -282,8 +282,8 @@ $(document).ready(function(){
                       swal_loader.close();
                       swal.fire({
                         icon: 'error',
-                        title: 'Hiba',
-                        text: xhr.responseJSON?.message || 'Hiba történt a mentés során'
+                        title: '{{ __('global.swal-error') }}',
+                        text: xhr.responseJSON?.message || '{{ __('admin/employees.relation-save-error-message') }}'
                       });
                     }
                   });
@@ -295,7 +295,7 @@ $(document).ready(function(){
               $('#relations-modal').modal('hide');
               swal.fire({
                 icon: 'success',
-                title: 'Mentve',
+                title: '{{ __('global.swal-success') }}',
                 text: response.message,
                 timer: 2000
               });
@@ -306,8 +306,8 @@ $(document).ready(function(){
             swal_loader.close();
             swal.fire({
               icon: 'error',
-              title: 'Hiba',
-              text: xhr.responseJSON?.message || 'Hiba történt a mentés során'
+              title: '{{ __('global.swal-error') }}',
+              text: xhr.responseJSON?.message || '{{ __('admin/employees.relation-save-error-message') }}'
             });
           }
         });

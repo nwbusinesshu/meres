@@ -4,9 +4,9 @@
             <div class="modal-header">
                 <h5 class="modal-title">
                     <i class="fa fa-network-wired mr-2"></i>
-                    Cégkapcsolati háló
+                    {{ __('admin/employees.company-network') }}
                 </h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <button type="button" class="close" data-dismiss="modal" aria-label="{{ __('global.cancel') }}">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
@@ -15,29 +15,29 @@
                 <div class="network-controls p-3 border-bottom">
                     <div class="row">
                         <div class="col-md-4">
-                            <label class="small text-muted">Layout</label>
+                            <label class="small text-muted">{{ __('admin/employees.network-layout-label') }}</label>
                             <select id="layout-select" class="form-control form-control-sm">
-                                <option value="cose">Force-directed (COSE)</option>
-                                <option value="circle">Circle</option>
-                                <option value="grid">Grid</option>
-                                <option value="breadthfirst">Hierarchical</option>
-                                <option value="concentric">Concentric</option>
+                                <option value="cose">{{ __('admin/employees.network-layout-cose') }}</option>
+                                <option value="circle">{{ __('admin/employees.network-layout-circle') }}</option>
+                                <option value="grid">{{ __('admin/employees.network-layout-grid') }}</option>
+                                <option value="breadthfirst">{{ __('admin/employees.network-layout-hierarchical') }}</option>
+                                <option value="concentric">{{ __('admin/employees.network-layout-concentric') }}</option>
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="small text-muted">Filter by Department</label>
+                            <label class="small text-muted">{{ __('admin/employees.network-filter-department-label') }}</label>
                             <select id="department-filter" class="form-control form-control-sm">
-                                <option value="">All Departments</option>
+                                <option value="">{{ __('admin/employees.network-all-departments') }}</option>
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="small text-muted">Actions</label>
+                            <label class="small text-muted">{{ __('admin/employees.network-actions-label') }}</label>
                             <div>
                                 <button id="fit-network" class="btn btn-sm btn-outline-primary">
-                                    <i class="fa fa-expand-arrows-alt"></i> Fit to View
+                                    <i class="fa fa-expand-arrows-alt"></i> {{ __('admin/employees.network-fit-to-view') }}
                                 </button>
                                 <button id="reset-network" class="btn btn-sm btn-outline-secondary">
-                                    <i class="fa fa-redo"></i> Reset
+                                    <i class="fa fa-redo"></i> {{ __('admin/employees.network-reset') }}
                                 </button>
                             </div>
                         </div>
@@ -51,36 +51,36 @@
                 <div class="network-legend p-3 border-top bg-light">
                     <div class="row">
                         <div class="col-md-6">
-                            <h6 class="mb-2">Node Types</h6>
+                            <h6 class="mb-2">{{ __('admin/employees.network-node-types') }}</h6>
                             <div class="legend-items">
                                 <div class="legend-item">
                                     <span class="legend-node ceo"></span>
-                                    <span>CEO</span>
+                                    <span>{{ __('admin/employees.network-ceo') }}</span>
                                 </div>
                                 <div class="legend-item">
                                     <span class="legend-node manager"></span>
-                                    <span>Manager</span>
+                                    <span>{{ __('admin/employees.network-manager') }}</span>
                                 </div>
                                 <div class="legend-item">
                                     <span class="legend-node normal"></span>
-                                    <span>Employee</span>
+                                    <span>{{ __('admin/employees.network-employee') }}</span>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <h6 class="mb-2">Relationship Types</h6>
+                            <h6 class="mb-2">{{ __('admin/employees.network-relationship-types') }}</h6>
                             <div class="legend-items">
                                 <div class="legend-item">
                                     <span class="legend-edge superior"></span>
-                                    <span>Superior</span>
+                                    <span>{{ __('userrelationtypes.superior') }}</span>
                                 </div>
                                 <div class="legend-item">
                                     <span class="legend-edge colleague"></span>
-                                    <span>Colleague</span>
+                                    <span>{{ __('userrelationtypes.colleague') }}</span>
                                 </div>
                                 <div class="legend-item">
                                     <span class="legend-edge subordinate"></span>
-                                    <span>Subordinate</span>
+                                    <span>{{ __('userrelationtypes.subordinate') }}</span>
                                 </div>
                             </div>
                         </div>
@@ -113,148 +113,154 @@ function initCytoscapeNetwork() {
     
     if (!container) {
         console.error('Network container #cy-container not found!');
-        handleNetworkError('A hálózati megjelenítő konténer nem található.');
+        handleNetworkError('{{ __('admin/employees.network-error-container-not-found') }}');
         return;
     }
-
-    // Initialize cytoscape if not already done
-    if (!window.cy) {
-        console.log('Initializing Cytoscape...');
-        
-        try {
-            window.cy = cytoscape({
-                container: container, // Use the correct container
-                style: [
-                    // Department containers
-                    {
-                        selector: 'node[type = "department"]',
-                        style: {
-                            'shape': 'rectangle',
-                            'background-color': '#f8fafc',
-                            'background-opacity': 0.7,
-                            'border-width': 2,
-                            'border-color': '#4f46e5',
-                            'border-style': 'dashed',
-                            'label': 'data(name)',
-                            'text-valign': 'top',
-                            'text-halign': 'center',
-                            'font-size': '16px',
-                            'font-weight': '700',
-                            'color': '#4f46e5',
-                            'text-margin-y': -15,
-                            'min-width': '320px',
-                            'min-height': '240px',
-                            'padding': '10px'
-                        }
-                    },
-                    // User nodes
-                    {
-                        selector: 'node[type != "department"]',
-                        style: {
-                            'background-color': '#fff',
-                            'border-color': '#666',
-                            'border-width': 2,
-                            'label': 'data(name)',
-                            'text-valign': 'center',
-                            'text-halign': 'center',
-                            'font-size': '12px',
-                            'width': 80,
-                            'height': 80,
-                            'shape': 'ellipse'
-                        }
-                    },
-                    // Manager styling
-                    {
-                        selector: 'node[is_manager = true]',
-                        style: {
-                            'border-color': '#28a745',
-                            'border-width': 3,
-                            'background-color': '#d4edda'
-                        }
-                    },
-                    // CEO styling
-                    {
-                        selector: 'node[type = "ceo"]',
-                        style: {
-                            'border-color': '#dc3545',
-                            'border-width': 3,
-                            'background-color': '#f8d7da'
-                        }
-                    },
-                    // Edges
-                    {
-                        selector: 'edge',
-                        style: {
-                            'width': 2,
-                            'line-color': '#999',
-                            'target-arrow-color': '#999',
-                            'target-arrow-shape': 'triangle',
-                            'curve-style': 'bezier'
-                        }
-                    },
-                    {
-                        selector: 'edge[type = "superior"]',
-                        style: {
-                            'line-color': '#007bff',
-                            'target-arrow-color': '#007bff',
-                            'width': 3
-                        }
-                    },
-                    {
-                        selector: 'edge[type = "subordinate"]',
-                        style: {
-                            'line-color': '#fd7e14',
-                            'target-arrow-color': '#fd7e14',
-                            'width': 3
-                        }
-                    },
-                    {
-                        selector: 'edge[type = "colleague"]',
-                        style: {
-                            'line-color': '#20c997',
-                            'target-arrow-color': '#20c997',
-                            'width': 2,
-                            'line-style': 'dashed'
-                        }
-                    }
-                ],
-                layout: {
-                    name: 'cose',
-                    animate: false,
-                    fit: true,
-                    padding: 50
-                }
-            });
-
-            // Add event listeners
-            $('#layout-select').off('change').on('change', function() {
-                applyLayout($(this).val());
-            });
-
-            $('#department-filter').off('change').on('change', function() {
-                filterByDepartment($(this).val());
-            });
-
-            $('#fit-network').off('click').on('click', function() {
-                if (window.cy) window.cy.fit();
-            });
-
-            $('#reset-network').off('click').on('click', function() {
-                if (window.cy) {
-                    loadNetworkData(); // Reload data
-                }
-            });
-
-            console.log('Cytoscape initialized successfully');
-        } catch (error) {
-            console.error('Failed to initialize Cytoscape:', error);
-            handleNetworkError('Nem sikerült inicializálni a hálózati megjelenítőt: ' + error.message);
-            return;
-        }
-    }
     
-    // Load the network data
+    console.log('Container found, initializing Cytoscape...');
+    
+    // Initialize Cytoscape
+    window.cy = cytoscape({
+        container: container,
+        
+        style: [
+            // Default node styling
+            {
+                selector: 'node',
+                style: {
+                    'background-color': '#28a745',
+                    'border-color': '#1e7e34',
+                    'border-width': 2,
+                    'label': 'data(name)',
+                    'text-valign': 'center',
+                    'text-halign': 'center',
+                    'color': '#000',
+                    'font-size': '12px',
+                    'width': 60,
+                    'height': 60,
+                    'shape': 'ellipse'
+                }
+            },
+            // Department nodes
+            {
+                selector: 'node[type = "department"]',
+                style: {
+                    'background-color': '#6c757d',
+                    'border-color': '#495057',
+                    'border-width': 3,
+                    'shape': 'roundrectangle',
+                    'font-size': '12px',
+                    'width': 80,
+                    'height': 80,
+                    'shape': 'ellipse'
+                }
+            },
+            // Manager styling
+            {
+                selector: 'node[is_manager = true]',
+                style: {
+                    'border-color': '#28a745',
+                    'border-width': 3,
+                    'background-color': '#d4edda'
+                }
+            },
+            // CEO styling
+            {
+                selector: 'node[type = "ceo"]',
+                style: {
+                    'border-color': '#dc3545',
+                    'border-width': 3,
+                    'background-color': '#f8d7da'
+                }
+            },
+            // Edges
+            {
+                selector: 'edge',
+                style: {
+                    'width': 2,
+                    'line-color': '#999',
+                    'target-arrow-color': '#999',
+                    'target-arrow-shape': 'triangle',
+                    'curve-style': 'bezier'
+                }
+            },
+            {
+                selector: 'edge[type = "superior"]',
+                style: {
+                    'line-color': '#007bff',
+                    'target-arrow-color': '#007bff',
+                    'width': 3
+                }
+            },
+            {
+                selector: 'edge[type = "subordinate"]',
+                style: {
+                    'line-color': '#fd7e14',
+                    'target-arrow-color': '#fd7e14',
+                    'width': 3
+                }
+            },
+            {
+                selector: 'edge[type = "colleague"]',
+                style: {
+                    'line-color': '#17a2b8',
+                    'target-arrow-color': '#17a2b8',
+                    'width': 2
+                }
+            }
+        ],
+        
+        layout: {
+            name: 'cose',
+            animate: true,
+            animationDuration: 500,
+            fit: true,
+            padding: 50
+        },
+        
+        // Interaction options
+        userZoomingEnabled: true,
+        userPanningEnabled: true,
+        boxSelectionEnabled: false,
+        wheelSensitivity: 0.2
+    });
+    
+    console.log('Cytoscape initialized successfully');
+    
+    // Setup event listeners
+    setupEventListeners();
+    
+    // Load network data
     loadNetworkData();
+}
+
+function setupEventListeners() {
+    // Layout change
+    $('#layout-select').off('change').on('change', function() {
+        const layout = $(this).val();
+        applyLayout(layout);
+    });
+    
+    // Department filter
+    $('#department-filter').off('change').on('change', function() {
+        const departmentId = $(this).val();
+        filterByDepartment(departmentId);
+    });
+    
+    // Fit to view
+    $('#fit-network').off('click').on('click', function() {
+        if (window.cy) {
+            window.cy.fit();
+        }
+    });
+    
+    // Reset
+    $('#reset-network').off('click').on('click', function() {
+        if (window.cy) {
+            window.cy.reset();
+            applyLayout('cose');
+        }
+    });
 }
 
 function loadNetworkData() {
@@ -297,7 +303,7 @@ function loadNetworkData() {
             
         } catch (error) {
             console.error('Error transforming network data:', error);
-            handleNetworkError('Hiba a hálózati adatok feldolgozásakor: ' + error.message);
+            handleNetworkError('{{ __('admin/employees.network-error-processing-data') }}' + error.message);
         }
     })
     .fail(function(xhr, status, error) {
@@ -308,21 +314,21 @@ function loadNetworkData() {
             error: error
         });
         
-        let errorMessage = 'Nem sikerült betölteni a hálózati adatokat.';
+        let errorMessage = '{{ __('admin/employees.network-error-load-failed') }}';
         
         if (xhr.status === 500) {
             try {
                 const response = JSON.parse(xhr.responseText);
-                errorMessage += ' Szerverhiba: ' + (response.message || 'Ismeretlen hiba');
+                errorMessage += '{{ __('admin/employees.network-error-server') }}' + (response.message || '{{ __('admin/employees.network-error-unknown') }}');
             } catch (e) {
-                errorMessage += ' Szerverhiba történt.';
+                errorMessage += '{{ __('admin/employees.network-error-server-occurred') }}';
             }
         } else if (xhr.status === 404) {
-            errorMessage += ' Az endpoint nem található.';
+            errorMessage += '{{ __('admin/employees.network-error-endpoint-not-found') }}';
         } else if (xhr.status === 0) {
-            errorMessage += ' Hálózati kapcsolat megszakadt.';
+            errorMessage += '{{ __('admin/employees.network-error-connection-lost') }}';
         } else if (status === 'timeout') {
-            errorMessage += ' A kérés túllépte az időkorlátot.';
+            errorMessage += '{{ __('admin/employees.network-error-timeout') }}';
         }
         
         handleNetworkError(errorMessage);
@@ -338,10 +344,10 @@ function handleNetworkError(message) {
     
     if (typeof Swal !== 'undefined' && Swal.fire) {
         Swal.fire({
-            title: 'Hiba',
+            title: '{{ __('global.swal-error') }}',
             text: message,
             icon: 'error',
-            confirmButtonText: 'OK'
+            confirmButtonText: '{{ __('global.swal-ok') }}'
         });
     } else {
         alert(message);
@@ -406,7 +412,7 @@ function transformNetworkData(response) {
 
 function updateDepartmentFilter(departments) {
     const $filter = $('#department-filter');
-    $filter.empty().append('<option value="">Minden részleg</option>');
+    $filter.empty().append('<option value="">{{ __('admin/employees.network-all-departments') }}</option>');
     
     departments.forEach(dept => {
         $filter.append(`<option value="${dept.id}">${dept.department_name}</option>`);
@@ -640,7 +646,6 @@ function applyLayout(layoutName) {
     background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
     border-top: 1px solid #cbd5e0;
     padding: 2rem;
-
 }
 
 .network-legend h6 {
@@ -674,7 +679,6 @@ function applyLayout(layoutName) {
 .legend-node {
     width: 28px;
     height: 28px;
-
     display: inline-block;
     border: 3px solid rgba(255, 255, 255, 0.9);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -697,7 +701,6 @@ function applyLayout(layoutName) {
     width: 36px;
     height: 5px;
     display: inline-block;
-
     position: relative;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -771,16 +774,9 @@ function applyLayout(layoutName) {
     
     .network-legend {
         padding: 1.5rem;
-        
-
-    }
-    
-    #network-modal .modal-content {
-        
     }
     
     #network-modal .modal-header {
-        
         padding: 1.5rem;
     }
 }

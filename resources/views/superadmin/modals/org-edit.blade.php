@@ -22,40 +22,40 @@
 
           {{-- Számlázási adatok (strukturált) --}}
           <div class="form-group">
-            <label>Számlázási adatok</label>
+            <label>{{ __('superadmin/dashboard.billing-data') }}</label>
             <div class="form-row">
               <div class="col-md-3">
                 <select name="country_code" id="edit-country-code" class="form-control"></select>
               </div>
               <div class="col-md-3">
-                <input type="text" name="postal_code" id="edit-postal-code" class="form-control" placeholder="Irányítószám">
+                <input type="text" name="postal_code" id="edit-postal-code" class="form-control" placeholder="{{ __('superadmin/dashboard.postal-code-placeholder') }}">
               </div>
               <div class="col-md-6">
-                <input type="text" name="region" id="edit-region" class="form-control" placeholder="Megye (nem kötelező)">
+                <input type="text" name="region" id="edit-region" class="form-control" placeholder="{{ __('superadmin/dashboard.region-placeholder') }}">
               </div>
             </div>
             <div class="form-row mt-2">
               <div class="col-md-4">
-                <input type="text" name="city" id="edit-city" class="form-control" placeholder="Város">
+                <input type="text" name="city" id="edit-city" class="form-control" placeholder="{{ __('superadmin/dashboard.city-placeholder') }}">
               </div>
               <div class="col-md-5">
-                <input type="text" name="street" id="edit-street" class="form-control" placeholder="Közterület">
+                <input type="text" name="street" id="edit-street" class="form-control" placeholder="{{ __('superadmin/dashboard.street-placeholder') }}">
               </div>
               <div class="col-md-3">
-                <input type="text" name="house_number" id="edit-house-number" class="form-control" placeholder="Házszám">
+                <input type="text" name="house_number" id="edit-house-number" class="form-control" placeholder="{{ __('superadmin/dashboard.house-number-placeholder') }}">
               </div>
             </div>
           </div>
 
           {{-- Adóazonosítók --}}
           <div class="form-group">
-            <label>Adóadatok</label>
+            <label>{{ __('superadmin/dashboard.tax-data') }}</label>
             <div class="form-row">
               <div class="col-md-6">
-                <input type="text" name="tax_number" id="edit-tax-number" class="form-control" placeholder="Adószám (pl. 12345678-2-42)">
+                <input type="text" name="tax_number" id="edit-tax-number" class="form-control" placeholder="{{ __('superadmin/dashboard.tax-number-placeholder') }}">
               </div>
               <div class="col-md-6">
-                <input type="text" name="eu_vat_number" id="edit-eu-vat-number" class="form-control" placeholder="EU adószám (pl. HU12345678)">
+                <input type="text" name="eu_vat_number" id="edit-eu-vat-number" class="form-control" placeholder="{{ __('superadmin/dashboard.eu-vat-placeholder') }}">
               </div>
             </div>
           </div>

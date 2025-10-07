@@ -8,4 +8,7 @@ return [
   "min-label" => "Minimum megnevezése",
   "max-label" => "Maximum megnevezése",
   "scale" => "Skála",
+
+   "search-clear" => "Keresés törlése",
+  "no-competency" => "Nincsenek megjeleníthető kompetenciák!",
   ];

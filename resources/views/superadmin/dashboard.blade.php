@@ -53,41 +53,44 @@
                 $cc     = $org->profile->country_code ?? null;
                 $pc     = $org->profile->postal_code ?? null;
                 $city   = $org->profile->city ?? null;
-                $region = $org->profile->region ?? null; // opcionális, zárójelben jelezzük
+                $region = $org->profile->region ?? null;
                 $street = $org->profile->street ?? null;
                 $house  = $org->profile->house_number ?? null;
 
-                // Címsorok összerakása: "HU-6500 Baja, Dózsa György u. 12"
-                $line1 = trim(implode(' ', array_filter([
-                  ($cc ? ($cc . '-') : null) . ($pc ?? ''),
-                  $city,
-                ])));
+                // Address assembly: "HU-6500 Baja, Dózsa György u. 12"
+                $$addressCode = '';
+                  if ($cc && $pc) {
+                      $addressCode = $cc . '-' . $pc;
+                  } elseif ($pc) {
+                      $addressCode = $pc;
+                  }
+                $line1 = trim(implode(' ', array_filter([$addressCode, $city])));
                 $line2 = trim(implode(' ', array_filter([$street, $house])));
                 $fullAddress = trim(implode(', ', array_filter([$line1, $line2])));
                 if ($region) { $fullAddress .= ' (' . $region . ')'; }
               @endphp
 
               <div class="profile-block">
-                <span class="profile-label">Adószám:</span>
+                <span class="profile-label">{{ __('global.tax-number-label') }}</span>
                 {{ $org->profile->tax_number ?: '-' }}
               </div>
 
               <div class="profile-block">
-                <span class="profile-label">EU adószám:</span>
+                <span class="profile-label">{{ __('global.eu-vat-number-label') }}</span>
                 {{ $org->profile->eu_vat_number ?: '-' }}
               </div>
 
               <div class="profile-block">
-                <span class="profile-label">Számlázási cím:</span>
+                <span class="profile-label">{{ __('global.billing-address-label') }}</span>
                 {{ $fullAddress !== '' ? $fullAddress : '-' }}
               </div>
 
               <div class="profile-block">
-                <span class="profile-label">Előfizetés:</span>
+                <span class="profile-label">{{ __('global.subscription-label') }}</span>
                 {{ $org->profile->subscription_type ? ucfirst($org->profile->subscription_type) : '-' }}
               </div>
             @else
-              <span class="text-muted">Nincs megadva</span>
+              <span class="text-muted">{{ __('global.not-provided') }}</span>
             @endif
           </td>
 
