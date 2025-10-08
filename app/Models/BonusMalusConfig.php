@@ -3,16 +3,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class BonusMalusConfig extends Model
 {
     protected $table = 'bonus_malus_config';
     public $timestamps = false;
     
-    // Tell Laravel this table doesn't have an auto-incrementing ID
+    // Composite primary key - Laravel doesn't handle this well with updateOrCreate
     public $incrementing = false;
-    
-    // Since we have a composite key, set primaryKey to null
     protected $primaryKey = null;
     
     protected $fillable = [
@@ -23,15 +22,23 @@ class BonusMalusConfig extends Model
 
     protected $casts = [
         'level' => 'integer',
-        'multiplier' => 'float',  // ✅ Changed from 'decimal:2' to 'float'
+        'multiplier' => 'float',
     ];
 
     /**
+     * Custom save method for composite key table
+     * DO NOT USE updateOrCreate() - it breaks the WHERE clause!
+     */
+    public static function saveConfig(int $orgId, int $level, float $multiplier)
+    {
+        return DB::table('bonus_malus_config')
+            ->where('organization_id', $orgId)
+            ->where('level', $level)
+            ->update(['multiplier' => $multiplier]);
+    }
+
+    /**
      * Get multiplier for specific level
-     * 
-     * @param int $orgId
-     * @param int $level (1-15)
-     * @return float
      */
     public static function getMultiplierForLevel(int $orgId, int $level): float
     {
@@ -44,9 +51,6 @@ class BonusMalusConfig extends Model
 
     /**
      * Get all multipliers for organization
-     * 
-     * @param int $orgId
-     * @return array [level => multiplier]
      */
     public static function getAllMultipliers(int $orgId): array
     {

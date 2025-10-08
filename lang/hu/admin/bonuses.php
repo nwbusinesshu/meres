@@ -1,7 +1,7 @@
 <?php
 return [
     // Page titles and navigation
-    'title' => 'Bónusz / Malus',
+    'title' => 'Bónuszok',
     'bonuses' => 'Bónuszok',
     'manage-bonuses' => 'Bónuszok kezelése',
     
@@ -9,6 +9,7 @@ return [
     'select-assessment' => 'Válassz értékelést',
     'no-closed-assessments' => 'Nincsenek lezárt értékelések',
     'closed-at' => 'Lezárva',
+    'assessment-period' => 'Értékelési időszak',
     
     // Table headers
     'employee' => 'Alkalmazott',
@@ -19,6 +20,9 @@ return [
     'currency' => 'Pénznem',
     'payment-status' => 'Fizetési státusz',
     'actions' => 'Műveletek',
+    'department' => "Részleg",
+    "bonus-malus-level" => "Szint",
+    'bonus-list' => "Bónusz lista",
     
     // Payment status
     'paid' => 'Kifizetve',
@@ -26,6 +30,7 @@ return [
     'toggle-payment' => 'Fizetési státusz váltása',
     'mark-as-paid' => 'Jelölés kifizetettként',
     'mark-as-unpaid' => 'Jelölés ki nem fizetettként',
+    'total-bonuses' => "Teljes összeg",
     
     // Bonus calculations
     'bonus-calculated' => 'Bónusz kiszámítva',

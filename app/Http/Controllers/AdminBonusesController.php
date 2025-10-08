@@ -134,35 +134,27 @@ class AdminBonusesController extends Controller
         ]);
     }
 
-    /**
-     * Save multiplier config
-     */
-    public function saveMultiplierConfig(Request $request)
-    {
-        $request->validate([
-            'multipliers' => 'required|array',
-            'multipliers.*.level' => 'required|integer|between:1,15',
-            'multipliers.*.multiplier' => 'required|numeric|between:0,15',
-        ]);
+public function saveMultiplierConfig(Request $request)
+{
+    $request->validate([
+        'multipliers' => 'required|array',
+        'multipliers.*.level' => 'required|integer|between:1,15',
+        'multipliers.*.multiplier' => 'required|numeric|between:0,15',
+    ]);
 
-        $orgId = (int) session('org_id');
+    $orgId = (int) session('org_id');
 
-        DB::transaction(function () use ($request, $orgId) {
-            foreach ($request->multipliers as $item) {
-                BonusMalusConfig::updateOrCreate(
-                    [
-                        'organization_id' => $orgId,
-                        'level' => $item['level'],
-                    ],
-                    [
-                        'multiplier' => $item['multiplier'],
-                    ]
-                );
-            }
-        });
+    DB::transaction(function () use ($request, $orgId) {
+        foreach ($request->multipliers as $item) {
+            DB::table('bonus_malus_config')
+                ->where('organization_id', $orgId)
+                ->where('level', $item['level'])
+                ->update(['multiplier' => $item['multiplier']]);
+        }
+    });
 
-        return response()->json(['ok' => true]);
-    }
+    return response()->json(['ok' => true]);
+}
 
     /**
      * Toggle payment status

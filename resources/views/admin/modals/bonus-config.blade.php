@@ -362,6 +362,7 @@ function setQuickValue(level, value) {
 }
 
 // Save multiplier configuration
+// Save multiplier configuration
 function saveMultiplierConfig() {
     const multipliers = [];
     $('.multiplier-slider').each(function() {
@@ -376,7 +377,7 @@ function saveMultiplierConfig() {
         method: 'POST',
         data: {
             _token: '{{ csrf_token() }}',
-            multipliers: multipliers  // ✅ Changed from 'config' to 'multipliers'
+            multipliers: multipliers
         },
         success: function(response) {
             if (response.ok) {
