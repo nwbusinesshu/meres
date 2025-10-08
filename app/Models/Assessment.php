@@ -38,6 +38,10 @@ class Assessment extends Model
     protected $casts = [
         'suggested_decision' => 'array',
         'telemetry_ai' => 'array',
+        // ✅ FIXED: Added datetime casts for date fields
+        'started_at' => 'datetime',
+        'due_at' => 'datetime',
+        'closed_at' => 'datetime',
     ];
     
     public function userCompetencySubmits(){

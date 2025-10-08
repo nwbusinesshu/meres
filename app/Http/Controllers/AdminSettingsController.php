@@ -17,7 +17,10 @@ class AdminSettingsController extends Controller
         $aiTelemetry = OrgConfigService::getBool($orgId, OrgConfigService::AI_TELEMETRY_KEY, true);
         $showBonusMalus = OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
         $easyRelationSetup = OrgConfigService::getBool($orgId, 'easy_relation_setup', false);
-        $forceOauth2fa = OrgConfigService::getBool($orgId, 'force_oauth_2fa', false); // NEW
+        $forceOauth2fa = OrgConfigService::getBool($orgId, 'force_oauth_2fa', false);
+        
+        // ✅ NEW: Bonuses visibility setting
+        $employeesSeeBonuses = OrgConfigService::getBool($orgId, 'employees_see_bonuses', false);
 
         // kizárólagosság biztosítása (ha strict anon ON, akkor AI OFF)
         if ($strictAnon && $aiTelemetry) {
@@ -49,59 +52,69 @@ class AdminSettingsController extends Controller
             ->whereNotNull('closed_at')
             ->exists();
 
-        return view('admin.settings', [
-            'strictAnon'           => $strictAnon,
-            'aiTelemetry'          => $aiTelemetry,
-            'showBonusMalus'       => $showBonusMalus,
-            'easyRelationSetup'    => $easyRelationSetup,
-            'forceOauth2fa'        => $forceOauth2fa, // NEW
-            'threshold_mode'       => $thresholdMode,
-            'threshold_min_abs_up' => $thresholdMinAbsUp,
-            'threshold_top_pct'    => $thresholdTopPct,
-            'threshold_bottom_pct' => $thresholdBottomPct,
-            'normal_level_up'      => $normalLevelUp,
-            'normal_level_down'    => $normalLevelDown,
-            'threshold_grace_points' => $thresholdGrace,
-            'threshold_gap_min'      => $thresholdGapMin,
-            'target_promo_rate_max_pct'    => (int)round($promoRateMax * 100),
-            'target_demotion_rate_max_pct' => (int)round($demoRateMax * 100),
-            'never_below_abs_min_for_promo' => $neverBelowAbsMin,
-            'use_telemetry_trust'           => $useTrust,
-            'no_forced_demotion_if_high_cohesion' => $noForcedDemotion,
-            'hasClosedAssessment'  => $hasClosedAssessment,
-            'enableMultiLevel'     => $enableMultiLevel,
-        ]);
+        return view('admin.settings', compact(
+            'strictAnon',
+            'aiTelemetry',
+            'showBonusMalus',
+            'easyRelationSetup',
+            'forceOauth2fa',
+            'employeesSeeBonuses', // ✅ NEW
+            'thresholdMode',
+            'thresholdMinAbsUp',
+            'thresholdTopPct',
+            'thresholdBottomPct',
+            'normalLevelUp',
+            'normalLevelDown',
+            'thresholdGrace',
+            'thresholdGapMin',
+            'promoRateMax',
+            'demoRateMax',
+            'neverBelowAbsMin',
+            'useTrust',
+            'noForcedDemotion',
+            'enableMultiLevel',
+            'hasClosedAssessment',
+            'aiTelemetry'
+        ));
     }
 
     public function toggle(Request $request)
     {
-        $request->validate([
-            'key'   => 'required|in:strict_anonymous_mode,ai_telemetry_enabled,enable_multi_level,show_bonus_malus,easy_relation_setup,force_oauth_2fa', // UPDATED: Added force_oauth_2fa
-            'value' => 'required|boolean',
+        $orgId = (int) session('org_id');
+
+        $this->validate($request, [
+            'key' => ['required','string'],
+            'value' => ['required','boolean'],
         ]);
 
-        $orgId = (int) session('org_id');
-        $key   = (string) $request->input('key');
-        $val   = (bool) $request->boolean('value');
+        $key = $request->key;
+        $val = $request->value;
 
-        // NEW: Handle force OAuth 2FA toggle
-        if ($key === 'force_oauth_2fa') {
-            OrgConfigService::setBool($orgId, 'force_oauth_2fa', $val);
+        // ✅ NEW: Handle employees_see_bonuses toggle
+        if ($key === 'employees_see_bonuses') {
+            \App\Services\OrgConfigService::setBool($orgId, 'employees_see_bonuses', $val);
             return response()->json(['ok' => true]);
         }
 
-        // Handle easy relation setup toggle
-        if ($key === 'easy_relation_setup') {
-            OrgConfigService::setBool($orgId, 'easy_relation_setup', $val);
-            return response()->json(['ok' => true]);
-        }
-
-        // Handle bonus/malus toggle
+        // Handle show_bonus_malus toggle
         if ($key === 'show_bonus_malus') {
-            OrgConfigService::setBool($orgId, 'show_bonus_malus', $val);
+            \App\Services\OrgConfigService::setBool($orgId, 'show_bonus_malus', $val);
             return response()->json(['ok' => true]);
         }
 
+        // Handle easy_relation_setup toggle
+        if ($key === 'easy_relation_setup') {
+            \App\Services\OrgConfigService::setBool($orgId, 'easy_relation_setup', $val);
+            return response()->json(['ok' => true]);
+        }
+
+        // Handle force_oauth_2fa toggle
+        if ($key === 'force_oauth_2fa') {
+            \App\Services\OrgConfigService::setBool($orgId, 'force_oauth_2fa', $val);
+            return response()->json(['ok' => true]);
+        }
+
+        // Handle enable_multi_level toggle
         if ($key === 'enable_multi_level') {
             $current = \App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false);
 

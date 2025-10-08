@@ -66,6 +66,20 @@
   </div>
 </div>
 
+{{-- ===== BÓNUSZOK / FIZETÉSEK ===== --}}
+<div class="settings-grid">
+  <div class="tile tile-info">
+    <div class="text">
+      <div class="title"><h3>{{ __('admin/bonuses.employees-see-bonuses') }}</h3></div>
+      <div class="meta">{{ __('admin/bonuses.employees-see-bonuses-description') }}</div>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="toggle-employees-see-bonuses" {{ $employeesSeeBonuses ? 'checked' : '' }}>
+      <span class="slider"></span>
+    </label>
+  </div>
+</div>
+
 {{-- Easy Relation Setup --}}
 <div class="settings-grid">
   <div class="tile tile-info">
@@ -78,6 +92,8 @@
       <span class="slider"></span>
     </label>
   </div>
+
+
 
   {{-- ===== SECURITY SETTINGS ===== --}}
   {{-- Force 2FA for OAuth Users --}}

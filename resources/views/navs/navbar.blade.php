@@ -33,14 +33,22 @@
         $currentOrg = $organizations->firstWhere('id', $orgId);
     }
 
+    // ✅ UPDATED: Add bonuses route to config child routes
     $configChildRoutes = [
       'admin.employee.index',
       'admin.competency.index',
       'admin.ceoranks.index',
+      'admin.bonuses.index', // ✅ ADDED
       'admin.settings.index',
       'admin.payments.index',
     ];
     $isOnConfigChild = request()->routeIs($configChildRoutes);
+    
+    // ✅ NEW: Check if bonus-malus should be shown
+    $showBonusMalus = true;
+    if ($user && $user->type === UserType::ADMIN && $orgId) {
+      $showBonusMalus = \App\Services\OrgConfigService::getBool((int)$orgId, 'show_bonus_malus', true);
+    }
   @endphp
 
   <div class="menuitems">
@@ -170,14 +178,26 @@
       <i class="fa fa-ranking-star"></i>
       <span>{{ __('titles.admin.ceoranks') }}</span>
     </a>
+    
+    {{-- ✅ NEW: BONUSES MENU ITEM (only shown if show_bonus_malus is enabled) --}}
+    @if($showBonusMalus)
+      <a class="menuitem {{ request()->routeIs('admin.bonuses.index') ? 'active' : '' }}" 
+         href="{{ route('admin.bonuses.index') }}" data-route="admin.bonuses.index">
+        <i class="fa fa-money-bill-wave"></i>
+        <span>{{ __('titles.admin.bonuses') }}</span>
+      </a>
+    @endif
+    
     <a class="menuitem {{ request()->routeIs('admin.settings.index') ? 'active' : '' }}" 
-   href="{{ route('admin.settings.index') }}" data-route="admin.settings.index">
-  <i class="fa fa-sliders"></i>
-  <span>{{ __('titles.admin.settings') }}</span>
-</a>
-  <a class="menuitem {{ request()->routeIs('admin.payments.index') ? 'active' : '' }}" href="{{ route('admin.payments.index') }}" data-route="admin.payments.index">
-    <i class="fas fa-credit-card"></i> <span>{{ __('titles.admin.payments') }}</span>
-  </a>
+       href="{{ route('admin.settings.index') }}" data-route="admin.settings.index">
+      <i class="fa fa-sliders"></i>
+      <span>{{ __('titles.admin.settings') }}</span>
+    </a>
+    <a class="menuitem {{ request()->routeIs('admin.payments.index') ? 'active' : '' }}" 
+       href="{{ route('admin.payments.index') }}" data-route="admin.payments.index">
+      <i class="fas fa-credit-card"></i>
+      <span>{{ __('titles.admin.payments') }}</span>
+    </a>
   </div>
 @endif
 

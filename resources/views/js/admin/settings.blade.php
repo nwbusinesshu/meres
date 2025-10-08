@@ -1,21 +1,24 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const T = {
-    confirm:                 @json(__('admin/settings.settings.confirm')),
-    warn_strict_on:          @json(__('admin/settings.settings.warn_strict_on')),
-    warn_ai_on:              @json(__('admin/settings.settings.warn_ai_on')),
-    warn_ai_off:             @json(__('admin/settings.settings.warn_ai_off')),
-    warn_multi_on:           @json(__('admin/settings.settings.warn_multi_on')),
-    warn_bonus_malus_off:    @json(__('admin/settings.settings.warn_bonus_malus_off')),
-    warn_bonus_malus_on:     @json(__('admin/settings.settings.warn_bonus_malus_on')),
-    warn_easy_relation_off:  @json(__('admin/settings.settings.warn_easy_relation_off')),
-    warn_easy_relation_on:   @json(__('admin/settings.settings.warn_easy_relation_on')),
-    warn_force_oauth_2fa_on: @json(__('admin/settings.settings.warn_force_oauth_2fa_on')),
-    warn_force_oauth_2fa_off:@json(__('admin/settings.settings.warn_force_oauth_2fa_off')),
-    saved:                   @json(__('admin/settings.settings.saved')),
-    error:                   @json(__('admin/settings.settings.error')),
-    yes:                     @json(__('global.swal-confirm')),
-    no:                      @json(__('global.swal-cancel')),
+    confirm:                  @json(__('admin/settings.settings.confirm')),
+    warn_strict_on:           @json(__('admin/settings.settings.warn_strict_on')),
+    warn_ai_on:               @json(__('admin/settings.settings.warn_ai_on')),
+    warn_ai_off:              @json(__('admin/settings.settings.warn_ai_off')),
+    warn_multi_on:            @json(__('admin/settings.settings.warn_multi_on')),
+    warn_bonus_malus_off:     @json(__('admin/settings.settings.warn_bonus_malus_off')),
+    warn_bonus_malus_on:      @json(__('admin/settings.settings.warn_bonus_malus_on')),
+    warn_easy_relation_off:   @json(__('admin/settings.settings.warn_easy_relation_off')),
+    warn_easy_relation_on:    @json(__('admin/settings.settings.warn_easy_relation_on')),
+    warn_force_oauth_2fa_on:  @json(__('admin/settings.settings.warn_force_oauth_2fa_on')),
+    warn_force_oauth_2fa_off: @json(__('admin/settings.settings.warn_force_oauth_2fa_off')),
+    // ✅ NEW: Bonuses toggle warnings
+    warn_employees_see_bonuses_on:  "Ha bekapcsolod, a dolgozók látni fogják saját bónusz/malus összegüket az eredmények oldalon.",
+    warn_employees_see_bonuses_off: "Ha kikapcsolod, a dolgozók NEM fogják látni a bónusz/malus összegeket.",
+    saved:                    @json(__('admin/settings.settings.saved')),
+    error:                    @json(__('admin/settings.settings.error')),
+    yes:                      @json(__('global.swal-confirm')),
+    no:                       @json(__('global.swal-cancel')),
   };
 
   const strictEl = document.getElementById('toggle-strict');
@@ -24,6 +27,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const bonusMalusEl = document.getElementById('toggle-bonus-malus');
   const easyRelationEl = document.getElementById('toggle-easy-relation');
   const forceOauth2faEl = document.getElementById('toggle-force-oauth-2fa');
+  // ✅ NEW: Bonuses visibility toggle
+  const employeesSeeBonusesEl = document.getElementById('toggle-employees-see-bonuses');
 
   // --- Reload utáni toast ---
   (function showSavedToastOnLoad(){
@@ -45,165 +50,256 @@ document.addEventListener('DOMContentLoaded', function() {
   function postToggle(key, value) {
     return fetch("{{ route('admin.settings.toggle') }}", {
       method: 'POST',
-      headers: {
-        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
+      headers: {'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'},
       body: JSON.stringify({ key, value })
-    }).then(async (r) => {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
+    }).then(r=>r.json());
+  }
+
+  // ========== STRICT ANON ==========
+  if (strictEl) {
+    strictEl.addEventListener('change', async function(e){
+      e.preventDefault();
+      const wasChecked = this.checked;
+      this.checked = !wasChecked; // visszaállítjuk, amíg a user nincs OK-val
+
+      const res = await Swal.fire({
+        title: T.confirm,
+        text: wasChecked ? T.warn_strict_on : '',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: T.yes,
+        cancelButtonText: T.no
+      });
+
+      if (!res.isConfirmed) {
+        this.checked = !wasChecked; // maradt a régiben
+        return;
+      }
+
+      postToggle('strict_anonymous_mode', wasChecked).then(data => {
+        if (data.ok) {
+          this.checked = wasChecked;
+          if (wasChecked && aiEl) aiEl.checked = false;
+          if (wasChecked && aiEl) aiEl.disabled = true;
+          if (!wasChecked && aiEl) aiEl.disabled = false;
+        } else {
+          this.checked = !wasChecked;
+        }
+      }).catch(()=>{
+        this.checked = !wasChecked;
+      });
     });
   }
 
-  function warnConfirm(text) {
-    return Swal.fire({
-      icon: 'warning',
-      title: T.confirm,
-      text,
-      showCancelButton: true,
-      confirmButtonText: T.yes,
-      cancelButtonText: T.no
-    }).then(res => res.isConfirmed);
+  // ========== AI TELEMETRY ==========
+  if (aiEl) {
+    aiEl.addEventListener('change', async function(e){
+      e.preventDefault();
+      const wasChecked = this.checked;
+      this.checked = !wasChecked;
+
+      const res = await Swal.fire({
+        title: T.confirm,
+        text: wasChecked ? T.warn_ai_on : T.warn_ai_off,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: T.yes,
+        cancelButtonText: T.no
+      });
+
+      if (!res.isConfirmed) {
+        this.checked = !wasChecked;
+        return;
+      }
+
+      postToggle('ai_telemetry_enabled', wasChecked).then(data => {
+        if (data.ok) {
+          this.checked = wasChecked;
+        } else {
+          Swal.fire(T.error, data.message || '', 'error');
+          this.checked = !wasChecked;
+        }
+      }).catch(()=>{
+        this.checked = !wasChecked;
+      });
+    });
   }
 
-  function reloadWithToast(msg) {
-    sessionStorage.setItem('settings_saved_toast', msg || T.saved);
-    setTimeout(() => window.location.reload(), 50);
+  // ========== MULTI-LEVEL ==========
+  if (multiEl) {
+    multiEl.addEventListener('change', async function(e){
+      e.preventDefault();
+      if (!this.checked) {
+        this.checked = true;
+        return;
+      }
+      const wasChecked = this.checked;
+      this.checked = false;
+
+      const res = await Swal.fire({
+        title: T.confirm,
+        text: T.warn_multi_on,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: T.yes,
+        cancelButtonText: T.no
+      });
+
+      if (!res.isConfirmed) {
+        return;
+      }
+
+      postToggle('enable_multi_level', true).then(data => {
+        if (data.ok) {
+          if (data.already_on) {
+            this.checked = true;
+            return;
+          }
+          if (data.enabled) {
+            Swal.fire(T.saved, 'A többszintű részlegkezelés bekapcsolva.', 'success').then(()=>{
+              window.location.reload();
+            });
+          }
+        } else {
+          this.checked = false;
+        }
+      }).catch(()=>{
+        this.checked = false;
+      });
+    });
   }
 
-  strictEl?.addEventListener('change', async (e) => {
-    const nextVal = e.target.checked;
-    const ok = await warnConfirm(T.warn_strict_on);
-    if (!ok) { e.target.checked = !nextVal; return; }
+  // ========== BONUS/MALUS VISIBILITY ==========
+  if (bonusMalusEl) {
+    bonusMalusEl.addEventListener('change', async function(e){
+      e.preventDefault();
+      const wasChecked = this.checked;
+      this.checked = !wasChecked;
 
-    try {
-      await postToggle('strict_anonymous_mode', nextVal ? '1' : '0');
-      reloadWithToast(T.saved);
-    } catch (err) {
-      e.target.checked = !nextVal;
-      Swal.fire({ icon: 'error', title: T.error, text: String(err) });
-    }
-  });
+      const res = await Swal.fire({
+        title: T.confirm,
+        text: wasChecked ? T.warn_bonus_malus_on : T.warn_bonus_malus_off,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: T.yes,
+        cancelButtonText: T.no
+      });
 
-  aiEl?.addEventListener('change', async (e) => {
-    const nextVal = e.target.checked;
-    const warnMsg = nextVal ? T.warn_ai_on : T.warn_ai_off;
-    const ok = await warnConfirm(warnMsg);
-    if (!ok) { e.target.checked = !nextVal; return; }
+      if (!res.isConfirmed) {
+        this.checked = !wasChecked;
+        return;
+      }
 
-    try {
-      await postToggle('ai_telemetry_enabled', nextVal ? '1' : '0');
-      reloadWithToast(nextVal ? 'AI telemetria bekapcsolva.' : 'AI telemetria kikapcsolva.');
-    } catch (err) {
-      e.target.checked = !nextVal;
-      Swal.fire({ icon: 'error', title: T.error, text: String(err) });
-    }
-  });
+      postToggle('show_bonus_malus', wasChecked).then(data => {
+        if (data.ok) {
+          this.checked = wasChecked;
+        } else {
+          this.checked = !wasChecked;
+        }
+      }).catch(()=>{
+        this.checked = !wasChecked;
+      });
+    });
+  }
 
-  multiEl?.addEventListener('change', async (e) => {
-    const nextVal = e.target.checked;
-    const ok = await warnConfirm(T.warn_multi_on);
-    if (!ok) { e.target.checked = !nextVal; return; }
+  // ========== EASY RELATION SETUP ==========
+  if (easyRelationEl) {
+    easyRelationEl.addEventListener('change', async function(e){
+      e.preventDefault();
+      const wasChecked = this.checked;
+      this.checked = !wasChecked;
 
-    try {
-      await postToggle('enable_multi_level', nextVal ? '1' : '0');
-      reloadWithToast('Multi-level részlegkezelés bekapcsolva.');
-    } catch (err) {
-      e.target.checked = !nextVal;
-      Swal.fire({ icon: 'error', title: T.error, text: String(err) });
-    }
-  });
+      const res = await Swal.fire({
+        title: T.confirm,
+        text: wasChecked ? T.warn_easy_relation_on : T.warn_easy_relation_off,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: T.yes,
+        cancelButtonText: T.no
+      });
 
-  bonusMalusEl?.addEventListener('change', async (e) => {
-    const nextVal = e.target.checked;
-    const warnMsg = nextVal ? T.warn_bonus_malus_on : T.warn_bonus_malus_off;
-    const ok = await warnConfirm(warnMsg);
-    if (!ok) { e.target.checked = !nextVal; return; }
+      if (!res.isConfirmed) {
+        this.checked = !wasChecked;
+        return;
+      }
 
-    try {
-      await postToggle('show_bonus_malus', nextVal ? '1' : '0');
-      reloadWithToast(nextVal ? 'Bonus/Malus megjelenítés bekapcsolva.' : 'Bonus/Malus megjelenítés kikapcsolva.');
-    } catch (err) {
-      e.target.checked = !nextVal;
-      Swal.fire({ icon: 'error', title: T.error, text: String(err) });
-    }
-  });
+      postToggle('easy_relation_setup', wasChecked).then(data => {
+        if (data.ok) {
+          this.checked = wasChecked;
+        } else {
+          this.checked = !wasChecked;
+        }
+      }).catch(()=>{
+        this.checked = !wasChecked;
+      });
+    });
+  }
 
-  easyRelationEl?.addEventListener('change', async (e) => {
-    const nextVal = e.target.checked;
-    const warnMsg = nextVal ? T.warn_easy_relation_on : T.warn_easy_relation_off;
-    const ok = await warnConfirm(warnMsg);
-    if (!ok) { e.target.checked = !nextVal; return; }
+  // ========== FORCE OAUTH 2FA ==========
+  if (forceOauth2faEl) {
+    forceOauth2faEl.addEventListener('change', async function(e){
+      e.preventDefault();
+      const wasChecked = this.checked;
+      this.checked = !wasChecked;
 
-    try {
-      await postToggle('easy_relation_setup', nextVal ? '1' : '0');
-      reloadWithToast(nextVal ? 'Egyszerűsített kapcsolatbeállítás bekapcsolva.' : 'Egyszerűsített kapcsolatbeállítás kikapcsolva.');
-    } catch (err) {
-      e.target.checked = !nextVal;
-      Swal.fire({ icon: 'error', title: T.error, text: String(err) });
-    }
-  });
+      const res = await Swal.fire({
+        title: T.confirm,
+        text: wasChecked ? T.warn_force_oauth_2fa_on : T.warn_force_oauth_2fa_off,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: T.yes,
+        cancelButtonText: T.no
+      });
 
-  forceOauth2faEl?.addEventListener('change', async (e) => {
-    const nextVal = e.target.checked;
-    const warnMsg = nextVal ? T.warn_force_oauth_2fa_on : T.warn_force_oauth_2fa_off;
-    const ok = await warnConfirm(warnMsg);
-    if (!ok) { e.target.checked = !nextVal; return; }
+      if (!res.isConfirmed) {
+        this.checked = !wasChecked;
+        return;
+      }
 
-    try {
-      await postToggle('force_oauth_2fa', nextVal ? '1' : '0');
-      reloadWithToast(nextVal 
-        ? '2FA kényszerítés OAuth belépéseknél bekapcsolva.' 
-        : '2FA kényszerítés OAuth belépéseknél kikapcsolva.');
-    } catch (err) {
-      e.target.checked = !nextVal;
-      Swal.fire({ icon: 'error', title: T.error, text: String(err) });
-    }
-  });
+      postToggle('force_oauth_2fa', wasChecked).then(data => {
+        if (data.ok) {
+          this.checked = wasChecked;
+        } else {
+          this.checked = !wasChecked;
+        }
+      }).catch(()=>{
+        this.checked = !wasChecked;
+      });
+    });
+  }
+
+  // ✅ NEW: ========== EMPLOYEES SEE BONUSES ==========
+  if (employeesSeeBonusesEl) {
+    employeesSeeBonusesEl.addEventListener('change', async function(e){
+      e.preventDefault();
+      const wasChecked = this.checked;
+      this.checked = !wasChecked;
+
+      const res = await Swal.fire({
+        title: T.confirm,
+        text: wasChecked ? T.warn_employees_see_bonuses_on : T.warn_employees_see_bonuses_off,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: T.yes,
+        cancelButtonText: T.no
+      });
+
+      if (!res.isConfirmed) {
+        this.checked = !wasChecked;
+        return;
+      }
+
+      postToggle('employees_see_bonuses', wasChecked).then(data => {
+        if (data.ok) {
+          this.checked = wasChecked;
+        } else {
+          this.checked = !wasChecked;
+        }
+      }).catch(()=>{
+        this.checked = !wasChecked;
+      });
+    });
+  }
+
 });
-</script>
-
-<script>
-(function(){
-  // —— helpers
-  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  const $  = (sel, root=document) => root.querySelector(sel);
-
-  const radios = $$('input[name="threshold_mode"]');
-  const panes  = $$('.mode-pane');
-  const hiddenMode = $('#config-mode');
-
-  function setActivePane(mode){
-    panes.forEach(p => p.classList.remove('active'));
-    const pane = document.querySelector('.mode-pane.mode-' + mode);
-    if (pane) pane.classList.add('active');
-    if (hiddenMode) hiddenMode.value = mode;
-  }
-
-  function getCurrentMode(){
-    const r = $('input[name="threshold_mode"]:checked');
-    return r ? r.value : (hiddenMode?.value || 'fixed');
-  }
-
-  radios.forEach(radio => {
-    radio.addEventListener('change', function(){
-      setActivePane(this.value);
-    });
-  });
-
-  // Strict anon -> AI toggle tiltása/engedése kliensoldalon is
-  const strict = $('#toggle-strict');
-  const ai     = $('#toggle-ai');
-  if (strict && ai){
-    strict.addEventListener('change', function(){
-      ai.disabled = this.checked;
-      if (ai.disabled) ai.checked = false;
-    });
-  }
-
-  // Init
-  setActivePane(getCurrentMode());
-})();
 </script>

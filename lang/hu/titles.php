@@ -21,6 +21,7 @@ return [
     "results" => "Eredmények",
     "settings" => "Beállítások",
     "payments" => "Fizetések",
+    "bonuses" => "Bónuszok",
   ],
   'superadmin' => [
         'dashboard' => 'Szuperadmin Dashboard',

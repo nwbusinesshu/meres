@@ -16,10 +16,7 @@
                     @forelse($assessments as $assessment)
                         <option value="{{ $assessment->id }}" 
                             {{ $selectedAssessmentId == $assessment->id ? 'selected' : '' }}>
-                            {{ __('admin/bonuses.period-format', [
-                                'start' => $assessment->started_at->format('Y-m-d'),
-                                'end' => $assessment->closed_at->format('Y-m-d')
-                            ]) }}
+                            {{ $assessment->started_at->format('Y-m-d') }} - {{ $assessment->closed_at->format('Y-m-d') }}
                         </option>
                     @empty
                         <option value="">{{ __('admin/bonuses.no-closed-assessments') }}</option>
@@ -84,7 +81,21 @@
                             <tr>
                                 <td>{{ $bonus->user->name }}</td>
                                 @if($enableMultiLevel)
-                                <td>{{ $bonus->user->department ?? '—' }}</td>
+                                <td>
+                                    @php
+                                        // ✅ FIXED: Get department from pivot/relationship, not direct property
+                                        $deptId = DB::table('organization_user')
+                                            ->where('user_id', $bonus->user_id)
+                                            ->where('organization_id', session('org_id'))
+                                            ->value('department_id');
+                                        $deptName = $deptId 
+                                            ? DB::table('organization_departments')
+                                                ->where('id', $deptId)
+                                                ->value('department_name')
+                                            : null;
+                                    @endphp
+                                    {{ $deptName ?? '—' }}
+                                </td>
                                 @endif
                                 <td>
                                     <span class="badge badge-{{ $bonus->bonus_malus_level >= 5 ? 'success' : 'warning' }}">
@@ -102,7 +113,8 @@
                                                {{ $bonus->is_paid ? 'checked' : '' }}>
                                         <span class="slider round"></span>
                                     </label>
-                                    @if($bonus->paid_at)
+                                    {{-- ✅ FIXED: Safely handle null paid_at --}}
+                                    @if($bonus->is_paid && $bonus->paid_at)
                                         <small class="text-muted d-block">{{ $bonus->paid_at->format('Y-m-d') }}</small>
                                     @endif
                                 </td>
@@ -127,4 +139,47 @@
 @endsection
 
 @section('scripts')
+<script>
+$(document).ready(function() {
+    // Assessment selector change
+    $('#assessment-selector').on('change', function() {
+        const assessmentId = $(this).val();
+        if (assessmentId) {
+            window.location.href = "{{ route('admin.bonuses.index') }}?assessment_id=" + assessmentId;
+        }
+    });
+
+    // Configure multipliers button
+    $('.trigger-config-multipliers').on('click', function() {
+        openBonusConfigModal();
+    });
+
+    // Toggle payment status
+    $('.toggle-payment').on('change', function() {
+        const bonusId = $(this).data('bonus-id');
+        const isPaid = $(this).is(':checked');
+        
+        $.ajax({
+            url: "{{ route('admin.bonuses.payment.toggle') }}",
+            method: 'POST',
+            data: {
+                bonus_id: bonusId,
+                is_paid: isPaid ? 1 : 0,
+                _token: "{{ csrf_token() }}"
+            },
+            success: function(response) {
+                if (response.ok) {
+                    // Reload to update stats
+                    window.location.reload();
+                }
+            },
+            error: function() {
+                // Revert checkbox on error
+                $(this).prop('checked', !isPaid);
+                Swal.fire('Error', '{{ __('admin/bonuses.payment-update-error') }}', 'error');
+            }
+        });
+    });
+});
+</script>
 @endsection

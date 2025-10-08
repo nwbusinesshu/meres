@@ -1,3 +1,4 @@
+{{-- resources/views/admin/modals/employee.blade.php --}}
 <div class="modal fade modal-drawer" tabindex="-1" role="dialog" id="employee-modal">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
@@ -43,36 +44,39 @@
             <input type="text" class="form-control position">
           </div>
 
+          {{-- WAGE INPUT SECTION --}}
           <div class="form-group">
-    <label>{{ __('admin/bonuses.net-wage') }}</label>
-    <div class="input-group">
-        <input type="number" 
-               class="form-control" 
-               id="user-wage" 
-               placeholder="500000" 
-               step="1000"
-               min="0">
-        <select class="form-control" id="user-currency" style="max-width: 100px;">
-            <option value="HUF">HUF</option>
-            <option value="EUR">EUR</option>
-            <option value="USD">USD</option>
-            <option value="GBP">GBP</option>
-            <option value="RON">RON</option>
-        </select>
-    </div>
-    <small class="form-text text-muted">
-        {{ __('admin/bonuses.wage-help-text') }}
-    </small>
-</div>
-
+            <label>{{ __('admin/bonuses.net-wage') }}</label>
+            <div class="input-group">
+                <input type="number" 
+                       class="form-control" 
+                       id="user-wage" 
+                       placeholder="500000" 
+                       step="1000"
+                       min="0">
+                <select class="form-control" id="user-currency" style="max-width: 100px;">
+                    <option value="HUF">HUF</option>
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                    <option value="GBP">GBP</option>
+                    <option value="RON">RON</option>
+                </select>
+            </div>
+            <small class="form-text text-muted">
+                {{ __('admin/bonuses.wage-help-text') }}
+            </small>
+          </div>
         </div>
+
+        
       </div>
       <div class="modal-footer">
-           <button class="btn btn-primary trigger-submit"></button>
-           </div>     
+        <button class="btn btn-primary trigger-submit"></button>
+      </div>     
     </div>
   </div>
 </div>
+
 <script>
   // -- Segédfüggvények a típus-korlátozásokhoz -------------------------------
 
@@ -133,6 +137,7 @@
     swal_loader.fire();
 
     if(uid == null){
+      // ========== NEW EMPLOYEE ==========
       $('#employee-modal').attr('data-id', 0);
       $('#employee-modal .modal-title').html('{{ __('admin/employees.new-employee') }}');
       $('#employee-modal .trigger-submit').html('{{ __('admin/employees.new-employee') }}');
@@ -142,20 +147,23 @@
       $('#employee-modal .type').val('normal');
       $('#employee-modal .auto-level-up').prop('checked', false);
       $('#employee-modal .position').val('');
-      $('#employee-modal .user-wage').val('');
-      $('#employee-modal .user-currency').val('HUF');
+      
+      // ✅ FIX: Use correct ID selectors
+      $('#employee-modal #user-wage').val('');
+      $('#employee-modal #user-currency').val('HUF');
 
       clearTypeLocks();
 
       swal_loader.close();
       $('#employee-modal').modal();
     } else {
+      // ========== EDIT EXISTING EMPLOYEE ==========
       $('#employee-modal').attr('data-id', uid);
       $('#employee-modal .modal-title').html('{{ __('admin/employees.modify-employee') }}');
       $('#employee-modal .trigger-submit').html('{{ __('admin/employees.modify') }}');
 
       $.ajax({
-        method: 'POST',                       // route POST, nem GET
+        method: 'POST',
         url: "{{ route('admin.employee.get') }}",
         data: {
           id: uid,
@@ -169,7 +177,8 @@
         $('#employee-modal .auto-level-up').prop('checked', response.has_auto_level_up == 1);
         $('#employee-modal .position').val(response.position || '');
 
-         $.ajax({
+        // Load wage data
+        $.ajax({
           method: 'POST',
           url: "{{ route('admin.bonuses.wage.get') }}",
           data: {
@@ -179,17 +188,18 @@
         })
         .done(function(wageResponse){
           if (wageResponse.ok && wageResponse.wage) {
-            $('#employee-modal .user-wage').val(wageResponse.wage.net_wage);
-            $('#employee-modal .user-currency').val(wageResponse.wage.currency);
+            // ✅ FIX: Use correct ID selectors
+            $('#employee-modal #user-wage').val(wageResponse.wage.net_wage);
+            $('#employee-modal #user-currency').val(wageResponse.wage.currency);
           } else {
-            $('#employee-modal .user-wage').val('');
-            $('#employee-modal .user-currency').val('HUF');
+            $('#employee-modal #user-wage').val('');
+            $('#employee-modal #user-currency').val('HUF');
           }
         })
         .fail(function(){
           // Silently fail - wage is optional
-          $('#employee-modal .user-wage').val('');
-          $('#employee-modal .user-currency').val('HUF');
+          $('#employee-modal #user-wage').val('');
+          $('#employee-modal #user-currency').val('HUF');
         });
 
         // Üzleti tiltások (részlegvezető / részlegtag)
@@ -219,6 +229,7 @@
         if (result.isConfirmed) {
           swal_loader.fire();
 
+          // ========== STEP 1: SAVE EMPLOYEE ==========
           $.ajax({
             method: 'POST',
             url: "{{ route('admin.employee.save') }}",
@@ -232,28 +243,57 @@
               _token: "{{ csrf_token() }}"
             }
           })
-          .done(function(){
-            swal_loader.close();
+          // ✅ FIX: Add response parameter to capture user_id
+          .done(function(response){
             const msg = (uid && parseInt(uid) > 0)
               ? "{{ __('admin/employees.modify-employee-success') }}"
               : "{{ __('admin/employees.new-employee-success') }}";
-              const netWage = $('#employee-modal .user-wage').val();
-              const currency = $('#employee-modal .user-currency').val();
 
-               if (netWage && parseFloat(netWage) > 0) {
-                $.ajax({
-                  method: 'POST',
-                  url: "{{ route('admin.bonuses.wage.save') }}",
-                  data: {
-                    user_id: uid || response.user_id,
-                    net_wage: netWage,
-                    currency: currency,
-                    _token: "{{ csrf_token() }}"
-                  }
-                });
-              }
+            // ✅ FIX: Use correct ID selectors
+            const netWage = $('#employee-modal #user-wage').val();
+            const currency = $('#employee-modal #user-currency').val();
 
-            Swal.fire('{{ __('global.success') }}', msg, 'success').then(() => window.location.reload());
+            // ========== STEP 2: SAVE WAGE (if provided) ==========
+            if (netWage && parseFloat(netWage) > 0) {
+              // ✅ FIX: Use response.user_id for new employees
+              const userIdForWage = uid && parseInt(uid) > 0 ? uid : response.user_id;
+
+              console.log('💰 Saving wage:', {
+                user_id: userIdForWage,
+                net_wage: netWage,
+                currency: currency
+              });
+
+              $.ajax({
+                method: 'POST',
+                url: "{{ route('admin.bonuses.wage.save') }}",
+                data: {
+                  user_id: userIdForWage,
+                  net_wage: netWage,
+                  currency: currency,
+                  _token: "{{ csrf_token() }}"
+                }
+              })
+              .done(function(wageResponse){
+                console.log('✅ Wage saved successfully:', wageResponse);
+                swal_loader.close();
+                Swal.fire('{{ __('global.success') }}', msg, 'success').then(() => window.location.reload());
+              })
+              .fail(function(xhr){
+                console.error('❌ Wage save failed:', xhr.responseJSON);
+                swal_loader.close();
+                let wageErrorMsg = '{{ __('admin/bonuses.wage-save-error') }}';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                  wageErrorMsg = xhr.responseJSON.message;
+                }
+                Swal.fire('{{ __('global.warning') }}', msg + '<br><br>' + wageErrorMsg, 'warning')
+                  .then(() => window.location.reload());
+              });
+            } else {
+              // No wage data - just show success and reload
+              swal_loader.close();
+              Swal.fire('{{ __('global.success') }}', msg, 'success').then(() => window.location.reload());
+            }
           })
           .fail(function(xhr){
             swal_loader.close();
