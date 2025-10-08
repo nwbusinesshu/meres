@@ -42,6 +42,29 @@
             <label>{{ __('admin/employees.position') }}</label>
             <input type="text" class="form-control position">
           </div>
+
+          <div class="form-group">
+    <label>{{ __('admin/bonuses.net-wage') }}</label>
+    <div class="input-group">
+        <input type="number" 
+               class="form-control" 
+               id="user-wage" 
+               placeholder="500000" 
+               step="1000"
+               min="0">
+        <select class="form-control" id="user-currency" style="max-width: 100px;">
+            <option value="HUF">HUF</option>
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+            <option value="GBP">GBP</option>
+            <option value="RON">RON</option>
+        </select>
+    </div>
+    <small class="form-text text-muted">
+        {{ __('admin/bonuses.wage-help-text') }}
+    </small>
+</div>
+
         </div>
       </div>
       <div class="modal-footer">
@@ -119,6 +142,8 @@
       $('#employee-modal .type').val('normal');
       $('#employee-modal .auto-level-up').prop('checked', false);
       $('#employee-modal .position').val('');
+      $('#employee-modal .user-wage').val('');
+      $('#employee-modal .user-currency').val('HUF');
 
       clearTypeLocks();
 
@@ -143,6 +168,29 @@
         $('#employee-modal .type').val(response.type);
         $('#employee-modal .auto-level-up').prop('checked', response.has_auto_level_up == 1);
         $('#employee-modal .position').val(response.position || '');
+
+         $.ajax({
+          method: 'POST',
+          url: "{{ route('admin.bonuses.wage.get') }}",
+          data: {
+            user_id: uid,
+            _token: "{{ csrf_token() }}"
+          }
+        })
+        .done(function(wageResponse){
+          if (wageResponse.ok && wageResponse.wage) {
+            $('#employee-modal .user-wage').val(wageResponse.wage.net_wage);
+            $('#employee-modal .user-currency').val(wageResponse.wage.currency);
+          } else {
+            $('#employee-modal .user-wage').val('');
+            $('#employee-modal .user-currency').val('HUF');
+          }
+        })
+        .fail(function(){
+          // Silently fail - wage is optional
+          $('#employee-modal .user-wage').val('');
+          $('#employee-modal .user-currency').val('HUF');
+        });
 
         // Üzleti tiltások (részlegvezető / részlegtag)
         applyTypeLocksFromResponse(response);
@@ -189,6 +237,22 @@
             const msg = (uid && parseInt(uid) > 0)
               ? "{{ __('admin/employees.modify-employee-success') }}"
               : "{{ __('admin/employees.new-employee-success') }}";
+              const netWage = $('#employee-modal .user-wage').val();
+              const currency = $('#employee-modal .user-currency').val();
+
+               if (netWage && parseFloat(netWage) > 0) {
+                $.ajax({
+                  method: 'POST',
+                  url: "{{ route('admin.bonuses.wage.save') }}",
+                  data: {
+                    user_id: uid || response.user_id,
+                    net_wage: netWage,
+                    currency: currency,
+                    _token: "{{ csrf_token() }}"
+                  }
+                });
+              }
+
             Swal.fire('{{ __('global.success') }}', msg, 'success').then(() => window.location.reload());
           })
           .fail(function(xhr){

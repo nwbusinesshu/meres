@@ -27,6 +27,8 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\CookieConsentController;
 use App\Http\Controllers\HelpChatController;
+use App\Http\Controllers\AdminBonusesController;
+
 
 
 
@@ -155,6 +157,15 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         Route::post('/start', 'start')->name('start');
         Route::get('/invoice/{id}', 'invoice')->name('invoice');
         Route::post('/refresh', 'refresh')->name('refresh');
+    });
+
+    Route::controller(AdminBonusesController::class)->name('bonuses.')->prefix('/bonuses')->group(function () {
+        Route::get('/index', 'index')->name('index');
+        Route::post('/wage/get', 'getWage')->name('wage.get');
+        Route::post('/wage/save', 'saveWage')->name('wage.save');
+        Route::post('/config/get', 'getMultiplierConfig')->name('config.get');
+        Route::post('/config/save', 'saveMultiplierConfig')->name('config.save');
+        Route::post('/payment/toggle', 'togglePayment')->name('payment.toggle');
     });
 
     // competency

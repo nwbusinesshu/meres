@@ -435,6 +435,17 @@ if (!$hasClosedAssessment) {
                     ->update(['level' => $bm->level]);
             }
 
+             try {
+                app(\App\Services\BonusCalculationService::class)
+                    ->processAssessmentBonuses($assessment->id);
+            } catch (\Exception $e) {
+                Log::error('Bonus calculation failed', [
+                    'assessment_id' => $assessment->id,
+                    'error' => $e->getMessage()
+                ]);
+                // Don't fail assessment close if bonus calc fails
+            }
+
             return response()->json([
                 'ok'        => true,
                 'message'   => 'Az értékelés sikeresen lezárva.',

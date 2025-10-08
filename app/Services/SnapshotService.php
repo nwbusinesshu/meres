@@ -53,6 +53,17 @@ class SnapshotService
             'ou.role',         // owner/admin/manager/employee  (szervezeten belüli "role")
         ]);
 
+    foreach ($orgUsers as $user) {
+        // Get current wage for this user
+        $wageData = DB::table('user_wages')
+            ->where('user_id', $user->id)
+            ->where('organization_id', $orgId)
+            ->first(['net_wage', 'currency']);
+        
+        $user->net_wage = $wageData ? (float) $wageData->net_wage : 0;
+        $user->currency = $wageData ? $wageData->currency : 'HUF';
+    }
+
     // --- User competencies (csak a konzisztens készlet) ---
     $userCompMap = DB::table('user_competency as uc')
         ->join('competency as c', 'c.id', '=', 'uc.competency_id')
