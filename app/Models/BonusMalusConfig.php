@@ -9,6 +9,12 @@ class BonusMalusConfig extends Model
     protected $table = 'bonus_malus_config';
     public $timestamps = false;
     
+    // Tell Laravel this table doesn't have an auto-incrementing ID
+    public $incrementing = false;
+    
+    // Since we have a composite key, set primaryKey to null
+    protected $primaryKey = null;
+    
     protected $fillable = [
         'organization_id',
         'level',
@@ -17,7 +23,7 @@ class BonusMalusConfig extends Model
 
     protected $casts = [
         'level' => 'integer',
-        'multiplier' => 'decimal:2',
+        'multiplier' => 'float',  // ✅ Changed from 'decimal:2' to 'float'
     ];
 
     /**

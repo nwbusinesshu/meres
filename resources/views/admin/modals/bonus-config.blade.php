@@ -208,33 +208,64 @@
 </style>
 
 <script>
-// Level names and categories
+// ============================================
+// ALL BONUS CONFIG MODAL JAVASCRIPT
+// ============================================
+
+$(document).ready(function() {
+    // Attach click handler to configure button
+    $('.trigger-config-multipliers').on('click', function() {
+        openBonusConfigModal();
+    });
+});
+
+// Level names and categories (labels come from translations)
 const levelData = {
-    1: { name: 'M04', category: 'malus', label: 'Malus 4' },
-    2: { name: 'M03', category: 'malus', label: 'Malus 3' },
-    3: { name: 'M02', category: 'malus', label: 'Malus 2' },
-    4: { name: 'M01', category: 'malus', label: 'Malus 1' },
-    5: { name: 'A00', category: 'neutral', label: 'Alapszint' },
-    6: { name: 'B01', category: 'bonus', label: 'Bónusz 1' },
-    7: { name: 'B02', category: 'bonus', label: 'Bónusz 2' },
-    8: { name: 'B03', category: 'bonus', label: 'Bónusz 3' },
-    9: { name: 'B04', category: 'bonus', label: 'Bónusz 4' },
-    10: { name: 'B05', category: 'bonus', label: 'Bónusz 5' },
-    11: { name: 'B06', category: 'bonus', label: 'Bónusz 6' },
-    12: { name: 'B07', category: 'bonus', label: 'Bónusz 7' },
-    13: { name: 'B08', category: 'bonus', label: 'Bónusz 8' },
-    14: { name: 'B09', category: 'bonus', label: 'Bónusz 9' },
-    15: { name: 'B10', category: 'bonus', label: 'Bónusz 10' }
+    1: { name: 'M04', category: 'malus' },
+    2: { name: 'M03', category: 'malus' },
+    3: { name: 'M02', category: 'malus' },
+    4: { name: 'M01', category: 'malus' },
+    5: { name: 'A00', category: 'neutral' },
+    6: { name: 'B01', category: 'bonus' },
+    7: { name: 'B02', category: 'bonus' },
+    8: { name: 'B03', category: 'bonus' },
+    9: { name: 'B04', category: 'bonus' },
+    10: { name: 'B05', category: 'bonus' },
+    11: { name: 'B06', category: 'bonus' },
+    12: { name: 'B07', category: 'bonus' },
+    13: { name: 'B08', category: 'bonus' },
+    14: { name: 'B09', category: 'bonus' },
+    15: { name: 'B10', category: 'bonus' }
+};
+
+// Level labels from translations
+const levelLabels = {
+    1: '{{ __("global.bonus-malus.1") }}',
+    2: '{{ __("global.bonus-malus.2") }}',
+    3: '{{ __("global.bonus-malus.3") }}',
+    4: '{{ __("global.bonus-malus.4") }}',
+    5: '{{ __("global.bonus-malus.5") }}',
+    6: '{{ __("global.bonus-malus.6") }}',
+    7: '{{ __("global.bonus-malus.7") }}',
+    8: '{{ __("global.bonus-malus.8") }}',
+    9: '{{ __("global.bonus-malus.9") }}',
+    10: '{{ __("global.bonus-malus.10") }}',
+    11: '{{ __("global.bonus-malus.11") }}',
+    12: '{{ __("global.bonus-malus.12") }}',
+    13: '{{ __("global.bonus-malus.13") }}',
+    14: '{{ __("global.bonus-malus.14") }}',
+    15: '{{ __("global.bonus-malus.15") }}'
 };
 
 // Default Hungarian multipliers
 const defaultMultipliers = {
     1: 0.00, 2: 0.40, 3: 0.70, 4: 0.90, 5: 1.00,
     6: 1.50, 7: 2.00, 8: 2.75, 9: 3.50, 10: 4.25,
-    11: 5.25, 12: 6.25, 13: 7.25, 14: 8.25, 15: 9.25
+    11: 5.25, 12: 6.25, 13: 7.25, 14: 8.25, 15: 10
 };
 
-function openMultiplierConfigModal() {
+// Open modal and load config
+function openBonusConfigModal() {
     $.ajax({
         url: '{{ route("admin.bonuses.config.get") }}',
         method: 'POST',
@@ -255,6 +286,7 @@ function openMultiplierConfigModal() {
     });
 }
 
+// Populate modal with multiplier data
 function populateMultiplierModal(config) {
     const $list = $('#multiplier-list');
     $list.empty();
@@ -264,6 +296,7 @@ function populateMultiplierModal(config) {
     config.forEach(item => {
         const level = item.level;
         const data = levelData[level];
+        const label = levelLabels[level];
         
         // Add category separator
         if (data.category !== currentCategory) {
@@ -282,8 +315,7 @@ function populateMultiplierModal(config) {
             <div class="multiplier-item">
                 <div class="multiplier-header">
                     <div>
-                        <span class="level-badge ${data.category}">${level}. ${data.name}</span>
-                        <span class="level-name ms-2">${data.label}</span>
+                        <span class="level-badge ${data.category}">${data.name}</span>
                     </div>
                     <div class="multiplier-value">
                         <span class="value-display" data-level="${level}">${multiplier.toFixed(2)}x</span>
@@ -294,7 +326,7 @@ function populateMultiplierModal(config) {
                            class="multiplier-slider" 
                            data-level="${level}"
                            min="0" 
-                           max="15" 
+                           max="10" 
                            step="0.25" 
                            value="${multiplier}"
                            oninput="updateMultiplierValue(${level}, this.value)">
@@ -316,17 +348,20 @@ function populateMultiplierModal(config) {
     });
 }
 
+// Update multiplier display value
 function updateMultiplierValue(level, value) {
     const formattedValue = parseFloat(value).toFixed(2);
     $(`.value-display[data-level="${level}"]`).text(formattedValue + 'x');
 }
 
+// Set quick value button
 function setQuickValue(level, value) {
     const $slider = $(`.multiplier-slider[data-level="${level}"]`);
     $slider.val(value);
     updateMultiplierValue(level, value);
 }
 
+// Save multiplier configuration
 function saveMultiplierConfig() {
     const multipliers = [];
     $('.multiplier-slider').each(function() {
@@ -341,7 +376,7 @@ function saveMultiplierConfig() {
         method: 'POST',
         data: {
             _token: '{{ csrf_token() }}',
-            config: multipliers
+            multipliers: multipliers  // ✅ Changed from 'config' to 'multipliers'
         },
         success: function(response) {
             if (response.ok) {
@@ -365,6 +400,7 @@ function saveMultiplierConfig() {
     });
 }
 
+// Reset multipliers to default
 function resetMultipliersToDefault() {
     Swal.fire({
         title: '{{ __("admin/bonuses.reset-confirm-title") }}',
