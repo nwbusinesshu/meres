@@ -205,6 +205,24 @@
 .category-separator::after {
     margin-left: 1rem;
 }
+
+/* Add this to the existing <style> section */
+
+.slider-wrapper {
+    flex: 1;
+    flex-direction: column;
+}
+
+.multiplier-slider {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #dc3545 0%, #ffc107 25%, #28a745 50%, #17a2b8 100%);
+    outline: none;
+    cursor: pointer;
+}
 </style>
 
 <script>
@@ -322,26 +340,27 @@ function populateMultiplierModal(config) {
                     </div>
                 </div>
                 <div class="multiplier-slider-container">
-                    <input type="range" 
-                           class="multiplier-slider" 
-                           data-level="${level}"
-                           min="0" 
-                           max="10" 
-                           step="0.25" 
-                           value="${multiplier}"
-                           oninput="updateMultiplierValue(${level}, this.value)">
+                    <div class="slider-wrapper">
+                        <input type="range" 
+                               class="multiplier-slider" 
+                               data-level="${level}"
+                               min="0" 
+                               max="10" 
+                               step="0.25" 
+                               value="${multiplier}"
+                               oninput="updateMultiplierValue(${level}, this.value)">
+                        <div class="slider-labels">
+                            <span>0x</span>
+                            <span>5x</span>
+                            <span>10x</span>
+                        </div>
+                    </div>
                     <div class="quick-buttons">
                         <button class="quick-btn" onclick="setQuickValue(${level}, 0)" title="0x">0</button>
                         <button class="quick-btn" onclick="setQuickValue(${level}, 1)" title="1x">1</button>
                         <button class="quick-btn" onclick="setQuickValue(${level}, 5)" title="5x">5</button>
                         <button class="quick-btn" onclick="setQuickValue(${level}, 10)" title="10x">10</button>
                     </div>
-                </div>
-                <div class="slider-labels">
-                    <span>0x</span>
-                    <span>5x</span>
-                    <span>10x</span>
-                    <span>15x</span>
                 </div>
             </div>
         `);

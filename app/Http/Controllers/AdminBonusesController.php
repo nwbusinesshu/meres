@@ -15,61 +15,80 @@ class AdminBonusesController extends Controller
     /**
      * Main bonuses page
      */
-    public function index(Request $request)
-{
-    $orgId = (int) session('org_id');
-    
-    // ✅ Check BOTH settings - both must be enabled
-    $showBonusMalus = OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
-    $enableBonusCalculation = OrgConfigService::getBool($orgId, 'enable_bonus_calculation', false);
-    
-    if (!$showBonusMalus || !$enableBonusCalculation) {
-        return redirect()->route('admin.home')
-            ->with('error', 'A bónusz funkció nincs engedélyezve. Kapcsold be a Beállításokban.');
-    }
+    public function index(Request $request, $assessmentId = null)
+    {
+        $orgId = (int) session('org_id');
+        
+        // ✅ Check BOTH settings - both must be enabled
+        $showBonusMalus = OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
+        $enableBonusCalculation = OrgConfigService::getBool($orgId, 'enable_bonus_calculation', false);
+        
+        if (!$showBonusMalus || !$enableBonusCalculation) {
+            return redirect()->route('admin.home')
+                ->with('error', 'A bónusz funkció nincs engedélyezve. Kapcsold be a Beállításokban.');
+        }
 
-    // Get closed assessments for dropdown
-    $assessments = Assessment::where('organization_id', $orgId)
-        ->whereNotNull('closed_at')
-        ->orderBy('closed_at', 'desc')
-        ->get(['id', 'started_at', 'closed_at']);
+        // Get selected assessment (from route param or default to latest)
+        $assessment = $assessmentId
+            ? Assessment::where('organization_id', $orgId)->whereNotNull('closed_at')->find($assessmentId)
+            : Assessment::where('organization_id', $orgId)->whereNotNull('closed_at')->orderByDesc('closed_at')->first();
 
-    // Get selected assessment (default to latest)
-    $selectedAssessmentId = $request->input('assessment_id', $assessments->first()?->id);
+        // If no closed assessments exist
+        if (!$assessment) {
+            return view('admin.bonuses', [
+                'assessment' => null,
+                'prevAssessment' => null,
+                'nextAssessment' => null,
+                'bonuses' => collect(),
+                'totalBonus' => 0,
+                'paidCount' => 0,
+                'unpaidCount' => 0,
+                'enableMultiLevel' => OrgConfigService::getBool($orgId, 'enable_multi_level', false),
+                'employeesSeeBonuses' => OrgConfigService::getBool($orgId, 'employees_see_bonuses', false),
+            ]);
+        }
 
-    // Get bonuses for selected assessment
-    $bonuses = [];
-    $totalBonus = 0;
-    $paidCount = 0;
-    $unpaidCount = 0;
+        // Get previous assessment (older than current)
+        $prevAssessment = Assessment::where('organization_id', $orgId)
+            ->whereNotNull('closed_at')
+            ->where('closed_at', '<', $assessment->closed_at)
+            ->orderByDesc('closed_at')
+            ->first();
 
-    if ($selectedAssessmentId) {
-        $bonuses = AssessmentBonus::where('assessment_id', $selectedAssessmentId)
+        // Get next assessment (newer than current)
+        $nextAssessment = Assessment::where('organization_id', $orgId)
+            ->whereNotNull('closed_at')
+            ->where('closed_at', '>', $assessment->closed_at)
+            ->orderBy('closed_at')
+            ->first();
+
+        // Get bonuses for selected assessment
+        $bonuses = AssessmentBonus::where('assessment_id', $assessment->id)
             ->with('user')
             ->get();
 
         $totalBonus = $bonuses->sum('bonus_amount');
         $paidCount = $bonuses->where('is_paid', true)->count();
         $unpaidCount = $bonuses->where('is_paid', false)->count();
+
+        // Multi-level settings
+        $enableMultiLevel = OrgConfigService::getBool($orgId, 'enable_multi_level', false);
+
+        // Employee visibility setting
+        $employeesSeeBonuses = OrgConfigService::getBool($orgId, 'employees_see_bonuses', false);
+
+        return view('admin.bonuses', [
+            'assessment' => $assessment,
+            'prevAssessment' => $prevAssessment,
+            'nextAssessment' => $nextAssessment,
+            'bonuses' => $bonuses,
+            'totalBonus' => $totalBonus,
+            'paidCount' => $paidCount,
+            'unpaidCount' => $unpaidCount,
+            'enableMultiLevel' => $enableMultiLevel,
+            'employeesSeeBonuses' => $employeesSeeBonuses,
+        ]);
     }
-
-    // Multi-level settings
-    $enableMultiLevel = OrgConfigService::getBool($orgId, 'enable_multi_level', false);
-
-    // Employee visibility setting
-    $employeesSeeBonuses = OrgConfigService::getBool($orgId, 'employees_see_bonuses', false);
-
-    return view('admin.bonuses', [
-        'assessments' => $assessments,
-        'selectedAssessmentId' => $selectedAssessmentId,
-        'bonuses' => $bonuses,
-        'totalBonus' => $totalBonus,
-        'paidCount' => $paidCount,
-        'unpaidCount' => $unpaidCount,
-        'enableMultiLevel' => $enableMultiLevel,
-        'employeesSeeBonuses' => $employeesSeeBonuses,
-    ]);
-}
 
     /**
      * Get user wage
@@ -136,27 +155,27 @@ class AdminBonusesController extends Controller
         ]);
     }
 
-public function saveMultiplierConfig(Request $request)
-{
-    $request->validate([
-        'multipliers' => 'required|array',
-        'multipliers.*.level' => 'required|integer|between:1,15',
-        'multipliers.*.multiplier' => 'required|numeric|between:0,15',
-    ]);
+    public function saveMultiplierConfig(Request $request)
+    {
+        $request->validate([
+            'multipliers' => 'required|array',
+            'multipliers.*.level' => 'required|integer|between:1,15',
+            'multipliers.*.multiplier' => 'required|numeric|between:0,15',
+        ]);
 
-    $orgId = (int) session('org_id');
+        $orgId = (int) session('org_id');
 
-    DB::transaction(function () use ($request, $orgId) {
-        foreach ($request->multipliers as $item) {
-            DB::table('bonus_malus_config')
-                ->where('organization_id', $orgId)
-                ->where('level', $item['level'])
-                ->update(['multiplier' => $item['multiplier']]);
-        }
-    });
+        DB::transaction(function () use ($request, $orgId) {
+            foreach ($request->multipliers as $item) {
+                DB::table('bonus_malus_config')
+                    ->where('organization_id', $orgId)
+                    ->where('level', $item['level'])
+                    ->update(['multiplier' => $item['multiplier']]);
+            }
+        });
 
-    return response()->json(['ok' => true]);
-}
+        return response()->json(['ok' => true]);
+    }
 
     /**
      * Toggle payment status

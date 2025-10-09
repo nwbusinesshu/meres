@@ -1,64 +1,58 @@
+{{-- resources/views/admin/bonuses.blade.php --}}
 @extends('layouts.master')
 
-@section('content')
-<div class="container-fluid">
-    <h2>{{ __('admin/bonuses.title') }}</h2>
+@section('head-extra')
+@endsection
 
-    {{-- Assessment Selector --}}
-    <div class="tile">
-        <div class="tile-header">
-            <h3>{{ __('admin/bonuses.select-assessment') }}</h3>
+@section('content')
+<h1>{{ __('admin/bonuses.title') }}</h1>
+
+@if ($assessment)
+    {{-- Period Navigation --}}
+    <div class="period-nav">
+        <a class="nav-btn {{ $prevAssessment ? '' : 'is-disabled' }}"
+           @if($prevAssessment) href="{{ route('admin.bonuses.index', $prevAssessment->id) }}" @endif
+           aria-label="{{ __('admin/bonuses.previous-period') }}">
+            <i class="fa fa-chevron-left" aria-hidden="true"></i>
+        </a>
+
+        <div class="period-chip" title="{{ __('admin/bonuses.assessment-period') }}">
+            <i class="fa fa-calendar" aria-hidden="true"></i>
+            <span>{{ \Carbon\Carbon::parse($assessment->closed_at)->translatedFormat('Y. m') }}</span>
         </div>
-        <div class="tile-body">
-            <div class="form-group">
-                <label>{{ __('admin/bonuses.assessment-period') }}</label>
-                <select id="assessment-selector" class="form-control">
-                    @forelse($assessments as $assessment)
-                        <option value="{{ $assessment->id }}" 
-                            {{ $selectedAssessmentId == $assessment->id ? 'selected' : '' }}>
-            {{ $assessment->started_at->format('Y-m-d') }} - {{ $assessment->closed_at->format('Y-m-d') }}
-                        </option>
-                    @empty
-                        <option value="">{{ __('admin/bonuses.no-closed-assessments') }}</option>
-                    @endforelse
-                </select>
-            </div>
-            
-            {{-- ✅ REMOVED: Configure multipliers button moved to settings page --}}
+
+        <a class="nav-btn {{ $nextAssessment ? '' : 'is-disabled' }}"
+           @if($nextAssessment) href="{{ route('admin.bonuses.index', $nextAssessment->id) }}" @endif
+           aria-label="{{ __('admin/bonuses.next-period') }}">
+            <i class="fa fa-chevron-right" aria-hidden="true"></i>
+        </a>
+    </div>
+
+    {{-- Summary Stats --}}
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ number_format($totalBonus, 0, ',', ' ') }} HUF</div>
+            <div class="stat-label">{{ __('admin/bonuses.total-bonuses') }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ $paidCount }}</div>
+            <div class="stat-label">{{ __('admin/bonuses.paid') }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ $unpaidCount }}</div>
+            <div class="stat-label">{{ __('admin/bonuses.unpaid') }}</div>
         </div>
     </div>
 
-    @if($selectedAssessmentId)
-        {{-- Summary Stats --}}
-        <div class="row mb-4">
-            <div class="col-md-4">
-                <div class="tile stat-card">
-                    <div class="stat-value">{{ number_format($totalBonus, 0, ',', ' ') }} HUF</div>
-                    <div class="stat-label">{{ __('admin/bonuses.total-bonuses') }}</div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="tile stat-card">
-                    <div class="stat-value">{{ $paidCount }}</div>
-                    <div class="stat-label">{{ __('admin/bonuses.paid') }}</div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="tile stat-card">
-                    <div class="stat-value">{{ $unpaidCount }}</div>
-                    <div class="stat-label">{{ __('admin/bonuses.unpaid') }}</div>
-                </div>
-            </div>
-        </div>
-
-        {{-- Bonus List Table --}}
-        <div class="tile">
-            <div class="tile-header">
+    {{-- Bonus List Table --}}
+    @if($bonuses->isNotEmpty())
+        <div class="bonus-table-container">
+            <div class="bonus-table-header">
                 <h3>{{ __('admin/bonuses.bonus-list') }}</h3>
             </div>
-            <div class="tile-body">
+            <div class="bonus-table-body">
                 <div class="table-responsive">
-                    <table class="table table-hover">
+                    <table class="bonus-table">
                         <thead>
                             <tr>
                                 <th>{{ __('admin/bonuses.employee') }}</th>
@@ -74,7 +68,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($bonuses as $bonus)
+                            @foreach($bonuses as $bonus)
                                 <tr>
                                     <td>{{ $bonus->user->name }}</td>
                                     @if($enableMultiLevel)
@@ -102,63 +96,27 @@
                                         <span class="ml-2">{{ $bonus->is_paid ? __('admin/bonuses.paid') : __('admin/bonuses.unpaid') }}</span>
                                     </td>
                                 </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="{{ $enableMultiLevel ? '8' : '7' }}" class="text-center text-muted">
-                                        {{ __('admin/bonuses.no-bonuses') }}
-                                    </td>
-                                </tr>
-                            @endforelse
+                            @endforeach
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
+    @else
+        <div class="tile tile-info">
+            <i class="fa fa-inbox"></i>
+            <p>{{ __('admin/bonuses.no-bonuses') }}</p>
+        </div>
     @endif
-</div>
-
-{{-- ✅ REMOVED: Modal include - now in settings page --}}
+@else
+    {{-- No closed assessments --}}
+    <div class="tile tile-info">
+        <i class="fa fa-exclamation-triangle"></i>
+        <strong>{{ __('admin/bonuses.no-closed-assessments') }}</strong>
+        <p>{{ __('admin/bonuses.close-assessment-first') }}</p>
+    </div>
+@endif
 @endsection
 
 @section('scripts')
-<script>
-$(document).ready(function() {
-    // Assessment selector change
-    $('#assessment-selector').on('change', function() {
-        const assessmentId = $(this).val();
-        if (assessmentId) {
-            window.location.href = "{{ route('admin.bonuses.index') }}?assessment_id=" + assessmentId;
-        }
-    });
-
-    // ✅ REMOVED: Configure multipliers button handler - moved to settings
-
-    // Toggle payment status
-    $('.toggle-payment').on('change', function() {
-        const bonusId = $(this).data('bonus-id');
-        const isPaid = $(this).is(':checked');
-        
-        $.ajax({
-            url: "{{ route('admin.bonuses.payment.toggle') }}",
-            method: 'POST',
-            data: {
-                bonus_id: bonusId,
-                is_paid: isPaid ? 1 : 0,
-                _token: "{{ csrf_token() }}"
-            },
-            success: function(response) {
-                if (response.ok) {
-                    // Reload to update stats
-                    window.location.reload();
-                }
-            },
-            error: function() {
-                // Revert checkbox on error
-                $(this).prop('checked', !isPaid);
-                Swal.fire('Error', '{{ __('admin/bonuses.payment-update-error') }}', 'error');
-            }
-        });
-    });
-});
-</script>
 @endsection

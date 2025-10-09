@@ -160,7 +160,7 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
     });
 
     Route::controller(AdminBonusesController::class)->name('bonuses.')->prefix('/bonuses')->group(function () {
-        Route::get('/index', 'index')->name('index');
+        Route::get('/{assessmentId?}', 'index')->name('index');
         Route::post('/wage/get', 'getWage')->name('wage.get');
         Route::post('/wage/save', 'saveWage')->name('wage.save');
         Route::post('/config/get', 'getMultiplierConfig')->name('config.get');

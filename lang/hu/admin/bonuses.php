@@ -108,4 +108,9 @@ return [
     'marked-paid' => 'Kifizetettnek jelölve',
     'marked-unpaid' => 'Kijelölve ki nem fizetettként',
     'toggle-failed' => 'Nem sikerült módosítani a státuszt',
+
+    'previous-period' => 'Előző időszak',
+    'next-period' => 'Következő időszak',
+    'close-assessment-first' => 'Először zárj le egy értékelést a bónuszok megtekintéséhez.',
+    'no-bonuses' => 'Nincsenek kifizetendő bónuszok a mérési időszakban!',
 ];
