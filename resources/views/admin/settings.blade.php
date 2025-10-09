@@ -68,13 +68,39 @@
 
 {{-- ===== BÓNUSZOK / FIZETÉSEK ===== --}}
 <div class="settings-grid">
+  {{-- Bónuszok megjelenítése alkalmazottaknak --}}
+  
+
+  {{-- ✅ NEW: Enable bonus calculation by net wage --}}
+  <div class="tile tile-info">
+    <div class="text">
+      <div class="title"><h3>{{ __('admin/bonuses.enable-bonus-calculation') }}</h3></div>
+      <div class="meta">{{ __('admin/bonuses.enable-bonus-calculation-description') }}</div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <label class="switch">
+        <input type="checkbox" id="toggle-enable-bonus-calculation" 
+               {{ $enableBonusCalculation ? 'checked' : '' }}
+               {{ !$showBonusMalus ? 'disabled' : '' }}>
+        <span class="slider"></span>
+      </label>
+      {{-- Config button --}}
+      <button class="btn btn-sm btn-secondary trigger-config-multipliers" 
+              style="white-space: nowrap;"
+              {{ !$showBonusMalus ? 'disabled' : '' }}>
+        <i class="fa fa-cog"></i> {{ __('admin/bonuses.configure-multipliers') }}
+      </button>
+    </div>
+  </div>
   <div class="tile tile-info">
     <div class="text">
       <div class="title"><h3>{{ __('admin/bonuses.employees-see-bonuses') }}</h3></div>
       <div class="meta">{{ __('admin/bonuses.employees-see-bonuses-description') }}</div>
     </div>
     <label class="switch">
-      <input type="checkbox" id="toggle-employees-see-bonuses" {{ $employeesSeeBonuses ? 'checked' : '' }}>
+      <input type="checkbox" id="toggle-employees-see-bonuses" 
+             {{ $employeesSeeBonuses ? 'checked' : '' }}
+             {{ (!$showBonusMalus || !$enableBonusCalculation) ? 'disabled' : '' }}>
       <span class="slider"></span>
     </label>
   </div>
@@ -401,7 +427,11 @@
     </div>
   </div>
 </form>
+@include('admin.modals.bonus-config')
 @endsection
+
+
+
 
 @section('scripts')
 @endsection

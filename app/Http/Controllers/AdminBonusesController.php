@@ -16,58 +16,60 @@ class AdminBonusesController extends Controller
      * Main bonuses page
      */
     public function index(Request $request)
-    {
-        $orgId = (int) session('org_id');
-        
-        // Check if bonus-malus is enabled
-        $showBonusMalus = OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
-        if (!$showBonusMalus) {
-            return redirect()->route('admin.home')
-                ->with('error', __('admin/bonuses.feature-disabled'));
-        }
-
-        // Get closed assessments for dropdown
-        $assessments = Assessment::where('organization_id', $orgId)
-            ->whereNotNull('closed_at')
-            ->orderBy('closed_at', 'desc')
-            ->get(['id', 'started_at', 'closed_at']);
-
-        // Get selected assessment (default to latest)
-        $selectedAssessmentId = $request->input('assessment_id', $assessments->first()?->id);
-
-        // Get bonuses for selected assessment
-        $bonuses = [];
-        $totalBonus = 0;
-        $paidCount = 0;
-        $unpaidCount = 0;
-
-        if ($selectedAssessmentId) {
-            $bonuses = AssessmentBonus::where('assessment_id', $selectedAssessmentId)
-                ->with('user')
-                ->get();
-
-            $totalBonus = $bonuses->sum('bonus_amount');
-            $paidCount = $bonuses->where('is_paid', true)->count();
-            $unpaidCount = $bonuses->where('is_paid', false)->count();
-        }
-
-        // Multi-level settings
-        $enableMultiLevel = OrgConfigService::getBool($orgId, 'enable_multi_level', false);
-
-        // Employee visibility setting
-        $employeesSeeBonuses = OrgConfigService::getBool($orgId, 'employees_see_bonuses', false);
-
-        return view('admin.bonuses', [
-            'assessments' => $assessments,
-            'selectedAssessmentId' => $selectedAssessmentId,
-            'bonuses' => $bonuses,
-            'totalBonus' => $totalBonus,
-            'paidCount' => $paidCount,
-            'unpaidCount' => $unpaidCount,
-            'enableMultiLevel' => $enableMultiLevel,
-            'employeesSeeBonuses' => $employeesSeeBonuses,
-        ]);
+{
+    $orgId = (int) session('org_id');
+    
+    // ✅ Check BOTH settings - both must be enabled
+    $showBonusMalus = OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
+    $enableBonusCalculation = OrgConfigService::getBool($orgId, 'enable_bonus_calculation', false);
+    
+    if (!$showBonusMalus || !$enableBonusCalculation) {
+        return redirect()->route('admin.home')
+            ->with('error', 'A bónusz funkció nincs engedélyezve. Kapcsold be a Beállításokban.');
     }
+
+    // Get closed assessments for dropdown
+    $assessments = Assessment::where('organization_id', $orgId)
+        ->whereNotNull('closed_at')
+        ->orderBy('closed_at', 'desc')
+        ->get(['id', 'started_at', 'closed_at']);
+
+    // Get selected assessment (default to latest)
+    $selectedAssessmentId = $request->input('assessment_id', $assessments->first()?->id);
+
+    // Get bonuses for selected assessment
+    $bonuses = [];
+    $totalBonus = 0;
+    $paidCount = 0;
+    $unpaidCount = 0;
+
+    if ($selectedAssessmentId) {
+        $bonuses = AssessmentBonus::where('assessment_id', $selectedAssessmentId)
+            ->with('user')
+            ->get();
+
+        $totalBonus = $bonuses->sum('bonus_amount');
+        $paidCount = $bonuses->where('is_paid', true)->count();
+        $unpaidCount = $bonuses->where('is_paid', false)->count();
+    }
+
+    // Multi-level settings
+    $enableMultiLevel = OrgConfigService::getBool($orgId, 'enable_multi_level', false);
+
+    // Employee visibility setting
+    $employeesSeeBonuses = OrgConfigService::getBool($orgId, 'employees_see_bonuses', false);
+
+    return view('admin.bonuses', [
+        'assessments' => $assessments,
+        'selectedAssessmentId' => $selectedAssessmentId,
+        'bonuses' => $bonuses,
+        'totalBonus' => $totalBonus,
+        'paidCount' => $paidCount,
+        'unpaidCount' => $unpaidCount,
+        'enableMultiLevel' => $enableMultiLevel,
+        'employeesSeeBonuses' => $employeesSeeBonuses,
+    ]);
+}
 
     /**
      * Get user wage

@@ -3,53 +3,63 @@
     <img src="{{ asset('assets/logo/quarma360.svg') }}" alt="mewo-logo">
   </div>
 
-  @php
-    use Illuminate\Support\Facades\Auth;
-    use App\Models\Enums\UserType;
-    use App\Services\AssessmentService;
+@php
+  use Illuminate\Support\Facades\Auth;
+  use App\Models\Enums\UserType;
+  use App\Services\AssessmentService;
 
-    $user = Auth::user();
-    $orgId = session('org_id');
-    $isSuperadmin = $user && $user->type === UserType::SUPERADMIN;
-    $hasOrg = session()->has('org_id');
+  $user = Auth::user();
+  $orgId = session('org_id');
+  $isSuperadmin = $user && $user->type === UserType::SUPERADMIN;
+  $hasOrg = session()->has('org_id');
 
-    $organizations = collect();
-    $currentOrg = null;
+  $organizations = collect();
+  $currentOrg = null;
 
-    if ($user) {
-        if ($user->type === UserType::SUPERADMIN) {
-            $organizations = \App\Models\Organization::whereNull('removed_at')->get();
-        } elseif ($user->type === UserType::ADMIN) {
-            $organizations = $user->organizations()
-                                  ->wherePivot('role', 'admin')
-                                  ->whereNull('organization.removed_at')
-                                  ->get();
-        } else {
-            $organizations = $user->organizations()
-                                  ->whereNull('organization.removed_at')
-                                  ->get();
-        }
+  if ($user) {
+      if ($user->type === UserType::SUPERADMIN) {
+          $organizations = \App\Models\Organization::whereNull('removed_at')->get();
+      } elseif ($user->type === UserType::ADMIN) {
+          $organizations = $user->organizations()
+                                ->wherePivot('role', 'admin')
+                                ->whereNull('organization.removed_at')
+                                ->get();
+      } else {
+          $organizations = $user->organizations()
+                                ->whereNull('organization.removed_at')
+                                ->get();
+      }
 
-        $currentOrg = $organizations->firstWhere('id', $orgId);
-    }
+      $currentOrg = $organizations->firstWhere('id', $orgId);
+  }
 
-    // ✅ UPDATED: Add bonuses route to config child routes
-    $configChildRoutes = [
-      'admin.employee.index',
-      'admin.competency.index',
-      'admin.ceoranks.index',
-      'admin.bonuses.index', // ✅ ADDED
-      'admin.settings.index',
-      'admin.payments.index',
-    ];
-    $isOnConfigChild = request()->routeIs($configChildRoutes);
-    
-    // ✅ NEW: Check if bonus-malus should be shown
-    $showBonusMalus = true;
-    if ($user && $user->type === UserType::ADMIN && $orgId) {
-      $showBonusMalus = \App\Services\OrgConfigService::getBool((int)$orgId, 'show_bonus_malus', true);
-    }
-  @endphp
+  // Config child routes (for dropdown active state)
+  $configChildRoutes = [
+    'admin.employee.index',
+    'admin.competency.index',
+    'admin.ceoranks.index',
+    'admin.settings.index',
+    'admin.payments.index',
+  ];
+  $isOnConfigChild = request()->routeIs($configChildRoutes);
+  
+   // ✅ Check if bonuses should be shown (both settings must be ON)
+  $showBonuses = false;
+if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
+  $showBonusMalus = \App\Services\OrgConfigService::getBool((int)$orgId, 'show_bonus_malus', true);
+  $enableBonusCalculation = \App\Services\OrgConfigService::getBool((int)$orgId, 'enable_bonus_calculation', false);
+  $showBonuses = $showBonusMalus && $enableBonusCalculation; // ✅ Both must be ON
+}
+
+  // ✅ Check for unpaid payments (for conditional payments button display)
+  $hasUnpaidPayment = false;
+  if ($orgId) {
+      $hasUnpaidPayment = DB::table('payments')
+          ->where('organization_id', $orgId)
+          ->where('status', '!=', 'paid')
+          ->exists();
+  }
+@endphp
 
   <div class="menuitems">
     @if ($isSuperadmin && !$hasOrg)
@@ -76,6 +86,13 @@
           <i class="fa fa-chart-line"></i>
           <span>{{ __('titles.admin.results') }}</span>
         </a>
+
+         @if($showBonuses)
+        <a class="menuitem" href="{{ route('admin.bonuses.index') }}" data-route="admin.bonuses.index">
+          <i class="fa fa-money-bill-wave"></i>
+          <span>{{ __('titles.admin.bonuses') }}</span>
+        </a>
+      @endif
 
         @if (!AssessmentService::isAssessmentRunning())
           <div class="menuitem dropdown-toggle {{ $isOnConfigChild ? 'active' : '' }}" id="config-dropdown-toggle">
@@ -178,15 +195,6 @@
       <i class="fa fa-ranking-star"></i>
       <span>{{ __('titles.admin.ceoranks') }}</span>
     </a>
-    
-    {{-- ✅ NEW: BONUSES MENU ITEM (only shown if show_bonus_malus is enabled) --}}
-    @if($showBonusMalus)
-      <a class="menuitem {{ request()->routeIs('admin.bonuses.index') ? 'active' : '' }}" 
-         href="{{ route('admin.bonuses.index') }}" data-route="admin.bonuses.index">
-        <i class="fa fa-money-bill-wave"></i>
-        <span>{{ __('titles.admin.bonuses') }}</span>
-      </a>
-    @endif
     
     <a class="menuitem {{ request()->routeIs('admin.settings.index') ? 'active' : '' }}" 
        href="{{ route('admin.settings.index') }}" data-route="admin.settings.index">

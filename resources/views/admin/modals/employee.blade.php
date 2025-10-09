@@ -22,7 +22,20 @@
           </div>
         </div>
         @php
+        use Illuminate\Support\Facades\Auth;
+  use App\Models\Enums\UserType;
+  use App\Services\AssessmentService;
+   $user = Auth::user();
+  $orgId = session('org_id');
+  $isSuperadmin = $user && $user->type === UserType::SUPERADMIN;
+  $hasOrg = session()->has('org_id');
           $enableMultiLevel = \App\Services\OrgConfigService::getBool((int)session('org_id'), 'enable_multi_level', false);
+          $showBonuses = false;
+if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
+  $showBonusMalus = \App\Services\OrgConfigService::getBool((int)$orgId, 'show_bonus_malus', true);
+  $enableBonusCalculation = \App\Services\OrgConfigService::getBool((int)$orgId, 'enable_bonus_calculation', false);
+  $showBonuses = $showBonusMalus && $enableBonusCalculation; // ✅ Both must be ON
+}
         @endphp
 
         <div class="form-row" data-enable-multi="{{ $enableMultiLevel ? '1' : '0' }}">
@@ -45,6 +58,7 @@
           </div>
 
           {{-- WAGE INPUT SECTION --}}
+          @if($showBonuses)
           <div class="form-group">
             <label>{{ __('admin/bonuses.net-wage') }}</label>
             <div class="input-group">
@@ -66,6 +80,7 @@
                 {{ __('admin/bonuses.wage-help-text') }}
             </small>
           </div>
+          @endif
         </div>
 
         

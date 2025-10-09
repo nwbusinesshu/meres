@@ -19,8 +19,27 @@ class AdminSettingsController extends Controller
         $easyRelationSetup = OrgConfigService::getBool($orgId, 'easy_relation_setup', false);
         $forceOauth2fa = OrgConfigService::getBool($orgId, 'force_oauth_2fa', false);
         
-        // ✅ NEW: Bonuses visibility setting
         $employeesSeeBonuses = OrgConfigService::getBool($orgId, 'employees_see_bonuses', false);
+        $enableBonusCalculation = OrgConfigService::getBool($orgId, 'enable_bonus_calculation', false);
+
+        // ✅ ENFORCE CASCADING RULES ON LOAD
+        // Rule 1: If bonus-malus is OFF, force others OFF
+        if (!$showBonusMalus) {
+            if ($enableBonusCalculation) {
+                OrgConfigService::setBool($orgId, 'enable_bonus_calculation', false);
+                $enableBonusCalculation = false;
+            }
+            if ($employeesSeeBonuses) {
+                OrgConfigService::setBool($orgId, 'employees_see_bonuses', false);
+                $employeesSeeBonuses = false;
+            }
+        }
+        
+        // Rule 2: If bonus calculation is OFF, force employees_see_bonuses OFF
+        if (!$enableBonusCalculation && $employeesSeeBonuses) {
+            OrgConfigService::setBool($orgId, 'employees_see_bonuses', false);
+            $employeesSeeBonuses = false;
+        }
 
         // kizárólagosság biztosítása (ha strict anon ON, akkor AI OFF)
         if ($strictAnon && $aiTelemetry) {
@@ -58,7 +77,8 @@ class AdminSettingsController extends Controller
             'showBonusMalus',
             'easyRelationSetup',
             'forceOauth2fa',
-            'employeesSeeBonuses', // ✅ NEW
+            'employeesSeeBonuses',
+            'enableBonusCalculation',
             'thresholdMode',
             'thresholdMinAbsUp',
             'thresholdTopPct',
@@ -90,15 +110,55 @@ class AdminSettingsController extends Controller
         $key = $request->key;
         $val = $request->value;
 
-        // ✅ NEW: Handle employees_see_bonuses toggle
-        if ($key === 'employees_see_bonuses') {
-            \App\Services\OrgConfigService::setBool($orgId, 'employees_see_bonuses', $val);
+        // ✅ CASCADING RULE: show_bonus_malus
+        if ($key === 'show_bonus_malus') {
+            OrgConfigService::setBool($orgId, 'show_bonus_malus', $val);
+            
+            // If turning OFF, cascade disable all child settings
+            if (!$val) {
+                OrgConfigService::setBool($orgId, 'enable_bonus_calculation', false);
+                OrgConfigService::setBool($orgId, 'employees_see_bonuses', false);
+            }
+            
             return response()->json(['ok' => true]);
         }
 
-        // Handle show_bonus_malus toggle
-        if ($key === 'show_bonus_malus') {
-            \App\Services\OrgConfigService::setBool($orgId, 'show_bonus_malus', $val);
+        // ✅ CASCADING RULE: enable_bonus_calculation
+        if ($key === 'enable_bonus_calculation') {
+            // Check if parent is enabled
+            $showBonusMalus = OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
+            
+            if (!$showBonusMalus) {
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'A Bonus/Malus megjelenítés ki van kapcsolva.'
+                ], 422);
+            }
+            
+            OrgConfigService::setBool($orgId, 'enable_bonus_calculation', $val);
+            
+            // If turning OFF, cascade disable employees_see_bonuses
+            if (!$val) {
+                OrgConfigService::setBool($orgId, 'employees_see_bonuses', false);
+            }
+            
+            return response()->json(['ok' => true, 'reload' => true]); // Reload to update navbar
+        }
+
+        // ✅ CASCADING RULE: employees_see_bonuses
+        if ($key === 'employees_see_bonuses') {
+            // Check if parents are enabled
+            $showBonusMalus = OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
+            $enableBonusCalculation = OrgConfigService::getBool($orgId, 'enable_bonus_calculation', false);
+            
+            if (!$showBonusMalus || !$enableBonusCalculation) {
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'A szülő beállítások (Bonus/Malus megjelenítés és Bónusz számítás) ki vannak kapcsolva.'
+                ], 422);
+            }
+            
+            OrgConfigService::setBool($orgId, 'employees_see_bonuses', $val);
             return response()->json(['ok' => true]);
         }
 
@@ -117,52 +177,56 @@ class AdminSettingsController extends Controller
         // Handle enable_multi_level toggle
         if ($key === 'enable_multi_level') {
             $current = \App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false);
-
-            if ($current) {
-                return response()->json(['ok' => true, 'already_on' => true]);
-            }
-
-            if ($val === true) {
+            if (!$current && $val) {
                 \App\Services\OrgConfigService::setBool($orgId, 'enable_multi_level', true);
-                return response()->json(['ok' => true, 'enabled' => true]);
-            } else {
-                return response()->json(['ok' => true, 'noop' => true]);
+                return response()->json(['ok' => true, 'reload' => true]);
             }
+            return response()->json(['ok' => true]);
         }
 
-        // --- EDDIGI KÉT KAPCSOLÓ VÁLTOZATLANUL ---
-        if ($key === \App\Services\OrgConfigService::STRICT_ANON_KEY) {
-            $strict = $val === true;
-            \App\Services\OrgConfigService::setBool($orgId, $key, $strict);
-            if ($strict) {
-                \App\Services\OrgConfigService::setBool($orgId, \App\Services\OrgConfigService::AI_TELEMETRY_KEY, false);
+        // Handle AI toggle + strict anon exclusivity
+        if ($key === OrgConfigService::AI_TELEMETRY_KEY) {
+            if ($val === true) {
+                $strict = \App\Services\OrgConfigService::getBool($orgId, OrgConfigService::STRICT_ANON_KEY, false);
+                if ($strict) {
+                    return response()->json([
+                        'ok' => false,
+                        'error' => 'A Szigorú anonimizálás be van kapcsolva, így az AI telemetria nem engedélyezhető.'
+                    ], 422);
+                }
             }
-        } else { // AI_TELEMETRY_KEY
-            $strictAnon = \App\Services\OrgConfigService::getBool($orgId, \App\Services\OrgConfigService::STRICT_ANON_KEY, false);
-            if ($strictAnon) {
-                return response()->json([
-                    'ok' => false,
-                    'message' => 'AI telemetria nem engedélyezhető strict anonymous üzemmódban.'
-                ], 422);
-            }
-            \App\Services\OrgConfigService::setBool($orgId, $key, $val);
+            \App\Services\OrgConfigService::setBool($orgId, OrgConfigService::AI_TELEMETRY_KEY, $val);
+            return response()->json(['ok' => true]);
         }
 
-        return response()->json(['ok' => true]);
+        // Handle Strict Anon toggle + disabling AI
+        if ($key === OrgConfigService::STRICT_ANON_KEY) {
+            if ($val === true) {
+                \App\Services\OrgConfigService::setBool($orgId, OrgConfigService::AI_TELEMETRY_KEY, false);
+            }
+            \App\Services\OrgConfigService::setBool($orgId, OrgConfigService::STRICT_ANON_KEY, $val);
+            return response()->json(['ok' => true, 'reload' => true]);
+        }
+
+        return response()->json([
+            'ok' => false,
+            'error' => 'Ismeretlen beállítás.'
+        ], 400);
     }
 
-    public function saveThresholds(Request $request)
+    public function save(Request $request)
     {
         $orgId = (int) session('org_id');
 
-        // === 1) A mód mentése ===
-        $mode = $request->input('threshold_mode', 'fixed');
-        if (!in_array($mode, ['fixed','hybrid','dynamic','suggested'], true)) {
-            $mode = 'fixed';
-        }
+        // === 1) threshold_mode validáció ===
+        $this->validate($request, [
+            'threshold_mode' => ['required', Rule::in(['fixed', 'hybrid', 'dynamic', 'suggested'])],
+        ]);
+
+        $mode = $request->input('threshold_mode');
         OrgConfigService::set($orgId, 'threshold_mode', $mode);
 
-        // === 2) FIXED mód küszöbök ===
+        // === 2) FIXED/NORMAL módhoz: normal_level_up, normal_level_down ===
         if ($request->exists('normal_level_up')) {
             $up = max(0, min(100, (int)$request->input('normal_level_up')));
             OrgConfigService::set($orgId, 'normal_level_up', $up);

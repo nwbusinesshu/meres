@@ -71,6 +71,11 @@ return [
     // Settings page
     'employees-see-bonuses' => 'Bónuszok megjelenítése',
     'employees-see-bonuses-description' => 'Ha be van kapcsolva, a dolgozók láthatják saját bónusz/malus összegüket az eredmények oldalon.',
+    
+    // ✅ NEW: Enable bonus calculation setting
+    'enable-bonus-calculation' => 'Bónusz számítás bekapcsolása nettó bér alapján',
+    'enable-bonus-calculation-description' => 'Ha be van kapcsolva, a rendszer automatikusan számítja a bónusz/malus összegeket az értékelés lezárásakor a beállított szorzók és a dolgozók nettó bére alapján.',
+    
     'default-currency' => 'Alapértelmezett pénznem',
     'default-currency-description' => 'Válaszd ki az alapértelmezett pénznemet a bónusz számításokhoz.',
     

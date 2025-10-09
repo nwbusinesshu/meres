@@ -35,6 +35,14 @@ class BonusCalculationService
         $assessment = Assessment::findOrFail($assessmentId);
         $orgId = $assessment->organization_id;
 
+        // ✅ CHECK: Is bonus calculation enabled?
+        $enableBonusCalculation = OrgConfigService::getBool($orgId, 'enable_bonus_calculation', false);
+        
+        if (!$enableBonusCalculation) {
+            Log::info("Bonus calculation skipped for assessment {$assessmentId} - feature is disabled for org {$orgId}");
+            return; // Exit early if bonus calculation is disabled
+        }
+
         // Get snapshot
         $snapshot = json_decode($assessment->org_snapshot, true);
         if (!$snapshot) {
@@ -83,6 +91,8 @@ class BonusCalculationService
         if (!empty($bonusRecords)) {
             DB::table('assessment_bonuses')->insert($bonusRecords);
             Log::info("Created " . count($bonusRecords) . " bonus records for assessment {$assessmentId}");
+        } else {
+            Log::info("No bonuses to create for assessment {$assessmentId} - no users with wage data");
         }
     }
 

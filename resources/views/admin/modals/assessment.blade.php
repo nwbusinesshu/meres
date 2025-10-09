@@ -34,7 +34,7 @@
               </label>
 
               {{-- Kiválasztott részlegekben (tiltott, SOON) --}}
-              <<input type="radio" id="scope-depts" name="assessment-scope" class="assessment-scope__radio" disabled>
+              <input type="radio" id="scope-depts" name="assessment-scope" class="assessment-scope__radio" disabled>
                 <label for="scope-depts" class="assessment-scope__option assessment-scope__option--disabled" title="{{ __('admin/home.scope-coming-soon') }}">
                   <div class="assessment-scope__text">
                     <span class="assessment-scope__title">{{ __('admin/home.scope-departments-title') }}</span>

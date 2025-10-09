@@ -12,7 +12,6 @@ document.addEventListener('DOMContentLoaded', function() {
     warn_easy_relation_on:    @json(__('admin/settings.settings.warn_easy_relation_on')),
     warn_force_oauth_2fa_on:  @json(__('admin/settings.settings.warn_force_oauth_2fa_on')),
     warn_force_oauth_2fa_off: @json(__('admin/settings.settings.warn_force_oauth_2fa_off')),
-    // ✅ NEW: Bonuses toggle warnings
     warn_employees_see_bonuses_on:  "Ha bekapcsolod, a dolgozók látni fogják saját bónusz/malus összegüket az eredmények oldalon.",
     warn_employees_see_bonuses_off: "Ha kikapcsolod, a dolgozók NEM fogják látni a bónusz/malus összegeket.",
     saved:                    @json(__('admin/settings.settings.saved')),
@@ -21,14 +20,16 @@ document.addEventListener('DOMContentLoaded', function() {
     no:                       @json(__('global.swal-cancel')),
   };
 
+  // ✅ DECLARE ALL ELEMENTS ONCE AT THE TOP
   const strictEl = document.getElementById('toggle-strict');
   const aiEl     = document.getElementById('toggle-ai');
   const multiEl  = document.getElementById('toggle-multi');
   const bonusMalusEl = document.getElementById('toggle-bonus-malus');
   const easyRelationEl = document.getElementById('toggle-easy-relation');
   const forceOauth2faEl = document.getElementById('toggle-force-oauth-2fa');
-  // ✅ NEW: Bonuses visibility toggle
   const employeesSeeBonusesEl = document.getElementById('toggle-employees-see-bonuses');
+  const enableBonusCalculationEl = document.getElementById('toggle-enable-bonus-calculation');
+  const configMultipliersBtn = document.querySelector('.trigger-config-multipliers');
 
   // --- Reload utáni toast ---
   (function showSavedToastOnLoad(){
@@ -47,6 +48,55 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   })();
 
+  // ✅ CASCADING LOGIC: Update dependent fields based on parent toggles
+  function updateBonusCascade() {
+    const bonusMalusOn = bonusMalusEl && bonusMalusEl.checked;
+    const bonusCalculationOn = enableBonusCalculationEl && enableBonusCalculationEl.checked;
+
+    // Rule 1: If bonus-malus is OFF, disable everything
+    if (!bonusMalusOn) {
+      if (enableBonusCalculationEl) {
+        enableBonusCalculationEl.disabled = true;
+        enableBonusCalculationEl.checked = false;
+      }
+      if (employeesSeeBonusesEl) {
+        employeesSeeBonusesEl.disabled = true;
+        employeesSeeBonusesEl.checked = false;
+      }
+      if (configMultipliersBtn) {
+        configMultipliersBtn.disabled = true;
+        configMultipliersBtn.style.opacity = '0.5';
+        configMultipliersBtn.style.cursor = 'not-allowed';
+      }
+    } 
+    // Rule 2: If bonus-malus is ON
+    else {
+      if (enableBonusCalculationEl) {
+        enableBonusCalculationEl.disabled = false;
+      }
+      if (configMultipliersBtn) {
+        configMultipliersBtn.disabled = false;
+        configMultipliersBtn.style.opacity = '1';
+        configMultipliersBtn.style.cursor = 'pointer';
+      }
+
+      // Rule 3: If bonus calculation is OFF, disable employees_see_bonuses
+      if (!bonusCalculationOn) {
+        if (employeesSeeBonusesEl) {
+          employeesSeeBonusesEl.disabled = true;
+          employeesSeeBonusesEl.checked = false;
+        }
+      } else {
+        if (employeesSeeBonusesEl) {
+          employeesSeeBonusesEl.disabled = false;
+        }
+      }
+    }
+  }
+
+  // ✅ Run cascade on page load
+  updateBonusCascade();
+
   function postToggle(key, value) {
     return fetch("{{ route('admin.settings.toggle') }}", {
       method: 'POST',
@@ -60,34 +110,29 @@ document.addEventListener('DOMContentLoaded', function() {
     strictEl.addEventListener('change', async function(e){
       e.preventDefault();
       const wasChecked = this.checked;
-      this.checked = !wasChecked; // visszaállítjuk, amíg a user nincs OK-val
+      this.checked = !wasChecked;
 
       const res = await Swal.fire({
         title: T.confirm,
-        text: wasChecked ? T.warn_strict_on : '',
+        text: wasChecked ? T.warn_strict_on : T.warn_strict_on,
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: T.yes,
-        cancelButtonText: T.no
+        cancelButtonText: T.no,
       });
 
-      if (!res.isConfirmed) {
-        this.checked = !wasChecked; // maradt a régiben
-        return;
-      }
+      if (!res.isConfirmed) return;
 
-      postToggle('strict_anonymous_mode', wasChecked).then(data => {
-        if (data.ok) {
-          this.checked = wasChecked;
-          if (wasChecked && aiEl) aiEl.checked = false;
-          if (wasChecked && aiEl) aiEl.disabled = true;
-          if (!wasChecked && aiEl) aiEl.disabled = false;
-        } else {
-          this.checked = !wasChecked;
-        }
-      }).catch(()=>{
+      this.checked = wasChecked;
+      const response = await postToggle('strict_anon', wasChecked);
+
+      if (response.ok) {
+        sessionStorage.setItem('settings_saved_toast', T.saved);
+        window.location.reload();
+      } else {
         this.checked = !wasChecked;
-      });
+        Swal.fire('Error', response.error || T.error, 'error');
+      }
     });
   }
 
@@ -104,72 +149,67 @@ document.addEventListener('DOMContentLoaded', function() {
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: T.yes,
-        cancelButtonText: T.no
+        cancelButtonText: T.no,
       });
 
-      if (!res.isConfirmed) {
-        this.checked = !wasChecked;
-        return;
-      }
+      if (!res.isConfirmed) return;
 
-      postToggle('ai_telemetry_enabled', wasChecked).then(data => {
-        if (data.ok) {
-          this.checked = wasChecked;
+      this.checked = wasChecked;
+      const response = await postToggle('ai_telemetry', wasChecked);
+
+      if (response.ok) {
+        sessionStorage.setItem('settings_saved_toast', T.saved);
+        if (response.reload) {
+          window.location.reload();
         } else {
-          Swal.fire(T.error, data.message || '', 'error');
-          this.checked = !wasChecked;
+          Swal.fire({
+            toast: true,
+            position: 'bottom',
+            icon: 'success',
+            title: T.saved,
+            timer: 1600,
+            showConfirmButton: false,
+          });
         }
-      }).catch(()=>{
+      } else {
         this.checked = !wasChecked;
-      });
+        Swal.fire('Error', response.error || T.error, 'error');
+      }
     });
   }
 
-  // ========== MULTI-LEVEL ==========
+  // ========== MULTI LEVEL ==========
   if (multiEl) {
     multiEl.addEventListener('change', async function(e){
       e.preventDefault();
-      if (!this.checked) {
-        this.checked = true;
-        return;
-      }
       const wasChecked = this.checked;
-      this.checked = false;
+      this.checked = !wasChecked;
 
       const res = await Swal.fire({
         title: T.confirm,
         text: T.warn_multi_on,
-        icon: 'question',
+        icon: 'warning',
         showCancelButton: true,
         confirmButtonText: T.yes,
-        cancelButtonText: T.no
+        cancelButtonText: T.no,
       });
 
-      if (!res.isConfirmed) {
-        return;
+      if (!res.isConfirmed) return;
+
+      this.checked = wasChecked;
+      const response = await postToggle('enable_multi_level', wasChecked);
+
+      if (response.ok) {
+        sessionStorage.setItem('settings_saved_toast', T.saved);
+        window.location.reload();
+      } else {
+        this.checked = !wasChecked;
+        Swal.fire('Error', response.error || T.error, 'error');
       }
-
-      postToggle('enable_multi_level', true).then(data => {
-        if (data.ok) {
-          if (data.already_on) {
-            this.checked = true;
-            return;
-          }
-          if (data.enabled) {
-            Swal.fire(T.saved, 'A többszintű részlegkezelés bekapcsolva.', 'success').then(()=>{
-              window.location.reload();
-            });
-          }
-        } else {
-          this.checked = false;
-        }
-      }).catch(()=>{
-        this.checked = false;
-      });
     });
   }
 
-  // ========== BONUS/MALUS VISIBILITY ==========
+  // ========== BONUS MALUS VISIBILITY ==========
   if (bonusMalusEl) {
     bonusMalusEl.addEventListener('change', async function(e){
       e.preventDefault();
@@ -182,23 +222,35 @@ document.addEventListener('DOMContentLoaded', function() {
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: T.yes,
-        cancelButtonText: T.no
+        cancelButtonText: T.no,
       });
 
-      if (!res.isConfirmed) {
-        this.checked = !wasChecked;
-        return;
-      }
+      if (!res.isConfirmed) return;
 
-      postToggle('show_bonus_malus', wasChecked).then(data => {
-        if (data.ok) {
-          this.checked = wasChecked;
+      this.checked = wasChecked;
+      const response = await postToggle('show_bonus_malus', wasChecked);
+
+      if (response.ok) {
+        sessionStorage.setItem('settings_saved_toast', T.saved);
+        // ✅ Update cascade after toggle
+        updateBonusCascade();
+        
+        if (response.reload) {
+          window.location.reload();
         } else {
-          this.checked = !wasChecked;
+          Swal.fire({
+            toast: true,
+            position: 'bottom',
+            icon: 'success',
+            title: T.saved,
+            timer: 1600,
+            showConfirmButton: false,
+          });
         }
-      }).catch(()=>{
+      } else {
         this.checked = !wasChecked;
-      });
+        Swal.fire('Error', response.error || T.error, 'error');
+      }
     });
   }
 
@@ -215,23 +267,32 @@ document.addEventListener('DOMContentLoaded', function() {
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: T.yes,
-        cancelButtonText: T.no
+        cancelButtonText: T.no,
       });
 
-      if (!res.isConfirmed) {
-        this.checked = !wasChecked;
-        return;
-      }
+      if (!res.isConfirmed) return;
 
-      postToggle('easy_relation_setup', wasChecked).then(data => {
-        if (data.ok) {
-          this.checked = wasChecked;
+      this.checked = wasChecked;
+      const response = await postToggle('easy_relation_setup', wasChecked);
+
+      if (response.ok) {
+        sessionStorage.setItem('settings_saved_toast', T.saved);
+        if (response.reload) {
+          window.location.reload();
         } else {
-          this.checked = !wasChecked;
+          Swal.fire({
+            toast: true,
+            position: 'bottom',
+            icon: 'success',
+            title: T.saved,
+            timer: 1600,
+            showConfirmButton: false,
+          });
         }
-      }).catch(()=>{
+      } else {
         this.checked = !wasChecked;
-      });
+        Swal.fire('Error', response.error || T.error, 'error');
+      }
     });
   }
 
@@ -248,27 +309,36 @@ document.addEventListener('DOMContentLoaded', function() {
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: T.yes,
-        cancelButtonText: T.no
+        cancelButtonText: T.no,
       });
 
-      if (!res.isConfirmed) {
-        this.checked = !wasChecked;
-        return;
-      }
+      if (!res.isConfirmed) return;
 
-      postToggle('force_oauth_2fa', wasChecked).then(data => {
-        if (data.ok) {
-          this.checked = wasChecked;
+      this.checked = wasChecked;
+      const response = await postToggle('force_oauth_2fa', wasChecked);
+
+      if (response.ok) {
+        sessionStorage.setItem('settings_saved_toast', T.saved);
+        if (response.reload) {
+          window.location.reload();
         } else {
-          this.checked = !wasChecked;
+          Swal.fire({
+            toast: true,
+            position: 'bottom',
+            icon: 'success',
+            title: T.saved,
+            timer: 1600,
+            showConfirmButton: false,
+          });
         }
-      }).catch(()=>{
+      } else {
         this.checked = !wasChecked;
-      });
+        Swal.fire('Error', response.error || T.error, 'error');
+      }
     });
   }
 
-  // ✅ NEW: ========== EMPLOYEES SEE BONUSES ==========
+  // ========== EMPLOYEES SEE BONUSES ==========
   if (employeesSeeBonusesEl) {
     employeesSeeBonusesEl.addEventListener('change', async function(e){
       e.preventDefault();
@@ -281,25 +351,84 @@ document.addEventListener('DOMContentLoaded', function() {
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: T.yes,
-        cancelButtonText: T.no
+        cancelButtonText: T.no,
       });
 
-      if (!res.isConfirmed) {
-        this.checked = !wasChecked;
-        return;
-      }
+      if (!res.isConfirmed) return;
 
-      postToggle('employees_see_bonuses', wasChecked).then(data => {
-        if (data.ok) {
-          this.checked = wasChecked;
+      this.checked = wasChecked;
+      const response = await postToggle('employees_see_bonuses', wasChecked);
+
+      if (response.ok) {
+        sessionStorage.setItem('settings_saved_toast', T.saved);
+        if (response.reload) {
+          window.location.reload();
         } else {
-          this.checked = !wasChecked;
+          Swal.fire({
+            toast: true,
+            position: 'bottom',
+            icon: 'success',
+            title: T.saved,
+            timer: 1600,
+            showConfirmButton: false,
+          });
         }
-      }).catch(()=>{
+      } else {
         this.checked = !wasChecked;
-      });
+        Swal.fire('Error', response.error || T.error, 'error');
+      }
     });
   }
 
+  // ========== ENABLE BONUS CALCULATION ==========
+  if (enableBonusCalculationEl) {
+    enableBonusCalculationEl.addEventListener('change', async function(e){
+      e.preventDefault();
+      const wasChecked = this.checked;
+      this.checked = !wasChecked;
+
+      const confirmText = wasChecked 
+        ? "Ha bekapcsolod, a rendszer automatikusan számítja a bónuszokat az értékelés lezárásakor."
+        : "Ha kikapcsolod, a rendszer NEM fogja automatikusan számítani a bónuszokat.";
+
+      const res = await Swal.fire({
+        title: T.confirm,
+        text: confirmText,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: T.yes,
+        cancelButtonText: T.no,
+      });
+
+      if (!res.isConfirmed) return;
+
+      this.checked = wasChecked;
+      const response = await postToggle('enable_bonus_calculation', wasChecked);
+
+      if (response.ok) {
+        sessionStorage.setItem('settings_saved_toast', T.saved);
+        // ✅ Update cascade after toggle
+        updateBonusCascade();
+        
+        if (response.reload) {
+          window.location.reload();
+        } else {
+          Swal.fire({
+            toast: true,
+            position: 'bottom',
+            icon: 'success',
+            title: T.saved,
+            timer: 1600,
+            showConfirmButton: false,
+          });
+        }
+      } else {
+        this.checked = !wasChecked;
+        Swal.fire('Error', response.error || T.error, 'error');
+      }
+    });
+  }
+
+  // ... rest of the JavaScript (mode switching, etc.)
 });
 </script>
