@@ -107,9 +107,8 @@ class EmployeeCreationService
             DB::table('user_wages')->insert([
                 'user_id' => $user->id,
                 'organization_id' => $orgId,
-                'wage' => $wage,
+                'net_wage' => $wage,  // ✅ Correct column name
                 'currency' => $currency,
-                'created_at' => now(),
             ]);
             
             Log::info('employee.create.wage', [
