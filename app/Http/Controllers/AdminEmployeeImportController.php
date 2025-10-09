@@ -205,4 +205,46 @@ class AdminEmployeeImportController extends Controller
         }
         return $field;
     }
+
+    /**
+ * Check if current user has an active import
+ */
+public function checkActiveImport()
+{
+    $orgId = session('org_id');
+    $userId = auth()->id();
+    
+    // Check for any pending or processing imports for this organization
+    $activeJob = DB::table('user_import_jobs')
+        ->where('organization_id', $orgId)
+        ->where('created_by', $userId)
+        ->whereIn('status', ['pending', 'processing'])
+        ->orderBy('created_at', 'desc')
+        ->first();
+    
+    if (!$activeJob) {
+        return response()->json([
+            'has_active_import' => false
+        ]);
+    }
+    
+    $percentage = $activeJob->total_rows > 0 
+        ? round(($activeJob->processed_rows / $activeJob->total_rows) * 100, 2)
+        : 0;
+    
+    return response()->json([
+        'has_active_import' => true,
+        'job_id' => $activeJob->id,
+        'status' => $activeJob->status,
+        'progress' => [
+            'processed' => $activeJob->processed_rows,
+            'successful' => $activeJob->successful_rows,
+            'failed' => $activeJob->failed_rows,
+            'total' => $activeJob->total_rows,
+            'percentage' => $percentage,
+        ],
+        'departments_created' => $activeJob->departments_created,
+        'started_at' => $activeJob->started_at,
+    ]);
+}
 }

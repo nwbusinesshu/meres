@@ -18,26 +18,31 @@
         
         <div class="modal-body">
           <!-- Template Downloads -->
+           <!-- Template Downloads -->
           <div class="template-downloads mb-4">
             <h6>{{ __('admin/employees.step-1-download-template') }}</h6>
-            <div class="btn-group" role="group">
-              <a href="{{ route('admin.employee.import.template', 'legacy') }}" 
-                 class="btn btn-primary template-download-link" download>
-                <i class="fa fa-download"></i> 
-                {{ __('admin/employees.download-template-legacy') }}
-              </a>
-              
-              @if($enableMultiLevel)
+            
+            @if($enableMultiLevel)
+              {{-- Show Multilevel Template --}}
               <a href="{{ route('admin.employee.import.template', 'multilevel') }}" 
-                 class="btn btn-success template-download-link" download>
+                 class="btn btn-success btn-lg template-download-link" download>
                 <i class="fa fa-download"></i> 
-                {{ __('admin/employees.download-template-multilevel') }}
+                {{ __('admin/employees.download-template') }}
               </a>
-              @endif
-            </div>
-            <small class="form-text text-muted">
-              {{ __('admin/employees.template-help-text') }}
-            </small>
+              <small class="form-text text-muted mt-2">
+                {{ __('admin/employees.template-help-text-multilevel') }}
+              </small>
+            @else
+              {{-- Show Legacy Template --}}
+              <a href="{{ route('admin.employee.import.template', 'legacy') }}" 
+                 class="btn btn-primary btn-lg template-download-link" download>
+                <i class="fa fa-download"></i> 
+                {{ __('admin/employees.download-template') }}
+              </a>
+              <small class="form-text text-muted mt-2">
+                {{ __('admin/employees.template-help-text-legacy') }}
+              </small>
+            @endif
           </div>
           
           <!-- Drag & Drop Upload Zone -->
@@ -337,8 +342,7 @@
     }
 }
 .upload-area {
-    border: 3px dashed #ccc;
-    border-radius: 10px;
+    border: 2px dashed #ccc;
     padding: 60px 20px;
     text-align: center;
     transition: all 0.3s ease;
@@ -439,10 +443,12 @@
         if (file) handleFileUpload(file);
     });
     
-    // Browse button
+   // Browse button - FIXED: Prevent event propagation
     $(document).on('click', '.browse-files-btn', function(e) {
+        e.preventDefault();
         e.stopPropagation();
-        $('#import-file-input').click();
+        $('#import-file-input').trigger('click');
+        return false;
     });
     
     // Drag & Drop
@@ -468,10 +474,14 @@
         if (file) handleFileUpload(file);
     });
     
+    // FIXED: Dropzone click - prevent loop
     dropzone.on('click', function(e) {
-        if (!$(e.target).closest('.browse-files-btn').length) {
-            $('#import-file-input').click();
+        // Don't trigger if clicking the browse button or file input itself
+        if ($(e.target).closest('.browse-files-btn').length || 
+            $(e.target).is('#import-file-input')) {
+            return;
         }
+        $('#import-file-input').trigger('click');
     });
     
    function handleFileUpload(file) {

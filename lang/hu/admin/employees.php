@@ -274,7 +274,7 @@ return [
     'download-template-legacy' => 'Alapértelmezett Sablon',
     'download-template-multilevel' => 'Többszintű Sablon',
     'template-help-text' => 'Töltse le a megfelelő sablont, töltse ki az adatokat, majd töltse fel az elkészült fájlt.',
-    'drag-drop-file' => 'Húzza ide a fájlt, vagy kattintson a tallózáshoz',
+    'drag-drop-file' => 'Húzza ide a fájlt',
     'or' => 'vagy',
     'browse-files' => 'Tallózás',
     'max-file-size' => 'Maximális fájlméret: 5 MB, Formátum: .xlsx, Maximum 500 sor',
@@ -282,9 +282,9 @@ return [
 
     // Instructions
     'instructions-title' => 'Útmutató',
-    'instruction-1' => 'Töltse le a megfelelő sablont (Alapértelmezett vagy Többszintű)',
+    'instruction-1' => 'Töltse le a sablon fájlt',
     'instruction-2' => 'Töltse ki a munkavállalók adatait (maximum 500 sor)',
-    'instruction-3' => 'Töltse fel a kitöltött fájlt',
+    'instruction-3' => 'Töltse vissza a kitöltött sablon fájlt',
     'instruction-4' => 'Ellenőrizze az előnézetet és a hibaüzeneteket',
     'instruction-5' => 'Ha nincs hiba, indítsa el az importálást',
 
@@ -321,9 +321,12 @@ return [
     'successfully-imported' => 'Sikeresen Importálva',
     'failed-imports' => 'Sikertelen Importok',
     'download-report' => 'Jelentés Letöltése',
+    'download-template' => 'Sablon Letöltése',
     'close-and-refresh' => 'Bezárás és Frissítés',
     'import-completed-with-errors' => 'Az import befejeződött, de voltak hibák. Töltse le a jelentést a részletekért.',
     'import-completed-success' => 'Az import sikeresen befejeződött!',
+     'template-help-text-legacy' => 'Töltse le a sablont, töltse ki a munkavállalók adatait (név, email, típus, beosztás, bér), majd töltse fel az elkészült fájlt.',
+    'template-help-text-multilevel' => 'Töltse le a sablont, töltse ki a munkavállalók adatait (név, email, típus, beosztás, részleg, bér), majd töltse fel az elkészült fájlt.',
 
     // Errors
     'error-file-type' => 'Csak .xlsx fájlok tölthetők fel',
@@ -335,4 +338,7 @@ return [
     'error-cannot-start-import' => 'Az import nem indítható el hibák miatt',
     'error-start-failed' => 'Az import indítása sikertelen',
     'error-polling-failed' => 'Hiba történt a folyamat követése közben',
+        'import-in-progress-tile' => 'Import folyamatban...',
+    'import-blocking-actions' => 'Az import folyamatban van. A műveletek le vannak tiltva.',
+    'import-click-to-view' => 'Kattintson ide a folyamat megtekintéséhez',
 ];

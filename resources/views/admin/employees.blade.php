@@ -8,10 +8,6 @@
 <h1>
     {{ __('titles.admin.employees') }}
     
-        <span style="font-size: 0.9em; color: {{ $isLimitReached ? '#dc3545' : '#6c757d' }};">
-            ({{ $currentEmployeeCount }}/{{ $employeeLimit }})
-        </span>
-    
 </h1>
 
 {{-- NEW: Employee Limit Warning --}}

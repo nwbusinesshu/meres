@@ -76,6 +76,114 @@ function hasLegacyTable() {
 }
 
 $(document).ready(function(){
+
+
+    // ========== CHECK FOR ACTIVE IMPORT ON PAGE LOAD ==========
+    let activeImportJobId = null;
+    let importCheckInterval = null;
+    
+    function checkForActiveImport() {
+        $.ajax({
+            url: '{{ route("admin.employee.import.check-active") }}',
+            method: 'GET',
+            success: function(response) {
+                if (response.has_active_import) {
+                    activeImportJobId = response.job_id;
+                    showImportInProgress(response);
+                    
+                    // Start polling for updates if not already polling
+                    if (!importCheckInterval) {
+                        importCheckInterval = setInterval(pollImportStatus, 5000);
+                    }
+                } else {
+                    // No active import - restore normal state
+                    restoreNormalState();
+                    if (importCheckInterval) {
+                        clearInterval(importCheckInterval);
+                        importCheckInterval = null;
+                    }
+                }
+            },
+            error: function(xhr) {
+                console.error('Failed to check for active import:', xhr);
+            }
+        });
+    }
+    
+    function pollImportStatus() {
+        if (!activeImportJobId) return;
+        
+        $.ajax({
+            url: `{{ url('admin/employee/import') }}/${activeImportJobId}/status`,
+            method: 'GET',
+            success: function(response) {
+                if (response.status === 'completed' || response.status === 'failed') {
+                    // Import finished - reload page
+                    clearInterval(importCheckInterval);
+                    importCheckInterval = null;
+                    location.reload();
+                } else {
+                    // Update progress display if modal is open
+                    if ($('#employee-import-modal').is(':visible') && window.updateProgressDisplay) {
+                        window.updateProgressDisplay(response);
+                    }
+                }
+            }
+        });
+    }
+    
+    function showImportInProgress(data) {
+        const $trigger = $('.trigger-new');
+        
+        // Transform the "Add Employee" tile
+        $trigger.addClass('import-in-progress')
+                .attr('data-import-job-id', data.job_id)
+                .html('<span><i class="fa fa-spinner fa-pulse"></i> {{ __("admin/employees.import-in-progress-tile") }}</span>');
+        
+        // Block all action buttons on user rows
+        $('.user-row .btn').not('.import-in-progress').each(function() {
+            $(this).addClass('disabled btn-import-blocked')
+                   .attr('data-tippy-content', '{{ __("admin/employees.import-blocking-actions") }}')
+                   .css('opacity', '0.5');
+        });
+        
+        // Refresh Tippy tooltips
+        if (window.tippy) {
+            tippy('.btn-import-blocked', {
+                content: '{{ __("admin/employees.import-blocking-actions") }}',
+                placement: 'top'
+            });
+        }
+    }
+    
+    function restoreNormalState() {
+        const $trigger = $('.trigger-new');
+        
+        // Restore original tile
+        $trigger.removeClass('import-in-progress')
+                .removeAttr('data-import-job-id')
+                .html('<span><i class="fa fa-user-plus"></i>{{ __("admin/employees.new-employee") }}</span>');
+        
+        // Unblock action buttons
+        $('.btn-import-blocked').removeClass('disabled btn-import-blocked')
+                                .removeAttr('data-tippy-content')
+                                .css('opacity', '1');
+    }
+    
+    // Click handler for import-in-progress tile
+    $(document).on('click', '.trigger-new.import-in-progress', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const jobId = $(this).attr('data-import-job-id');
+        if (jobId && window.reopenImportModal) {
+            window.reopenImportModal(jobId);
+        }
+    });
+    
+    // Run check on page load
+    checkForActiveImport();
+
+    
     // ========== USER ACTIONS (UNIVERSAL) ==========
     
     // User edit (datas button) - FIXED

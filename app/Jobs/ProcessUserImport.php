@@ -24,6 +24,12 @@ class ProcessUserImport implements ShouldQueue
     protected $orgId;
     protected $createdBy;
 
+    // ===== TESTING: Add artificial delay =====
+    // Set to 0 for production, or a number (in seconds) for testing
+    // Example: 2 = 2 seconds delay per row
+    // With 10 rows: 2 seconds × 10 = 20 seconds total
+    private const TESTING_DELAY_SECONDS = 30; // ← CHANGE THIS VALUE
+
     public function __construct(int $jobId, int $orgId, int $createdBy)
     {
         $this->jobId = $jobId;
@@ -185,6 +191,12 @@ class ProcessUserImport implements ShouldQueue
                         }
                         
                         $processedRows++;
+
+                        // ===== TESTING DELAY =====
+                        if (self::TESTING_DELAY_SECONDS > 0) {
+                            sleep(self::TESTING_DELAY_SECONDS);
+                        }
+                        // =========================
                     }
                 });
                 

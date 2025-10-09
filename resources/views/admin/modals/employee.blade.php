@@ -4,10 +4,6 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title"></h5>
-            <button class="btn btn-sm btn-outline-success trigger-mass-import" 
-            style="margin-left: auto; margin-right: 10px;">
-        <i class="fa fa-file-upload"></i> {{ __('admin/employees.mass-import') }}
-    </button>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -91,6 +87,9 @@ if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
       </div>
       <div class="modal-footer">
         <button class="btn btn-primary trigger-submit"></button>
+        <button class="btn btn-sm btn-outline-success trigger-mass-import">
+        <i class="fa fa-file-upload"></i> {{ __('admin/employees.mass-import') }}
+    </button>
       </div>     
     </div>
   </div>

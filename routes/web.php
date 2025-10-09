@@ -160,6 +160,8 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
             Route::post('/start', 'start')->name('start');
             Route::get('/{jobId}/status', 'status')->name('status');
             Route::get('/{jobId}/report', 'downloadReport')->name('report');
+            Route::get('/check-active', 'checkActiveImport')->name('check-active');
+
         });
 
     // payments
