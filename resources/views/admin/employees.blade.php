@@ -1,6 +1,7 @@
 @extends('layouts.master')
 
 @section('head-extra')
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 @endsection
 
 @section('content')
@@ -265,6 +266,7 @@
     @include('admin.modals.user-competencies')
     @include('admin.modals.bonusmalus')
     @include('admin.modals.network')
+    @include('admin.modals.employee-import')
     @includeWhen(!empty($enableMultiLevel), 'admin.modals.department')
     @includeWhen(!empty($enableMultiLevel), 'admin.modals.departmentuser')
 @endsection

@@ -28,8 +28,7 @@ use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\CookieConsentController;
 use App\Http\Controllers\HelpChatController;
 use App\Http\Controllers\AdminBonusesController;
-
-
+use App\Http\Controllers\AdminEmployeeImportController;
 
 
 //locale
@@ -150,6 +149,18 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         Route::post('/network', 'getNetworkData')->name('network');
         Route::post('/get-eligible-managers', [AdminEmployeeController::class, 'getEligibleManagers'])->name('get-eligible-managers');
     });
+
+    // Employee Mass Import Routes
+    Route::prefix('employee/import')
+        ->name('employee.import.')
+        ->controller(AdminEmployeeImportController::class)
+        ->group(function () {
+            Route::get('/template/{type}', 'downloadTemplate')->name('template');
+            Route::post('/validate', 'validateImport')->name('validate');
+            Route::post('/start', 'start')->name('start');
+            Route::get('/{jobId}/status', 'status')->name('status');
+            Route::get('/{jobId}/report', 'downloadReport')->name('report');
+        });
 
     // payments
     Route::controller(AdminPaymentController::class)->name('payments.')->prefix('/payments')->group(function () {

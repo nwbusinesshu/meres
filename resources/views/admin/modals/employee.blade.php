@@ -4,6 +4,10 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title"></h5>
+            <button class="btn btn-sm btn-outline-success trigger-mass-import" 
+            style="margin-left: auto; margin-right: 10px;">
+        <i class="fa fa-file-upload"></i> {{ __('admin/employees.mass-import') }}
+    </button>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -320,4 +324,10 @@ if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
       });
     });
   });
+</script>
+<script>
+$(document).on('click', '.trigger-mass-import', function(){
+    $('#employee-modal').modal('hide');
+    $('#employee-import-modal').modal('show');
+});
 </script>

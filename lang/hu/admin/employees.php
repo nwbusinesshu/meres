@@ -265,5 +265,74 @@ return [
 'network-error-connection-lost' => ' Hálózati kapcsolat megszakadt.',
 'network-error-timeout' => ' A kérés túllépte az időkorlátot.',
 
+    // Mass Import
+    'mass-import' => 'Tömeges Import',
+    'import-employees' => 'Munkavállalók Importálása',
 
+    // Step 1: Upload
+    'step-1-download-template' => '1. Töltse le a sablont',
+    'download-template-legacy' => 'Alapértelmezett Sablon',
+    'download-template-multilevel' => 'Többszintű Sablon',
+    'template-help-text' => 'Töltse le a megfelelő sablont, töltse ki az adatokat, majd töltse fel az elkészült fájlt.',
+    'drag-drop-file' => 'Húzza ide a fájlt, vagy kattintson a tallózáshoz',
+    'or' => 'vagy',
+    'browse-files' => 'Tallózás',
+    'max-file-size' => 'Maximális fájlméret: 5 MB, Formátum: .xlsx, Maximum 500 sor',
+    'reading-file' => 'Fájl beolvasása...',
+
+    // Instructions
+    'instructions-title' => 'Útmutató',
+    'instruction-1' => 'Töltse le a megfelelő sablont (Alapértelmezett vagy Többszintű)',
+    'instruction-2' => 'Töltse ki a munkavállalók adatait (maximum 500 sor)',
+    'instruction-3' => 'Töltse fel a kitöltött fájlt',
+    'instruction-4' => 'Ellenőrizze az előnézetet és a hibaüzeneteket',
+    'instruction-5' => 'Ha nincs hiba, indítsa el az importálást',
+
+    // Step 2: Preview
+    'import-preview' => 'Import Előnézet',
+    'total-rows' => 'Összes sor',
+    'valid-rows' => 'Érvényes',
+    'warning-rows' => 'Figyelmeztetés',
+    'error-rows' => 'Hiba',
+    'name' => 'Név',
+    'email' => 'E-mail',
+    'type' => 'Típus',
+    'position' => 'Beosztás',
+    'department' => 'Részleg',
+    'wage' => 'Bér',
+    'status' => 'Állapot',
+    'warning' => 'Figyelem',
+    'employee-limit-warning' => 'Az import után túllépi a munkavállalói limitet ({limit}). Jelenlegi: {current}, Import után: {total}',
+    'new-departments-created' => 'Új részlegek létrehozva',
+    'fix-and-reupload' => 'Javítás és Újratöltés',
+    'send-password-emails' => 'Jelszóbeállító e-mailek küldése',
+    'start-import' => 'Import Indítása',
+
+    // Step 3: Progress
+    'import-in-progress' => 'Import folyamatban...',
+    'please-wait' => 'Kérjük, ne zárja be ezt az ablakot',
+    'processing' => 'Feldolgozás',
+    'successful' => 'Sikeres',
+    'failed' => 'Sikertelen',
+    'departments-created' => 'Részlegek létrehozva',
+
+    // Step 4: Complete
+    'import-completed' => 'Import Befejezve',
+    'successfully-imported' => 'Sikeresen Importálva',
+    'failed-imports' => 'Sikertelen Importok',
+    'download-report' => 'Jelentés Letöltése',
+    'close-and-refresh' => 'Bezárás és Frissítés',
+    'import-completed-with-errors' => 'Az import befejeződött, de voltak hibák. Töltse le a jelentést a részletekért.',
+    'import-completed-success' => 'Az import sikeresen befejeződött!',
+
+    // Errors
+    'error-file-type' => 'Csak .xlsx fájlok tölthetők fel',
+    'error-file-size' => 'A fájl túl nagy. Maximális méret: 5 MB',
+    'error-empty-file' => 'A fájl üres vagy nincs benne adat',
+    'error-too-many-rows' => 'Túl sok sor! Maximum 500 sor importálható egyszerre',
+    'error-parsing-file' => 'Hiba történt a fájl feldolgozása közben',
+    'error-validation-failed' => 'Az ellenőrzés sikertelen. Kérjük, próbálja újra',
+    'error-cannot-start-import' => 'Az import nem indítható el hibák miatt',
+    'error-start-failed' => 'Az import indítása sikertelen',
+    'error-polling-failed' => 'Hiba történt a folyamat követése közben',
 ];
