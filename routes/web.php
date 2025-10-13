@@ -209,7 +209,7 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
     Route::controller(AdminCompetencyController::class)->name('languages.')->prefix('/languages')->group(function () {
         Route::get('/available', 'getAvailableLanguages')->name('available');
         Route::get('/selected', 'getSelectedLanguages')->name('selected');
-        Route::post('/selected', 'getSelectedLanguages')->name('selected');
+        Route::post('/selected', 'getSelectedLanguages')->name('selected.post');  // ← FIXED
         Route::post('/save', 'saveTranslationLanguages')->name('save');
     });
 
