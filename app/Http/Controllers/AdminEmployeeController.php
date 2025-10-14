@@ -447,7 +447,7 @@ private function getRaterCounts($userIds, $orgId)
     ]);
 }
 
-   public function saveEmployee(Request $request)
+  public function saveEmployee(Request $request)
 {
     $orgId = (int) session('org_id');
     if (!$orgId) {
@@ -540,7 +540,9 @@ private function getRaterCounts($userIds, $orgId)
     }
 
     try {
-        AjaxService::DBTransaction(function () use ($request, $orgId, &$user, &$created) {
+        // FIX: Use standard DB::transaction instead of AjaxService::DBTransaction
+        // AjaxService::DBTransaction treats any non-null return as an error
+        DB::transaction(function () use ($request, $orgId, &$user, &$created) {
 
             \Log::info('employee.save.debug.branch', [
                 'branch'  => is_null($user) ? 'CREATE' : 'UPDATE',
@@ -559,7 +561,7 @@ private function getRaterCounts($userIds, $orgId)
                     'position' => trim((string) $request->input('position', '')) ?: null,
                 ];
 
-                // Create employee using service
+                // Create employee using service (handles everything)
                 $user = \App\Services\EmployeeCreationService::createEmployee($employeeData, $orgId);
 
                 Log::info('employee.save.created_via_service', [
@@ -619,6 +621,7 @@ private function getRaterCounts($userIds, $orgId)
             'org_id'  => $orgId,
             'user_id' => $user ? $user->id : null,
             'error'   => $e->getMessage(),
+            'trace'   => $e->getTraceAsString(),
             'prev'    => $e->getPrevious() ? $e->getPrevious()->getMessage() : null,
         ]);
 
