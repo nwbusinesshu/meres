@@ -226,6 +226,7 @@ return [
   'validation-hu-tax-number' => 'Kérlek, adj meg érvényes magyar adószámot: 12345678-1-23',
   'validation-eu-vat-format' => 'Az EU adószám formátuma hibás (pl. DE123456789).',
   'validation-eu-vat-required' => 'Kérlek, adj meg érvényes EU adószámot (pl. DE123456789).',
+  'help' => 'Súgóközpont',
   
    // Country names for dropdown
   'countries' => [

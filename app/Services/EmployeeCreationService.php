@@ -51,16 +51,15 @@ class EmployeeCreationService
             'org_id' => $orgId
         ]);
         
-        // 2) Attach to organization
-        $user->organizations()->attach($orgId);
+        // 2) Attach to organization (use syncWithoutDetaching for idempotency like old code)
+        $user->organizations()->syncWithoutDetaching([$orgId]);
         
-        // 3) Set position in organization_user
-        if ($position) {
-            DB::table('organization_user')
-                ->where('organization_id', $orgId)
-                ->where('user_id', $user->id)
-                ->update(['position' => $position]);
-        }
+        // 3) Set position in organization_user (use updateOrInsert like old code)
+        $positionValue = ($position && $position !== '') ? $position : null;
+        DB::table('organization_user')->updateOrInsert(
+            ['organization_id' => $orgId, 'user_id' => $user->id],
+            ['position' => $positionValue]
+        );
         
         Log::info('employee.create.org_attached', [
             'user_id' => $user->id,
@@ -107,7 +106,7 @@ class EmployeeCreationService
             DB::table('user_wages')->insert([
                 'user_id' => $user->id,
                 'organization_id' => $orgId,
-                'net_wage' => $wage,  // ✅ Correct column name
+                'net_wage' => $wage,
                 'currency' => $currency,
             ]);
             

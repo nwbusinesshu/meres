@@ -458,223 +458,200 @@ private function getRaterCounts($userIds, $orgId)
     }
 
     \Log::info('employee.save.debug.input', [
-    'org_id' => $orgId,
-    'id_raw' => $request->id,
-    'id_int' => (int) $request->id,
-    'name'   => $request->name,
-    'email'  => $request->email,
-    'type'   => $request->type,
-]);
+        'org_id' => $orgId,
+        'id_raw' => $request->id,
+        'id_int' => (int) $request->id,
+        'name'   => $request->name,
+        'email'  => $request->email,
+        'type'   => $request->type,
+    ]);
 
-
-        // Ellenőrizd, hogy az e-mail már létezik-e bármely usernél (és nincs törölve)
+    // Check if email already exists
     $existingUser = User::where('email', $request->email)
                         ->whereNull('removed_at')
                         ->first();
 
-    // Ha user van, nézd meg a tagságát!
+    // Determine if this is CREATE or UPDATE
+    $user = null;
+    $created = false;
+
+    if ($request->id && (int) $request->id > 0) {
+        // UPDATE mode - load existing user
+        $user = User::find((int) $request->id);
+        
+        if (!$user || !is_null($user->removed_at)) {
+            return response()->json([
+                'message' => 'A felhasználó nem található.',
+                'errors'  => ['user' => ['A felhasználó nem található.']]
+            ], 404);
+        }
+    }
+
+    // Email validation for CREATE and UPDATE
     if ($existingUser) {
         $alreadyInOrg = $existingUser->organizations()->where('organization_id', $orgId)->exists();
 
-        // Már ebben a cégben van? Akkor lehet update (de NEM hozhatsz létre még egyet)
-        if (!$alreadyInOrg) {
-            // LÉNYEG: Ha máshol tag, NEM engedjük!
+        // If not updating the same user
+        if (!$user || $user->id !== $existingUser->id) {
+            if (!$alreadyInOrg) {
+                // Email exists in another organization
+                return response()->json([
+                    'message' => 'Ez az e-mail cím már egy másik szervezethez tartozik!',
+                    'errors'  => ['email' => ['Ez az e-mail cím már egy másik szervezethez tartozik!']]
+                ], 422);
+            }
+        }
+    }
+
+    // Type change protection (only for UPDATE mode)
+    if ($user) {
+        $currentType = $user->type;
+        $requestedType = $request->type;
+
+        // Check department relationships
+        $isDeptManager = DB::table('organization_department_managers as odm')
+            ->join('organization_departments as d', 'd.id', '=', 'odm.department_id')
+            ->where('d.organization_id', $orgId)
+            ->where('odm.manager_id', $user->id)
+            ->whereNull('d.removed_at')
+            ->exists();
+
+        $hasDept = DB::table('organization_user')
+            ->where('organization_id', $orgId)
+            ->where('user_id', $user->id)
+            ->whereNotNull('department_id')
+            ->exists();
+
+        // Rule 1: If manager with department assignment, cannot change type
+        if ($currentType === 'manager' && ($isDeptManager || $hasDept) && $requestedType !== 'manager') {
             return response()->json([
-                'message' => 'Ez az e-mail cím már egy másik szervezethez tartozik!',
-                'errors'  => ['email' => ['Ez az e-mail cím már egy másik szervezethez tartozik!']]
+                'message' => 'A felhasználó menedzser és részleghez van rendelve; a típus nem módosítható.',
+                'errors'  => ['type' => ['A felhasználó menedzser és részleghez van rendelve; a típus nem módosítható.']]
             ], 422);
         }
-}
 
+        // Rule 2: If department member and normal type, cannot change type
+        if ($hasDept && $currentType === 'normal' && $requestedType !== 'normal') {
+            return response()->json([
+                'message' => 'Ez a dolgozó már tagja egy részlegnek, ezért a típus nem módosítható.',
+                'errors'  => ['type' => ['Ez a dolgozó már tagja egy részlegnek, ezért a típus nem módosítható.']]
+            ], 422);
+        }
+    }
 
-    /** @var User|null $user */
-    $user    = User::find($request->id);
-    $created = false;
+    try {
+        AjaxService::DBTransaction(function () use ($request, $orgId, &$user, &$created) {
 
-    // VALIDÁCIÓ (gmail-regex NINCS; unique csak élő userre)
-    $rules = [
-        'name'        => ['required', 'string', 'max:255'],
-        'email'       => [
-            'required',
-            'email:rfc',
-            Rule::unique('user', 'email')
-                ->ignore($request->id)
-                ->where(function ($q) { $q->whereNull('removed_at'); }),
-        ],
-        'type'        => ['required', Rule::in(['normal', 'manager', 'ceo'])],
-        'autoLevelUp' => ['required', Rule::in([0, 1])],
-        'position'    => ['nullable', 'string', 'max:255'],
-    ];
+            \Log::info('employee.save.debug.branch', [
+                'branch'  => is_null($user) ? 'CREATE' : 'UPDATE',
+                'user_id' => optional($user)->id,
+            ]);
 
-    $attributes = [
-        'name'        => __('global.name'),
-        'email'       => __('global.email'),
-        'type'        => __('global.type'),
-        'autoLevelUp' => __('global.auto-level-up'),
-    ];
+            // ========== CREATE MODE: Use EmployeeCreationService ==========
+            if (is_null($user)) {
+                $created = true;
 
-    $validator = \Validator::make($request->all(), $rules, [], $attributes);
-    if ($validator->fails()) {
-        \Log::warning('employee.save.validation_failed', [
+                // Prepare data for service
+                $employeeData = [
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'type' => $request->type,
+                    'position' => trim((string) $request->input('position', '')) ?: null,
+                ];
+
+                // Create employee using service
+                $user = \App\Services\EmployeeCreationService::createEmployee($employeeData, $orgId);
+
+                Log::info('employee.save.created_via_service', [
+                    'user_id' => $user->id,
+                    'org_id' => $orgId
+                ]);
+
+            // ========== UPDATE MODE: Keep existing logic ==========
+            } else {
+                $user->name = $request->name;
+                $user->email = $request->email;
+                $user->type = $request->type;
+                $user->save();
+
+                Log::info('employee.save.step_ok', ['step' => 'update_user', 'user_id' => $user->id]);
+
+                // Update organization attachment (idempotent)
+                $user->organizations()->syncWithoutDetaching([$orgId]);
+                Log::info('employee.save.step_ok', ['step' => 'attach_org', 'user_id' => $user->id, 'org_id' => $orgId]);
+
+                // Update position
+                $position = trim((string) $request->input('position', ''));
+                DB::table('organization_user')->updateOrInsert(
+                    ['organization_id' => $orgId, 'user_id' => $user->id],
+                    ['position' => ($position !== '' ? $position : null)]
+                );
+
+                // Ensure SELF relation exists (idempotent)
+                UserRelation::updateOrCreate(
+                    [
+                        'organization_id' => $orgId,
+                        'user_id'         => $user->id,
+                        'target_id'       => $user->id,
+                    ],
+                    [
+                        'type'            => UserRelationType::SELF,
+                    ]
+                );
+                \Log::info('employee.save.step_ok', ['step' => 'create_self_relation', 'user_id' => $user->id, 'org_id' => $orgId]);
+
+                // Ensure Bonus/Malus exists (idempotent)
+                $user->bonusMalus()->updateOrCreate(
+                    [
+                        'month'           => date('Y-m-01'),
+                        'organization_id' => $orgId,
+                    ],
+                    [
+                        'level' => UserService::DEFAULT_BM,
+                    ]
+                );
+                Log::info('employee.save.step_ok', ['step' => 'bonus_malus', 'user_id' => $user->id, 'org_id' => $orgId]);
+            }
+        });
+
+    } catch (\Throwable $e) {
+        \Log::error('employee.save.transaction_failed', [
             'org_id'  => $orgId,
-            'payload' => $request->all(),
-            'errors'  => $validator->errors()->toArray(),
+            'user_id' => $user ? $user->id : null,
+            'error'   => $e->getMessage(),
+            'prev'    => $e->getPrevious() ? $e->getPrevious()->getMessage() : null,
         ]);
 
         return response()->json([
-            'message' => 'Hibás adatok.',
-            'errors'  => $validator->errors()->toArray(),
+            'message' => 'Sikertelen művelet: szerverhiba!',
+            'errors'  => ['exception' => [$e->getMessage()]],
         ], 422);
     }
 
-    // ---- Szerver oldali típusváltás-védelem (részleg-tagság alapján) ----
-if ($user) {
-    $requestedType = $request->type;   // amit a kliens kér
-    $currentType   = $user->type;      // ami most van
-
-    // Részleg-tagság (member) az aktuális orgban
-    $hasDept = DB::table('organization_user')
-        ->where('organization_id', $orgId)
-        ->where('user_id', $user->id)
-        ->whereNotNull('department_id')
-        ->exists();
-
-    // UPDATED: Check if user is department manager using new structure
-    $isDeptManager = DB::table('organization_department_managers as odm')
-        ->join('organization_departments as d', 'd.id', '=', 'odm.department_id')
-        ->where('d.organization_id', $orgId)
-        ->where('odm.manager_id', $user->id)
-        ->whereNull('d.removed_at')
-        ->exists();
-
-    // Szabály 1: Ha manager és részleghez is van rendelve (vezetőként ÉS/VAGY tagként),
-    // a típust nem lehet megváltoztatni (manager marad).
-    if ($currentType === 'manager' && ($isDeptManager || $hasDept) && $requestedType !== 'manager') {
-        return response()->json([
-            'message' => 'A felhasználó menedzser és részleghez van rendelve; a típus nem módosítható.',
-            'errors'  => ['type' => ['A felhasználó menedzser és részleghez van rendelve; a típus nem módosítható.']]
-        ], 422);
-    }
-
-    // Szabály 2: Ha partial tag és normal típusú, a típus nem változtatható
-    if ($hasDept && $currentType === 'normal' && $requestedType !== 'normal') {
-        return response()->json([
-            'message' => 'Ez a dolgozó már tagja egy részlegnek, ezért a típus nem módosítható.',
-            'errors'  => ['type' => ['Ez a dolgozó már tagja egy részlegnek, ezért a típus nem módosítható.']]
-        ], 422);
-    }
-}
-// ---- /típusváltás-védelem ----
-
-
-    try {
-    AjaxService::DBTransaction(function () use ($request, $orgId, &$user, &$created) {
-
-        \Log::info('employee.save.debug.branch', [
-    'branch'  => is_null($user) ? 'CREATE' : 'UPDATE',
-    'user_id' => optional($user)->id,
-]);
-
-
-        // 1) USER létrehozás / frissítés
-        if (is_null($user)) {
-            $created = true;
-
-            $user = User::create([
-                'name'              => $request->name,
-                'email'             => $request->email,
-                'type'              => $request->type,
-                'has_auto_level_up' => (int) $request->autoLevelUp,
-            ]);
-
-            Log::info('employee.save.step_ok', ['step' => 'create_user', 'user_id' => $user->id]);
-        } else {
-            $user->name              = $request->name;
-            $user->email             = $request->email;
-            $user->type              = $request->type;
-            $user->has_auto_level_up = (int) $request->autoLevelUp;
-            $user->save();
-
-            Log::info('employee.save.step_ok', ['step' => 'update_user', 'user_id' => $user->id]);
-        }
-
-        // 2) ORG tagság (EZT KELL ELŐBB!)
-        $user->organizations()->syncWithoutDetaching([$orgId]);
-        Log::info('employee.save.step_ok', ['step' => 'attach_org', 'user_id' => $user->id, 'org_id' => $orgId]);
-
-        $position = trim((string) $request->input('position', ''));
-        DB::table('organization_user')->updateOrInsert(
-    ['organization_id' => $orgId, 'user_id' => $user->id],
-    ['position' => ($position !== '' ? $position : null)]
-);
-
-
-        // 3) SELF relation – idempotens, az egyedi kulcsra szűrünk:
-        UserRelation::updateOrCreate(
-            [
-                'organization_id' => $orgId,
-                'user_id'         => $user->id,
-                'target_id'       => $user->id,
-            ],
-            [
-                'type'            => UserRelationType::SELF,  // ha már létezik, frissítjük erre
-            ]
-        );
-        \Log::info('employee.save.step_ok', ['step' => 'create_self_relation', 'user_id' => $user->id, 'org_id' => $orgId]);
-
-        // 4) Bonus/Malus (idempotens, reláción – user_id automatikus)
-        $user->bonusMalus()->updateOrCreate(
-            [
-                'month'           => date('Y-m-01'),
-                'organization_id' => $orgId,
-            ],
-            [
-                'level' => UserService::DEFAULT_BM,
-            ]
-        );
-        Log::info('employee.save.step_ok', ['step' => 'bonus_malus', 'user_id' => $user->id, 'org_id' => $orgId]);
-    });
+    // Send password setup email only for NEW users
+    if ($created) {
+        try {
+            PasswordSetupService::createAndSend($orgId, $user->id, auth()->id());
         } catch (\Throwable $e) {
-            \Log::error('employee.save.transaction_failed', [
+            \Log::error('password_setup_mail_failed', [
                 'org_id'  => $orgId,
-                'user_id' => $user ? $user->id : null,
+                'user_id' => $user->id,
                 'error'   => $e->getMessage(),
-                'prev'    => $e->getPrevious() ? $e->getPrevious()->getMessage() : null,
             ]);
-
-            return response()->json([
-                'message' => 'Sikertelen művelet: szerverhiba!',
-                'errors'  => ['exception' => [$e->getMessage()]],
-            ], 422);
-        }
-
-
-
-            // E-MAIL csak ÚJ usernél
-            if ($created) {
-                try {
-                    PasswordSetupService::createAndSend($orgId, $user->id, auth()->id());
-                } catch (\Throwable $e) {
-                    \Log::error('password_setup_mail_failed', [
-                        'org_id'  => $orgId,
-                        'user_id' => $user->id,
-                        'error'   => $e->getMessage(),
-                    ]);
-
-                    return response()->json([
-                        'ok'      => true,
-                        'user_id' => $user->id,
-                        'info'    => 'A felhasználó létrejött, de a jelszó-beállító e-mail küldése nem sikerült. Ellenőrizd a mail beállításokat.',
-                    ], 200);
-                }
-            }
 
             return response()->json([
                 'ok'      => true,
                 'user_id' => $user->id,
-                'created' => $created,
-            ], 200);
+                'info'    => 'A felhasználó létrejött, de a jelszó-beállító e-mail küldése nem sikerült. Ellenőrizd a mail beállításokat.',
+            ]);
         }
+    }
+
+    return response()->json([
+        'ok'      => true,
+        'user_id' => $user->id,
+    ]);
+}
 
 public function PasswordReset(Request $request)
     {

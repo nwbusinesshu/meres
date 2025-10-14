@@ -172,7 +172,7 @@ class LoginController extends Controller
         // SECURITY: Use the strictest setting - if any org requires it, enforce it
         $requiresOAuth2FA = false;
         foreach ($orgIds as $orgId) {
-            if (OrgConfigService::getValue($orgId, 'force_oauth_2fa', false)) {
+            if (OrgConfigService::getBool($orgId, 'force_oauth_2fa', false)) {
                 $requiresOAuth2FA = true;
                 break;
             }

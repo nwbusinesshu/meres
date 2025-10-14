@@ -35,10 +35,10 @@
       {{-- Cookie Consent Banner (shows when needed) --}}
       @include('components.cookie-banner')
 
-      <a href="#" class="floating-help-btn" title="__('login.help')">
-        <span class="icon">?</span>
-        <span class="help-label">__('login.help_center')</span>
-      </a>
+      <a href="#" class="floating-help-btn" title="{{ __('login.help') }}">
+    <span class="icon">?</span>
+    <span class="help-label">{{ __('login.help_center') }}</span>
+</a>
 
       {{-- Help Modal JavaScript (NEW) --}}
       @include('components.help-modal')
