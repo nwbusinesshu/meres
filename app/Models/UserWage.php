@@ -10,6 +10,11 @@ class UserWage extends Model
     public $timestamps = false;
     const UPDATED_AT = 'updated_at';
     
+    // ✅ FIX: Composite primary key configuration
+    // Tell Laravel this table doesn't have a single auto-incrementing 'id' column
+    public $incrementing = false;
+    protected $primaryKey = null;
+    
     protected $fillable = [
         'user_id',
         'organization_id',
