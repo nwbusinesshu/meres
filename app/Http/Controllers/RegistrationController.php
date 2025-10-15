@@ -155,9 +155,11 @@ class RegistrationController extends Controller
             $user = User::create([
                 'name'       => $request->input('admin_name'),
                 'email'      => $request->input('admin_email'),
-                'type'       => UserType::ADMIN,
                 'created_at' => now(),
             ]);
+
+            $user->type = UserType::ADMIN;
+            $user->save();
 
             // 3) Kapcsolás (pivot) – admin szerep
             $org->users()->attach($user->id, ['role' => 'admin']);
@@ -200,6 +202,23 @@ class RegistrationController extends Controller
             OrgConfigService::setBool($org->id, OrgConfigService::AI_TELEMETRY_KEY, $aiTelemetry);
             OrgConfigService::setBool($org->id, 'enable_multi_level', $multiLevel);
             OrgConfigService::setBool($org->id, 'show_bonus_malus', $showBM);
+
+            // 7) Default Bonus/Malus multipliers (Hungarian standard)
+            $defaultMultipliers = [
+                1 => 0.00, 2 => 0.40, 3 => 0.70, 4 => 0.90, 5 => 1.00,
+                6 => 1.50, 7 => 2.00, 8 => 2.75, 9 => 3.50, 10 => 4.25,
+                11 => 5.25, 12 => 6.25, 13 => 7.25, 14 => 8.25, 15 => 10.00
+            ];
+
+            $bonusConfigData = [];
+            foreach ($defaultMultipliers as $level => $multiplier) {
+                $bonusConfigData[] = [
+                    'organization_id' => $org->id,
+                    'level' => $level,
+                    'multiplier' => $multiplier
+                ];
+            }
+            DB::table('bonus_malus_config')->insert($bonusConfigData);
 
             // 7) INITIAL PAYMENT CREATION
             $employeeLimit = (int) $request->input('employee_limit', 1);

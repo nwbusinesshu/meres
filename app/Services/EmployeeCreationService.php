@@ -125,6 +125,8 @@ class EmployeeCreationService
      * Assign employee to department
      * Handles both normal members and managers
      * 
+     * BUGFIX: Preserve the position when assigning to department
+     * 
      * @param User $user
      * @param int $orgId
      * @param int $departmentId
@@ -133,16 +135,29 @@ class EmployeeCreationService
     public static function assignToDepartment(User $user, int $orgId, int $departmentId, string $type): void
     {
         if ($type === 'normal') {
+            // BUGFIX: Get current position to preserve it
+            $currentData = DB::table('organization_user')
+                ->where('organization_id', $orgId)
+                ->where('user_id', $user->id)
+                ->first();
+            
+            $currentPosition = $currentData ? $currentData->position : null;
+            
             // Normal user = department member
+            // Update department_id while preserving position
             DB::table('organization_user')
                 ->where('organization_id', $orgId)
                 ->where('user_id', $user->id)
-                ->update(['department_id' => $departmentId]);
+                ->update([
+                    'department_id' => $departmentId,
+                    'position' => $currentPosition  // Explicitly preserve position
+                ]);
                 
             Log::info('employee.assign.member', [
                 'user_id' => $user->id,
                 'dept_id' => $departmentId,
-                'org_id' => $orgId
+                'org_id' => $orgId,
+                'position_preserved' => $currentPosition
             ]);
             
         } elseif ($type === 'manager') {

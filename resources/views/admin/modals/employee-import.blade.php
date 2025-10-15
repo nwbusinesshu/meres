@@ -150,7 +150,7 @@
                   <th>{{ __('admin/employees.department') }}</th>
                   @endif
                   <th>{{ __('admin/employees.wage') }}</th>
-                  <th style="width: 30%;">{{ __('admin/employees.status') }}</th>
+                  <th style="width: 15%;">{{ __('admin/employees.status') }}</th>
                 </tr>
               </thead>
               <tbody></tbody>
