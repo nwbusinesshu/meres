@@ -37,6 +37,15 @@ return [
   "swal-info" => "Információ",
 
   "connection-fail" => "Csatlakozási / szerver hiba!",
+  "bad-request" => "Hibás kérés. Kérjük, ellenőrizze az adatokat!",
+  "unauthorized" => "Nincs jogosultsága ehhez a művelethez. Kérjük, jelentkezzen be!",
+  "forbidden" => "Hozzáférés megtagadva!",
+  "not-found" => "A keresett elem nem található.",
+  "conflict" => "Ütközés történt. A művelet nem hajtható végre.",
+  "too-many-requests" => "Túl sok kérés. Kérjük, próbálja újra később!",
+  "server-error" => "Szerverhiba történt. Kérjük, próbálja újra később!",
+  "service-unavailable" => "A szolgáltatás jelenleg nem elérhető. Kérjük, próbálja újra később!",
+  "validation-failed" => "Az adatok érvényesítése sikertelen.",
 
   "all-fields-required" => "Minden mező kitöltése kötelező!",
 

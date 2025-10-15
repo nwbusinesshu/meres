@@ -58,10 +58,21 @@
 
           {{-- Művelet: fizetés indítása --}}
           <td>
-            <button class="btn btn-sm btn-primary btn-start-payment"
-              data-id="{{ $row->id }}">
-              <i class="fa fa-credit-card"></i> {{ __('payment.actions.pay_now') }}
-            </button>
+            @if(!empty($row->is_blocked) && $row->is_blocked)
+              <button class="btn btn-sm btn-secondary btn-start-payment"
+                data-id="{{ $row->id }}"
+                data-blocked="true"
+                data-remaining-minutes="{{ $row->remaining_minutes ?? 0 }}"
+                title="{{ __('payment.swal.payment_blocked_text') }}">
+                <i class="fa fa-clock"></i> {{ __('payment.actions.pay_now') }}
+              </button>
+            @else
+              <button class="btn btn-sm btn-primary btn-start-payment"
+                data-id="{{ $row->id }}"
+                data-blocked="false">
+                <i class="fa fa-credit-card"></i> {{ __('payment.actions.pay_now') }}
+              </button>
+            @endif
           </td>
         </tr>
       @empty
@@ -114,10 +125,21 @@
         </div>
         
         <div class="payment-card-actions">
-          <button class="btn btn-primary btn-start-payment"
-            data-id="{{ $row->id }}">
-            <i class="fa fa-credit-card"></i> {{ __('payment.actions.pay_now') }}
-          </button>
+          @if(!empty($row->is_blocked) && $row->is_blocked)
+            <button class="btn btn-secondary btn-start-payment"
+              data-id="{{ $row->id }}"
+              data-blocked="true"
+              data-remaining-minutes="{{ $row->remaining_minutes ?? 0 }}"
+              title="{{ __('payment.swal.payment_blocked_text') }}">
+              <i class="fa fa-clock"></i> {{ __('payment.actions.pay_now') }}
+            </button>
+          @else
+            <button class="btn btn-primary btn-start-payment"
+              data-id="{{ $row->id }}"
+              data-blocked="false">
+              <i class="fa fa-credit-card"></i> {{ __('payment.actions.pay_now') }}
+            </button>
+          @endif
         </div>
       </div>
     @empty
@@ -312,10 +334,21 @@
 
           {{-- Művelet: fizetés indítása --}}
           <td>
-            <button class="btn btn-sm btn-primary btn-start-payment"
-              data-id="{{ $row->id }}">
-              <i class="fa fa-credit-card"></i> {{ __('payment.actions.pay_now') }}
-            </button>
+            @if(!empty($row->is_blocked) && $row->is_blocked)
+              <button class="btn btn-sm btn-secondary btn-start-payment"
+                data-id="{{ $row->id }}"
+                data-blocked="true"
+                data-remaining-minutes="{{ $row->remaining_minutes ?? 0 }}"
+                title="{{ __('payment.swal.payment_blocked_text') }}">
+                <i class="fa fa-clock"></i> {{ __('payment.actions.pay_now') }}
+              </button>
+            @else
+              <button class="btn btn-sm btn-primary btn-start-payment"
+                data-id="{{ $row->id }}"
+                data-blocked="false">
+                <i class="fa fa-credit-card"></i> {{ __('payment.actions.pay_now') }}
+              </button>
+            @endif
           </td>
         </tr>
       @empty
@@ -368,10 +401,21 @@
         </div>
         
         <div class="payment-card-actions">
-          <button class="btn btn-primary btn-start-payment"
-            data-id="{{ $row->id }}">
-            <i class="fa fa-credit-card"></i> {{ __('payment.actions.pay_now') }}
-          </button>
+          @if(!empty($row->is_blocked) && $row->is_blocked)
+            <button class="btn btn-secondary btn-start-payment"
+              data-id="{{ $row->id }}"
+              data-blocked="true"
+              data-remaining-minutes="{{ $row->remaining_minutes ?? 0 }}"
+              title="{{ __('payment.swal.payment_blocked_text') }}">
+              <i class="fa fa-clock"></i> {{ __('payment.actions.pay_now') }}
+            </button>
+          @else
+            <button class="btn btn-primary btn-start-payment"
+              data-id="{{ $row->id }}"
+              data-blocked="false">
+              <i class="fa fa-credit-card"></i> {{ __('payment.actions.pay_now') }}
+            </button>
+          @endif
         </div>
       </div>
     @empty

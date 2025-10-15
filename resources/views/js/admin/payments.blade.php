@@ -41,24 +41,57 @@ $(function(){
     const $btn = $(this);
     const id   = $btn.data('id');
 
+    // Check if this payment is blocked (data attribute from blade)
+    const isBlocked = $btn.data('blocked');
+    const remainingMinutes = $btn.data('remaining-minutes');
+
+    if (isBlocked) {
+      swal.fire({
+        icon: 'warning',
+        title: '{{ __("payment.swal.payment_blocked_title") }}',
+        text: '{{ __("payment.swal.payment_blocked_text") }}',
+        confirmButtonText: 'OK'
+      });
+      return;
+    }
+
     $btn.prop('disabled', true);
+
+    // Show redirect notification
+    const redirectingSwal = swal.fire({
+      icon: 'info',
+      title: '{{ __("payment.swal.redirecting_title") }}',
+      text: '{{ __("payment.swal.redirecting_text") }}',
+      showConfirmButton: false,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      timer: 2000,
+      timerProgressBar: true,
+      didOpen: () => {
+        swal.showLoading();
+      }
+    });
 
     $.post(START_URL, { _token: csrf, payment_id: id })
       .done(function(resp){
         if (resp && resp.success && resp.redirect_url) {
-          window.location.href = resp.redirect_url;
+          // Keep the notification visible and redirect
+          setTimeout(() => {
+            window.location.href = resp.redirect_url;
+          }, 1500);
         } else {
+          redirectingSwal.close();
           swal.fire('{{ __("payment.swal.start_unknown_title") }}', '{{ __("payment.swal.start_unknown_text") }}', 'warning');
+          $btn.prop('disabled', false);
         }
       })
       .fail(function(xhr){
+        redirectingSwal.close();
         let msg = '{{ __("payment.swal.start_fail_text") }}';
         if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
           msg = xhr.responseJSON.message;
         }
         swal.fire('{{ __("payment.swal.start_fail_title") }}', msg, 'error');
-      })
-      .always(function(){
         $btn.prop('disabled', false);
       });
   });

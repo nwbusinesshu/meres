@@ -10,6 +10,7 @@ use App\Services\BarionService;
 use App\Services\BillingoService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class AdminPaymentController extends Controller
 {
@@ -20,6 +21,9 @@ class AdminPaymentController extends Controller
     {
         $orgId = (int) $request->session()->get('org_id');
 
+        // First, check for abandoned payments and clean them up
+        $this->handleAbandonedPayments($orgId);
+
         $open = \DB::table('payments as p')
             ->leftJoin('assessment as a', 'a.id', '=', 'p.assessment_id')
             ->where('p.organization_id', $orgId)
@@ -27,6 +31,24 @@ class AdminPaymentController extends Controller
             ->orderByDesc('p.created_at')
             ->select('p.*', 'a.started_at', 'a.due_at', 'a.closed_at')
             ->get();
+
+        // Mark payments as blocked if they are in the 10-minute cooling period
+        $open = $open->map(function($payment) {
+            if ($payment->status === 'pending' && !empty($payment->barion_payment_id)) {
+                $updatedAt = Carbon::parse($payment->updated_at);
+                $minutesSinceUpdate = $updatedAt->diffInMinutes(now());
+                
+                if ($minutesSinceUpdate < 10) {
+                    $payment->is_blocked = true;
+                    $payment->remaining_minutes = 10 - $minutesSinceUpdate;
+                } else {
+                    $payment->is_blocked = false;
+                }
+            } else {
+                $payment->is_blocked = false;
+            }
+            return $payment;
+        });
 
         $settled = \DB::table('payments as p')
             ->leftJoin('assessment as a', 'a.id', '=', 'p.assessment_id')
@@ -37,6 +59,37 @@ class AdminPaymentController extends Controller
             ->get();
 
         return view('admin.payments', compact('open','settled'));
+    }
+
+    /**
+     * Handle abandoned payments: clear barion_payment_id if > 10 minutes old
+     */
+    private function handleAbandonedPayments($orgId)
+    {
+        $tenMinutesAgo = Carbon::now()->subMinutes(10);
+
+        $abandonedPayments = \DB::table('payments')
+            ->where('organization_id', $orgId)
+            ->where('status', 'pending')
+            ->whereNotNull('barion_payment_id')
+            ->where('updated_at', '<', $tenMinutesAgo)
+            ->get();
+
+        foreach ($abandonedPayments as $payment) {
+            \DB::table('payments')
+                ->where('id', $payment->id)
+                ->update([
+                    'barion_payment_id' => null,
+                    'status' => 'failed',
+                    'updated_at' => now(),
+                ]);
+
+            \Log::info('payment.abandoned.cleaned', [
+                'payment_id' => $payment->id,
+                'barion_payment_id' => $payment->barion_payment_id,
+                'minutes_since_update' => Carbon::parse($payment->updated_at)->diffInMinutes(now()),
+            ]);
+        }
     }
 
     public function start(Request $request, \App\Services\BarionService $barion)
@@ -112,8 +165,6 @@ class AdminPaymentController extends Controller
                 return response()->json(['success' => false, 'message' => 'Barion fizetés sikertelen (hiányzó PaymentId).'], 500);
             }
 
-            // REMOVED: barion_audit_log insert (table doesn't exist)
-            // Just update the payment record
             \DB::table('payments')->where('id', $payment->id)->update([
                 'barion_payment_id' => $started['paymentId'],
                 'status'            => 'pending',
@@ -131,11 +182,10 @@ class AdminPaymentController extends Controller
             $body = $e->response ? ($e->response->json() ?? $e->response->body()) : 'N/A';
             \Log::error('barion.start.request_exception', [
                 'payment_id' => $request->payment_id,
-                'status'     => $e->response ? $e->response->status() : 'N/A',
+                'status'     => $e->response ? $e->response->status() : null,
                 'body'       => $body,
-                'msg'        => $e->getMessage(),
             ]);
-            return response()->json(['success' => false, 'message' => 'Barion hiba: ' . $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'Hiba a Barion fizetés indításakor.'], 500);
         } catch (\Throwable $e) {
             \DB::rollBack();
             \Log::error('barion.start.throwable', [
@@ -143,87 +193,9 @@ class AdminPaymentController extends Controller
                 'msg'        => $e->getMessage(),
                 'trace'      => $e->getTraceAsString(),
             ]);
-            return response()->json(['success' => false, 'message' => 'Hiba történt a fizetés indításakor. Kérlek, próbáld újra pár másodperc múlva.'], 500);
+            return response()->json(['success' => false, 'message' => 'Váratlan hiba történt.'], 500);
         }
     }
-
-    /**
- * Számla letöltése PDF formában (már kiállított számlákhoz).
- */
-public function invoice(Request $request, $id, BillingoService $billingo)
-{
-    $orgId = (int) $request->session()->get('org_id');
-    $p = \DB::table('payments')
-        ->where('id', $id)
-        ->where('organization_id', $orgId)
-        ->where('status', 'paid')
-        ->first();
-
-    if (!$p) {
-        abort(404, 'Számla nem található.');
-    }
-
-    if (empty($p->billingo_document_id)) {
-        abort(404, 'Számla még nem lett kiállítva.');
-    }
-
-    try {
-        \Log::info('invoice.download.start', [
-            'payment_id'  => $id,
-            'document_id' => $p->billingo_document_id,
-        ]);
-
-        // Download PDF from Billingo
-        $pdfContent = $billingo->downloadInvoicePdf((int) $p->billingo_document_id);
-
-        \Log::info('invoice.download.success', [
-            'payment_id'  => $id,
-            'document_id' => $p->billingo_document_id,
-            'size'        => strlen($pdfContent),
-        ]);
-
-        // Generate filename: invoice_number or payment_id
-        $filename = 'szamla_';
-        if (!empty($p->billingo_invoice_number)) {
-            $filename .= preg_replace('/[^a-zA-Z0-9_-]/', '_', $p->billingo_invoice_number);
-        } else {
-            $filename .= $id;
-        }
-        $filename .= '.pdf';
-
-        // Return PDF for download
-        return response($pdfContent, 200)
-            ->header('Content-Type', 'application/pdf')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
-            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
-            ->header('Pragma', 'no-cache')
-            ->header('Expires', '0');
-
-    } catch (\RuntimeException $e) {
-        if ($e->getMessage() === 'not_ready') {
-            \Log::warning('invoice.download.not_ready', [
-                'payment_id'  => $id,
-                'document_id' => $p->billingo_document_id,
-            ]);
-            abort(503, 'A számla PDF még nem áll készen. Kérjük, próbálja újra pár perc múlva.');
-        }
-
-        \Log::error('invoice.download.error', [
-            'payment_id'  => $id,
-            'document_id' => $p->billingo_document_id,
-            'error'       => $e->getMessage(),
-        ]);
-        abort(500, 'Hiba történt a számla letöltése közben. Kérjük, próbálja újra később.');
-    } catch (\Throwable $e) {
-        \Log::error('invoice.download.exception', [
-            'payment_id'  => $id,
-            'document_id' => $p->billingo_document_id,
-            'error'       => $e->getMessage(),
-            'trace'       => $e->getTraceAsString(),
-        ]);
-        abort(500, 'Hiba történt a számla letöltése közben.');
-    }
-}
 
     public function refresh(Request $request, \App\Services\BarionService $barion, \App\Services\BillingoService $billingo)
     {
@@ -306,57 +278,140 @@ public function invoice(Request $request, $id, BillingoService $billingo)
         }
     }
 
-    private function issueBillingoInvoiceWithRetry(array $payment, BillingoService $billingo, int $maxRetries = 3): void
+    public function invoice(Request $request, $id, \App\Services\BillingoService $billingo)
     {
+        $orgId = (int) $request->session()->get('org_id');
+        $p = \DB::table('payments')
+            ->where('id', $id)
+            ->where('organization_id', $orgId)
+            ->where('status', 'paid')
+            ->first();
+
+        if (!$p) {
+            abort(404, 'Számla nem található.');
+        }
+
+        if (empty($p->billingo_document_id)) {
+            abort(404, 'Számla még nem lett kiállítva.');
+        }
+
+        try {
+            \Log::info('invoice.download.start', [
+                'payment_id'  => $id,
+                'document_id' => $p->billingo_document_id,
+            ]);
+
+            // Download PDF from Billingo
+            $pdfContent = $billingo->downloadInvoicePdf((int) $p->billingo_document_id);
+
+            \Log::info('invoice.download.success', [
+                'payment_id'  => $id,
+                'document_id' => $p->billingo_document_id,
+                'size'        => strlen($pdfContent),
+            ]);
+
+            // Generate filename: invoice_number or payment_id
+            $filename = 'szamla_';
+            if (!empty($p->billingo_invoice_number)) {
+                $filename .= preg_replace('/[^a-zA-Z0-9_-]/', '_', $p->billingo_invoice_number);
+            } else {
+                $filename .= $id;
+            }
+            $filename .= '.pdf';
+
+            // Return PDF for download
+            return response($pdfContent, 200)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+                ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                ->header('Pragma', 'no-cache')
+                ->header('Expires', '0');
+
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() === 'not_ready') {
+                \Log::warning('invoice.download.not_ready', [
+                    'payment_id'  => $id,
+                    'document_id' => $p->billingo_document_id,
+                ]);
+                abort(503, 'A számla PDF még nem áll készen. Kérjük, próbálja újra pár perc múlva.');
+            }
+
+            \Log::error('invoice.download.error', [
+                'payment_id'  => $id,
+                'document_id' => $p->billingo_document_id,
+                'error'       => $e->getMessage(),
+            ]);
+            abort(500, 'Hiba történt a számla letöltése közben. Kérjük, próbálja újra később.');
+        } catch (\Throwable $e) {
+            \Log::error('invoice.download.exception', [
+                'payment_id'  => $id,
+                'document_id' => $p->billingo_document_id,
+                'error'       => $e->getMessage(),
+                'trace'       => $e->getTraceAsString(),
+            ]);
+            abort(500, 'Hiba történt a számla letöltése közben.');
+        }
+    }
+
+    private function issueBillingoInvoiceWithRetry(array $payment, \App\Services\BillingoService $billingo)
+    {
+        $maxAttempts = 3;
+        $attempt = 0;
         $lastException = null;
-        
-        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+
+        while ($attempt < $maxAttempts) {
+            $attempt++;
             try {
                 \Log::info('billingo.invoice.attempt', [
                     'payment_id' => $payment['id'],
-                    'attempt'    => $attempt,
-                    'max'        => $maxRetries,
+                    'attempt' => $attempt,
+                    'max' => $maxAttempts,
                 ]);
-                
+
                 $this->issueBillingoInvoice($payment, $billingo);
-                
+
                 \Log::info('billingo.invoice.success', [
                     'payment_id' => $payment['id'],
-                    'attempt'    => $attempt,
+                    'attempt' => $attempt,
                 ]);
-                
+
                 return;
-                
+
             } catch (\Throwable $e) {
                 $lastException = $e;
                 \Log::warning('billingo.invoice.retry', [
                     'payment_id' => $payment['id'],
-                    'attempt'    => $attempt,
-                    'error'      => $e->getMessage(),
+                    'attempt' => $attempt,
+                    'error' => $e->getMessage(),
                 ]);
-                
-                if ($attempt < $maxRetries) {
+
+                if ($attempt < $maxAttempts) {
                     sleep(pow(2, $attempt));
                 }
             }
         }
-        
+
         \Log::error('billingo.invoice.all_retries_failed', [
             'payment_id' => $payment['id'],
-            'attempts'   => $maxRetries,
+            'attempts' => $maxAttempts,
             'last_error' => $lastException ? $lastException->getMessage() : 'Unknown',
         ]);
-        
-        throw $lastException ?? new \Exception('Invoice creation failed after ' . $maxRetries . ' attempts');
+
+        throw $lastException ?? new \Exception('Invoice creation failed after ' . $maxAttempts . ' attempts');
     }
 
-    private function issueBillingoInvoice(array $payment, BillingoService $billingo): void
+    private function issueBillingoInvoice(array $payment, \App\Services\BillingoService $billingo)
     {
         \Log::info('billingo.invoice.starting', ['payment_id' => $payment['id']]);
 
-        $org = \DB::table('organization')->where('id', $payment['organization_id'])->first();
+        $orgId = $payment['organization_id'] ?? null;
+        if (!$orgId) {
+            throw new \Exception('Hiányzó organization_id a payment táblában.');
+        }
+
+        $org = \DB::table('organization')->where('id', $orgId)->first();
         if (!$org) {
-            throw new \Exception('Organization not found: ' . $payment['organization_id']);
+            throw new \Exception('Szervezet nem található: ' . $orgId);
         }
 
         $profile = \DB::table('organization_profiles')->where('organization_id', $org->id)->first();

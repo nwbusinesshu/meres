@@ -51,5 +51,13 @@ return [
         'start_unknown_text'  => 'A fizetés indítása nem egyértelmű választ adott.',
         'start_fail_title'    => 'Nem sikerült indítani',
         'start_fail_text'     => 'A fizetés indítása sikertelen.',
+
+        // NEW: Blocked payment notification
+        'payment_blocked_title' => 'Fizetés folyamatban vagy megszakítva',
+        'payment_blocked_text' => 'A fizetés nem fejeződött be. Kérjük, várjon 10 percet, mielőtt újra próbálkozna.',
+
+        // NEW: Redirect notification
+        'redirecting_title' => 'Átirányítás...',
+        'redirecting_text' => 'Azonnal átirányítjuk a Barion fizetési oldalára.',
     ],
 ];

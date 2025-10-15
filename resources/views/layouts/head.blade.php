@@ -221,9 +221,8 @@
 		/* Moment js locale */
 		moment().locale(LANG_CODE);
 
-		/* Ajax setup */
- /* Ajax setup */
-  $.ajaxSetup({
+	/* Ajax setup */
+$.ajaxSetup({
   beforeSend: function (xhr, settings) {
     if (settings.url.includes('{{ url('/') }}')) {
       xhr.setRequestHeader(
@@ -237,36 +236,100 @@
   },
   method: "POST",
   complete: function (xhr, status) {
-    // UPDATED: Check for custom flag to skip global error handling
+    // Check for custom flag to skip global error handling
     if (this.skipGlobalErrorHandler === true) {
       return; // Skip global error handling for this request
     }
     
     if (status !== 'success') {
-      // hibakezelés (419/422 stb.)
+      // ---- ERROR HANDLING ----
+      
+      // 419: CSRF Token Expired - automatically reload
       if (xhr.status == 419) {
         swal_loader.fire();
         location.reload();
         return;
       }
+      
+      // 422: Validation Errors - show all validation messages
       if (xhr.status == 422) {
-        var errors = Object.values(xhr.responseJSON.errors);
-        swal_error.fire({ html: [].concat.apply([], errors).join('<br>') });
+        if (xhr.responseJSON && xhr.responseJSON.errors) {
+          var errors = Object.values(xhr.responseJSON.errors);
+          swal_error.fire({ html: [].concat.apply([], errors).join('<br>') });
+        } else if (xhr.responseJSON && xhr.responseJSON.message) {
+          // Sometimes 422 returns a single message instead of errors array
+          swal_error.fire({ html: xhr.responseJSON.message });
+        } else {
+          swal_error.fire({ text: '{{ __('global.validation-failed') }}' });
+        }
         return;
       }
-      swal_error.fire({ text: '{{ __('global.connection-fail') }}' });
+      
+      // IMPROVED: Try to extract specific error message from server
+      let errorMessage = null;
+      
+      // Check if server sent a specific message
+      if (xhr.responseJSON && xhr.responseJSON.message) {
+        errorMessage = xhr.responseJSON.message;
+      } 
+      // Check for error property (some APIs use this)
+      else if (xhr.responseJSON && xhr.responseJSON.error) {
+        errorMessage = xhr.responseJSON.error;
+      }
+      // Status-specific fallback messages
+      else {
+        switch (xhr.status) {
+          case 400:
+            errorMessage = '{{ __('global.bad-request') }}';
+            break;
+          case 401:
+            errorMessage = '{{ __('global.unauthorized') }}';
+            break;
+          case 403:
+            errorMessage = '{{ __('global.forbidden') }}';
+            break;
+          case 404:
+            errorMessage = '{{ __('global.not-found') }}';
+            break;
+          case 409:
+            errorMessage = '{{ __('global.conflict') }}';
+            break;
+          case 429:
+            errorMessage = '{{ __('global.too-many-requests') }}';
+            break;
+          case 500:
+            errorMessage = '{{ __('global.server-error') }}';
+            break;
+          case 503:
+            errorMessage = '{{ __('global.service-unavailable') }}';
+            break;
+          default:
+            errorMessage = '{{ __('global.connection-fail') }}';
+        }
+      }
+      
+      // Show the error message
+      swal_error.fire({ html: errorMessage });
+      
+      // Debug logging in development mode
       @if(config('app.debug'))
-        console.log(xhr.responseJSON);
+        console.group('AJAX Error Details');
+        console.log('Status:', xhr.status);
+        console.log('Status Text:', xhr.statusText);
+        console.log('Response:', xhr.responseJSON);
+        console.log('Message Used:', errorMessage);
+        console.groupEnd();
       @endif
+      
       return;
     }
 
-    // ---- SIKER ÁG ----
+    // ---- SUCCESS HANDLING ----
     if (typeof this.successMessage !== 'undefined') {
       const wantsModal = this.useModal === true;
 
       if (wantsModal) {
-        // régi, gombos modal
+        // Old modal with button
         swal_success.fire({ text: this.successMessage }).then(() => {
           swal_loader.fire();
           if (typeof this.successUrl !== 'undefined') {
@@ -276,7 +339,7 @@
           }
         });
       } else {
-        // ÚJ: redirect/reload azonnal, a toast a KÖVETKEZŐ oldalon jön fel (session flash)
+        // NEW: redirect/reload immediately, toast appears on NEXT page (session flash)
         const go = () => {
           if (typeof this.successUrl !== 'undefined') {
             location.href = this.successUrl;
