@@ -49,7 +49,6 @@
 
 	<!-- Custom css per page -->
 	<link rel="stylesheet" href="{{ assets("css/pages/{$currentViewName}.css") }}">
-	<link rel="stylesheet" href="{{ asset('assets/css/components/env-notification.css') }}">
 
 	<!-- Global custom js -->
 	<script>
