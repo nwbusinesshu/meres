@@ -465,4 +465,58 @@ class UserService
         $k = $raterId . ':' . $targetId;
         return !empty($rel[$k][$type]);
     }
+
+    /**
+     * Get user results from snapshot (cached).
+     * Returns null if not found or assessment not closed.
+     * 
+     * @param int $assessmentId
+     * @param int $userId
+     * @return array|null
+     */
+    public static function getUserResultsFromSnapshot(int $assessmentId, int $userId): ?array
+    {
+        $assessment = Assessment::find($assessmentId);
+        
+        // Only use cached results for closed assessments
+        if (!$assessment || !$assessment->closed_at || !$assessment->org_snapshot) {
+            return null;
+        }
+        
+        $snapshot = json_decode($assessment->org_snapshot, true);
+        if (!isset($snapshot['user_results'][(string)$userId])) {
+            return null;
+        }
+        
+        return $snapshot['user_results'][(string)$userId];
+    }
+
+    /**
+     * Convert snapshot result array to the stdClass format expected by controllers.
+     * This ensures compatibility with existing code that uses calculateUserPoints.
+     * 
+     * @param array $result
+     * @return \stdClass
+     */
+    public static function snapshotResultToStdClass(array $result): \stdClass
+    {
+        return (object) [
+            // Main stats
+            'total'            => $result['total'],
+            'selfTotal'        => $result['self'],
+            'colleagueTotal'   => $result['colleague'],
+            'colleaguesTotal'  => $result['colleagues_raw'],
+            'managersTotal'    => $result['manager'],
+            'bossTotal'        => $result['managers_raw'],
+            'ceoTotal'         => $result['ceo'],
+            'sum'              => $result['sum'],
+            'complete'         => $result['complete'] ?? true,
+            
+            // Aliases for compatibility (some views use these)
+            'peersTotal'       => $result['colleague'],
+            'leadersTotal'     => $result['manager'],
+            'leaderTotal'      => $result['manager'],
+            'rankTotal'        => $result['ceo'],
+        ];
+    }
 }

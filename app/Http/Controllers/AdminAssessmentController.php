@@ -435,6 +435,89 @@ if (!$hasClosedAssessment) {
                     ->update(['level' => $bm->level]);
             }
 
+             // 4) BUILD AND SAVE USER RESULTS TO SNAPSHOT
+            $month = now()->format('Y-m-01');
+            $userResults = [];
+            
+            // Get previous assessment to calculate change indicators
+            $previousAssessment = Assessment::where('organization_id', $orgId)
+                ->whereNotNull('closed_at')
+                ->where('closed_at', '<', $assessment->closed_at)
+                ->orderByDesc('closed_at')
+                ->first();
+            
+            $previousStats = [];
+            if ($previousAssessment) {
+                foreach ($participants as $user) {
+                    $prevStat = UserService::calculateUserPoints($previousAssessment, $user);
+                    if ($prevStat) {
+                        $previousStats[$user->id] = $prevStat->total;
+                    }
+                }
+            }
+            
+            foreach ($participants as $user) {
+                $stat = $userStats[$user->id] ?? null;
+                if ($stat === null) {
+                    continue; // Skip users without valid stats
+                }
+                
+                // Get the UPDATED bonus/malus level (after the loop above)
+                $bm = $user->bonusMalus()->first();
+                
+                // Calculate change indicator
+                $change = 'none';
+                if ((int)$user->has_auto_level_up === 1) {
+                    // Monthly auto-level-up users
+                    if ($stat->total < $mon) {
+                        $change = 'down';
+                    }
+                } else {
+                    // Normal users
+                    if ($stat->total < $down) {
+                        $change = 'down';
+                    } elseif ($stat->total > $up) {
+                        $change = 'up';
+                    }
+                }
+                
+                // Build user result data matching the planned structure
+                $userResults[(string)$user->id] = [
+                    // Core stats (matching UserService response)
+                    'total'          => (int)$stat->total,              // 0..100
+                    'sum'            => (int)$stat->sum,                // 0..500
+                    'self'           => (int)$stat->selfTotal,          // 0..100
+                    'colleague'      => (int)$stat->colleagueTotal,     // 0..100 (normalized)
+                    'colleagues_raw' => (int)$stat->colleaguesTotal,    // 0..150
+                    'manager'        => (int)$stat->managersTotal,      // 0..100 (normalized)
+                    'managers_raw'   => (int)$stat->bossTotal,          // 0..150
+                    'boss_raw'       => (int)$stat->bossTotal,          // 0..150 (alias)
+                    'ceo'            => (int)$stat->ceoTotal,           // 0..100
+                    'complete'       => (bool)($stat->complete ?? true),
+                    
+                    // Bonus/Malus snapshot (at close time)
+                    'bonus_malus_level' => $bm?->level,
+                    'bonus_malus_month' => $month,
+                    
+                    // Change indicator
+                    'change'             => $change,
+                    'has_auto_level_up'  => (int)$user->has_auto_level_up,
+                ];
+            }
+            
+            // Save user results to snapshot using SnapshotService
+            /** @var \App\Services\SnapshotService $snapService */
+            $snapService = app(\App\Services\SnapshotService::class);
+            $saved = $snapService->saveUserResultsToSnapshot($assessment->id, $userResults);
+            
+            if (!$saved) {
+                Log::warning('Failed to save user results to snapshot', [
+                    'assessment_id' => $assessment->id,
+                ]);
+                // Don't fail the assessment close, just log the warning
+            }
+
+
              try {
                 app(\App\Services\BonusCalculationService::class)
                     ->processAssessmentBonuses($assessment->id);

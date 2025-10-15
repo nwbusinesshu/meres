@@ -70,31 +70,17 @@ class ResultsController extends Controller
 
         $showBonusMalus = \App\Services\OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
 
-        // Aktuális user stat
-        $user['stats'] = UserService::calculateUserPoints($assessment, $user);
-
-        // BonusMalus
-        if (!in_array($user->type, [UserType::ADMIN, UserType::SUPERADMIN], true)) {
-            $month = date('Y-m-01', strtotime($assessment->closed_at));
-            $user['bonusMalus'] = optional($user->getBonusMalusInMonth($month))->level;
+        // Aktuális user stat - GET FROM CACHE
+        $cached = UserService::getUserResultsFromSnapshot($assessment->id, $user->id);
+        if ($cached) {
+            $user['stats'] = UserService::snapshotResultToStdClass($cached);
+            $user['bonusMalus'] = $cached['bonus_malus_level'];
+            $user['change'] = $cached['change'];
         } else {
+            // No cached data
+            $user['stats'] = null;
             $user['bonusMalus'] = null;
-        }
-
-        // Szintváltozás
-        $user['change'] = 'none';
-        if (!is_null($user->stats)) {
-            if ((int)$user->has_auto_level_up === 1) {
-                if ($user->stats->total < $assessment->monthly_level_down) {
-                    $user['change'] = 'down';
-                }
-            } else {
-                if ($user->stats->total < $assessment->normal_level_down) {
-                    $user['change'] = 'down';
-                } elseif ($user->stats->total > $assessment->normal_level_up) {
-                    $user['change'] = 'up';
-                }
-            }
+            $user['change'] = 'none';
         }
 
         /*
@@ -109,15 +95,19 @@ class ResultsController extends Controller
 
         $history = collect();
         foreach ($allClosed as $a) {
-            // HELYES sorrend: (Assessment, User)
-            $s = UserService::calculateUserPoints($a, $user);
-            if (!$s) continue;
-
-            // minden komponens 0..100, nincs *2, /2
-            $total        = isset($s->total)           && is_numeric($s->total)           ? (float)$s->total           : null;
-            $selfVal      = isset($s->selfTotal)       && is_numeric($s->selfTotal)       ? (float)$s->selfTotal       : null;
-            $employeesVal = isset($s->colleagueTotal)  && is_numeric($s->colleagueTotal)  ? (float)$s->colleagueTotal  : null;
-            $leadersVal   = isset($s->managersTotal)   && is_numeric($s->managersTotal)   ? (float)$s->managersTotal   : null;
+            // Get cached results - FAST!
+            $cached = UserService::getUserResultsFromSnapshot($a->id, $user->id);
+            
+            if ($cached) {
+                // Use cached data
+                $total        = (float)$cached['total'];
+                $selfVal      = (float)$cached['self'];
+                $employeesVal = (float)$cached['colleague'];
+                $leadersVal   = (float)$cached['manager'];
+            } else {
+                // No cached data - skip this assessment
+                continue;
+            }
 
             if ($total !== null) {
                 $history->push([

@@ -51,24 +51,19 @@ class AdminResultsController extends Controller
             ->orderBy('name')
             ->get()
             ->map(function ($user) use ($assessment) {
-                $user['stats'] = UserService::calculateUserPoints($assessment, $user);
-
-                $month = date('Y-m-01', strtotime($assessment->closed_at));
-                $user['bonusMalus'] = optional($user->getBonusMalusInMonth($month))->level;
-
-                $user['change'] = 'none';
-                if (!is_null($user->stats)) {
-                    if ((int)$user->has_auto_level_up === 1) {
-                        if ($user->stats->total < $assessment->monthly_level_down) {
-                            $user['change'] = 'down';
-                        }
-                    } else {
-                        if ($user->stats->total < $assessment->normal_level_down) {
-                            $user['change'] = 'down';
-                        } elseif ($user->stats->total > $assessment->normal_level_up) {
-                            $user['change'] = 'up';
-                        }
-                    }
+                // Get cached results from snapshot
+                $cached = UserService::getUserResultsFromSnapshot($assessment->id, $user->id);
+                
+                if ($cached) {
+                    // Use cached data - FAST!
+                    $user['stats'] = UserService::snapshotResultToStdClass($cached);
+                    $user['bonusMalus'] = $cached['bonus_malus_level'];
+                    $user['change'] = $cached['change'];
+                } else {
+                    // No cached data - user has no results
+                    $user['stats'] = null;
+                    $user['bonusMalus'] = null;
+                    $user['change'] = 'none';
                 }
 
                 return $user;

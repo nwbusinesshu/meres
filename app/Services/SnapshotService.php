@@ -296,4 +296,58 @@ foreach ($bonusMalusRows as $bm) {
         }
         return $out;
     }
+
+    /**
+     * Save user results to assessment snapshot.
+     * This is called when closing an assessment to cache all user results.
+     * 
+     * @param int $assessmentId
+     * @param array $userResults Array keyed by user_id with result data
+     * @return bool Success/failure
+     */
+    public function saveUserResultsToSnapshot(int $assessmentId, array $userResults): bool
+    {
+        try {
+            // Load current assessment
+            $assessment = DB::table('assessment')
+                ->where('id', $assessmentId)
+                ->first(['id', 'org_snapshot']);
+
+            if (!$assessment) {
+                Log::error('SnapshotService: Assessment not found', ['assessment_id' => $assessmentId]);
+                return false;
+            }
+
+            // Decode existing snapshot
+            $snapshot = json_decode($assessment->org_snapshot, true);
+            if (!is_array($snapshot)) {
+                Log::error('SnapshotService: Invalid snapshot JSON', ['assessment_id' => $assessmentId]);
+                return false;
+            }
+
+            // Add user_results section
+            $snapshot['user_results'] = $userResults;
+
+            // Encode and save back
+            $snapshotJson = json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+            DB::table('assessment')
+                ->where('id', $assessmentId)
+                ->update(['org_snapshot' => $snapshotJson]);
+
+            Log::info('SnapshotService: User results saved to snapshot', [
+                'assessment_id' => $assessmentId,
+                'user_count' => count($userResults)
+            ]);
+
+            return true;
+
+        } catch (\Throwable $e) {
+            Log::error('SnapshotService: Failed to save user results', [
+                'assessment_id' => $assessmentId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
 }
