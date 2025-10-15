@@ -84,24 +84,28 @@ class SuggestedThresholdService
         ];
     }
 
-    /**
-     * OpenAI hívás (STRICT JSON). Hiba esetén: null.
-     * Mentjük az assessment.suggested_decision mezőbe a request + response logot (appendelve, max 5 elem).
+     * OpenAI hívás (STRICT JSON) - IMPROVED with better error handling
+     * Returns null on error and logs details.
+     * 
+     * @param array $payload
+     * @return array|null
      */
     public function callAiForSuggested(array $payload): ?array
     {
         $apiKey  = env('OPENAI_API_KEY');
-        $model   = env('OPENAI_MODEL', 'gpt-4.1-mini');
+        $model   = env('OPENAI_MODEL', 'gpt-4o-mini');
         $timeout = (int) env('OPENAI_TIMEOUT', 30);
 
+        // ✅ NEW: Better validation
         if (!$apiKey) {
-            \Log::warning('AI call aborted: missing OPENAI_API_KEY');
-            return null;
+            \Log::error('AI call aborted: OPENAI_API_KEY not configured');
+            throw new \RuntimeException('OpenAI API kulcs nincs konfigurálva. Ellenőrizze a .env fájlt (OPENAI_API_KEY).');
         }
 
         $client = new Client([
             'base_uri' => 'https://api.openai.com/v1/',
             'timeout'  => $timeout,
+            'connect_timeout' => 5, // ✅ NEW: Connection timeout
         ]);
 
         $systemPrompt = $this->aiSystemPrompt();
@@ -126,17 +130,21 @@ class SuggestedThresholdService
 
             $data       = json_decode((string) $resp->getBody(), true);
             $rawContent = $data['choices'][0]['message']['content'] ?? null;
+            
             if (!$rawContent) {
+                \Log::error('AI response empty', ['data' => $data]);
                 return null;
             }
 
             $json = json_decode($rawContent, true);
             if (!is_array($json)) {
+                \Log::error('AI response not valid JSON', ['raw' => $rawContent]);
                 return null;
             }
 
             $validated = $this->validateAiResponse($json);
             if (!$validated) {
+                \Log::error('AI response validation failed', ['json' => $json]);
                 return null;
             }
 
@@ -188,12 +196,40 @@ class SuggestedThresholdService
 
             return $validated;
 
+        // ✅ NEW: Better exception handling with specific error types
+        } catch (\GuzzleHttp\Exception\ConnectException $e) {
+            \Log::error('AI API connection failed', [
+                'error' => $e->getMessage(),
+                'url' => 'https://api.openai.com/v1/chat/completions',
+            ]);
+            throw new \RuntimeException('OpenAI API kapcsolódási hiba: A szerver nem érhető el. Ellenőrizze az internet kapcsolatot.', 0, $e);
+            
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            $statusCode = $e->hasResponse() ? $e->getResponse()->getStatusCode() : 0;
+            $responseBody = $e->hasResponse() ? (string)$e->getResponse()->getBody() : '';
+            
+            \Log::error('AI API request failed', [
+                'error' => $e->getMessage(),
+                'status_code' => $statusCode,
+                'response' => $responseBody,
+            ]);
+            
+            if ($statusCode === 401) {
+                throw new \RuntimeException('OpenAI API hitelesítési hiba: Érvénytelen API kulcs (OPENAI_API_KEY).', 0, $e);
+            } elseif ($statusCode === 429) {
+                throw new \RuntimeException('OpenAI API limit túllépés: Túl sok kérés. Próbálja meg 1-2 perc múlva.', 0, $e);
+            } elseif ($statusCode >= 500) {
+                throw new \RuntimeException('OpenAI API szerver hiba: A szolgáltatás ideiglenesen nem elérhető.', 0, $e);
+            } else {
+                throw new \RuntimeException('OpenAI API hiba (HTTP ' . $statusCode . '): ' . $e->getMessage(), 0, $e);
+            }
+            
         } catch (GuzzleException $e) {
-            \Log::warning('AI call failed (suggested thresholds): ' . $e->getMessage());
-            return null;
-        } catch (\Throwable $e) {
-            \Log::warning('AI call decode/validate error: ' . $e->getMessage());
-            return null;
+            \Log::error('AI call failed (suggested thresholds)', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw new \RuntimeException('OpenAI API hívás sikertelen: ' . $e->getMessage(), 0, $e);
         }
     }
 

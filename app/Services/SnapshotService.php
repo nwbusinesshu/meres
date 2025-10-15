@@ -247,6 +247,14 @@ foreach ($bonusMalusRows as $bm) {
     // --- Locale ---
     $locale = app()->getLocale() ?? config('app.locale') ?? 'hu';
 
+    if (empty($usersPayload)) {
+            throw new \RuntimeException("Nincsenek aktív felhasználók a szervezetben (org_id: {$orgId})");
+    }
+        
+        if (empty($relations)) {
+            throw new \RuntimeException("Nincsenek definiált kapcsolatok a szervezetben (org_id: {$orgId})");
+    }
+
     return [
         'captured_at'        => Carbon::now('UTC')->toIso8601String(),
         'organization'       => [
@@ -297,7 +305,7 @@ foreach ($bonusMalusRows as $bm) {
         return $out;
     }
 
-    /**
+   /**
      * Save user results to assessment snapshot.
      * This is called when closing an assessment to cache all user results.
      * 
@@ -308,44 +316,96 @@ foreach ($bonusMalusRows as $bm) {
     public function saveUserResultsToSnapshot(int $assessmentId, array $userResults): bool
     {
         try {
-            // Load current assessment
-            $assessment = DB::table('assessment')
-                ->where('id', $assessmentId)
-                ->first(['id', 'org_snapshot']);
+            return DB::transaction(function () use ($assessmentId, $userResults) {
+                // Load current assessment with row lock
+                $assessment = DB::table('assessment')
+                    ->where('id', $assessmentId)
+                    ->lockForUpdate()
+                    ->first(['id', 'org_snapshot']);
 
-            if (!$assessment) {
-                Log::error('SnapshotService: Assessment not found', ['assessment_id' => $assessmentId]);
-                return false;
-            }
+                if (!$assessment) {
+                    Log::error('SnapshotService: Assessment not found', [
+                        'assessment_id' => $assessmentId
+                    ]);
+                    return false;
+                }
 
-            // Decode existing snapshot
-            $snapshot = json_decode($assessment->org_snapshot, true);
-            if (!is_array($snapshot)) {
-                Log::error('SnapshotService: Invalid snapshot JSON', ['assessment_id' => $assessmentId]);
-                return false;
-            }
+                // Decode existing snapshot
+                $snapshot = json_decode($assessment->org_snapshot, true);
+                
+                if (!is_array($snapshot)) {
+                    Log::error('SnapshotService: Invalid snapshot JSON', [
+                        'assessment_id' => $assessmentId,
+                        'json_error' => json_last_error_msg()
+                    ]);
+                    return false;
+                }
 
-            // Add user_results section
-            $snapshot['user_results'] = $userResults;
+                // Validate userResults is not empty
+                if (empty($userResults)) {
+                    Log::error('SnapshotService: Empty user results', [
+                        'assessment_id' => $assessmentId
+                    ]);
+                    return false;
+                }
 
-            // Encode and save back
-            $snapshotJson = json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                // Add user_results section
+                $snapshot['user_results'] = $userResults;
 
-            DB::table('assessment')
-                ->where('id', $assessmentId)
-                ->update(['org_snapshot' => $snapshotJson]);
+                // Encode and validate
+                $snapshotJson = json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-            Log::info('SnapshotService: User results saved to snapshot', [
-                'assessment_id' => $assessmentId,
-                'user_count' => count($userResults)
-            ]);
+                if ($snapshotJson === false) {
+                    Log::error('SnapshotService: JSON encoding failed', [
+                        'assessment_id' => $assessmentId,
+                        'json_error' => json_last_error_msg()
+                    ]);
+                    return false;
+                }
 
-            return true;
+                // Check JSON size (should be reasonable, not empty, not > 16MB MySQL limit)
+                $jsonSize = strlen($snapshotJson);
+                if ($jsonSize === 0) {
+                    Log::error('SnapshotService: Generated JSON is empty', [
+                        'assessment_id' => $assessmentId
+                    ]);
+                    return false;
+                }
+                
+                if ($jsonSize > 15000000) { // 15MB, leave margin for MySQL 16MB limit
+                    Log::error('SnapshotService: JSON too large', [
+                        'assessment_id' => $assessmentId,
+                        'size_mb' => round($jsonSize / 1024 / 1024, 2)
+                    ]);
+                    return false;
+                }
+
+                // Save back
+                $updated = DB::table('assessment')
+                    ->where('id', $assessmentId)
+                    ->update(['org_snapshot' => $snapshotJson]);
+
+                if (!$updated) {
+                    Log::error('SnapshotService: Database update failed', [
+                        'assessment_id' => $assessmentId
+                    ]);
+                    return false;
+                }
+
+                Log::info('SnapshotService: User results saved to snapshot', [
+                    'assessment_id' => $assessmentId,
+                    'user_count' => count($userResults),
+                    'snapshot_size_kb' => round($jsonSize / 1024, 2)
+                ]);
+
+                return true;
+            });
 
         } catch (\Throwable $e) {
             Log::error('SnapshotService: Failed to save user results', [
                 'assessment_id' => $assessmentId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             return false;
         }

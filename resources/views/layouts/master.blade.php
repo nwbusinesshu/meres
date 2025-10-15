@@ -2,6 +2,8 @@
 <html>
     @include('layouts.head', ['currentViewName' => $currentViewName])
     <body>
+      {{-- Environment Notification Banner (NEW) --}}
+    @include('components.env-notification')
       <div class="page-container">
         <div class="main-container {{ $currentViewName }}-container">
           @includeWhen(MyAuth::isAuthorized(UserType::NORMAL) && !isset($exception), 'navs.navbar')
