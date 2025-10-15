@@ -87,6 +87,7 @@ public function index(Request $request)
     // multi-level flag
     $enableMultiLevel = \App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false);
     $showBonusMalus = \App\Services\OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
+$easyRelationSetup = \App\Services\OrgConfigService::getBool($orgId, 'easy_relation_setup', false);
 
     if ($users->count() > 0) {
         $userIds = $users->pluck('id')->all();
@@ -243,6 +244,7 @@ public function index(Request $request)
             'employeeLimit'         => $employeeLimit,
             'currentEmployeeCount'  => $currentEmployeeCount,
             'isLimitReached'        => $isLimitReached,
+            'easyRelationSetup' => $easyRelationSetup,
         ]);
     }
 
@@ -258,6 +260,7 @@ public function index(Request $request)
         'employeeLimit'         => $employeeLimit,
         'currentEmployeeCount'  => $currentEmployeeCount,
         'isLimitReached'        => $isLimitReached,
+        'easyRelationSetup' => $easyRelationSetup,
     ]);
 }
 
@@ -792,53 +795,100 @@ public function PasswordReset(Request $request)
 
 
     public function getEmployeeRelations(Request $request)
-    {
-        // SECURITY FIX: Add validation
-        $request->validate([
-            'id' => 'required|integer|exists:user,id'
-        ]);
+{
+    // SECURITY FIX: Add validation
+    $request->validate([
+        'id' => 'required|integer|exists:user,id'
+    ]);
 
-        $user = User::findOrFail($request->id);
-        
-        // SECURITY: Verify user belongs to current org
-        $orgId = session('org_id');
-        $belongsToOrg = $user->organizations()->where('organization_id', $orgId)->exists();
-        
-        if (!$belongsToOrg) {
-            abort(403, 'User does not belong to your organization');
-        }
-
-        return $user->allRelations()
-            ->with('target')
-            ->where('organization_id', $orgId)
-            ->whereHas('target.organizations', function ($q) use ($orgId) {
-                $q->where('organization_id', $orgId);
-            })
-            ->get();
+    $user = User::findOrFail($request->id);
+    
+    // SECURITY: Verify user belongs to current org
+    $orgId = session('org_id');
+    $belongsToOrg = $user->organizations()->where('organization_id', $orgId)->exists();
+    
+    if (!$belongsToOrg) {
+        abort(403, 'User does not belong to your organization');
     }
 
-    public function saveEmployeeRelations(Request $request)
+    // CRITICAL FIX: Get relations in BOTH directions for transformation logic
+    
+    // 1. Relations FROM this user (user_id = X, target_id = Y)
+    // These are the relations the user manages
+    $relationsFrom = $user->allRelations()
+        ->with('target')
+        ->where('organization_id', $orgId)
+        ->whereHas('target.organizations', function ($q) use ($orgId) {
+            $q->where('organization_id', $orgId);
+        })
+        ->get();
+
+    // 2. Relations TO this user (user_id = Y, target_id = X) 
+    // We need these to detect "superior" display in the frontend
+    // These are relations WHERE THIS USER IS THE TARGET
+    $relationsTo = UserRelation::with('user')
+        ->where('target_id', $user->id)
+        ->where('organization_id', $orgId)
+        ->whereHas('user.organizations', function ($q) use ($orgId) {
+            $q->where('organization_id', $orgId);
+        })
+        ->get()
+        ->map(function($relation) {
+            // For consistency, we need to match the structure of relationsFrom
+            // relationsFrom has: user_id, target_id, type, target (the other person)
+            // relationsTo has: user_id (other person), target_id (current user), type
+            // We keep it as-is because frontend will use it to find reverses
+            return $relation;
+        });
+
+    // Merge both directions and return
+    // Frontend will filter and transform as needed
+    $allRelations = $relationsFrom->concat($relationsTo);
+    
+    return $allRelations;
+}
+
+   public function saveEmployeeRelations(Request $request)
 {
     Log::info('Kapott adat', $request->all());
 
+    // UPDATED: Accept "superior" in validation (will be converted to "colleague")
     $request->validate([
         'id' => 'required|integer|exists:user,id',
         'relations' => 'required|array|min:1',
         'relations.*.target_id' => 'required|integer|exists:user,id',
-        'relations.*.type' => 'required|string|in:self,colleague,subordinate,superior',
-        'force_fix' => 'sometimes|boolean', // NEW: flag to force apply changes
+        'relations.*.type' => 'required|string|in:self,colleague,subordinate,superior', // Accept superior for UI
+        'force_fix' => 'sometimes|boolean',
     ]);
 
     $user = User::findOrFail($request->id);
-    $relations = collect($request->input('relations'));
+    
+    // CRITICAL: Track which relations were originally "superior" before conversion
+    // This is needed for Easy Setup ON to create proper reverse relations
+    $originalTypes = [];
+    $relations = collect($request->input('relations'))->map(function($relation) use (&$originalTypes) {
+        $targetId = $relation['target_id'];
+        $type = $relation['type'] ?? null;
+        
+        // Track if this was originally "superior"
+        if ($type === 'superior') {
+            $originalTypes[$targetId] = 'superior';
+            $relation['type'] = 'colleague'; // Convert to colleague for storage
+        } else {
+            $originalTypes[$targetId] = $type;
+        }
+        
+        return $relation;
+    });
+    
     $organizationId = session('org_id');
-    $forceFix = $request->boolean('force_fix', false); // NEW
+    $forceFix = $request->boolean('force_fix', false);
 
-    // NEW: Check if easy relation setup is enabled
+    // Check if easy relation setup is enabled
     $easyRelationSetup = \App\Services\OrgConfigService::getBool($organizationId, 'easy_relation_setup', false);
 
     try {
-        // NEW: If easy relation setup is ON and not forcing, check for conflicts
+        // If easy relation setup is ON and not forcing, check for conflicts
         if ($easyRelationSetup && !$forceFix) {
             $conflicts = $this->detectRelationConflicts($user->id, $relations, $organizationId);
             
@@ -846,19 +896,19 @@ public function PasswordReset(Request $request)
                 return response()->json([
                     'has_conflicts' => true,
                     'conflicts' => $conflicts,
-                    'message' => 'Ütközések találhatók a kapcsolatokban.',
-                ], 200); // 200 OK, but with conflicts flag
+                    'message' => 'Ütközések találhatók a kapcsolatokban.'
+                ], 200);
             }
         }
 
         // Continue with normal save process
-        AjaxService::DBTransaction(function () use ($relations, $user, $organizationId, $easyRelationSetup) {
+        AjaxService::DBTransaction(function () use ($relations, $user, $organizationId, $easyRelationSetup, $originalTypes) {
 
             // 1) Delete existing non-SELF relations for this user
             DB::table('user_relation')
                 ->where('user_id', $user->id)
                 ->where('organization_id', $organizationId)
-                ->whereIn('type', ['colleague','subordinate','superior'])
+                ->whereIn('type', ['colleague','subordinate']) // FIXED: Removed 'superior'
                 ->delete();
 
             // 2) Ensure SELF relation exists
@@ -870,6 +920,7 @@ public function PasswordReset(Request $request)
             ]);
 
             // 3) Clean payload: remove SELF, self-pointing non-SELF, duplicates
+            // Note: "superior" has already been converted to "colleague" above
             $rows = $relations
                 ->map(function ($item) use ($user, $organizationId) {
                     return [
@@ -880,7 +931,8 @@ public function PasswordReset(Request $request)
                     ];
                 })
                 ->filter(function ($r) use ($user) {
-                    return in_array($r['type'], ['colleague','subordinate','superior'], true)
+                    // FIXED: Only accept colleague and subordinate (superior already converted)
+                    return in_array($r['type'], ['colleague','subordinate'], true)
                         && $r['target_id'] > 0
                         && $r['target_id'] !== $user->id;
                 })
@@ -892,9 +944,9 @@ public function PasswordReset(Request $request)
                 DB::table('user_relation')->insertOrIgnore($rows);
             }
 
-            // NEW: If easy relation setup is ON, create bidirectional relations
+            // If easy relation setup is ON, create bidirectional relations
             if ($easyRelationSetup) {
-                $this->applyBidirectionalRelations($user->id, $rows, $organizationId);
+                $this->applyBidirectionalRelations($user->id, $rows, $organizationId, $originalTypes);
             }
         });
 
@@ -913,7 +965,8 @@ public function PasswordReset(Request $request)
 }
 
 /**
- * NEW: Detect conflicts in reverse relations
+ * UPDATED: Detect conflicts in reverse relations
+ * Only real conflict: Both users have each other as subordinate
  */
 private function detectRelationConflicts($userId, $relations, $organizationId)
 {
@@ -923,23 +976,27 @@ private function detectRelationConflicts($userId, $relations, $organizationId)
         $targetId = (int)($relation['target_id'] ?? 0);
         $type = $relation['type'] ?? null;
 
-        // Skip self and invalid
-        if ($targetId === $userId || !in_array($type, ['colleague', 'subordinate', 'superior'])) {
+        // Skip self and invalid (note: superior already converted to colleague)
+        if ($targetId === $userId || !in_array($type, ['colleague', 'subordinate'], true)) {
             continue;
         }
-
-        // Determine what the reverse relation should be
-        $expectedReverseType = $this->getExpectedReverseType($type);
 
         // Check if reverse relation already exists
         $existingReverse = DB::table('user_relation')
             ->where('user_id', $targetId)
             ->where('target_id', $userId)
             ->where('organization_id', $organizationId)
-            ->whereIn('type', ['colleague', 'subordinate', 'superior'])
+            ->whereIn('type', ['colleague', 'subordinate']) // FIXED: Removed 'superior'
             ->first();
 
-        if ($existingReverse && $existingReverse->type !== $expectedReverseType) {
+        // UPDATED LOGIC: Only flag conflict if BOTH are subordinate
+        // Valid combinations:
+        // - subordinate <-> colleague (OK)
+        // - colleague <-> subordinate (OK)
+        // - colleague <-> colleague (OK)
+        // - subordinate <-> subordinate (CONFLICT!)
+        
+        if ($existingReverse && $type === 'subordinate' && $existingReverse->type === 'subordinate') {
             // Get target user name
             $targetUser = User::find($targetId);
             $conflicts[] = [
@@ -947,7 +1004,7 @@ private function detectRelationConflicts($userId, $relations, $organizationId)
                 'target_name' => $targetUser ? $targetUser->name : 'Unknown',
                 'current_type' => $type,
                 'existing_reverse_type' => $existingReverse->type,
-                'expected_reverse_type' => $expectedReverseType,
+                'opposite_type' => 'colleague', // What it should be
             ];
         }
     }
@@ -956,25 +1013,34 @@ private function detectRelationConflicts($userId, $relations, $organizationId)
 }
 
 /**
- * NEW: Apply bidirectional relations
+ * UPDATED: Apply bidirectional relations with support for superior->subordinate reverse
  */
-private function applyBidirectionalRelations($userId, $rows, $organizationId)
+private function applyBidirectionalRelations($userId, $rows, $organizationId, $originalTypes = [])
 {
     $reversesToCreate = [];
 
     foreach ($rows as $row) {
         $targetId = $row['target_id'];
-        $type = $row['type'];
+        $type = $row['type']; // This is already converted (superior became colleague)
 
-        // Determine reverse type
-        $reverseType = $this->getExpectedReverseType($type);
+        // CRITICAL: Determine reverse type based on ORIGINAL type (before conversion)
+        $originalType = $originalTypes[$targetId] ?? $type;
+        
+        if ($originalType === 'superior') {
+            // Original was "superior" (stored as colleague)
+            // Reverse should be "subordinate" 
+            $reverseType = 'subordinate';
+        } else {
+            // Use standard reverse type logic
+            $reverseType = $this->getExpectedReverseType($type);
+        }
 
         // Delete existing reverse relation (to avoid conflicts)
         DB::table('user_relation')
             ->where('user_id', $targetId)
             ->where('target_id', $userId)
             ->where('organization_id', $organizationId)
-            ->whereIn('type', ['colleague', 'subordinate', 'superior'])
+            ->whereIn('type', ['colleague', 'subordinate']) // FIXED: Removed 'superior'
             ->delete();
 
         // Prepare reverse relation
@@ -993,24 +1059,21 @@ private function applyBidirectionalRelations($userId, $rows, $organizationId)
 }
 
 /**
- * NEW: Get expected reverse relation type
+ * UPDATED: Get expected reverse relation type
+ * Now only handles colleague and subordinate (no superior in database)
  */
 private function getExpectedReverseType($type)
 {
-    // subordinate -> colleague
-    // colleague -> colleague
-    // superior -> subordinate (though this shouldn't normally occur in the UI)
+    // subordinate -> colleague (asymmetric relationship)
+    // colleague -> colleague (symmetric relationship)
+    
     if ($type === 'subordinate') {
         return 'colleague';
-    } elseif ($type === 'colleague') {
-        return 'colleague';
-    } elseif ($type === 'superior') {
-        return 'subordinate';
     }
     
-    return 'colleague'; // fallback
+    // Default for colleague or any other type
+    return 'colleague';
 }
-
 
     public function getEmployeeCompetencies(Request $request){
 

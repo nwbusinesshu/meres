@@ -640,7 +640,7 @@ public function getAllCompetencyGroups(Request $request)
             ];
         });
 
-        return response()->json($userData);
+        return response()->json(['users' => $userData]);
     }
 
     /**

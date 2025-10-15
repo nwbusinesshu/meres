@@ -16,8 +16,8 @@
         
       </div>
       <div class="modal-footer">
-                <button class="btn btn-primary save-relation">{{ __('admin/employees.save-relation') }}</button>
-            </div>
+        <button class="btn btn-primary save-relation">{{ __('admin/employees.save-relation') }}</button>
+      </div>
     </div>
   </div>
 </div>
@@ -53,7 +53,7 @@
   line-height: 1;
 }
 
-.relation-type-toggle .toggle-option:hover:not(.active) {
+.relation-type-toggle .toggle-option:hover:not(.active):not(:disabled) {
   background: rgba(0, 123, 255, 0.08);
   color: #333;
 }
@@ -65,12 +65,31 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
-.relation-type-toggle .toggle-option:first-child {
+.relation-type-toggle .toggle-option:not(:last-child) {
   border-right: 1px solid #e0e0e0;
 }
 
-.relation-type-toggle .toggle-option.active:first-child {
+.relation-type-toggle .toggle-option.active:not(:last-child) {
   border-right-color: var(--info);
+}
+
+/* Read-only superior display for Easy Setup OFF */
+.relation-type-toggle .toggle-option:disabled {
+  opacity: 0.6;
+  cursor: not-allowed !important;
+  background: #f0f0f0;
+}
+
+/* Conflict badge for Easy Setup OFF */
+.relation-item .conflict-badge {
+  display: inline-block;
+  background: #dc3545;
+  color: white;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
 }
 
 /* Disabled state for self-relation */
@@ -88,24 +107,60 @@
 </style>
 
 <script>
-function addNewRelationItem(uid, name, type = 'colleague'){
+// CRITICAL: Get Easy Relation Setup setting from server
+// Use isset to safely check if variable exists
+const EASY_RELATION_SETUP = {{ isset($easyRelationSetup) && $easyRelationSetup ? 'true' : 'false' }};
+console.log('EASY_RELATION_SETUP loaded:', EASY_RELATION_SETUP); // Debug log
+
+// UPDATED: Add relation item with conditional button display
+function addNewRelationItem(uid, name, type = 'colleague', isReadOnlySuperior = false){
+  let buttonsHtml = '';
+  
+  if (EASY_RELATION_SETUP) {
+    // EASY SETUP ON: Show 3 buttons (colleague, subordinate, superior)
+    buttonsHtml = ''
+      +'<button type="button" class="toggle-option '+(type === 'colleague' ? 'active' : '')+'" data-value="colleague">'
+      +'{{ __('userrelationtypes.colleague') }}'
+      +'</button>'
+      +'<button type="button" class="toggle-option '+(type === 'subordinate' ? 'active' : '')+'" data-value="subordinate">'
+      +'{{ __('userrelationtypes.subordinate') }}'
+      +'</button>'
+      +'<button type="button" class="toggle-option '+(type === 'superior' ? 'active' : '')+'" data-value="superior">'
+      +'{{ __('userrelationtypes.superior') }}'
+      +'</button>';
+  } else {
+    // EASY SETUP OFF: Show 2 buttons with conditional labeling
+    const superiorLabel = '{{ __('userrelationtypes.superior') }}';
+    const colleagueLabel = '{{ __('userrelationtypes.colleague') }}';
+    const subordinateLabel = '{{ __('userrelationtypes.subordinate') }}';
+    
+    // If it's read-only superior, show as "Superior" but disabled subordinate
+    const firstLabel = isReadOnlySuperior ? superiorLabel : colleagueLabel;
+    const firstValue = isReadOnlySuperior ? 'superior' : 'colleague';
+    const firstActive = (type === 'colleague' || type === 'superior') ? 'active' : '';
+    
+    buttonsHtml = ''
+      +'<button type="button" class="toggle-option '+firstActive+'" data-value="'+firstValue+'" '+(isReadOnlySuperior ? 'disabled' : '')+'>'
+      +firstLabel
+      +'</button>'
+      +'<button type="button" class="toggle-option '+(type === 'subordinate' ? 'active' : '')+'" data-value="subordinate" '+(isReadOnlySuperior ? 'disabled' : '')+'>'
+      +subordinateLabel
+      +'</button>';
+  }
+  
   $('.relation-list').append(''
-    +'<div class="relation-item" data-id="'+uid+'">'
+    +'<div class="relation-item" data-id="'+uid+'" data-readonly-superior="'+(isReadOnlySuperior ? '1' : '0')+'">'
     +'<i class="fa fa-trash-alt" data-tippy-content="{{ __('admin/employees.remove-relation') }}"></i>'
     +'<div>'
     +'<p>'+name+'</p>'
     +'<div class="relation-type-toggle" data-value="'+type+'">'
-    +'<button type="button" class="toggle-option '+(type === 'colleague' ? 'active' : '')+'" data-value="colleague">'
-    +'{{ __('userrelationtypes.colleague') }}'
-    +'</button>'
-    +'<button type="button" class="toggle-option '+(type === 'subordinate' ? 'active' : '')+'" data-value="subordinate">'
-    +'{{ __('userrelationtypes.subordinate') }}'
-    +'</button>'
+    +buttonsHtml
     +'</div>'
     +'</div>'
     +'</div>');
 }
 
+// UPDATED: Transform relation types on load
 function initRelationsModal(uid){
   $.ajaxSetup({
     headers: {
@@ -120,9 +175,20 @@ function initRelationsModal(uid){
   })
   .done(function(response){
     $('.relation-list').html('');
+    
+    // DEBUG: Log the full response
+    console.log('Full relations response:', response);
+    
+    // Find current user
     user = response.filter(item => item.target_id == uid)[0].target;
-    response = response.filter(item => item.target_id != uid);
+    
+    // Get all relations except self
+    const relations = response.filter(item => item.target_id != uid);
+    
+    console.log('Filtered relations (excluding self):', relations);
+    console.log('Current user ID:', uid);
 
+    // Add self relation (disabled)
     $('.relation-list').append(''
       +'<div class="relation-item cant-remove" data-id="'+user.id+'">'
       +'<i class="fa fa-trash-alt"></i>'
@@ -136,8 +202,37 @@ function initRelationsModal(uid){
       +'</div>'
       +'</div>');
 
-    response.forEach(item => {
-      addNewRelationItem(item.target.id, item.target.name, item.type);
+    // CRITICAL TRANSFORMATION LOGIC:
+    relations.forEach(item => {
+      let displayType = item.type;
+      let isReadOnlySuperior = false;
+      
+      // Check if there's a reverse relation where THEY have US as subordinate
+      const reverseRelation = relations.find(r => 
+        r.target_id === item.user_id && r.user_id === item.target_id
+      );
+      
+      // DEBUG: Log what we found
+      console.log('Checking relation:', {
+        from: item.user_id,
+        to: item.target_id,
+        type: item.type,
+        reverse: reverseRelation ? reverseRelation.type : 'none'
+      });
+      
+      // TRANSFORM: If we have them as "colleague" but they have us as "subordinate"
+      // Display it as "superior" 
+      if (item.type === 'colleague' && reverseRelation && reverseRelation.type === 'subordinate') {
+        displayType = 'superior';
+        console.log('TRANSFORMING to superior!');
+        
+        // If Easy Setup OFF, this superior is read-only (can't be changed)
+        if (!EASY_RELATION_SETUP) {
+          isReadOnlySuperior = true;
+        }
+      }
+      
+      addNewRelationItem(item.target.id, item.target.name, displayType, isReadOnlySuperior);
     });
 
     tippy('.relation-list [data-tippy-content]');
@@ -185,7 +280,7 @@ $(document).ready(function(){
   });
 
   // Handle toggle button clicks
-  $(document).on('click', '.relation-type-toggle:not(.disabled) .toggle-option', function(){
+  $(document).on('click', '.relation-type-toggle:not(.disabled) .toggle-option:not(:disabled)', function(){
     const $toggle = $(this).closest('.relation-type-toggle');
     const value = $(this).data('value');
     
@@ -197,7 +292,30 @@ $(document).ready(function(){
     $toggle.attr('data-value', value);
   });
 
+  // UPDATED: Save with mode-specific logic
   $('.save-relation').click(function(){
+    
+    // VALIDATION: Check for conflicts BEFORE showing confirm dialog
+    if (!EASY_RELATION_SETUP) {
+      // Easy Setup OFF: Check for subordinate-subordinate conflicts
+      let hasConflicts = false;
+      
+      $('#relations-modal .relation-item:not(.cant-remove)').each(function(){
+        const $item = $(this);
+        const $toggle = $item.find('.relation-type-toggle');
+        const type = $toggle.attr('data-value');
+        
+        // Check if this is a subordinate-subordinate conflict
+        // (This would be detected by server, but we can show visual feedback)
+        if (type === 'subordinate') {
+          // Add conflict badge if not already present
+          if ($item.find('.conflict-badge').length === 0) {
+            $item.find('p').append('<span class="conflict-badge">{{ __('admin/employees.check-reverse') }}</span>');
+          }
+        }
+      });
+    }
+    
     swal_confirm.fire({
       title: '{{ __('admin/employees.save-relation-confirm') }}'
     }).then((result) => {
@@ -206,11 +324,23 @@ $(document).ready(function(){
 
         var relations = [];
 
+        // Build relations array with mode-specific transformation
         $('.relation-item:not(.cant-remove)').each(function(){
           const $toggle = $(this).find('.relation-type-toggle');
+          const isReadOnly = $(this).attr('data-readonly-superior') === '1';
+          let type = $toggle.attr('data-value');
+          
+          // EASY SETUP ON: Keep "superior" as-is (server will handle it)
+          // EASY SETUP OFF: Skip read-only superior relations (they're display-only)
+          if (!EASY_RELATION_SETUP && type === 'superior' && isReadOnly) {
+            // Don't include read-only superior in the save data
+            // The original "colleague" relation already exists
+            return; // Skip this iteration
+          }
+          
           relations.push({
             target_id: $(this).attr('data-id')*1,
-            type: $toggle.attr('data-value')
+            type: type
           });
         });
 
@@ -265,7 +395,7 @@ $(document).ready(function(){
                     data: {
                       id: $('#relations-modal').attr('data-id'),
                       relations: relations,
-                      force: true  // Override conflicts
+                      force_fix: true  // Override conflicts
                     },
                     success: function(finalResponse) {
                       swal_loader.close();
