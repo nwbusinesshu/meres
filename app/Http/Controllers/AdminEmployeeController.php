@@ -859,120 +859,113 @@ public function getEmployeeRelations(Request $request)
 
    public function saveEmployeeRelations(Request $request)
 {
-    Log::info('Kapott adat', $request->all());
+    Log::info('Relations save started', $request->all());
 
-    // UPDATED: Accept "superior" in validation (will be converted to "colleague")
     $request->validate([
         'id' => 'required|integer|exists:user,id',
         'relations' => 'required|array|min:1',
         'relations.*.target_id' => 'required|integer|exists:user,id',
-        'relations.*.type' => 'required|string|in:self,colleague,subordinate,superior', // Accept superior for UI
-        'force_fix' => 'sometimes|boolean',
+        'relations.*.type' => 'required|string|in:self,colleague,subordinate,superior', // Now accepts superior!
     ]);
 
     $user = User::findOrFail($request->id);
-    
-    // CRITICAL: Track which relations were originally "superior" before conversion
-    // This is needed for Easy Setup ON to create proper reverse relations
-    $originalTypes = [];
-    $relations = collect($request->input('relations'))->map(function($relation) use (&$originalTypes) {
-        $targetId = $relation['target_id'];
-        $type = $relation['type'] ?? null;
-        
-        // Track if this was originally "superior"
-        if ($type === 'superior') {
-            $originalTypes[$targetId] = 'superior';
-            $relation['type'] = 'colleague'; // Convert to colleague for storage
-        } else {
-            $originalTypes[$targetId] = $type;
-        }
-        
-        return $relation;
-    });
-    
     $organizationId = session('org_id');
-    $forceFix = $request->boolean('force_fix', false);
+    
+    // Security: Verify user belongs to current org
+    if (!$user->organizations()->where('organization_id', $organizationId)->exists()) {
+        return response()->json(['message' => 'User does not belong to organization'], 403);
+    }
 
-    // Check if easy relation setup is enabled
+    // Get Easy Setup setting
     $easyRelationSetup = \App\Services\OrgConfigService::getBool($organizationId, 'easy_relation_setup', false);
+    
+    Log::info('Easy Relation Setup mode', ['enabled' => $easyRelationSetup]);
+
+    // SIMPLIFIED: No more conversion! Just collect the relations as-is
+    $relations = collect($request->input('relations'));
 
     try {
-        // If easy relation setup is ON and not forcing, check for conflicts
-        if ($easyRelationSetup && !$forceFix) {
-            $conflicts = $this->detectRelationConflicts($user->id, $relations, $organizationId);
-            
-            if (!empty($conflicts)) {
-                return response()->json([
-                    'has_conflicts' => true,
-                    'conflicts' => $conflicts,
-                    'message' => 'Ütközések találhatók a kapcsolatokban.'
-                ], 200);
-            }
+        // Check for conflicts (same for both modes)
+        $conflicts = $this->detectRelationConflicts($user->id, $relations, $organizationId);
+        
+        if (!empty($conflicts)) {
+            Log::warning('Relation conflicts detected', ['conflicts' => $conflicts]);
+            return response()->json([
+                'success' => false,
+                'has_conflicts' => true,
+                'conflicts' => $conflicts,
+                'message' => 'Cannot save relations due to conflicts.'
+            ], 422);
         }
 
-        // Continue with normal save process
-        AjaxService::DBTransaction(function () use ($relations, $user, $organizationId, $easyRelationSetup, $originalTypes) {
+        // No conflicts - proceed with save
+        AjaxService::DBTransaction(function () use ($relations, $user, $organizationId, $easyRelationSetup) {
 
             // 1) Delete existing non-SELF relations for this user
             DB::table('user_relation')
                 ->where('user_id', $user->id)
                 ->where('organization_id', $organizationId)
-                ->whereIn('type', ['colleague','subordinate']) // FIXED: Removed 'superior'
+                ->whereIn('type', ['colleague', 'subordinate', 'superior']) // Include superior
                 ->delete();
+            
+            Log::info('Deleted existing relations', ['user_id' => $user->id]);
 
             // 2) Ensure SELF relation exists
             DB::table('user_relation')->insertOrIgnore([
-                'user_id'         => $user->id,
-                'target_id'       => $user->id,
+                'user_id' => $user->id,
+                'target_id' => $user->id,
                 'organization_id' => $organizationId,
-                'type'            => 'self',
+                'type' => 'self',
             ]);
 
-            // 3) Clean payload: remove SELF, self-pointing non-SELF, duplicates
-            // Note: "superior" has already been converted to "colleague" above
+            // 3) Prepare and insert new relations (STORE AS-IS, NO CONVERSION!)
             $rows = $relations
                 ->map(function ($item) use ($user, $organizationId) {
                     return [
-                        'user_id'         => $user->id,
-                        'target_id'       => (int)($item['target_id'] ?? $item['target'] ?? 0),
+                        'user_id' => $user->id,
+                        'target_id' => (int)($item['target_id'] ?? 0),
                         'organization_id' => $organizationId,
-                        'type'            => $item['type'] ?? null,
+                        'type' => $item['type'] ?? null, // Store exactly what admin selected!
                     ];
                 })
                 ->filter(function ($r) use ($user) {
-                    // FIXED: Only accept colleague and subordinate (superior already converted)
-                    return in_array($r['type'], ['colleague','subordinate'], true)
+                    // Accept colleague, subordinate, AND superior
+                    return in_array($r['type'], ['colleague', 'subordinate', 'superior'], true)
                         && $r['target_id'] > 0
                         && $r['target_id'] !== $user->id;
                 })
-                ->unique(fn($r) => $r['user_id'].'-'.$r['target_id'].'-'.$r['organization_id'].'-'.$r['type'])
+                ->unique(fn($r) => $r['user_id'].'-'.$r['target_id'])
                 ->values()
                 ->all();
 
             if (!empty($rows)) {
-                DB::table('user_relation')->insertOrIgnore($rows);
+                DB::table('user_relation')->insert($rows);
+                Log::info('Inserted new relations', ['count' => count($rows), 'relations' => $rows]);
             }
 
-            // If easy relation setup is ON, create bidirectional relations
+            // 4) Handle bidirectional relations based on Easy Setup mode
             if ($easyRelationSetup) {
-                $this->applyBidirectionalRelations($user->id, $rows, $organizationId, $originalTypes);
+                // Easy Setup ON: Create reverse relations automatically
+                $this->applyBidirectionalRelations($user->id, $rows, $organizationId);
             }
+            // Easy Setup OFF: Do nothing - relations are independent
         });
 
-        return response()->json(['message' => 'Sikeres mentés.']);
+        Log::info('Relations saved successfully', ['user_id' => $user->id]);
+        return response()->json(['success' => true, 'message' => 'Relations saved successfully']);
+
     } catch (\Throwable $e) {
-        Log::error('Hiba a relation mentés közben', [
+        Log::error('Error saving relations', [
             'exception' => $e->getMessage(),
             'trace' => $e->getTraceAsString(),
         ]);
 
         return response()->json([
-            'message' => 'Sikertelen mentés: belső hiba!',
-            'error' => $e->getMessage(),
+            'success' => false,
+            'message' => 'Failed to save relations: ' . $e->getMessage(),
         ], 500);
     }
 }
-
 /**
  * UPDATED: Detect conflicts in reverse relations
  * Only real conflict: Both users have each other as subordinate
@@ -985,103 +978,93 @@ private function detectRelationConflicts($userId, $relations, $organizationId)
         $targetId = (int)($relation['target_id'] ?? 0);
         $type = $relation['type'] ?? null;
 
-        // Skip self and invalid (note: superior already converted to colleague)
-        if ($targetId === $userId || !in_array($type, ['colleague', 'subordinate'], true)) {
+        // Skip self and invalid
+        if ($targetId === $userId || !in_array($type, ['colleague', 'subordinate', 'superior'], true)) {
             continue;
         }
 
-        // Check if reverse relation already exists
-        $existingReverse = DB::table('user_relation')
-            ->where('user_id', $targetId)
-            ->where('target_id', $userId)
-            ->where('organization_id', $organizationId)
-            ->whereIn('type', ['colleague', 'subordinate']) // FIXED: Removed 'superior'
-            ->first();
+        // ONLY check for subordinate conflicts
+        if ($type === 'subordinate') {
+            // Check if reverse subordinate relation exists in database
+            $existingReverse = DB::table('user_relation')
+                ->where('user_id', $targetId)
+                ->where('target_id', $userId)
+                ->where('organization_id', $organizationId)
+                ->where('type', 'subordinate') // Only conflict with subordinate
+                ->first();
 
-        // UPDATED LOGIC: Only flag conflict if BOTH are subordinate
-        // Valid combinations:
-        // - subordinate <-> colleague (OK)
-        // - colleague <-> subordinate (OK)
-        // - colleague <-> colleague (OK)
-        // - subordinate <-> subordinate (CONFLICT!)
-        
-        if ($existingReverse && $type === 'subordinate' && $existingReverse->type === 'subordinate') {
-            // Get target user name
-            $targetUser = User::find($targetId);
-            $conflicts[] = [
-                'target_id' => $targetId,
-                'target_name' => $targetUser ? $targetUser->name : 'Unknown',
-                'current_type' => $type,
-                'existing_reverse_type' => $existingReverse->type,
-                'opposite_type' => 'colleague', // What it should be
-            ];
+            if ($existingReverse) {
+                // CONFLICT: Both directions are subordinate
+                $targetUser = User::find($targetId);
+                $conflicts[] = [
+                    'target_id' => $targetId,
+                    'target_name' => $targetUser ? $targetUser->name : 'Unknown',
+                    'message' => 'Cannot set as subordinate - they already have you as subordinate'
+                ];
+                
+                Log::warning('Bidirectional subordinate conflict detected', [
+                    'user_id' => $userId,
+                    'target_id' => $targetId
+                ]);
+            }
         }
     }
 
     return $conflicts;
 }
 
+
 /**
  * UPDATED: Apply bidirectional relations with support for superior->subordinate reverse
  */
-private function applyBidirectionalRelations($userId, $rows, $organizationId, $originalTypes = [])
+private function applyBidirectionalRelations($userId, $rows, $organizationId)
 {
     $reversesToCreate = [];
 
     foreach ($rows as $row) {
         $targetId = $row['target_id'];
-        $type = $row['type']; // This is already converted (superior became colleague)
+        $type = $row['type'];
 
-        // CRITICAL: Determine reverse type based on ORIGINAL type (before conversion)
-        $originalType = $originalTypes[$targetId] ?? $type;
-        
-        if ($originalType === 'superior') {
-            // Original was "superior" (stored as colleague)
-            // Reverse should be "subordinate" 
-            $reverseType = 'subordinate';
-        } else {
-            // Use standard reverse type logic
-            $reverseType = $this->getExpectedReverseType($type);
-        }
+        // Determine reverse type - THE INVERSE OF HOW THEY RATE EACH OTHER
+        // If A rates B as subordinate (employee), then B rates A as superior (boss)
+        // If A rates B as superior (boss), then B rates A as subordinate (employee)
+        // If A rates B as colleague (peer), then B rates A as colleague (peer)
+        $reverseType = match($type) {
+            'superior' => 'subordinate',      // A rates B as boss → B rates A as employee
+            'subordinate' => 'superior',      // A rates B as employee → B rates A as boss
+            'colleague' => 'colleague',       // A rates B as peer → B rates A as peer
+            default => 'colleague'
+        };
 
-        // Delete existing reverse relation (to avoid conflicts)
+        // Delete any existing reverse relation first
         DB::table('user_relation')
             ->where('user_id', $targetId)
             ->where('target_id', $userId)
             ->where('organization_id', $organizationId)
-            ->whereIn('type', ['colleague', 'subordinate']) // FIXED: Removed 'superior'
+            ->whereIn('type', ['colleague', 'subordinate', 'superior'])
             ->delete();
 
         // Prepare reverse relation
         $reversesToCreate[] = [
-            'user_id'         => $targetId,
-            'target_id'       => $userId,
+            'user_id' => $targetId,
+            'target_id' => $userId,
             'organization_id' => $organizationId,
-            'type'            => $reverseType,
+            'type' => $reverseType,
         ];
+        
+        Log::info('Creating reverse relation', [
+            'from' => $targetId,
+            'to' => $userId,
+            'type' => $reverseType,
+            'because_forward_was' => $type
+        ]);
     }
 
     // Insert all reverse relations
     if (!empty($reversesToCreate)) {
-        DB::table('user_relation')->insertOrIgnore($reversesToCreate);
+        DB::table('user_relation')->insert($reversesToCreate);
+        Log::info('Applied bidirectional relations', ['count' => count($reversesToCreate)]);
     }
-}
-
-/**
- * UPDATED: Get expected reverse relation type
- * Now only handles colleague and subordinate (no superior in database)
- */
-private function getExpectedReverseType($type)
-{
-    // subordinate -> colleague (asymmetric relationship)
-    // colleague -> colleague (symmetric relationship)
-    
-    if ($type === 'subordinate') {
-        return 'colleague';
-    }
-    
-    // Default for colleague or any other type
-    return 'colleague';
 }
 
     public function getEmployeeCompetencies(Request $request){
