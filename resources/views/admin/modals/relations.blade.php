@@ -108,11 +108,14 @@
 
 <script>
 // CRITICAL: Get Easy Relation Setup setting from server
-// Use isset to safely check if variable exists
 const EASY_RELATION_SETUP = {{ isset($easyRelationSetup) && $easyRelationSetup ? 'true' : 'false' }};
-console.log('EASY_RELATION_SETUP loaded:', EASY_RELATION_SETUP); // Debug log
+console.log('EASY_RELATION_SETUP loaded:', EASY_RELATION_SETUP);
 
-// UPDATED: Add relation item with conditional button display
+// GLOBAL: Store all relations for conflict checking during save
+let storedAllRelations = [];
+let currentUserId = null;
+
+// Add relation item with conditional button display
 function addNewRelationItem(uid, name, type = 'colleague', isReadOnlySuperior = false){
   let buttonsHtml = '';
   
@@ -134,7 +137,7 @@ function addNewRelationItem(uid, name, type = 'colleague', isReadOnlySuperior = 
     const colleagueLabel = '{{ __('userrelationtypes.colleague') }}';
     const subordinateLabel = '{{ __('userrelationtypes.subordinate') }}';
     
-    // If it's read-only superior, show as "Superior" but disabled subordinate
+    // If it's read-only superior, show as "Superior" but disabled
     const firstLabel = isReadOnlySuperior ? superiorLabel : colleagueLabel;
     const firstValue = isReadOnlySuperior ? 'superior' : 'colleague';
     const firstActive = (type === 'colleague' || type === 'superior') ? 'active' : '';
@@ -160,7 +163,7 @@ function addNewRelationItem(uid, name, type = 'colleague', isReadOnlySuperior = 
     +'</div>');
 }
 
-// UPDATED: Transform relation types on load
+// FIXED: Transform relation types on load with proper filtering
 function initRelationsModal(uid){
   $.ajaxSetup({
     headers: {
@@ -176,18 +179,29 @@ function initRelationsModal(uid){
   .done(function(response){
     $('.relation-list').html('');
     
-    // DEBUG: Log the full response
-    console.log('Full relations response:', response);
-    
-    // Find current user
-    user = response.filter(item => item.target_id == uid)[0].target;
-    
-    // Get all relations except self
-    const relations = response.filter(item => item.target_id != uid);
-    
-    console.log('Filtered relations (excluding self):', relations);
+    console.log('=== RELATIONS DEBUG ===');
+    console.log('Full API response:', response);
     console.log('Current user ID:', uid);
-
+    console.log('Easy Relation Setup:', EASY_RELATION_SETUP);
+    
+    // CRITICAL FIX: Keep ALL relations for lookup, don't filter yet!
+    const allRelations = response;
+    
+    // STORE GLOBALLY for conflict checking during save
+    storedAllRelations = allRelations;
+    currentUserId = uid;
+    
+    // Find self relation to get user data
+    const selfRelation = allRelations.find(item => item.user_id == uid && item.target_id == uid);
+    if (!selfRelation) {
+      console.error('Self relation not found!');
+      swal_loader.close();
+      return;
+    }
+    
+    const user = selfRelation.user;
+    console.log('Current user:', user);
+    
     // Add self relation (disabled)
     $('.relation-list').append(''
       +'<div class="relation-item cant-remove" data-id="'+user.id+'">'
@@ -202,48 +216,79 @@ function initRelationsModal(uid){
       +'</div>'
       +'</div>');
 
-    // CRITICAL TRANSFORMATION LOGIC:
-    relations.forEach(item => {
+    // FIXED: Filter relations FROM current user only (for display)
+    // But use ALL relations for reverse lookup!
+    const relationsToDisplay = allRelations.filter(item => 
+      item.user_id == uid && item.target_id != uid
+    );
+    
+    console.log('Relations FROM current user (to display):', relationsToDisplay);
+    
+    // Process each relation with transformation logic
+    relationsToDisplay.forEach(item => {
       let displayType = item.type;
       let isReadOnlySuperior = false;
       
-      // Check if there's a reverse relation where THEY have US as subordinate
-      const reverseRelation = relations.find(r => 
-        r.target_id === item.user_id && r.user_id === item.target_id
-      );
-      
-      // DEBUG: Log what we found
-      console.log('Checking relation:', {
+      console.log('---');
+      console.log('Processing relation:', {
         from: item.user_id,
         to: item.target_id,
         type: item.type,
-        reverse: reverseRelation ? reverseRelation.type : 'none'
+        target_name: item.target.name
       });
       
-      // TRANSFORM: If we have them as "colleague" but they have us as "subordinate"
-      // Display it as "superior" 
+      // CRITICAL: Look for REVERSE relation in ALL relations
+      // Reverse = where THEY point to US
+      const reverseRelation = allRelations.find(r => 
+        r.user_id === item.target_id && r.target_id === item.user_id
+      );
+      
+      if (reverseRelation) {
+        console.log('Found reverse relation:', {
+          from: reverseRelation.user_id,
+          to: reverseRelation.target_id,
+          type: reverseRelation.type
+        });
+      } else {
+        console.log('No reverse relation found');
+      }
+      
+      // TRANSFORMATION LOGIC:
+      // If we have "colleague" to them AND they have "subordinate" to us
+      // → Display as "superior"
       if (item.type === 'colleague' && reverseRelation && reverseRelation.type === 'subordinate') {
         displayType = 'superior';
-        console.log('TRANSFORMING to superior!');
+        console.log('✅ TRANSFORMING to superior!');
         
-        // If Easy Setup OFF, this superior is read-only (can't be changed)
+        // If Easy Setup OFF, this superior is read-only (locked)
         if (!EASY_RELATION_SETUP) {
           isReadOnlySuperior = true;
+          console.log('Easy Setup OFF: Marking as read-only superior');
         }
       }
+      
+      console.log('Final display type:', displayType, 'Read-only:', isReadOnlySuperior);
       
       addNewRelationItem(item.target.id, item.target.name, displayType, isReadOnlySuperior);
     });
 
     tippy('.relation-list [data-tippy-content]');
-
     swal_loader.close();
-
     $('#relations-modal').modal();
+  })
+  .fail(function(xhr, status, error) {
+    console.error('Failed to load relations:', error);
+    swal_loader.close();
+    swal.fire({
+      icon: 'error',
+      title: '{{ __('global.error') }}',
+      text: '{{ __('admin/employees.failed-to-load-relations') }}'
+    });
   });
 }
 
 $(document).ready(function(){
+  // Add new relation button
   $('.trigger-new-relation').click(function(){
     var exceptArray = [];
     $('#relations-modal .relation-item').each(function(){
@@ -275,6 +320,7 @@ $(document).ready(function(){
     });
   });
 
+  // Remove relation button
   $(document).delegate('.relation-item:not(.cant-remove) i', 'click', function(){
     $(this).parents('.relation-item').remove();
   });
@@ -298,24 +344,65 @@ $(document).ready(function(){
     // VALIDATION: Check for conflicts BEFORE showing confirm dialog
     if (!EASY_RELATION_SETUP) {
       // Easy Setup OFF: Check for subordinate-subordinate conflicts
-      let hasConflicts = false;
+      let conflicts = [];
       
       $('#relations-modal .relation-item:not(.cant-remove)').each(function(){
         const $item = $(this);
         const $toggle = $item.find('.relation-type-toggle');
         const type = $toggle.attr('data-value');
+        const targetId = parseInt($(this).attr('data-id'));
+        const targetName = $item.find('p').text().trim();
         
-        // Check if this is a subordinate-subordinate conflict
-        // (This would be detected by server, but we can show visual feedback)
+        // Check if user is trying to set subordinate
         if (type === 'subordinate') {
-          // Add conflict badge if not already present
-          if ($item.find('.conflict-badge').length === 0) {
-            $item.find('p').append('<span class="conflict-badge">{{ __('admin/employees.check-reverse') }}</span>');
+          // Check if there's a REVERSE subordinate relation in the database
+          const reverseRelation = storedAllRelations.find(r => 
+            r.user_id === targetId && r.target_id === currentUserId
+          );
+          
+          console.log('Checking conflict for:', targetName, 'Type:', type, 'Reverse:', reverseRelation);
+          
+          if (reverseRelation && reverseRelation.type === 'subordinate') {
+            // CONFLICT! Both directions are subordinate
+            conflicts.push({
+              id: targetId,
+              name: targetName
+            });
+            
+            // Add conflict badge if not already present
+            if ($item.find('.conflict-badge').length === 0) {
+              $item.find('p').append('<span class="conflict-badge">{{ __('admin/employees.check-reverse') }}</span>');
+            }
           }
         }
       });
+      
+      // If conflicts found, BLOCK save and show error
+      if (conflicts.length > 0) {
+        let conflictHtml = '<div style="text-align: left;">';
+        conflictHtml += '<p><strong>{{ __('admin/employees.relation-conflicts-detected') }}</strong></p>';
+        conflictHtml += '<ul style="margin: 10px 0;">';
+        
+        conflicts.forEach(function(conflict) {
+          conflictHtml += `<li><strong>${conflict.name}</strong>: {{ __('admin/employees.bidirectional-subordinate-error') }}</li>`;
+        });
+        
+        conflictHtml += '</ul>';
+        conflictHtml += '<p>{{ __('admin/employees.fix-reverse-first') }}</p>';
+        conflictHtml += '</div>';
+        
+        swal.fire({
+          title: '{{ __('admin/employees.cannot-save') }}',
+          html: conflictHtml,
+          icon: 'error',
+          confirmButtonText: '{{ __('global.swal-ok') }}'
+        });
+        
+        return; // BLOCK save completely
+      }
     }
     
+    // No conflicts or Easy Setup ON - proceed with save
     swal_confirm.fire({
       title: '{{ __('admin/employees.save-relation-confirm') }}'
     }).then((result) => {
@@ -334,7 +421,8 @@ $(document).ready(function(){
           // EASY SETUP OFF: Skip read-only superior relations (they're display-only)
           if (!EASY_RELATION_SETUP && type === 'superior' && isReadOnly) {
             // Don't include read-only superior in the save data
-            // The original "colleague" relation already exists
+            // The original "colleague" relation already exists in DB
+            console.log('Skipping read-only superior for:', $(this).attr('data-id'));
             return; // Skip this iteration
           }
           
@@ -343,6 +431,8 @@ $(document).ready(function(){
             type: type
           });
         });
+
+        console.log('Saving relations:', relations);
 
         // First attempt - check for conflicts
         $.ajax({
@@ -387,7 +477,7 @@ $(document).ready(function(){
                 cancelButtonText: '{{ __('global.swal-cancel') }}'
               }).then((confirmResult) => {
                 if (confirmResult.isConfirmed) {
-                  // Second attempt - force save
+                  // Retry with force_fix flag
                   swal_loader.fire();
                   $.ajax({
                     url: "{{ route('admin.employee.relations.save') }}",
@@ -395,49 +485,55 @@ $(document).ready(function(){
                     data: {
                       id: $('#relations-modal').attr('data-id'),
                       relations: relations,
-                      force_fix: true  // Override conflicts
+                      force_fix: true
                     },
-                    success: function(finalResponse) {
+                    success: function() {
                       swal_loader.close();
                       $('#relations-modal').modal('hide');
                       swal.fire({
                         icon: 'success',
-                        title: '{{ __('global.swal-success') }}',
-                        text: finalResponse.message,
-                        timer: 2000
+                        title: '{{ __('global.success') }}',
+                        text: '{{ __('admin/employees.relations-saved') }}'
                       });
-                      location.reload();
+                      
+                      // Reload page or update UI
+                      if (typeof refreshEmployeeList === 'function') {
+                        refreshEmployeeList();
+                      }
                     },
                     error: function(xhr) {
                       swal_loader.close();
                       swal.fire({
                         icon: 'error',
-                        title: '{{ __('global.swal-error') }}',
-                        text: xhr.responseJSON?.message || '{{ __('admin/employees.relation-save-error-message') }}'
+                        title: '{{ __('global.error') }}',
+                        text: xhr.responseJSON?.message || '{{ __('admin/employees.failed-to-save') }}'
                       });
                     }
                   });
                 }
               });
             } else {
-              // No conflicts, save successful
+              // No conflicts - success!
               swal_loader.close();
               $('#relations-modal').modal('hide');
               swal.fire({
                 icon: 'success',
-                title: '{{ __('global.swal-success') }}',
-                text: response.message,
-                timer: 2000
+                title: '{{ __('global.success') }}',
+                text: '{{ __('admin/employees.relations-saved') }}'
               });
-              location.reload();
+              
+              // Reload page or update UI
+              if (typeof refreshEmployeeList === 'function') {
+                refreshEmployeeList();
+              }
             }
           },
           error: function(xhr) {
             swal_loader.close();
             swal.fire({
               icon: 'error',
-              title: '{{ __('global.swal-error') }}',
-              text: xhr.responseJSON?.message || '{{ __('admin/employees.relation-save-error-message') }}'
+              title: '{{ __('global.error') }}',
+              text: xhr.responseJSON?.message || '{{ __('admin/employees.failed-to-save') }}'
             });
           }
         });

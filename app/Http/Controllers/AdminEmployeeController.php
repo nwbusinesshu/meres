@@ -794,7 +794,13 @@ public function PasswordReset(Request $request)
     }
 
 
-    public function getEmployeeRelations(Request $request)
+    /**
+ * FIXED: Get employee relations with clear structure for transformation
+ * Returns BOTH directions:
+ * - Relations FROM user (what they manage)
+ * - Relations TO user (needed for "superior" detection)
+ */
+public function getEmployeeRelations(Request $request)
 {
     // SECURITY FIX: Add validation
     $request->validate([
@@ -811,41 +817,44 @@ public function PasswordReset(Request $request)
         abort(403, 'User does not belong to your organization');
     }
 
-    // CRITICAL FIX: Get relations in BOTH directions for transformation logic
+    // Get relations in BOTH directions
+    // We need ALL relations to properly transform "colleague" → "superior"
     
-    // 1. Relations FROM this user (user_id = X, target_id = Y)
-    // These are the relations the user manages
-    $relationsFrom = $user->allRelations()
-        ->with('target')
-        ->where('organization_id', $orgId)
-        ->whereHas('target.organizations', function ($q) use ($orgId) {
-            $q->where('organization_id', $orgId);
+    // Get all relations involving this user (as user_id OR target_id)
+    $allRelations = UserRelation::where('organization_id', $orgId)
+        ->where(function($query) use ($user) {
+            $query->where('user_id', $user->id)
+                  ->orWhere('target_id', $user->id);
         })
-        ->get();
-
-    // 2. Relations TO this user (user_id = Y, target_id = X) 
-    // We need these to detect "superior" display in the frontend
-    // These are relations WHERE THIS USER IS THE TARGET
-    $relationsTo = UserRelation::with('user')
-        ->where('target_id', $user->id)
-        ->where('organization_id', $orgId)
+        ->with(['user', 'target'])
         ->whereHas('user.organizations', function ($q) use ($orgId) {
             $q->where('organization_id', $orgId);
         })
+        ->whereHas('target.organizations', function ($q) use ($orgId) {
+            $q->where('organization_id', $orgId);
+        })
         ->get()
-        ->map(function($relation) {
-            // For consistency, we need to match the structure of relationsFrom
-            // relationsFrom has: user_id, target_id, type, target (the other person)
-            // relationsTo has: user_id (other person), target_id (current user), type
-            // We keep it as-is because frontend will use it to find reverses
-            return $relation;
+        ->map(function($relation) use ($user) {
+            // Normalize the structure
+            // Always return with: user_id, target_id, type, and the "other" person's data
+            return [
+                'user_id' => $relation->user_id,
+                'target_id' => $relation->target_id,
+                'type' => $relation->type,
+                'user' => [
+                    'id' => $relation->user->id,
+                    'name' => $relation->user->name,
+                ],
+                'target' => [
+                    'id' => $relation->target->id,
+                    'name' => $relation->target->name,
+                ],
+                // Flag to help frontend identify which direction this is
+                'is_from_current_user' => ($relation->user_id == $user->id)
+            ];
         });
-
-    // Merge both directions and return
-    // Frontend will filter and transform as needed
-    $allRelations = $relationsFrom->concat($relationsTo);
     
-    return $allRelations;
+    return response()->json($allRelations);
 }
 
    public function saveEmployeeRelations(Request $request)

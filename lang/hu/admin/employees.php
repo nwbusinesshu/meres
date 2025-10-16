@@ -341,4 +341,23 @@ return [
         'import-in-progress-tile' => 'Import folyamatban...',
     'import-blocking-actions' => 'Az import folyamatban van. A műveletek le vannak tiltva.',
     'import-click-to-view' => 'Kattintson ide a folyamat megtekintéséhez',
+
+
+'relation-conflicts-title' => 'Kapcsolat ütközések',
+'relation-conflicts-intro' => 'A következő kapcsolatokban ütközések vannak:',
+'relation-conflicts-question' => 'Folytatod a mentést? Ez felülírja az ellentétes beállításokat.',
+'relation-conflict-you' => 'Te',
+'relation-conflict-they' => 'ő',
+'relation-save-confirm-button' => 'Igen, mentés',
+
+// NEW TRANSLATIONS FOR EASY SETUP OFF ERROR:
+'cannot-save' => 'Nem lehet menteni',
+'relation-conflicts-detected' => 'Ütköző kapcsolatok találhatók!',
+'bidirectional-subordinate-error' => 'Mindkét irányban beosztotti viszony van beállítva (ez nem megengedett)',
+'fix-reverse-first' => 'Kérjük, először menjen el a másik felhasználó kapcsolati beállításaihoz és javítsa ki az ellentétes kapcsolatot, mielőtt ezt a kapcsolatot módosítaná.',
+
+// NEW TRANSLATIONS FOR SUCCESS/ERROR MESSAGES:
+'relations-saved' => 'Kapcsolatok sikeresen mentve!',
+'failed-to-save' => 'Nem sikerült menteni a kapcsolatokat.',
+'failed-to-load-relations' => 'Nem sikerült betölteni a kapcsolatokat.',
 ];
