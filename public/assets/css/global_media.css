@@ -1,6 +1,4 @@
 @media all and (max-width: 960px){
-  .navbar .userinfo img,
-  .navbar .userinfo span,
   .navbar .menuitem span{
     display: none;
   }
@@ -23,5 +21,297 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
+  }
+}
+
+
+/* ========================================
+   STEP 2: MOBILE BOTTOM NAVIGATION (UPDATED)
+   Add this to: public/assets/css/global.css
+   ======================================== */
+
+@media all and (min-width: 768px) {
+  .mobile-bottom-nav {
+    display: none!important;
+  }
+}
+
+/* Mobile Layout (below 768px) */
+@media all and (max-width: 768px) {
+
+  .site-footer {
+    padding-bottom: 60px;
+  }
+
+  .floating-help-btn {
+    bottom: 150px!important;
+  }
+  
+  /* Top bar: Only logo and user icon */
+  .navbar {
+    position: sticky;
+    top: 0;
+    z-index: 1001;
+    padding: 0px 20px;
+    height: 50px;
+    justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Hide menu items from top bar */
+  .navbar .menuitems {
+    display: none !important;
+  }
+
+  /* Logo styling for mobile */
+  .navbar .logo {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    height: 18px;
+  }
+
+  .navbar .logo img {
+    height: 100%;
+  }
+
+  /* User info in top bar - only show icon */
+  .navbar .userinfo {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 0;
+    height: 40px;
+  }
+
+  .navbar .userinfo img.avatar,
+  .navbar .userinfo i.fallback-avatar {
+    height: 35px;
+    width: 35px;
+  }
+
+  /* Hide user text on mobile */
+  .navbar .userinfo-text {
+    display: none !important;
+  }
+
+  /* Keep logout icon visible */
+  .navbar .userinfo a {
+    display: flex;
+    align-items: center;
+    margin-left: 10px;
+    font-size: 1.2em;
+  }
+
+  /* ===================================
+     CONFIG DROPDOWN -> HORIZONTAL ROW
+     =================================== */
+  
+  /* Config dropdown becomes horizontal scrollable bar above bottom nav */
+  #config-dropdown {
+    position: fixed;
+    bottom: 60px; /* Sits above bottom nav */
+    left: 0;
+    right: 0;
+    top: auto;
+    height: 55px;
+    display: flex;
+    flex-direction: row; /* HORIZONTAL */
+    align-items: center;
+    padding: 0 15px;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+    border-top: none;
+    border-bottom: none;
+    z-index: 999;
+    /* Hide scrollbar but keep functionality */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+  }
+
+  #config-dropdown::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
+  }
+
+  /* Config dropdown items - horizontal layout */
+  #config-dropdown .menuitem {
+    flex-shrink: 0; /* Don't shrink items */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0px 2px;
+    height: 100%;
+    min-width: 50px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  #config-dropdown .menuitem i {
+    font-size: 1.2em;
+  }
+
+  #config-dropdown .menuitem span {
+    font-size: 0.7em;
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  #config-dropdown .menuitem.active {
+    color: var(--outer_space);
+    border-bottom-color: var(--outer_space);
+  }
+
+  #config-dropdown .menuitem:hover {
+    color: var(--outer_space);
+    background-color: rgba(0, 0, 0, 0.03);
+  }
+
+  /* ===================================
+     BOTTOM NAVIGATION BAR (MOBILE)
+     =================================== */
+  
+  /* Create bottom navigation container */
+  .mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background-color: var(--alabaster);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 5px;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    border-top: 1px solid var(--silver_chalice);
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* Hide scrollbar but keep functionality */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .mobile-bottom-nav::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
+  }
+
+  /* Menu items in bottom bar */
+  .mobile-bottom-nav .menuitem {
+    flex-shrink: 0; /* Don't shrink items */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 10px;
+    text-decoration: none;
+    color: var(--silver_chalice);
+    border: none;
+    border-bottom: none;
+    height: 100%;
+    min-width: 60px;
+    transition: all 0.2s ease;
+  }
+
+  /* Icon styling in bottom nav */
+  .mobile-bottom-nav .menuitem i {
+    font-size: 1.3em;
+  }
+
+  /* Text styling in bottom nav */
+  .mobile-bottom-nav .menuitem span {
+    font-size: 0.7em;
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* Active state for bottom nav items */
+  .mobile-bottom-nav .menuitem.active {
+    color: var(--outer_space);
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+  }
+
+  /* Hover state for bottom nav items */
+  .mobile-bottom-nav .menuitem:hover {
+    color: var(--outer_space);
+    background-color: rgba(0, 0, 0, 0.03);
+    border-radius: 8px;
+  }
+
+  /* Config toggle button in bottom nav - with indicator */
+  #config-dropdown-toggle-mobile {
+    position: relative;
+  }
+
+  /* Active indicator for config toggle when dropdown is open */
+  #config-dropdown-toggle-mobile.active {
+    color: var(--outer_space);
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+  }
+
+  /* Small dot indicator when config dropdown is open */
+  #config-dropdown-toggle-mobile.active::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 6px;
+    height: 6px;
+    background-color: var(--outer_space);
+    border-radius: 50%;
+  }
+
+  /* Adjust main content padding for top and bottom bars */
+  .main-container {
+    padding-bottom: 70px; /* Bottom bar height + spacing */
+    min-height: 100vh;
+  }
+
+  /* Extra padding when config dropdown is open */
+  .main-container.config-open {
+    padding-bottom: 125px; /* Bottom bar + config bar + spacing */
+  }
+
+  .main-content {
+    padding: 1em;
+  }
+
+  /* Disabled menu items */
+  .mobile-bottom-nav .menuitem.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  /* Text danger styling for exit button */
+  .mobile-bottom-nav .menuitem.text-danger,
+  .mobile-bottom-nav .menuitem.text-danger i {
+    color: var(--danger) !important;
+  }
+}
+
+/* Tablet adjustments (768px - 960px) */
+@media all and (min-width: 769px) and (max-width: 960px) {
+  /* Hide mobile bottom nav on tablet */
+  .mobile-bottom-nav {
+    display: none !important;
+  }
+  
+  /* Keep config dropdown as sticky desktop style on tablet */
+  #config-dropdown {
+    position: sticky;
+    top: 50px;
+    bottom: auto;
+    flex-direction: row;
+    height: 50px;
   }
 }

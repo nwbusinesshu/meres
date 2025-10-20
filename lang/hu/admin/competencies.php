@@ -61,6 +61,9 @@ return [
   "question-remove-confirm" => "Biztosan törlöd a kérdést?",
   
   "question-remove-success" => "A kérdés sikeresen törlésre került!",
+
+  "save-user-assignments-confirm" => "Hozzárendeli a felhasználókat a csoporthoz?",
+  "update-group-confirm" => "Hozzárendeli a kompetenciákat a csoporthoz?",
   
   'select-translation-languages' => 'Fordítási nyelvek kiválasztása',
   'select-languages' => 'Nyelvek kiválasztása',

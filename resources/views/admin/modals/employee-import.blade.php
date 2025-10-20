@@ -443,7 +443,7 @@
         if (file) handleFileUpload(file);
     });
     
-   // Browse button - FIXED: Prevent event propagation
+   // Browse button
     $(document).on('click', '.browse-files-btn', function(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -470,170 +470,108 @@
         e.preventDefault();
         e.stopPropagation();
         $(this).removeClass('drag-over');
+        
         const file = e.originalEvent.dataTransfer.files[0];
         if (file) handleFileUpload(file);
     });
     
-    // FIXED: Dropzone click - prevent loop
-    dropzone.on('click', function(e) {
-        // Don't trigger if clicking the browse button or file input itself
-        if ($(e.target).closest('.browse-files-btn').length || 
-            $(e.target).is('#import-file-input')) {
+    function handleFileUpload(file) {
+        // Validate file
+        if (!file.name.endsWith('.xlsx')) {
+            showToast('error', 'Please upload an Excel file (.xlsx)');
             return;
         }
-        $('#import-file-input').trigger('click');
-    });
-    
-   function handleFileUpload(file) {
-    if (!file.name.endsWith('.xlsx')) {
-        showToast('error', @json(__('admin/employees.error-file-type')));
-        return;
-    }
-    
-    if (file.size > 5 * 1024 * 1024) {
-        showToast('error', @json(__('admin/employees.error-file-size')));
-        return;
-    }
-    
-    dropzone.html('<i class="fa fa-spinner fa-spin fa-3x"></i><p class="mt-3">' + @json(__('admin/employees.reading-file')) + '</p>');
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet);
-            
-            if (jsonData.length === 0) {
-                showToast('error', @json(__('admin/employees.error-empty-file')));
-                resetUploadZone();
-                return;
-            }
-            
-            if (jsonData.length > 500) {
-                showToast('error', @json(__('admin/employees.error-too-many-rows')));
-                resetUploadZone();
-                return;
-            }
-            
-            // ============================================
-            // INTELLIGENT COLUMN MAPPER
-            // ============================================
-            
-            // Get actual column names from the first row
-            const actualColumns = jsonData.length > 0 ? Object.keys(jsonData[0]) : [];
-            console.log('📊 Excel columns found:', actualColumns);
-            
-            // Define column mapping patterns
-            const columnPatterns = {
-                name: ['name', 'név', 'nev', 'full name', 'fullname'],
-                email: ['email', 'e-mail', 'mail', 'e-mail cím', 'email cím'],
-                type: ['type', 'típus', 'tipusú', 'employee type', 'user type', 'role'],
-                position: ['position', 'pozíció', 'pozicio', 'beosztás', 'title', 'job title'],
-                department_name: ['department', 'department name', 'dept', 'részleg', 'reszleg', 'osztály', 'osztaly'],
-                wage: ['wage', 'salary', 'bér', 'ber', 'fizetés', 'fizetes'],
-                currency: ['currency', 'pénznem', 'penznem', 'curr']
-            };
-            
-            // Function to find matching column
-            function findColumn(patterns, columns) {
-                for (let col of columns) {
-                    // Remove asterisks, trim, lowercase
-                    const normalized = col.replace(/\*/g, '').trim().toLowerCase();
-                    
-                    // Skip obvious non-data columns
-                    if (['#', 'no', 'no.', 'num', 'number', 'sorszám', 'sorszam'].includes(normalized)) {
-                        continue;
-                    }
-                    
-                    // Check if matches any pattern
-                    for (let pattern of patterns) {
-                        if (normalized === pattern || normalized.includes(pattern) || pattern.includes(normalized)) {
-                            console.log(`✓ Mapped column "${col}" → "${patterns[0]}"`);
-                            return col;
-                        }
-                    }
-                }
-                return null;
-            }
-            
-            // Map all columns
-            const columnMap = {
-                name: findColumn(columnPatterns.name, actualColumns),
-                email: findColumn(columnPatterns.email, actualColumns),
-                type: findColumn(columnPatterns.type, actualColumns),
-                position: findColumn(columnPatterns.position, actualColumns),
-                department_name: findColumn(columnPatterns.department_name, actualColumns),
-                wage: findColumn(columnPatterns.wage, actualColumns),
-                currency: findColumn(columnPatterns.currency, actualColumns)
-            };
-            
-            console.log('🗺️  Column mapping:', columnMap);
-            
-            // Check required columns
-            if (!columnMap.name || !columnMap.email || !columnMap.type) {
-                let missing = [];
-                if (!columnMap.name) missing.push('Name');
-                if (!columnMap.email) missing.push('Email');
-                if (!columnMap.type) missing.push('Type');
-                
-                showToast('error', 'Missing required columns: ' + missing.join(', ') + 
-                    '<br>Found columns: ' + actualColumns.join(', '));
-                resetUploadZone();
-                return;
-            }
-            
-            // ============================================
-            // MAP DATA USING INTELLIGENT COLUMN MAPPER
-            // ============================================
-            
-            const normalizedData = jsonData.map(row => {
-                return {
-                    name: columnMap.name ? (row[columnMap.name] || '').toString().trim() : '',
-                    email: columnMap.email ? (row[columnMap.email] || '').toString().trim() : '',
-                    type: columnMap.type ? (row[columnMap.type] || '').toString().trim().toLowerCase() : '',
-                    position: columnMap.position ? (row[columnMap.position] || '').toString().trim() : '',
-                    department_name: columnMap.department_name ? (row[columnMap.department_name] || '').toString().trim() : '',
-                    wage: columnMap.wage ? (row[columnMap.wage] || '').toString().trim() : '',
-                    currency: columnMap.currency ? (row[columnMap.currency] || 'HUF').toString().trim().toUpperCase() : 'HUF'
-                };
-            });
-            
-            console.log('✅ Normalized data (first 3 rows):', normalizedData.slice(0, 3));
-            
-            // ============================================
-            // FILTER OUT EMPTY ROWS
-            // ============================================
-            const filteredData = normalizedData.filter(row => {
-                // A row is considered empty if ALL required fields are empty
-                const hasName = row.name && row.name.trim() !== '';
-                const hasEmail = row.email && row.email.trim() !== '';
-                const hasType = row.type && row.type.trim() !== '';
-                
-                return hasName || hasEmail || hasType; // Keep row if ANY required field has data
-            });
-            
-            console.log(`🧹 Filtered: ${normalizedData.length} rows → ${filteredData.length} rows (removed ${normalizedData.length - filteredData.length} empty rows)`);
-            
-            if (filteredData.length === 0) {
-                showToast('error', 'No valid data rows found in the Excel file!');
-                resetUploadZone();
-                return;
-            }
-            
-            validateData(filteredData);
-            
-        } catch (error) {
-            console.error('❌ File parsing error:', error);
-            showToast('error', @json(__('admin/employees.error-parsing-file')) + '<br>' + error.message);
-            resetUploadZone();
+        
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('error', 'File size exceeds 5MB limit');
+            return;
         }
-    };
-    
-    reader.readAsArrayBuffer(file);
-}
+        
+        // Show loading state
+        dropzone.html('<i class="fa fa-spinner fa-spin fa-3x text-primary mb-3"></i><p class="lead">' + @json(__('admin/employees.reading-file')) + '</p>');
+        
+        const reader = new FileReader();
+        
+        reader.onerror = function() {
+            showToast('error', 'Failed to read file');
+            resetUploadZone();
+        };
+        
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                
+                console.log('📊 Raw Excel data:', jsonData);
+                
+                if (jsonData.length < 2) {
+                    showToast('error', 'Excel file is empty or has no data rows');
+                    resetUploadZone();
+                    return;
+                }
+                
+                // Extract headers (first row)
+                const headers = jsonData[0].map(h => h ? h.toString().trim().toLowerCase() : '');
+                console.log('📋 Headers:', headers);
+                
+                // Map column indices
+                const columnMap = {
+                    name: headers.indexOf('név') !== -1 ? headers.indexOf('név') : headers.indexOf('name'),
+                    email: headers.indexOf('e-mail') !== -1 ? headers.indexOf('e-mail') : headers.indexOf('email'),
+                    type: headers.indexOf('típus') !== -1 ? headers.indexOf('típus') : headers.indexOf('type'),
+                    position: headers.indexOf('beosztás') !== -1 ? headers.indexOf('beosztás') : headers.indexOf('position'),
+                    department_name: headers.indexOf('részleg') !== -1 ? headers.indexOf('részleg') : headers.indexOf('department'),
+                    wage: headers.indexOf('bér') !== -1 ? headers.indexOf('bér') : headers.indexOf('wage'),
+                    currency: headers.indexOf('pénznem') !== -1 ? headers.indexOf('pénznem') : headers.indexOf('currency')
+                };
+                
+                console.log('🗺️ Column mapping:', columnMap);
+                
+                // Normalize data rows (skip header)
+                const normalizedData = jsonData.slice(1).map(row => {
+                    return {
+                        name: columnMap.name !== -1 ? (row[columnMap.name] || '').toString().trim() : '',
+                        email: columnMap.email !== -1 ? (row[columnMap.email] || '').toString().trim() : '',
+                        type: columnMap.type !== -1 ? (row[columnMap.type] || '').toString().trim().toLowerCase() : '',
+                        position: columnMap.position !== -1 ? (row[columnMap.position] || '').toString().trim() : '',
+                        department_name: columnMap.department_name !== -1 ? (row[columnMap.department_name] || '').toString().trim() : '',
+                        wage: columnMap.wage !== -1 ? (row[columnMap.wage] || '').toString().trim() : '',
+                        currency: columnMap.currency !== -1 ? (row[columnMap.currency] || 'HUF').toString().trim().toUpperCase() : 'HUF'
+                    };
+                });
+                
+                console.log('✅ Normalized data (first 3 rows):', normalizedData.slice(0, 3));
+                
+                // Filter out empty rows
+                const filteredData = normalizedData.filter(row => {
+                    const hasName = row.name && row.name.trim() !== '';
+                    const hasEmail = row.email && row.email.trim() !== '';
+                    const hasType = row.type && row.type.trim() !== '';
+                    
+                    return hasName || hasEmail || hasType;
+                });
+                
+                console.log(`🧹 Filtered: ${normalizedData.length} rows → ${filteredData.length} rows`);
+                
+                if (filteredData.length === 0) {
+                    showToast('error', 'No valid data rows found in the Excel file!');
+                    resetUploadZone();
+                    return;
+                }
+                
+                validateData(filteredData);
+                
+            } catch (error) {
+                console.error('❌ File parsing error:', error);
+                showToast('error', @json(__('admin/employees.error-parsing-file')) + '<br>' + error.message);
+                resetUploadZone();
+            }
+        };
+        
+        reader.readAsArrayBuffer(file);
+    }
     
     function resetUploadZone() {
         dropzone.html(
@@ -657,48 +595,62 @@
             },
             success: function(response) {
                 validatedData = response;
-                showValidationPreview(response);
+                showPreviewView(response);
             },
             error: function(xhr) {
-                let errorMsg = @json(__('admin/employees.error-validation-failed'));
-                if (xhr.responseJSON && xhr.responseJSON.message) {
-                    errorMsg = xhr.responseJSON.message;
-                }
-                showToast('error', errorMsg);
+                showToast('error', @json(__('admin/employees.error-validation-failed')));
                 resetUploadZone();
             }
         });
     }
     
-    function showValidationPreview(data) {
-          $('#employee-import-modal .modal-dialog').addClass('expanded');
+   // Find this section in employee-import.blade.php (around line 626)
+// REPLACE the entire showPreviewView function with this corrected version:
 
+function showPreviewView(data) {
+    // Expand modal to full width
+    $('#employee-import-modal .modal-dialog').addClass('expanded');
+    
+    // Wait for animation, then switch views
+    setTimeout(function() {
         $('.import-step-upload').addClass('hidden');
         $('.import-step-preview').removeClass('hidden');
         
+        // Populate summary
         $('#summary-total').text(data.summary.total_rows);
         $('#summary-valid').text(data.summary.valid_rows);
         $('#summary-warning').text(data.summary.warning_rows);
         $('#summary-error').text(data.summary.error_rows);
         
+        // Show limit warning if needed
         if (data.show_limit_warning) {
-            let warningText = @json(__('admin/employees.employee-limit-warning'));
-            warningText = warningText.replace('{limit}', data.limit_info.limit)
-                                     .replace('{current}', data.limit_info.current)
-                                     .replace('{total}', data.limit_info.total_after);
-            $('#limit-warning-text').html(warningText);
             $('#limit-warning-container').removeClass('hidden');
+            
+            // ✅ FIXED: Build the warning text properly
+            const warningText = 'Az import után túllépi a munkavállalói limitet (' + 
+                data.limit_info.limit + '). Jelenlegi: ' + 
+                data.limit_info.current + ', Import után: ' + 
+                data.limit_info.total_after;
+            
+            $('#limit-warning-text').text(warningText);
         }
         
-        if (data.summary.new_departments > 0) {
-            $('#new-departments-list').text(data.new_departments_list.join(', '));
+        // Show new departments if any
+        if (data.new_departments_list && data.new_departments_list.length > 0) {
             $('#new-departments-container').removeClass('hidden');
+            $('#new-departments-list').text(data.new_departments_list.join(', '));
         }
         
+        // Populate table
+        populatePreviewTable(data.rows);
+    }, 200);
+}
+    
+    function populatePreviewTable(rows) {
         const tbody = $('#import-preview-table tbody');
         tbody.empty();
         
-        data.rows.forEach(row => {
+        rows.forEach(function(row) {
             const rowClass = row.status === 'valid' ? 'row-valid' : 
                            row.status === 'warning' ? 'row-warning' : 'row-error';
             
@@ -724,44 +676,41 @@
             tbody.append(tr);
         });
         
-        $('.start-import').prop('disabled', !data.valid);
+        $('.start-import').prop('disabled', !validatedData.valid);
     }
     
     $('.back-to-upload').on('click', function() {
-    // Shrink modal back to normal size
-    $('#employee-import-modal .modal-dialog').removeClass('expanded');
-    
-    // Wait for animation, then switch views
-    setTimeout(function() {
-        $('.import-step-preview').addClass('hidden');
-        $('.import-step-upload').removeClass('hidden');
-    }, 200);
-    
-    resetUploadZone();
-    validatedData = null;
-    $('#import-file-input').val('');
-});
+        $('#employee-import-modal .modal-dialog').removeClass('expanded');
+        
+        setTimeout(function() {
+            $('.import-step-preview').addClass('hidden');
+            $('.import-step-upload').removeClass('hidden');
+        }, 200);
+        
+        resetUploadZone();
+        validatedData = null;
+        $('#import-file-input').val('');
+    });
     
     $('.start-import').on('click', function() {
-    if (!validatedData || !validatedData.valid) {
-        showToast('error', @json(__('admin/employees.error-cannot-start-import')));
-        return;
-    }
-    
-    // Convert checkbox to 1 or 0 for Laravel boolean validation
-    const sendEmails = $('#send-emails-checkbox').is(':checked') ? 1 : 0;
-    const dataToImport = validatedData.rows.filter(row => 
-        row.status === 'valid' || row.status === 'warning'
-    );
-    
-    $.ajax({
-        url: @json(route('admin.employee.import.start')),
-        method: 'POST',
-        data: {
-            _token: @json(csrf_token()),
-            validated_data: dataToImport,
-            send_emails: sendEmails  // Now sends 1 or 0 instead of true/false string
-        },
+        if (!validatedData || !validatedData.valid) {
+            showToast('error', @json(__('admin/employees.error-cannot-start-import')));
+            return;
+        }
+        
+        const sendEmails = $('#send-emails-checkbox').is(':checked') ? 1 : 0;
+        const dataToImport = validatedData.rows.filter(row => 
+            row.status === 'valid' || row.status === 'warning'
+        );
+        
+        $.ajax({
+            url: @json(route('admin.employee.import.start')),
+            method: 'POST',
+            data: {
+                _token: @json(csrf_token()),
+                validated_data: dataToImport,
+                send_emails: sendEmails
+            },
             success: function(response) {
                 currentJobId = response.job_id;
                 showProgressView();
@@ -819,6 +768,9 @@
         $('#progress-percentage').text(Math.round(percentage) + '%');
     }
     
+    // ✅ FIX BUG #2: Export updateProgress as window.updateProgressDisplay
+    window.updateProgressDisplay = updateProgress;
+    
     function showCompleteView(data) {
         $('.import-step-progress').addClass('hidden');
         $('.import-step-complete').removeClass('hidden');
@@ -839,18 +791,67 @@
     });
     
     $('#employee-import-modal').on('hidden.bs.modal', function() {
-    if (pollInterval) clearInterval(pollInterval);
+        if (pollInterval) clearInterval(pollInterval);
+        
+        $('#employee-import-modal .modal-dialog').removeClass('expanded');
+        
+        $('.import-step').addClass('hidden');
+        $('.import-step-upload').removeClass('hidden');
+        validatedData = null;
+        currentJobId = null;
+        resetUploadZone();
+        $('#import-file-input').val('');
+    });
     
-    // Remove expanded class
-    $('#employee-import-modal .modal-dialog').removeClass('expanded');
-    
-    $('.import-step').addClass('hidden');
-    $('.import-step-upload').removeClass('hidden');
-    validatedData = null;
-    currentJobId = null;
-    resetUploadZone();
-    $('#import-file-input').val('');
-});
+    // ✅ FIX BUG #1: Add window.reopenImportModal function
+    window.reopenImportModal = function(jobId) {
+        console.log('🔄 Reopening import modal for job:', jobId);
+        
+        // Set the current job ID
+        currentJobId = jobId;
+        
+        // Load job status
+        $.ajax({
+            url: @json(url('admin/employee/import')) + '/' + jobId + '/status',
+            method: 'GET',
+            success: function(response) {
+                // Open the modal
+                $('#employee-import-modal').modal('show');
+                
+                // Hide all steps first
+                $('.import-step').addClass('hidden');
+                
+                // Show appropriate step based on status
+                if (response.status === 'completed' || response.status === 'failed') {
+                    // Show complete view
+                    $('.import-step-complete').removeClass('hidden');
+                    $('#final-successful').text(response.progress.successful);
+                    $('#final-failed').text(response.progress.failed);
+                    $('#final-departments').text(response.departments_created || 0);
+                    
+                    if (response.progress.failed > 0) {
+                        showToast('warning', @json(__('admin/employees.import-completed-with-errors')));
+                    } else {
+                        showToast('success', @json(__('admin/employees.import-completed-success')));
+                    }
+                } else {
+                    // Show progress view and start polling
+                    $('.import-step-progress').removeClass('hidden');
+                    
+                    // Update initial progress
+                    updateProgress(response);
+                    
+                    // Start polling for updates
+                    if (pollInterval) clearInterval(pollInterval);
+                    startPolling();
+                }
+            },
+            error: function(xhr) {
+                console.error('Failed to load import status:', xhr);
+                showToast('error', 'Failed to load import status');
+            }
+        });
+    };
     
 })();
 </script>

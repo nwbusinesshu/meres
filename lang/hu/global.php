@@ -26,6 +26,8 @@ return [
 
   "swal-validation-message" => "A mező kitöltése kötelező!",
 
+  "validation-error" => "Hiányos mezők",
+
   "swal-error" => "Hiba!",
 
   "swal-success" => "Siker!",

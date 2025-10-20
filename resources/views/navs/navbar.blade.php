@@ -1,3 +1,9 @@
+{{-- 
+  RESTORED ORIGINAL NAVBAR + MOBILE ADDITIONS
+  Replace: resources/views/navs/navbar.blade.php
+  Desktop navbar is UNCHANGED, mobile elements added at the end
+--}}
+
 <div class="navbar">
   <div class="logo">
     <img src="{{ asset('assets/logo/quarma360.svg') }}" alt="mewo-logo">
@@ -209,17 +215,155 @@ if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
   </div>
 @endif
 
+{{-- ========================================
+     MOBILE BOTTOM NAVIGATION
+     Only visible on mobile (<768px)
+     ======================================== --}}
+<div class="mobile-bottom-nav">
+  @if ($isSuperadmin && !$hasOrg)
+    <a class="menuitem {{ request()->routeIs('superadmin.dashboard') ? 'active' : '' }}" 
+       href="{{ route('superadmin.dashboard') }}">
+      <i class="fa fa-tachometer-alt"></i>
+      <span>Dashboard</span>
+    </a>
+    <a class="menuitem {{ request()->routeIs('superadmin.competency.index') ? 'active' : '' }}" 
+       href="{{ route('superadmin.competency.index') }}">
+      <i class="fa fa-medal"></i>
+      <span>{{ __('titles.superadmin.global-competencies') }}</span>
+    </a>
+    <a class="menuitem {{ request()->routeIs('org.select') ? 'active' : '' }}" 
+       href="{{ route('org.select') }}">
+      <i class="fa-solid fa-right-to-bracket"></i>
+      <span>{{ __('global.login-to-org') }}</span>
+    </a>
+  @else
+    <a class="menuitem {{ request()->routeIs('home', 'admin.home') ? 'active' : '' }}" 
+       href="{{ route('home-redirect') }}">
+      <i class="fa fa-house"></i>
+      <span>{{ __('titles.home') }}</span>
+    </a>
+
+    @if (MyAuth::isAuthorized(UserType::ADMIN))
+      <a class="menuitem {{ request()->routeIs('admin.results.index') ? 'active' : '' }}" 
+         href="{{ route('admin.results.index') }}">
+        <i class="fa fa-chart-line"></i>
+        <span>{{ __('titles.admin.results') }}</span>
+      </a>
+
+      @if($showBonuses)
+        <a class="menuitem {{ request()->routeIs('admin.bonuses.index') ? 'active' : '' }}" 
+           href="{{ route('admin.bonuses.index') }}">
+          <i class="fa fa-money-bill-wave"></i>
+          <span>{{ __('titles.admin.bonuses') }}</span>
+        </a>
+      @endif
+
+      @if (!AssessmentService::isAssessmentRunning())
+        <div class="menuitem {{ $isOnConfigChild ? 'active' : '' }}" id="config-dropdown-toggle-mobile">
+          <i class="fa fa-gears"></i>
+          <span>{{ __('global.navbar-configuration') }}</span>
+        </div>
+      @endif
+
+      @if (AssessmentService::isAssessmentRunning())
+        <a class="menuitem {{ request()->routeIs('admin.payments.index') ? 'active' : '' }}"
+           href="{{ route('admin.payments.index') }}">
+          <i class="fas fa-credit-card"></i>
+          <span>{{ __('titles.admin.payments') }}</span>
+        </a>
+      @endif
+    @else
+      @if (Route::currentRouteName() == "assessment.index")
+        <a class="menuitem disabled" href="#">
+          <i class="fa fa-file-pen"></i>
+          <span>{{ __('titles.assessment') }}</span>
+        </a>
+      @endif
+      @if (Route::currentRouteName() == "ceorank.index")
+        <a class="menuitem disabled" href="#">
+          <i class="fa fa-ranking-star"></i>
+          <span>{{ __('titles.ceorank') }}</span>
+        </a>
+      @endif
+      <a class="menuitem {{ request()->routeIs('results.index') ? 'active' : '' }}" 
+         href="{{ route('results.index') }}">
+        <i class="fa fa-chart-line"></i>
+        <span>{{ __('titles.results') }}</span>
+      </a>
+    @endif
+
+    @if ($isSuperadmin && $hasOrg)
+      <a class="menuitem text-danger" href="{{ route('superadmin.exit-company') }}">
+        <i class="fa fa-right-from-bracket"></i>
+        <span>{{ __('global.logout-org') }}</span>
+      </a>
+    @endif
+  @endif
+</div>
+
 <script>
   document.addEventListener("DOMContentLoaded", function () {
-    const toggle = document.getElementById('config-dropdown-toggle');
+    const toggleDesktop = document.getElementById('config-dropdown-toggle');
+    const toggleMobile = document.getElementById('config-dropdown-toggle-mobile');
     const dropdown = document.getElementById('config-dropdown');
+    const mainContainer = document.querySelector('.main-container');
 
-    if (toggle && dropdown) {
+    if (dropdown) {
       const isInitiallyOpen = dropdown.style.display === 'flex';
 
-      toggle.addEventListener('click', function () {
+      // Function to toggle config bar
+      function toggleDropdown(e) {
+        if (e) e.stopPropagation();
+        
         if (!isInitiallyOpen) {
-          dropdown.style.display = (dropdown.style.display === 'none' || dropdown.style.display === '') ? 'flex' : 'none';
+          const isOpen = dropdown.style.display === 'flex';
+          dropdown.style.display = isOpen ? 'none' : 'flex';
+          
+          // Update active state on mobile toggle
+          if (toggleMobile) {
+            if (isOpen) {
+              toggleMobile.classList.remove('active');
+              if (mainContainer) mainContainer.classList.remove('config-open');
+            } else {
+              toggleMobile.classList.add('active');
+              if (mainContainer) mainContainer.classList.add('config-open');
+            }
+          }
+        }
+      }
+
+      // Desktop toggle
+      if (toggleDesktop) {
+        toggleDesktop.addEventListener('click', toggleDropdown);
+      }
+
+      // Mobile toggle
+      if (toggleMobile) {
+        toggleMobile.addEventListener('click', toggleDropdown);
+        
+        // Set initial state for mobile
+        if (isInitiallyOpen && mainContainer) {
+          toggleMobile.classList.add('active');
+          mainContainer.classList.add('config-open');
+        }
+      }
+
+      // Close config bar when clicking outside (mobile only)
+      document.addEventListener('click', function(event) {
+        if (window.innerWidth <= 768) {
+          const isClickInside = dropdown.contains(event.target) || 
+                               (toggleMobile && toggleMobile.contains(event.target)) ||
+                               (toggleDesktop && toggleDesktop.contains(event.target));
+          
+          if (!isClickInside && dropdown.style.display === 'flex' && !isInitiallyOpen) {
+            dropdown.style.display = 'none';
+            if (toggleMobile) {
+              toggleMobile.classList.remove('active');
+            }
+            if (mainContainer) {
+              mainContainer.classList.remove('config-open');
+            }
+          }
         }
       });
     }

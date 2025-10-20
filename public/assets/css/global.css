@@ -241,6 +241,71 @@ button.swal2-styled{
   padding: .5em 1em;
   gap: 1em;
 }
+
+/* ========================================
+   STEP 1: STICKY NAVBAR & CONFIG DROPDOWN
+   Add this to: public/assets/css/global.css
+   ======================================== */
+
+/* Make navbar sticky on desktop/tablet */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: row;
+  gap: 1em;
+  padding: 0px 20px;
+  margin: 0;
+  width: 100%;
+  background-color: var(--alabaster);
+  transition: background-color 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+}
+
+/* Make config-dropdown sticky too (appears below navbar) */
+#config-dropdown {
+  position: sticky;
+  top: 50px; /* Height of navbar */
+  z-index: 999;
+  background-color: var(--alabaster);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  height: 50px;
+  gap: 1em;
+  border-top: 1px solid var(--silver_chalice);
+  transition: background-color 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); /* Subtle shadow */
+}
+
+.config-bar {
+  width: 100%;
+  background-color: var(--alabaster);
+  transition: background-color 0.3s ease;
+}
+
+/* Adjust main-content padding to account for sticky navbar */
+.main-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1600px;
+  padding: .5em 1em;
+  gap: 1em;
+  padding-top: 1em; /* Add some breathing room below navbar */
+}
+
+/* When config-dropdown is visible, adjust the sticky position */
+.main-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100%;
+  flex: 1;
+  padding-bottom: 50px;
+}
+
 .tile{
   padding: .3em;
   display: flex;
