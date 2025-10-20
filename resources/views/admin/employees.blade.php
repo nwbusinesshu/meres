@@ -38,8 +38,7 @@
 @endif
     {{-- Updated: Disable button when limit is reached --}}
     <div class="tile tile-button trigger-new {{ $isLimitReached ? 'disabled' : '' }}" 
-         @if($isLimitReached) 
-            style="opacity: 0.5; cursor: not-allowed;" 
+         @if($isLimitReached)  
             data-tippy-content="{{ __('admin/employees.employee-limit-reached-tooltip') }}"
          @endif>
         <span><i class="fa fa-user-plus"></i>{{ $_('new-employee') }}</span>

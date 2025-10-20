@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'title' => 'Fizetések',
+    'title' => 'Számlázás',
 
     'sections' => [
         'open'    => 'Nyitott tartozások',

@@ -407,40 +407,427 @@ $(document).ready(function(){
     }
 });
 
-    // ========== SEARCH (legacy table only) ==========
-    $(document).on('keyup', '.search-input', function(e){
-        if (e.key !== 'Enter') return;
-        if (!hasLegacyTable()) return;
-
-        if (typeof swal_loader !== 'undefined' && swal_loader.fire) swal_loader.fire();
-
+    (function() {
+    'use strict';
+    
+    const orgId = "{{ (int)session('org_id') }}";
+    const isMultiLevel = {{ !empty($enableMultiLevel) ? 'true' : 'false' }};
+    
+    // ========== UNIFIED SEARCH ==========
+    
+    /**
+     * Main search function - works for both legacy and multi-level views
+     */
+    function performSearch(searchTerm) {
+        const search = (searchTerm || '').toLowerCase().trim();
         const url = new URL(window.location.href);
-        const search = (this.value || '').toLowerCase();
-        const rows = document.querySelectorAll('tbody tr');
-        rows.forEach(tr => tr.classList.add('hidden'));
-        document.querySelectorAll('tbody tr:not(.no-employee)').forEach(tr => {
-            const firstTd = tr.querySelector('td');
-            const text = (firstTd?.innerHTML || '').toLowerCase();
-            if (text.includes(search)) tr.classList.remove('hidden');
-        });
-
+        
+        // Update URL without reload
         url.searchParams.delete('search');
-        if (search.length) url.searchParams.set('search', search);
+        if (search.length > 0) {
+            url.searchParams.set('search', search);
+        }
         window.history.replaceState(null, null, url);
-
-        const anyVisible = document.querySelectorAll('tbody tr:not(.no-employee):not(.hidden)').length > 0;
-        const noEmp = document.querySelector('tr.no-employee');
-        if (noEmp) noEmp.classList.toggle('hidden', anyVisible);
-
-        if (typeof swal_loader !== 'undefined' && swal_loader.close) swal_loader.close();
+        
+        if (isMultiLevel) {
+            searchMultiLevel(search);
+        } else {
+            searchLegacy(search);
+        }
+    }
+    
+    /**
+     * Search in multi-level view (departments + users)
+     */
+    function searchMultiLevel(search) {
+        let totalVisibleUsers = 0;
+        
+        // Search in CEO + Unassigned section
+        const $topLevelUserlist = $('.employees-ml > .userlist').first();
+        const $topLevelUsers = $topLevelUserlist.find('.user-row');
+        let topLevelVisible = 0;
+        
+        $topLevelUsers.each(function() {
+            const userName = $(this).find('strong').first().text().toLowerCase();
+            const userEmail = $(this).find('small.text-muted').first().text().toLowerCase();
+            const matches = userName.includes(search) || userEmail.includes(search);
+            
+            $(this).toggle(search === '' || matches);
+            if (matches || search === '') {
+                topLevelVisible++;
+            }
+        });
+        
+        totalVisibleUsers += topLevelVisible;
+        
+        // Toggle "no users" message for top level
+        const $topLevelNoUsers = $topLevelUserlist.find('.tile-info');
+        $topLevelNoUsers.toggle(topLevelVisible === 0);
+        
+        // Search in departments
+        $('.dept-block').each(function() {
+            const $deptBlock = $(this);
+            const deptName = $deptBlock.find('.dept-title').text().toLowerCase();
+            const deptNameMatches = search === '' || deptName.includes(search);
+            
+            // Search users within department (managers + members)
+            const $allUsers = $deptBlock.find('.user-row');
+            let deptVisibleUsers = 0;
+            
+            $allUsers.each(function() {
+                const userName = $(this).find('strong').first().text().toLowerCase();
+                const userEmail = $(this).find('small.text-muted').first().text().toLowerCase();
+                const userMatches = userName.includes(search) || userEmail.includes(search);
+                
+                const shouldShow = search === '' || deptNameMatches || userMatches;
+                $(this).toggle(shouldShow);
+                
+                if (shouldShow) {
+                    deptVisibleUsers++;
+                }
+            });
+            
+            // Show department if:
+            // 1. No search (empty)
+            // 2. Department name matches
+            // 3. Any user in department matches
+            const shouldShowDept = search === '' || deptNameMatches || deptVisibleUsers > 0;
+            $deptBlock.toggle(shouldShowDept);
+            
+            if (shouldShowDept) {
+                totalVisibleUsers += deptVisibleUsers;
+                
+                // Expand department if search found matches inside
+                if (search !== '' && deptVisibleUsers > 0) {
+                    const $body = $deptBlock.find('.dept-body');
+                    const $caret = $deptBlock.find('.caret');
+                    $body.show();
+                    $caret.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+                }
+            }
+            
+            // Highlight department name if it matches
+            const $deptTitle = $deptBlock.find('.dept-title');
+            if (search !== '' && deptNameMatches && !deptName.includes(search) === false) {
+                $deptTitle.addClass('search-highlight');
+            } else {
+                $deptTitle.removeClass('search-highlight');
+            }
+        });
+        
+        // Show "no results" message if nothing visible
+        showNoResultsMessage(totalVisibleUsers === 0 && search !== '');
+    }
+    
+    /**
+     * Search in legacy table view
+     */
+    function searchLegacy(search) {
+        const $rows = $('tbody tr:not(.no-employee)');
+        let visibleCount = 0;
+        
+        $rows.each(function() {
+            const $row = $(this);
+            // Search in name (first td) and email
+            const $firstTd = $row.find('td').first();
+            const name = $firstTd.find('strong').text().toLowerCase();
+            const email = $firstTd.find('small.text-muted').text().toLowerCase();
+            
+            const matches = search === '' || name.includes(search) || email.includes(search);
+            $row.toggle(matches);
+            
+            if (matches) {
+                visibleCount++;
+            }
+        });
+        
+        // Toggle "no employee" row
+        const $noEmpRow = $('tr.no-employee');
+        $noEmpRow.toggle(visibleCount === 0);
+    }
+    
+    /**
+     * Show/hide global "no results" message
+     */
+    function showNoResultsMessage(show) {
+        let $noResults = $('.search-no-results');
+        
+        if (show && $noResults.length === 0) {
+            // Create message if it doesn't exist
+            $noResults = $('<div class="tile tile-warning search-no-results" style="margin-top: 1rem;">' +
+                '<i class="fa fa-search"></i> ' +
+                '<strong>{{ __("global.no-results-found") }}</strong>' +
+                '</div>');
+            $('.employees-ml').prepend($noResults);
+        }
+        
+        if ($noResults.length > 0) {
+            $noResults.toggle(show);
+        }
+    }
+    
+    /**
+     * Debounce function to limit search frequency
+     */
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+    
+    // Create debounced search (300ms delay for better performance)
+    const debouncedSearch = debounce(function(searchTerm) {
+        performSearch(searchTerm);
+    }, 300);
+    
+    // ========== EVENT LISTENERS ==========
+    
+    // Real-time search on input
+    $(document).on('input', '.search-input', function() {
+        const searchTerm = $(this).val();
+        debouncedSearch(searchTerm);
     });
-
-    $(document).on('click', '.clear-search', function(){
-        const input = document.querySelector('.search-input');
-        if (!input) return;
-        input.value = '';
-        input.dispatchEvent(new KeyboardEvent('keyup', { key:'Enter' }));
+    
+    // Also support Enter key for immediate search
+    $(document).on('keyup', '.search-input', function(e) {
+        if (e.key === 'Enter') {
+            const searchTerm = $(this).val();
+            performSearch(searchTerm);
+        }
     });
+    
+    // Clear search button
+    $(document).on('click', '.clear-search', function() {
+        const $input = $('.search-input');
+        $input.val('');
+        performSearch('');
+        $input.focus();
+    });
+    
+    // ========== INITIALIZATION ==========
+    
+    $(document).ready(function() {
+        // Check if there's a search param in URL on page load
+        const url = new URL(window.location.href);
+        const searchParam = url.searchParams.get('search');
+        
+        if (searchParam) {
+            $('.search-input').val(searchParam);
+            performSearch(searchParam);
+        }
+        
+           console.log('🔍 Search system initialized (Multi-level: ' + isMultiLevel + ')');
+});
+
+// ========== EXPOSE GLOBALLY ==========
+
+// Make performSearch available globally for state management
+window.employeesSearch = {
+    perform: performSearch,
+    isMultiLevel: isMultiLevel
+};
+
+})();
+
+// ============================================================================
+// STEP 3: PAGE STATE MANAGEMENT
+// Add this to resources/views/js/admin/employees.blade.php
+// Place it AFTER the search system code from Step 2
+// ============================================================================
+
+(function() {
+    'use strict';
+    
+    const orgId = "{{ (int)session('org_id') }}";
+    const STATE_KEY = 'employees_page_state_org_' + orgId;
+    const STATE_EXPIRATION = 30000; // 30 seconds
+    
+    // ========== STATE MANAGEMENT ==========
+    
+    /**
+     * Save current page state to sessionStorage
+     */
+    function savePageState() {
+        try {
+            const state = {
+                searchValue: $('.search-input').val() || '',
+                scrollY: window.scrollY || 0,
+                timestamp: Date.now(),
+                url: window.location.href
+            };
+            
+            sessionStorage.setItem(STATE_KEY, JSON.stringify(state));
+            console.log('💾 Page state saved:', state);
+        } catch(e) {
+            console.warn('⚠️ Could not save page state:', e);
+        }
+    }
+    
+    /**
+     * Restore page state from sessionStorage
+     */
+    function restorePageState() {
+        try {
+            const stateJson = sessionStorage.getItem(STATE_KEY);
+            if (!stateJson) {
+                console.log('📭 No saved state found');
+                return;
+            }
+            
+            const state = JSON.parse(stateJson);
+            
+            // Check if state is expired
+            const age = Date.now() - (state.timestamp || 0);
+            if (age > STATE_EXPIRATION) {
+                console.log('⏰ State expired (age: ' + age + 'ms)');
+                sessionStorage.removeItem(STATE_KEY);
+                return;
+            }
+            
+            // Check if we're on the same URL (to avoid restoring on wrong page)
+            if (state.url && !window.location.href.includes('/admin/employees')) {
+                console.log('🚫 Wrong page, not restoring state');
+                sessionStorage.removeItem(STATE_KEY);
+                return;
+            }
+            
+            console.log('📂 Restoring page state:', state);
+            
+            // Restore search value
+            if (state.searchValue && $('.search-input').length) {
+                $('.search-input').val(state.searchValue);
+                
+                // Trigger search after a short delay to ensure DOM is ready
+                setTimeout(function() {
+                    if (window.employeesSearch && typeof window.employeesSearch.perform === 'function') {
+                        window.employeesSearch.perform(state.searchValue);
+                        console.log('🔍 Search restored:', state.searchValue);
+                    } else {
+                        // Fallback: trigger input event
+                        $('.search-input').trigger('input');
+                        console.log('🔍 Search restored via fallback');
+                    }
+                }, 100);
+            }
+            
+            // Restore scroll position after content is rendered
+            if (state.scrollY > 0) {
+                setTimeout(function() {
+                    window.scrollTo({
+                        top: state.scrollY,
+                        behavior: 'smooth'
+                    });
+                    console.log('📜 Scroll restored to:', state.scrollY);
+                }, 500); // Wait longer for scroll to ensure search results are rendered
+            }
+            
+            // Clean up state after successful restore
+            sessionStorage.removeItem(STATE_KEY);
+            
+        } catch(e) {
+            console.warn('⚠️ Could not restore page state:', e);
+            // Clean up potentially corrupted state
+            sessionStorage.removeItem(STATE_KEY);
+        }
+    }
+    
+    /**
+     * Clear page state
+     */
+    function clearPageState() {
+        try {
+            sessionStorage.removeItem(STATE_KEY);
+            console.log('🗑️ Page state cleared');
+        } catch(e) {
+            console.warn('⚠️ Could not clear page state:', e);
+        }
+    }
+    
+    // ========== HOOK INTO RELOAD TRIGGERS ==========
+    
+    /**
+     * Intercept sessionStorage.setItem for toast messages
+     * This catches all modal success patterns that set toast then reload
+     */
+    const originalSetItem = sessionStorage.setItem.bind(sessionStorage);
+    sessionStorage.setItem = function(key, value) {
+        // Save state when any toast message is set
+        // All modals use: sessionStorage.setItem('xxx_toast', msg); window.location.reload();
+        if (key.includes('_toast') || key.includes('toast')) {
+            console.log('🍞 Toast message detected:', key, '- Saving state before reload');
+            savePageState();
+        }
+        return originalSetItem(key, value);
+    };
+    
+    /**
+     * Also watch for jQuery AJAX calls that trigger reload via successMessage
+     * This is a backup for any AJAX that uses the successMessage pattern
+     */
+    $(document).ajaxComplete(function(event, xhr, settings) {
+        // If AJAX has successMessage, it will reload the page
+        if (settings.successMessage && xhr.status === 200) {
+            console.log('✅ AJAX success with message - Saving state');
+            savePageState();
+        }
+    });
+    
+    // ========== PAGE LIFECYCLE ==========
+    
+    /**
+     * Initialize state management on page load
+     */
+    $(document).ready(function() {
+        // Restore state on page load
+        restorePageState();
+        
+        console.log('✅ Page state management initialized');
+    });
+    
+    /**
+     * Save state before page unload (navigation away)
+     */
+    $(window).on('beforeunload', function() {
+        // Only save if user is navigating away intentionally
+        // Don't save on refresh (handled by reload intercept)
+        const searchValue = $('.search-input').val();
+        if (searchValue) {
+            console.log('👋 Navigating away, saving state...');
+            savePageState();
+        }
+    });
+    
+    /**
+     * Clear state on explicit user actions that should reset the page
+     */
+    $(document).on('click', '.trigger-new', function() {
+        // User is creating new employee - clear state
+        clearPageState();
+    });
+    
+    $(document).on('click', '.trigger-new-dept', function() {
+        // User is creating new department - clear state
+        clearPageState();
+    });
+    
+    // ========== EXPOSE FUNCTIONS GLOBALLY ==========
+    
+    // Make functions available globally if needed
+    window.employeesPageState = {
+        save: savePageState,
+        restore: restorePageState,
+        clear: clearPageState
+    };
+    
+})();
+
+
 
     // ========== NETWORK MODAL - FIXED ==========
     $(document).on('click', '.network', function() {

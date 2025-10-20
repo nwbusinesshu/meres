@@ -20,7 +20,7 @@ return [
     "ceoranks" => "Vezetői rangsor",
     "results" => "Eredmények",
     "settings" => "Beállítások",
-    "payments" => "Fizetések",
+    "payments" => "Számlázás",
     "bonuses" => "Bónuszok",
   ],
   'superadmin' => [
