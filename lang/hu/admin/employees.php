@@ -360,4 +360,8 @@ return [
 'relations-saved' => 'Kapcsolatok sikeresen mentve!',
 'failed-to-save' => 'Nem sikerült menteni a kapcsolatokat.',
 'failed-to-load-relations' => 'Nem sikerült betölteni a kapcsolatokat.',
+'relation-restricted' => 'Korlátozott',
+'relation-restricted-tooltip' => 'Ez a viszony korlátozott az ellenkező irány miatt',
+'inconsistent-relation-error' => 'A viszony nem konzisztens az ellenkező iránnyal',
+'fix-conflicts-first' => 'Kérjük, javítsa ki az ellentmondásokat mielőtt mentené.',
 ];

@@ -886,7 +886,7 @@ public function getEmployeeRelations(Request $request)
 
     try {
         // Check for conflicts (same for both modes)
-        $conflicts = $this->detectRelationConflicts($user->id, $relations, $organizationId);
+        $conflicts = $this->detectRelationConflicts($user->id, $relations, $organizationId, $easyRelationSetup);
         
         if (!empty($conflicts)) {
             Log::warning('Relation conflicts detected', ['conflicts' => $conflicts]);
@@ -899,57 +899,65 @@ public function getEmployeeRelations(Request $request)
         }
 
         // No conflicts - proceed with save
-        AjaxService::DBTransaction(function () use ($relations, $user, $organizationId, $easyRelationSetup) {
+AjaxService::DBTransaction(function () use ($relations, $user, $organizationId, $easyRelationSetup) {
 
-            // 1) Delete existing non-SELF relations for this user
-            DB::table('user_relation')
-                ->where('user_id', $user->id)
-                ->where('organization_id', $organizationId)
-                ->whereIn('type', ['colleague', 'subordinate', 'superior']) // Include superior
-                ->delete();
-            
-            Log::info('Deleted existing relations', ['user_id' => $user->id]);
+    // NEW: In Easy Setup ON mode, handle bidirectional deletion BEFORE deleting forward relations
+    if ($easyRelationSetup) {
+        // Get target IDs from new relations
+        $newTargetIds = $relations->pluck('target_id')->map(fn($id) => (int)$id)->toArray();
+        
+        // Delete reverse relations for removed forward relations
+        $this->handleBidirectionalDeletion($user->id, $newTargetIds, $organizationId);
+    }
 
-            // 2) Ensure SELF relation exists
-            DB::table('user_relation')->insertOrIgnore([
+    // 1) Delete existing non-SELF relations for this user
+    DB::table('user_relation')
+        ->where('user_id', $user->id)
+        ->where('organization_id', $organizationId)
+        ->whereIn('type', ['colleague', 'subordinate', 'superior'])
+        ->delete();
+    
+    Log::info('Deleted existing relations', ['user_id' => $user->id]);
+
+    // 2) Ensure SELF relation exists
+    DB::table('user_relation')->insertOrIgnore([
+        'user_id' => $user->id,
+        'target_id' => $user->id,
+        'organization_id' => $organizationId,
+        'type' => 'self',
+    ]);
+
+    // 3) Prepare and insert new relations (STORE AS-IS, NO CONVERSION!)
+    $rows = $relations
+        ->map(function ($item) use ($user, $organizationId) {
+            return [
                 'user_id' => $user->id,
-                'target_id' => $user->id,
+                'target_id' => (int)($item['target_id'] ?? 0),
                 'organization_id' => $organizationId,
-                'type' => 'self',
-            ]);
+                'type' => $item['type'] ?? null,
+            ];
+        })
+        ->filter(function ($r) use ($user) {
+            return in_array($r['type'], ['colleague', 'subordinate', 'superior'], true)
+                && $r['target_id'] > 0
+                && $r['target_id'] !== $user->id;
+        })
+        ->unique(fn($r) => $r['user_id'].'-'.$r['target_id'])
+        ->values()
+        ->all();
 
-            // 3) Prepare and insert new relations (STORE AS-IS, NO CONVERSION!)
-            $rows = $relations
-                ->map(function ($item) use ($user, $organizationId) {
-                    return [
-                        'user_id' => $user->id,
-                        'target_id' => (int)($item['target_id'] ?? 0),
-                        'organization_id' => $organizationId,
-                        'type' => $item['type'] ?? null, // Store exactly what admin selected!
-                    ];
-                })
-                ->filter(function ($r) use ($user) {
-                    // Accept colleague, subordinate, AND superior
-                    return in_array($r['type'], ['colleague', 'subordinate', 'superior'], true)
-                        && $r['target_id'] > 0
-                        && $r['target_id'] !== $user->id;
-                })
-                ->unique(fn($r) => $r['user_id'].'-'.$r['target_id'])
-                ->values()
-                ->all();
+    if (!empty($rows)) {
+        DB::table('user_relation')->insert($rows);
+        Log::info('Inserted new relations', ['count' => count($rows), 'relations' => $rows]);
+    }
 
-            if (!empty($rows)) {
-                DB::table('user_relation')->insert($rows);
-                Log::info('Inserted new relations', ['count' => count($rows), 'relations' => $rows]);
-            }
-
-            // 4) Handle bidirectional relations based on Easy Setup mode
-            if ($easyRelationSetup) {
-                // Easy Setup ON: Create reverse relations automatically
-                $this->applyBidirectionalRelations($user->id, $rows, $organizationId);
-            }
-            // Easy Setup OFF: Do nothing - relations are independent
-        });
+    // 4) Handle bidirectional relations based on Easy Setup mode
+    if ($easyRelationSetup) {
+        // Easy Setup ON: Create/update reverse relations automatically
+        $this->applyBidirectionalRelations($user->id, $rows, $organizationId);
+    }
+    // Easy Setup OFF: Do nothing - relations are independent
+});
 
         Log::info('Relations saved successfully', ['user_id' => $user->id]);
         return response()->json(['success' => true, 'message' => 'Relations saved successfully']);
@@ -970,7 +978,7 @@ public function getEmployeeRelations(Request $request)
  * UPDATED: Detect conflicts in reverse relations
  * Only real conflict: Both users have each other as subordinate
  */
-private function detectRelationConflicts($userId, $relations, $organizationId)
+private function detectRelationConflicts($userId, $relations, $organizationId, $easyRelationSetup = false)
 {
     $conflicts = [];
 
@@ -983,34 +991,114 @@ private function detectRelationConflicts($userId, $relations, $organizationId)
             continue;
         }
 
-        // ONLY check for subordinate conflicts
-        if ($type === 'subordinate') {
-            // Check if reverse subordinate relation exists in database
+        if ($easyRelationSetup) {
+            // ===== EASY SETUP ON: Only check bidirectional subordinate =====
+            if ($type === 'subordinate') {
+                $existingReverse = DB::table('user_relation')
+                    ->where('user_id', $targetId)
+                    ->where('target_id', $userId)
+                    ->where('organization_id', $organizationId)
+                    ->where('type', 'subordinate')
+                    ->first();
+
+                if ($existingReverse) {
+                    $targetUser = User::find($targetId);
+                    $conflicts[] = [
+                        'target_id' => $targetId,
+                        'target_name' => $targetUser ? $targetUser->name : 'Unknown',
+                        'message' => 'Cannot set as subordinate - they already have you as subordinate'
+                    ];
+                    
+                    Log::warning('Bidirectional subordinate conflict detected', [
+                        'user_id' => $userId,
+                        'target_id' => $targetId
+                    ]);
+                }
+            }
+        } else {
+            // ===== EASY SETUP OFF: Check for inconsistent reverse relations =====
+            
+            // Get existing reverse relation
             $existingReverse = DB::table('user_relation')
                 ->where('user_id', $targetId)
                 ->where('target_id', $userId)
                 ->where('organization_id', $organizationId)
-                ->where('type', 'subordinate') // Only conflict with subordinate
+                ->whereIn('type', ['colleague', 'subordinate', 'superior'])
                 ->first();
-
+            
             if ($existingReverse) {
-                // CONFLICT: Both directions are subordinate
-                $targetUser = User::find($targetId);
-                $conflicts[] = [
-                    'target_id' => $targetId,
-                    'target_name' => $targetUser ? $targetUser->name : 'Unknown',
-                    'message' => 'Cannot set as subordinate - they already have you as subordinate'
-                ];
+                // Determine what the expected type should be based on reverse
+                $expectedType = match($existingReverse->type) {
+                    'colleague' => 'colleague',
+                    'subordinate' => 'superior',    // If B→A is subordinate, A→B must be superior
+                    'superior' => 'subordinate',    // If B→A is superior, A→B must be subordinate
+                    default => null
+                };
                 
-                Log::warning('Bidirectional subordinate conflict detected', [
-                    'user_id' => $userId,
-                    'target_id' => $targetId
-                ]);
+                // Check if current type matches expected type
+                if ($expectedType && $type !== $expectedType) {
+                    $targetUser = User::find($targetId);
+                    $conflicts[] = [
+                        'target_id' => $targetId,
+                        'target_name' => $targetUser ? $targetUser->name : 'Unknown',
+                        'message' => "Inconsistent relation: You are setting as '{$type}', but they have you as '{$existingReverse->type}'"
+                    ];
+                    
+                    Log::warning('Inconsistent relation detected in Easy Setup OFF', [
+                        'user_id' => $userId,
+                        'target_id' => $targetId,
+                        'forward_type' => $type,
+                        'reverse_type' => $existingReverse->type,
+                        'expected_type' => $expectedType
+                    ]);
+                }
             }
         }
     }
 
     return $conflicts;
+}
+
+private function handleBidirectionalDeletion($userId, $newRelationTargetIds, $organizationId)
+{
+    // Get existing relations FROM this user (before deletion)
+    $existingRelations = DB::table('user_relation')
+        ->where('user_id', $userId)
+        ->where('organization_id', $organizationId)
+        ->whereIn('type', ['colleague', 'subordinate', 'superior'])
+        ->get();
+    
+    // Find which target IDs were REMOVED
+    $removedTargetIds = [];
+    foreach ($existingRelations as $existing) {
+        if (!in_array($existing->target_id, $newRelationTargetIds)) {
+            $removedTargetIds[] = $existing->target_id;
+        }
+    }
+    
+    if (empty($removedTargetIds)) {
+        Log::info('No relations removed', ['user_id' => $userId]);
+        return;
+    }
+    
+    Log::info('Relations removed - deleting reverse pairs', [
+        'user_id' => $userId,
+        'removed_target_ids' => $removedTargetIds
+    ]);
+    
+    // Delete reverse relations for all removed targets
+    $deletedCount = DB::table('user_relation')
+        ->whereIn('user_id', $removedTargetIds)
+        ->where('target_id', $userId)
+        ->where('organization_id', $organizationId)
+        ->whereIn('type', ['colleague', 'subordinate', 'superior'])
+        ->delete();
+    
+    Log::info('Deleted reverse relations', [
+        'count' => $deletedCount,
+        'from_users' => $removedTargetIds,
+        'to_user' => $userId
+    ]);
 }
 
 

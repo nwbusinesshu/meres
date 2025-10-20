@@ -191,7 +191,11 @@ class UserService
             assessmentId: $assessmentId,
             orgId: $orgId,
             targetId: $userId,
-            typesOrWeights: ['colleague' => 1.0, 'peer' => 1.0],
+            typesOrWeights: [
+                'colleague' => 1.0, 
+                'peer' => 1.0,
+                'superior' => 1.0  // NEW: Superior evaluations count as peer feedback
+            ],
             fallbackFromCeoRank: $ceoRank,
             maxPoints: 150,
             wMin: 0.5,

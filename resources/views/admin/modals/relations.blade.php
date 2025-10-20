@@ -1,11 +1,4 @@
-{{-- ============================================================================
-STEP 3: FRONTEND SIMPLIFICATION
-File: resources/views/admin/modals/relations.blade.php
-
-INSTRUCTIONS: Replace the ENTIRE file with this code
-============================================================================ --}}
-
-{{-- resources/views/admin/modals/relations.blade.php --}}
+{{-- resources/views/admin/modals/relations.blade.php - COMPLETE FILE --}}
 <div class="modal fade modal-drawer" tabindex="-1" role="dialog" id="relations-modal">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
@@ -79,7 +72,7 @@ INSTRUCTIONS: Replace the ENTIRE file with this code
   border-right-color: var(--info);
 }
 
-/* Disabled state for self-relation */
+/* Disabled state for self-relation and restricted buttons */
 .relation-type-toggle.disabled {
   opacity: 0.5;
   pointer-events: none;
@@ -89,6 +82,14 @@ INSTRUCTIONS: Replace the ENTIRE file with this code
 
 .relation-type-toggle.disabled .toggle-option {
   cursor: not-allowed;
+  color: #999;
+}
+
+/* NEW: Disabled individual button */
+.relation-type-toggle .toggle-option:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #f5f5f5;
   color: #999;
 }
 
@@ -104,6 +105,18 @@ INSTRUCTIONS: Replace the ENTIRE file with this code
   margin-left: 0.5rem;
 }
 
+/* NEW: Restriction info badge */
+.relation-item .restriction-badge {
+  display: inline-block;
+  background: #6c757d;
+  color: white;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  margin-left: 0.5rem;
+}
+
 /* Cannot remove indicator */
 .relation-item.cant-remove i {
   opacity: 0.3;
@@ -113,7 +126,7 @@ INSTRUCTIONS: Replace the ENTIRE file with this code
 
 <script>
 // ============================================================================
-// STEP 3: SIMPLIFIED FRONTEND - NO MORE TRANSFORMATIONS!
+// PHASE 1: EASY SETUP OFF - BUTTON RESTRICTIONS
 // ============================================================================
 
 // Get Easy Relation Setup setting from server
@@ -126,14 +139,57 @@ let currentUserId = null;
 console.log('Relations Modal: Easy Setup Mode =', EASY_RELATION_SETUP);
 
 /**
- * Add a relation item to the list
- * SIMPLIFIED: Just show what's in the database, no transformations!
+ * NEW: Get the inverse relation type
  */
-function addNewRelationItem(uid, name, type = 'colleague') {
+function getInverseType(type) {
+  switch(type) {
+    case 'colleague': return 'colleague';
+    case 'subordinate': return 'superior';
+    case 'superior': return 'subordinate';
+    default: return 'colleague';
+  }
+}
+
+/**
+ * NEW: Check if reverse relation exists and return required type
+ * Returns null if no restriction, or the required type if restricted
+ */
+function getReverseRelationRestriction(targetId) {
+  console.log('=== getReverseRelationRestriction ===');
+  console.log('Looking for reverse relation from:', targetId, 'to:', currentUserId);
+  console.log('All relations:', storedAllRelations);
+  
+  // Check if B→A exists in storedAllRelations
+  const reverseRelation = storedAllRelations.find(r => {
+    // Ensure type-safe comparison by converting to numbers
+    const matches = parseInt(r.user_id) === parseInt(targetId) && parseInt(r.target_id) === parseInt(currentUserId);
+    console.log('Checking relation:', r, 'Matches:', matches);
+    return matches;
+  });
+  
+  console.log('Found reverse relation:', reverseRelation);
+  
+  if (!reverseRelation) {
+    console.log('No reverse relation found for target:', targetId);
+    return null; // No restriction - all buttons available
+  }
+  
+  // Reverse exists - return the inverse type (what A→B must be)
+  const inverseType = getInverseType(reverseRelation.type);
+  console.log('Reverse relation type:', reverseRelation.type, '→ Required forward type:', inverseType);
+  return inverseType;
+}
+
+/**
+ * UPDATED: Add a relation item to the list with optional button restrictions
+ */
+function addNewRelationItem(uid, name, type = 'colleague', restrictedType = null) {
+  console.log('addNewRelationItem called:', {uid, name, type, restrictedType, easySetup: EASY_RELATION_SETUP});
+  
   let buttonsHtml = '';
   
   if (EASY_RELATION_SETUP) {
-    // EASY SETUP ON: Show 3 buttons (colleague, subordinate, superior)
+    // EASY SETUP ON: Show 3 buttons (all enabled)
     buttonsHtml = ''
       + '<button type="button" class="toggle-option ' + (type === 'colleague' ? 'active' : '') + '" data-value="colleague">'
       + '{{ __('userrelationtypes.colleague') }}'
@@ -145,34 +201,62 @@ function addNewRelationItem(uid, name, type = 'colleague') {
       + '{{ __('userrelationtypes.superior') }}'
       + '</button>';
   } else {
-    // EASY SETUP OFF: Show 3 buttons (all editable)
-    buttonsHtml = ''
-      + '<button type="button" class="toggle-option ' + (type === 'colleague' ? 'active' : '') + '" data-value="colleague">'
-      + '{{ __('userrelationtypes.colleague') }}'
-      + '</button>'
-      + '<button type="button" class="toggle-option ' + (type === 'subordinate' ? 'active' : '') + '" data-value="subordinate">'
-      + '{{ __('userrelationtypes.subordinate') }}'
-      + '</button>'
-      + '<button type="button" class="toggle-option ' + (type === 'superior' ? 'active' : '') + '" data-value="superior">'
-      + '{{ __('userrelationtypes.superior') }}'
-      + '</button>';
+    // EASY SETUP OFF: Show 3 buttons, but disable based on restrictions
+    if (restrictedType) {
+      console.log('Creating RESTRICTED buttons - only', restrictedType, 'enabled');
+      // Restricted - only one type allowed
+      buttonsHtml = ''
+        + '<button type="button" class="toggle-option ' + (restrictedType === 'colleague' ? 'active' : '') + '" data-value="colleague" ' + (restrictedType !== 'colleague' ? 'disabled' : '') + '>'
+        + '{{ __('userrelationtypes.colleague') }}'
+        + '</button>'
+        + '<button type="button" class="toggle-option ' + (restrictedType === 'subordinate' ? 'active' : '') + '" data-value="subordinate" ' + (restrictedType !== 'subordinate' ? 'disabled' : '') + '>'
+        + '{{ __('userrelationtypes.subordinate') }}'
+        + '</button>'
+        + '<button type="button" class="toggle-option ' + (restrictedType === 'superior' ? 'active' : '') + '" data-value="superior" ' + (restrictedType !== 'superior' ? 'disabled' : '') + '>'
+        + '{{ __('userrelationtypes.superior') }}'
+        + '</button>';
+    } else {
+      console.log('Creating UNRESTRICTED buttons - all enabled');
+      // No restriction - all buttons enabled
+      buttonsHtml = ''
+        + '<button type="button" class="toggle-option ' + (type === 'colleague' ? 'active' : '') + '" data-value="colleague">'
+        + '{{ __('userrelationtypes.colleague') }}'
+        + '</button>'
+        + '<button type="button" class="toggle-option ' + (type === 'subordinate' ? 'active' : '') + '" data-value="subordinate">'
+        + '{{ __('userrelationtypes.subordinate') }}'
+        + '</button>'
+        + '<button type="button" class="toggle-option ' + (type === 'superior' ? 'active' : '') + '" data-value="superior">'
+        + '{{ __('userrelationtypes.superior') }}'
+        + '</button>';
+    }
   }
   
-  $('.relation-list').append(''
+  // Build the relation item HTML
+  let itemHtml = ''
     + '<div class="relation-item" data-id="' + uid + '">'
     + '<i class="fa fa-trash-alt" data-tippy-content="{{ __('admin/employees.remove-relation') }}"></i>'
     + '<div>'
-    + '<p>' + name + '</p>'
-    + '<div class="relation-type-toggle" data-value="' + type + '">'
+    + '<p>' + name;
+  
+  // Add restriction badge if applicable
+  if (!EASY_RELATION_SETUP && restrictedType) {
+    itemHtml += '<span class="restriction-badge" data-tippy-content="{{ __('admin/employees.relation-restricted-tooltip') }}">'
+      + '{{ __('admin/employees.relation-restricted') }}'
+      + '</span>';
+  }
+  
+  itemHtml += '</p>'
+    + '<div class="relation-type-toggle" data-value="' + (restrictedType || type) + '"' + (restrictedType ? ' data-restricted="' + restrictedType + '"' : '') + '>'
     + buttonsHtml
     + '</div>'
     + '</div>'
-    + '</div>');
+    + '</div>';
+  
+  $('.relation-list').append(itemHtml);
 }
 
 /**
  * Load relations modal for a user
- * SIMPLIFIED: Just display what's in the database, no transformations!
  */
 function initRelationsModal(uid) {
   $.ajaxSetup({
@@ -197,7 +281,7 @@ function initRelationsModal(uid) {
     
     // Store ALL relations globally for conflict checking
     storedAllRelations = response;
-    currentUserId = uid;
+    currentUserId = parseInt(uid); // CRITICAL: Convert to number for matching!
     
     // Find self relation
     const selfRelation = response.find(item => item.user_id == uid && item.target_id == uid);
@@ -216,7 +300,7 @@ function initRelationsModal(uid) {
       + '<div>'
       + '<p>' + user.name + '</p>'
       + '<div class="relation-type-toggle disabled" data-value="self">'
-      + '<button type="button" class="toggle-option" data-value="self">'
+      + '<button type="button" class="toggle-option active" data-value="self">'
       + '{{ __('userrelationtypes.self') }}'
       + '</button>'
       + '</div>'
@@ -224,17 +308,18 @@ function initRelationsModal(uid) {
       + '</div>');
     
     // Filter: Get relations FROM current user (not self)
-    // SIMPLIFIED: Just display them as-is from database!
     const relationsFromUser = response.filter(item => 
       item.user_id == uid && item.target_id != uid
     );
     
     console.log('Relations FROM user:', relationsFromUser);
     
-    // Display each relation exactly as stored in database
+    // Display each relation
+    // IMPORTANT: Don't apply restrictions to EXISTING relations, only to NEW ones
     relationsFromUser.forEach(item => {
-      console.log('Adding relation:', item.target.name, 'Type:', item.type);
-      addNewRelationItem(item.target.id, item.target.name, item.type);
+      console.log('Loading existing relation:', item.target.name, 'Type:', item.type);
+      // Pass null for restrictedType - existing relations are already saved
+      addNewRelationItem(item.target.id, item.target.name, item.type, null);
     });
     
     // Initialize tooltips
@@ -260,10 +345,16 @@ $(document).ready(function() {
   
   // Add new relation button
   $('.trigger-new-relation').click(function() {
+    console.log('=== ADD NEW RELATION CLICKED ===');
+    
     var exceptArray = [];
     $('#relations-modal .relation-item').each(function() {
       exceptArray.push($(this).attr('data-id') * 1);
     });
+    
+    console.log('Except array:', exceptArray);
+    console.log('Current user ID:', currentUserId);
+    console.log('Easy Setup mode:', EASY_RELATION_SETUP);
     
     openSelectModal({
       title: "{{ __('select.title') }}",
@@ -278,14 +369,35 @@ $(document).ready(function() {
         };
       },
       selectFunction: function() {
-        const selectedId = $(this).attr('data-id');
+        const selectedId = parseInt($(this).attr('data-id'));
         const selectedName = $(this).attr('data-name');
         
+        console.log('=== USER SELECTED FROM MODAL ===');
+        console.log('Selected ID:', selectedId, 'Type:', typeof selectedId);
+        console.log('Selected Name:', selectedName);
+        console.log('Current User ID:', currentUserId, 'Type:', typeof currentUserId);
+        console.log('Easy Setup:', EASY_RELATION_SETUP);
+        
         if ($('#relations-modal .relation-item[data-id="' + selectedId + '"]').length === 0) {
-          addNewRelationItem(selectedId, selectedName);
+          // NEW: Check if reverse relation exists and restricts button options
+          let restrictedType = null;
+          
+          if (!EASY_RELATION_SETUP) {
+            console.log('Easy Setup OFF - checking for restrictions...');
+            restrictedType = getReverseRelationRestriction(selectedId);
+            console.log('Restriction result:', restrictedType);
+          } else {
+            console.log('Easy Setup ON - no restrictions applied');
+          }
+          
+          // Add with default type or restricted type
+          addNewRelationItem(selectedId, selectedName, restrictedType || 'colleague', restrictedType);
+          
           if (window.tippy) {
             tippy('.relation-list [data-tippy-content]');
           }
+        } else {
+          console.log('User already in list, skipping');
         }
       },
       exceptArray: exceptArray,
@@ -310,22 +422,42 @@ $(document).ready(function() {
     $(this).addClass('active');
     $toggle.attr('data-value', value);
     
-    // Clear any existing conflict badges
+    // Clear any existing badges
     $item.find('.conflict-badge').remove();
     
-    // REAL-TIME VALIDATION: Check for conflicts when changing to subordinate
-    if (value === 'subordinate') {
+    // REAL-TIME VALIDATION
+    if (EASY_RELATION_SETUP) {
+      // Easy Setup ON: Check for bidirectional subordinate conflict
+      if (value === 'subordinate') {
+        const targetId = parseInt($item.attr('data-id'));
+        
+        const reverseRelation = storedAllRelations.find(r => 
+          r.user_id === targetId && r.target_id === currentUserId && r.type === 'subordinate'
+        );
+        
+        if (reverseRelation) {
+          $item.find('p').append('<span class="conflict-badge">⚠ {{ __('admin/employees.bidirectional-subordinate-error') }}</span>');
+          console.warn('Conflict detected:', targetId, '↔', currentUserId);
+        }
+      }
+    } else {
+      // Easy Setup OFF: Check for inconsistent reverse relation
       const targetId = parseInt($item.attr('data-id'));
-      
-      // Check if reverse subordinate exists
       const reverseRelation = storedAllRelations.find(r => 
-        r.user_id === targetId && r.target_id === currentUserId && r.type === 'subordinate'
+        r.user_id === targetId && r.target_id === currentUserId
       );
       
       if (reverseRelation) {
-        // CONFLICT DETECTED - Show badge
-        $item.find('p').append('<span class="conflict-badge">⚠ {{ __('admin/employees.bidirectional-subordinate-error') }}</span>');
-        console.warn('Conflict detected:', targetId, '↔', currentUserId);
+        const expectedType = getInverseType(reverseRelation.type);
+        
+        if (value !== expectedType) {
+          $item.find('p').append('<span class="conflict-badge">⚠ {{ __('admin/employees.inconsistent-relation-error') }}</span>');
+          console.warn('Inconsistent relation detected:', {
+            forward: currentUserId + '→' + targetId + '=' + value,
+            reverse: targetId + '→' + currentUserId + '=' + reverseRelation.type,
+            expected: expectedType
+          });
+        }
       }
     }
   });
@@ -343,17 +475,37 @@ $(document).ready(function() {
       const targetId = parseInt($item.attr('data-id'));
       const targetName = $item.find('p').first().text().trim();
       
-      // Check for subordinate conflicts
-      if (type === 'subordinate') {
+      if (EASY_RELATION_SETUP) {
+        // Easy Setup ON: Check bidirectional subordinate
+        if (type === 'subordinate') {
+          const reverseRelation = storedAllRelations.find(r => 
+            r.user_id === targetId && r.target_id === currentUserId && r.type === 'subordinate'
+          );
+          
+          if (reverseRelation) {
+            conflicts.push({
+              id: targetId,
+              name: targetName,
+              message: '{{ __('admin/employees.bidirectional-subordinate-error') }}'
+            });
+          }
+        }
+      } else {
+        // Easy Setup OFF: Check reverse relation consistency
         const reverseRelation = storedAllRelations.find(r => 
-          r.user_id === targetId && r.target_id === currentUserId && r.type === 'subordinate'
+          r.user_id === targetId && r.target_id === currentUserId
         );
         
         if (reverseRelation) {
-          conflicts.push({
-            id: targetId,
-            name: targetName
-          });
+          const expectedType = getInverseType(reverseRelation.type);
+          
+          if (type !== expectedType) {
+            conflicts.push({
+              id: targetId,
+              name: targetName,
+              message: '{{ __('admin/employees.inconsistent-relation-error') }}'
+            });
+          }
         }
       }
     });
@@ -365,11 +517,11 @@ $(document).ready(function() {
       conflictHtml += '<ul style="margin: 10px 0;">';
       
       conflicts.forEach(function(conflict) {
-        conflictHtml += '<li><strong>' + conflict.name + '</strong>: {{ __('admin/employees.bidirectional-subordinate-error') }}</li>';
+        conflictHtml += '<li><strong>' + conflict.name + '</strong>: ' + conflict.message + '</li>';
       });
       
       conflictHtml += '</ul>';
-      conflictHtml += '<p>{{ __('admin/employees.fix-reverse-first') }}</p>';
+      conflictHtml += '<p>{{ __('admin/employees.fix-conflicts-first') }}</p>';
       conflictHtml += '</div>';
       
       swal.fire({
@@ -391,7 +543,7 @@ $(document).ready(function() {
         
         var relations = [];
         
-        // Build relations array - SEND EXACTLY WHAT'S SELECTED!
+        // Build relations array - SEND EXACTLY WHAT'S SELECTED
         $('#relations-modal .relation-item:not(.cant-remove)').each(function() {
           const $toggle = $(this).find('.relation-type-toggle');
           let type = $toggle.attr('data-value');
@@ -399,7 +551,7 @@ $(document).ready(function() {
           
           relations.push({
             target_id: targetId,
-            type: type  // Send exactly what admin selected: superior, subordinate, or colleague
+            type: type
           });
         });
         
@@ -429,9 +581,9 @@ $(document).ready(function() {
                 refreshEmployeeList();
               }
             } else if (response.has_conflicts) {
-              // Backend detected conflicts (shouldn't happen with frontend validation, but safety net)
+              // Backend detected conflicts (safety net)
               let conflictHtml = '<div style="text-align: left;">';
-              conflictHtml += '<p><strong>Conflicts detected by server:</strong></p>';
+              conflictHtml += '<p><strong>{{ __('admin/employees.relation-conflicts-detected') }}</strong></p>';
               conflictHtml += '<ul>';
               response.conflicts.forEach(function(conflict) {
                 conflictHtml += '<li>' + conflict.target_name + ': ' + conflict.message + '</li>';
@@ -466,38 +618,3 @@ $(document).ready(function() {
   });
 });
 </script>
-
-{{-- ============================================================================
-WHAT THIS FRONTEND DOES (SIMPLIFIED!):
-============================================================================
-
-NO MORE TRANSFORMATIONS!
-- Relations are displayed EXACTLY as stored in database
-- No more "colleague + reverse subordinate = superior" logic
-- No more read-only superior displays
-- What you see is what's in the database
-
-EASY SETUP ON:
-- Shows 3 buttons: colleague, subordinate, superior
-- Admin can select any type
-- Backend auto-creates reverse relations
-
-EASY SETUP OFF:
-- Shows 3 buttons: colleague, subordinate, superior
-- Admin can select any type
-- No auto-creation - relations are independent
-- Admin must manually set both directions if needed
-
-CONFLICT DETECTION:
-- Real-time: Shows badge when selecting conflicting subordinate
-- Pre-save: Blocks save if bidirectional subordinate exists
-- Only ONE rule: A→B subordinate AND B→A subordinate = BLOCKED
-
-FIXES ALL BUGS:
-✓ No more "can add before save" bug (validation works immediately)
-✓ No more complex transformation logic
-✓ No more read-only confusion
-✓ Relations work correctly in both Easy Setup modes
-✓ Code is 60% shorter and crystal clear
-
-============================================================================ --}}
