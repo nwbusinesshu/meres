@@ -8,6 +8,7 @@ use App\Models\CompetencyQuestion;
 use App\Services\AjaxService;
 use App\Services\AiTranslationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class GlobalCompetencyController extends Controller
 {
@@ -126,7 +127,30 @@ class GlobalCompetencyController extends Controller
 
     public function saveCompetencyQuestion(Request $request)
     {
+        // 🔍 DEBUG: Log the incoming request
+        Log::info('🔍 GlobalCompetency saveCompetencyQuestion START', [
+            'id' => $request->id,
+            'competency_id' => $request->competency_id,
+            'question' => $request->question,
+            'questionSelf' => $request->questionSelf,
+            'minLabel' => $request->minLabel,
+            'maxLabel' => $request->maxLabel,
+            'scale' => $request->scale,
+        ]);
+
         $q = CompetencyQuestion::find($request->id);
+
+        // 🔍 DEBUG: Log if question was found
+        if ($q) {
+            Log::info('🔍 Question FOUND in database', [
+                'id' => $q->id,
+                'current_question' => $q->question,
+                'current_question_self' => $q->question_self,
+                'isDirty_before' => $q->isDirty(),
+            ]);
+        } else {
+            Log::info('🔍 Question NOT found - will create new');
+        }
 
         $this->validate($request, [
             'question' => ['required'],
@@ -149,14 +173,19 @@ class GlobalCompetencyController extends Controller
                 $q->competency_id = $request->competency_id;
                 $q->organization_id = null;
                 $q->original_language = $request->original_language ?? auth()->user()->locale ?? config('app.locale', 'hu');
+                
+                Log::info('🔍 Creating NEW question');
             } else {
                 // ADAPTED: Allow editing global questions only
                 if(!is_null($q->organization_id)){
+                    Log::error('🔍 ERROR: Trying to edit non-global question');
                     abort(403);
                 }
                 if ($request->has('original_language')) {
                     $q->original_language = $request->original_language;
                 }
+                
+                Log::info('🔍 Updating EXISTING question', ['id' => $q->id]);
             }
 
             // Set the main values
@@ -165,6 +194,14 @@ class GlobalCompetencyController extends Controller
             $q->min_label = $request->minLabel;
             $q->max_label = $request->maxLabel;
             $q->max_value = $request->scale;
+
+            // 🔍 DEBUG: Check if model detects changes
+            Log::info('🔍 Values SET, checking dirty state', [
+                'isDirty' => $q->isDirty(),
+                'dirtyAttributes' => $q->getDirty(),
+                'question_value' => $q->question,
+                'question_self_value' => $q->question_self,
+            ]);
 
             // EXACT SAME translation handling as working AdminCompetencyController
             
@@ -246,8 +283,35 @@ class GlobalCompetencyController extends Controller
                 $q->available_languages = json_encode($allTranslations, JSON_UNESCAPED_UNICODE);
             }
 
-            $q->save();
+            // 🔍 DEBUG: Before save
+            Log::info('🔍 BEFORE SAVE', [
+                'isDirty' => $q->isDirty(),
+                'dirtyAttributes' => $q->getDirty(),
+                'exists' => $q->exists,
+            ]);
+
+            // THE CRITICAL SAVE CALL
+            $saveResult = $q->save();
+
+            // 🔍 DEBUG: After save
+            Log::info('🔍 AFTER SAVE', [
+                'saveResult' => $saveResult,
+                'exists' => $q->exists,
+                'id' => $q->id,
+            ]);
+
+            // 🔍 DEBUG: Verify the data was actually saved by re-fetching
+            $verification = CompetencyQuestion::find($q->id);
+            if ($verification) {
+                Log::info('🔍 VERIFICATION - Re-fetched from DB', [
+                    'question' => $verification->question,
+                    'question_self' => $verification->question_self,
+                    'matches_input' => $verification->question === $request->question,
+                ]);
+            }
         });
+
+        Log::info('🔍 GlobalCompetency saveCompetencyQuestion END - returning response');
 
         // EXACT SAME return as working AdminCompetencyController
         return response()->json(['ok' => true]);

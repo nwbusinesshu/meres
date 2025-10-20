@@ -212,6 +212,46 @@
 </style>
 
 <script>
+
+  function initQuestionCarouselNavigation() {
+  const tabsContainer = $('#competencyq-modal .language-tabs');
+  console.log('🎠 Init carousel, tabs found:', tabsContainer.length);
+
+  $('.carousel-prev').off('click').on('click', function() {
+    console.log('⬅️ PREV clicked');
+    const currentScroll = tabsContainer.scrollLeft();
+    const firstTab = tabsContainer.find('.language-tab').first();
+    const firstTabWidth = firstTab.outerWidth(true);
+    
+    console.log('Current scroll:', currentScroll, 'Tab width:', firstTabWidth);
+
+    if (currentScroll === 0) {
+      tabsContainer.animate({
+        scrollLeft: tabsContainer.prop('scrollWidth') - tabsContainer.prop('clientWidth')
+      }, 200);
+    } else {
+      tabsContainer.animate({
+        scrollLeft: currentScroll - firstTabWidth - 5
+      }, 200);
+    }
+  });
+
+  $('.carousel-next').off('click').on('click', function() {
+    console.log('➡️ NEXT clicked');
+    const currentScroll = tabsContainer.scrollLeft();
+    const scrollEnd = tabsContainer.prop('scrollWidth') - tabsContainer.prop('clientWidth');
+    const firstTab = tabsContainer.find('.language-tab').first();
+    const firstTabWidth = firstTab.outerWidth(true);
+    
+    console.log('Current scroll:', currentScroll, 'Scroll end:', scrollEnd);
+
+    if (currentScroll >= scrollEnd - 5) {
+      tabsContainer.animate({ scrollLeft: 0 }, 200);
+    } else {
+      tabsContainer.animate({ scrollLeft: currentScroll + firstTabWidth + 5 }, 200);
+    }
+  });
+}
 // Global variables for question translation management
 let qCurrentLanguage = 'hu';
 let qSelectedLanguages = ['hu'];
@@ -307,13 +347,6 @@ function loadQuestionTranslations(questionId) {
       qTranslations.min_label = response.min_label_json || {};
       qTranslations.max_label = response.max_label_json || {};
       
-      // Set current form values from original or current language
-      const currentLang = qCurrentLanguage;
-      $('#competencyq-modal .question').val(qTranslations.question[currentLang] || response.question || '');
-      $('#competencyq-modal .question-self').val(qTranslations.question_self[currentLang] || response.question_self || '');
-      $('#competencyq-modal .min-label').val(qTranslations.min_label[currentLang] || response.min_label || '');
-      $('#competencyq-modal .max-label').val(qTranslations.max_label[currentLang] || response.max_label || '');
-      
       console.log('🔥 Loaded translations:', qTranslations);
       
       setupQuestionModal();
@@ -400,7 +433,37 @@ function setupQuestionModal() {
     contentContainer.append(content);
   });
   
+  // ✅ FIX: Add real-time sync of form values to qTranslations
+  setupRealtimeSync();
+  
   updateLanguageTabs();
+    initQuestionCarouselNavigation();
+}
+
+// ✅ NEW: Real-time sync function
+function setupRealtimeSync() {
+  // Remove any existing handlers
+  $(document).off('input.qsync change.qsync', '#competencyq-modal .language-content input, #competencyq-modal .language-content textarea');
+  
+  // Add new handler that syncs values immediately
+  $(document).on('input.qsync change.qsync', '#competencyq-modal .language-content input, #competencyq-modal .language-content textarea', function() {
+    // Find which language content this field belongs to
+    const langContent = $(this).closest('.language-content');
+    const lang = langContent.attr('data-lang');
+    
+    if (lang) {
+      // Update qTranslations immediately
+      qTranslations.question[lang] = langContent.find('.question').val() || '';
+      qTranslations.question_self[lang] = langContent.find('.question-self').val() || '';
+      qTranslations.min_label[lang] = langContent.find('.min-label').val() || '';
+      qTranslations.max_label[lang] = langContent.find('.max-label').val() || '';
+      
+      console.log('🔄 Synced values for', lang, ':', {
+        question: qTranslations.question[lang],
+        question_self: qTranslations.question_self[lang]
+      });
+    }
+  });
 }
 
 function checkAllTranslations(lang) {
@@ -421,16 +484,35 @@ function updateQuestionFields() {
   });
 }
 
+// ✅ FIXED: Save current values before switching languages
 function switchQuestionLanguage(lang) {
+  console.log('🔄 Switching language from', qCurrentLanguage, 'to', lang);
+  
+  // ✅ FIX: Save current form values BEFORE switching
+  const currentContent = $(`.language-content[data-lang="${qCurrentLanguage}"]`);
+  if (currentContent.length > 0) {
+    qTranslations.question[qCurrentLanguage] = currentContent.find('.question').val() || '';
+    qTranslations.question_self[qCurrentLanguage] = currentContent.find('.question-self').val() || '';
+    qTranslations.min_label[qCurrentLanguage] = currentContent.find('.min-label').val() || '';
+    qTranslations.max_label[qCurrentLanguage] = currentContent.find('.max-label').val() || '';
+    
+    console.log('💾 Saved values for', qCurrentLanguage, 'before switching');
+  }
+  
+  // Update current language
   qCurrentLanguage = lang;
   
-  // Update tabs
+  // ✅ FIX: Properly remove ALL active classes first
   $('.language-tab').removeClass('active');
-  $(`.language-tab[data-lang="${lang}"]`).addClass('active');
-  
-  // Update content
   $('.language-content').removeClass('active');
+  
+  // ✅ FIX: Then add active class ONLY to the selected ones
+  $(`.language-tab[data-lang="${lang}"]`).addClass('active');
   $(`.language-content[data-lang="${lang}"]`).addClass('active');
+  
+  // ✅ FIX: Verify only one is active
+  const activeCount = $('.language-content.active').length;
+  console.log('✅ Active content count:', activeCount, '(should be 1)');
   
   updateQuestionFieldStatus();
 }
@@ -610,21 +692,10 @@ function initQuestionTranslationButton() {
     const hasMultipleLanguages = qSelectedLanguages.length > 1;
     const isOriginalLanguage = qCurrentLanguage === qOriginalLanguage;
     
-    console.log('AI Button State Check:', {
-      hasAllFields,
-      hasMultipleLanguages,
-      isOriginalLanguage,
-      qCurrentLanguage,
-      qOriginalLanguage,
-      qSelectedLanguages: qSelectedLanguages.length
-    });
-    
     if (hasAllFields && hasMultipleLanguages && isOriginalLanguage) {
       translateButton.removeClass('disabled').prop('disabled', false);
-      console.log('AI Button ENABLED');
     } else {
       translateButton.addClass('disabled').prop('disabled', true);
-      console.log('AI Button DISABLED');
     }
   }
   
@@ -681,67 +752,22 @@ function initQuestionTranslationButton() {
   });
 }
 
-// Carousel navigation
-$(document).ready(function(){
-  const tabsContainer = $('.language-tabs');
 
-  // Previous button
-  $('.carousel-prev').off('click').on('click', function() {
-    const currentScroll = tabsContainer.scrollLeft();
-    const firstTab = tabsContainer.find('.language-tab').first();
-    const firstTabWidth = firstTab.outerWidth(true);
 
-    if (currentScroll === 0) {
-      tabsContainer.animate({
-        scrollLeft: tabsContainer.prop('scrollWidth') - tabsContainer.prop('clientWidth')
-      }, 200);
-    } else {
-      tabsContainer.animate({
-        scrollLeft: currentScroll - firstTabWidth - 5
-      }, 200);
-    }
-  });
-
-  // Next button
-  $('.carousel-next').off('click').on('click', function() {
-    const currentScroll = tabsContainer.scrollLeft();
-    const scrollEnd = tabsContainer.prop('scrollWidth') - tabsContainer.prop('clientWidth');
-    const firstTab = tabsContainer.find('.language-tab').first();
-    const firstTabWidth = firstTab.outerWidth(true);
-
-    if (currentScroll >= scrollEnd - 5) {
-      tabsContainer.animate({
-        scrollLeft: 0
-      }, 200);
-    } else {
-      tabsContainer.animate({
-        scrollLeft: currentScroll + firstTabWidth + 5
-      }, 200);
-    }
-  });
-
-  // SAVE BUTTON FUNCTIONALITY
-  $('.save-question').click(function(){
+ $(document).ready(function(){
+  // ✅ FIXED SAVE BUTTON FUNCTIONALITY
+  $('.save-question').off('click').on('click', function(){
     swal_confirm.fire({
       title: '{{ __('admin/competencies.question-save-confirm') }}'
     }).then((result) => {
       if (result.isConfirmed) {
         swal_loader.fire();
         
-        // Prepare data
         const questionId = $('#competencyq-modal').attr('data-id');
         const compId = $('#competencyq-modal').attr('data-compid');
         
-        // Get values from current active language content or from translations
-        const currentLangContent = $('.language-content.active');
+        console.log('🔍 SAVE - Full qTranslations:', qTranslations);
         
-        // Update translations with current form values first
-        qTranslations.question[qCurrentLanguage] = currentLangContent.find('.question').val() || '';
-        qTranslations.question_self[qCurrentLanguage] = currentLangContent.find('.question-self').val() || '';
-        qTranslations.min_label[qCurrentLanguage] = currentLangContent.find('.min-label').val() || '';
-        qTranslations.max_label[qCurrentLanguage] = currentLangContent.find('.max-label').val() || '';
-        
-        // Get values from original language for main fields
         const originalQuestion = qTranslations.question[qOriginalLanguage] || '';
         const originalQuestionSelf = qTranslations.question_self[qOriginalLanguage] || '';
         const originalMinLabel = qTranslations.min_label[qOriginalLanguage] || '';
@@ -764,19 +790,13 @@ $(document).ready(function(){
           _token: '{{ csrf_token() }}'
         };
         
-        // CONTEXT-AWARE ROUTE SELECTION
         const isGlobalMode = window.globalCompetencyMode || false;
         const saveUrl = isGlobalMode ?
           "{{ route('superadmin.competency.q.save') }}" : 
           "{{ route('admin.competency.question.save') }}";
         
-        console.log('🔥 Saving to URL:', saveUrl);
-        console.log('🔥 Data:', data);
-        
-        // ✅ FIXED: Close modal BEFORE AJAX
         $('#competencyq-modal').modal('hide');
         
-        // ✅ FIXED: Use successMessage property
         $.ajax({
           url: saveUrl,
           method: 'POST',
@@ -793,19 +813,17 @@ $(document).ready(function(){
           }
         });
       }
-    });
-  });
+    }); 
+  }); 
 
-  // Add the AI translate button when modal is shown
   $('#competencyq-modal').on('shown.bs.modal', function() {
     setTimeout(function() {
       addQuestionTranslationButton();
-    }, 200); // Give time for modal to fully load
+    }, 200);
   });
   
-  // Re-initialize when modal is hidden (cleanup)
   $('#competencyq-modal').on('hidden.bs.modal', function() {
-    $(document).off('.aibutton .aitranslate');
+    $(document).off('.aibutton .aitranslate .qsync');
   });
 });
 </script>

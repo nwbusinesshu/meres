@@ -67,6 +67,7 @@
   width: 100%;
   gap: 1em;
 }
+
 .bar span{ 
   flex: 1;
   font-family: 'Kanit', sans-serif;
@@ -75,9 +76,8 @@
   align-items: center;
   gap: .5em;
   cursor: pointer;
-  padding-top: .5em;
-  padding-bottom: .5em;
 }
+
 .bar button{
   width: 2em;
   height: 2em;
@@ -259,17 +259,7 @@
   width: 100%;
   gap: 1em;
 }
-.bar span{ 
-  flex: 1;
-  font-family: 'Kanit', sans-serif;
-  font-size: 1.5em;
-  display: flex;
-  align-items: center;
-  gap: .5em;
-  cursor: pointer;
-  padding-top: .5em;
-  padding-bottom: .5em;
-}
+
 .bar button{
   width: 2em;
   height: 2em;

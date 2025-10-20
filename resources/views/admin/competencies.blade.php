@@ -53,24 +53,44 @@
   display: block;
 }
 
-/* NEW: Competency Groups Styling - MINIMAL blue styling */
+/* UPDATED: Competency Groups Styling - With Badge Support */
 .competency-group-item {
   background: linear-gradient(135deg, #f0f4ff 0%, #e8f1ff 100%);
   border-left: 4px solid #007bff;
 }
 
-.competency-group-count {
-  border-radius: 50%;
-  padding: 0.125rem 0.5rem;
+/* UPDATED: Badge styling for competency and user counts */
+.badge-competency-count,
+.badge-user-count {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
   margin-left: 0.5rem;
+  font-size: 0.75rem !important;
+  font-weight: 600;
+  border-radius: 0.375rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  flex: 0!important; /* Prevent badges from stretching in flex container */
 }
 
+.badge-competency-count {
+  background-color: #007bff;
+  color: white;
+}
+
+.badge-user-count {
+  background-color: #28a745;
+  color: white;
+}
+
+/* UPDATED: Group competencies section styling */
 .group-competencies {
   padding: 1rem;
   background-color: #f8f9fa;
   border-top: 1px solid #dee2e6;
 }
 
+/* Group competency badges inside the expanded section */
 .group-competency-badge {
   background-color: #e9ecef;
   border: 1px solid #ced4da;
@@ -80,6 +100,18 @@
   margin-right: 0.5rem;
   margin-bottom: 0.5rem;
   display: inline-block;
+  border-radius: 0.25rem;
+}
+
+/* FIXED: Ensure consistent height for all competency items */
+.competency-item .bar {
+  min-height: 3.5rem; /* Consistent minimum height */
+  align-items: center;
+}
+
+.competency-group-item .bar {
+  min-height: 3.5rem; /* Same height as regular items */
+  align-items: center;
 }
 </style>
 @endsection
@@ -244,8 +276,8 @@
             <div>
               <span>{{ $_('question') }} #{{ $loop->index+1 }}</span>
               <div>
-                <button class="btn btn-outline-danger remove-question" data-tippy-content="{{ $_('question-remove') }}"><i class="fa fa-trash-alt"></i></button>
-                <button class="btn btn-outline-warning modify-question" data-tippy-content="{{ $_('question-modify') }}"><i class="fa fa-file-pen"></i></button>
+                <button class="btn btn-outline-danger remove-question" data-tippy-content="{{ $_('remove-question') }}"><i class="fa fa-trash-alt"></i></button>
+                <button class="btn btn-outline-warning modify-question" data-tippy-content="{{ $_('modify-question') }}"><i class="fa fa-file-pen"></i></button>
               </div>
             </div>
             <div>
@@ -265,26 +297,24 @@
     <div class="no-competency tile tile-info"><p>{{ $_('no-competency') }}</p></div>
   @endforelse
 
-{{-- NEW: Competency Groups Section - WITH PROPER TITLE --}}
+{{-- UPDATED: Competency Groups Section - WITH BADGES --}}
 <div class="competency-list competency-list--groups">
   <div class="title"><h4>{{ __('admin/competencies.competency-groups') }}</h4></div>
 
   @forelse ($competencyGroups as $group)
     @php
       $groupCompetencies = $group->competencies();
-      $assignedUsers = $group->assignedUsers(); // NEW: Get assigned users
+      $assignedUsers = $group->assignedUsers();
     @endphp
     
     <div class="tile competency-item competency-group-item" data-id="{{ $group->id }}" data-name="{{ $group->name }}">
       <div class="bar">
         <span>
           <i class="fa fa-caret-down"></i>{{ $group->name }}
-          <span class="competency-group-count">{{ $groupCompetencies->count() }}</span>
-          {{-- NEW: Show assigned users count --}}
+          {{-- UPDATED: Replace icon counts with badges --}}
+          <span class="badge badge-competency-count">{{ $groupCompetencies->count() }} {{ __('admin/competencies.competencies') }}</span>
           @if($assignedUsers->count() > 0)
-            <span class="competency-group-users-count" style="color: #28a745; margin-left: 0.5rem;">
-              <i class="fa fa-users"></i> {{ $assignedUsers->count() }}
-            </span>
+            <span class="badge badge-user-count">{{ $assignedUsers->count() }} {{ __('admin/competencies.users') }}</span>
           @endif
         </span>
       </div>
@@ -309,7 +339,7 @@
           <p class="text-muted">{{ __('admin/competencies.no-competencies-in-group') }}</p>
         @endif
 
-        {{-- NEW: Assigned Users Section --}}
+        {{-- Assigned Users Section --}}
         <h6 style="margin-top: 1.5rem;">{{ __('admin/competencies.assigned-users') }}:</h6>
         @if($assignedUsers->count() > 0)
           <div class="assigned-users-list" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
@@ -322,10 +352,11 @@
         @else
           <p class="text-muted">{{ __('admin/competencies.no-users-assigned') }}</p>
         @endif
-        <div> <button class="btn btn-outline-danger remove-competency-group" data-tippy-content="{{ __('admin/competencies.remove-group') }}"><i class="fa fa-trash-alt"></i></button>
-        <button class="btn btn-outline-warning modify-competency-group" data-tippy-content="{{ __('admin/competencies.modify-group') }}"><i class="fa fa-file-pen"></i></button>
-        {{-- NEW: User Assignment Button --}}
-        <button class="btn btn-outline-info assign-group-users" data-tippy-content="{{ __('admin/competencies.assign-users') }}" data-group-id="{{ $group->id }}" data-group-name="{{ $group->name }}"><i class="fa fa-user-plus"></i></button></div>
+        <div>
+          <button class="btn btn-outline-danger remove-competency-group" data-tippy-content="{{ __('admin/competencies.remove-group') }}"><i class="fa fa-trash-alt"></i></button>
+          <button class="btn btn-outline-warning modify-competency-group" data-tippy-content="{{ __('admin/competencies.modify-group') }}"><i class="fa fa-file-pen"></i></button>
+          <button class="btn btn-outline-info assign-group-users" data-tippy-content="{{ __('admin/competencies.assign-users') }}" data-group-id="{{ $group->id }}" data-group-name="{{ $group->name }}"><i class="fa fa-user-plus"></i></button>
+        </div>
       </div>
     </div>
   @empty

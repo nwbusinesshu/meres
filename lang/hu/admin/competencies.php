@@ -8,6 +8,10 @@ return [
 
   "glob-competencies" => "Globális kompetenciatár",
 
+  "users" => "felhasználó",
+
+  "competencies" => "kompetencia",
+
   "no-global-competency" => "Nincsenek globális kompetenciák",
 
   "create-competency" => "Kompetencia létrehozása",
