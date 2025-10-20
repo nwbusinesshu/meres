@@ -192,6 +192,7 @@ return [
   "employee-limit-reached-tooltip" => "Elérte a munkavállalói limitet.",
   "employee-limit-reached-modal-text" => "Az első regisztrációs díj fix számú munkavállalóra vonatkozik. Az első értékelés lezárása után korlátlanul hozhat létre új munkavállalókat.",
     "employees-registered" => "munkavállaló regisztrálva",
+    'employee-saved-wage-failed' => 'Az alkalmazott mentve, de a bér mentése sikertelen volt',
 
     'unlock-account' => 'Fiók feloldása',
 'unlock-account-tooltip' => 'Fiók feloldása (sikertelen bejelentkezések törlése)',
@@ -223,6 +224,11 @@ return [
 "department-no-selectable-employee" => "Nincs választható dolgozó",
 "department-save-members-confirm-title" => "Részleg tagjainak mentése?",
 "department-save-members-confirm-text" => "A változtatások mentésre kerülnek.",
+'department-name-required' => 'A részleg neve kötelező',
+'department-manager-required' => 'Legalább egy vezető megadása kötelező',
+'department-create-success' => 'Részleg sikeresen létrehozva!',
+'department-update-success' => 'Részleg sikeresen frissítve!',
+'department-save-error' => 'Hiba történt a részleg mentése során',
 
 'relation-conflicts-title' => 'Kapcsolat ütközések',
 'relation-conflicts-intro' => 'A következő kapcsolatokban ütközések vannak:',
@@ -364,4 +370,13 @@ return [
 'relation-restricted-tooltip' => 'Ez a viszony korlátozott az ellenkező irány miatt',
 'inconsistent-relation-error' => 'A viszony nem konzisztens az ellenkező iránnyal',
 'fix-conflicts-first' => 'Kérjük, javítsa ki az ellentmondásokat mielőtt mentené.',
+
+// Easy Setup ON - Bidirectional update warnings
+'bidirectional-update-warning' => 'Ez frissíteni fogja {name} kapcsolatát hozzád: {old} → {new}',
+'bidirectional-updates-detected' => 'Kétirányú kapcsolat frissítések',
+'bidirectional-updates-intro' => 'A következő változtatások automatikusan megtörténnek:',
+'bidirectional-update-from' => 'jelenlegi',
+'bidirectional-update-to' => 'új',
+'proceed-with-updates' => 'Folytatás a mentéssel',
+'cancel-updates' => 'Mégse',
 ];

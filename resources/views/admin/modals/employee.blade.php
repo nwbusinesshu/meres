@@ -235,94 +235,113 @@ if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
 
   // -- Mentés gomb ------------------------------------------------------------
 
-  $(document).ready(function(){
-    $('.trigger-submit').click(function(){
-      const uid = $('#employee-modal').attr('data-id');
+  // Replace the entire $('.trigger-submit').click(function() block in employee.blade.php
 
-      swal_confirm.fire({
-        title: uid && parseInt(uid) > 0
-          ? '{{ __('admin/employees.modify-employee-confirm') }}'
-          : '{{ __('admin/employees.new-employee-confirm') }}'
-      }).then((result) => {
-        if (result.isConfirmed) {
-          swal_loader.fire();
+$(document).ready(function(){
+  $('.trigger-submit').click(function(){
+    const uid = $('#employee-modal').attr('data-id');
 
-          // ========== STEP 1: SAVE EMPLOYEE ==========
-          $.ajax({
-            method: 'POST',
-            url: "{{ route('admin.employee.save') }}",
-            data: {
-              id: uid,
-              name:  $('#employee-modal .name').val(),
-              email: $('#employee-modal .email').val(),
-              type:  $('#employee-modal .type').val(),
-              position: $('#employee-modal .position').val(),
-              autoLevelUp:  $('#employee-modal .auto-level-up').is(':checked') ? 1 : 0,
-              _token: "{{ csrf_token() }}"
-            }
-          })
-          // ✅ FIX: Add response parameter to capture user_id
-          .done(function(response){
-            const msg = (uid && parseInt(uid) > 0)
-              ? "{{ __('admin/employees.modify-employee-success') }}"
-              : "{{ __('admin/employees.new-employee-success') }}";
+    swal_confirm.fire({
+      title: uid && parseInt(uid) > 0
+        ? '{{ __('admin/employees.modify-employee-confirm') }}'
+        : '{{ __('admin/employees.new-employee-confirm') }}'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        swal_loader.fire();
 
-            // ✅ FIX: Use correct ID selectors
-            const netWage = $('#employee-modal #user-wage').val();
-            const currency = $('#employee-modal #user-currency').val();
+        // ========== STEP 1: SAVE EMPLOYEE ==========
+        $.ajax({
+          method: 'POST',
+          url: "{{ route('admin.employee.save') }}",
+          data: {
+            id: uid,
+            name:  $('#employee-modal .name').val(),
+            email: $('#employee-modal .email').val(),
+            type:  $('#employee-modal .type').val(),
+            position: $('#employee-modal .position').val(),
+            autoLevelUp:  $('#employee-modal .auto-level-up').is(':checked') ? 1 : 0,
+            _token: "{{ csrf_token() }}"
+          }
+        })
+        .done(function(response){
+          const netWage = $('#employee-modal #user-wage').val();
+          const currency = $('#employee-modal #user-currency').val();
 
-            // ========== STEP 2: SAVE WAGE (if provided) ==========
-            if (netWage && parseFloat(netWage) > 0) {
-              // ✅ FIX: Use response.user_id for new employees
-              const userIdForWage = uid && parseInt(uid) > 0 ? uid : response.user_id;
+          // ========== STEP 2: SAVE WAGE (if provided) ==========
+          if (netWage && parseFloat(netWage) > 0) {
+            const userIdForWage = uid && parseInt(uid) > 0 ? uid : response.user_id;
 
-              console.log('💰 Saving wage:', {
+            console.log('💰 Saving wage:', {
+              user_id: userIdForWage,
+              net_wage: netWage,
+              currency: currency
+            });
+
+            $.ajax({
+              method: 'POST',
+              url: "{{ route('admin.bonuses.wage.save') }}",
+              data: {
                 user_id: userIdForWage,
                 net_wage: netWage,
-                currency: currency
-              });
-
-              $.ajax({
-                method: 'POST',
-                url: "{{ route('admin.bonuses.wage.save') }}",
-                data: {
-                  user_id: userIdForWage,
-                  net_wage: netWage,
-                  currency: currency,
-                  _token: "{{ csrf_token() }}"
-                }
-              })
-              .done(function(wageResponse){
+                currency: currency,
+                _token: "{{ csrf_token() }}"
+              },
+              // ✅ STANDARDIZED: Close modal in success callback, use successMessage
+              success: function(wageResponse){
                 console.log('✅ Wage saved successfully:', wageResponse);
-                swal_loader.close();
-                Swal.fire('{{ __('global.success') }}', msg, 'success').then(() => window.location.reload());
-              })
-              .fail(function(xhr){
-                console.error('❌ Wage save failed:', xhr.responseJSON);
+                $('#employee-modal').modal('hide');
+              },
+              successMessage: uid && parseInt(uid) > 0
+                ? '{{ __('admin/employees.modify-employee-success') }}'
+                : '{{ __('admin/employees.new-employee-success') }}',
+              error: function(xhr){
                 swal_loader.close();
                 let wageErrorMsg = '{{ __('admin/bonuses.wage-save-error') }}';
                 if (xhr.responseJSON && xhr.responseJSON.message) {
                   wageErrorMsg = xhr.responseJSON.message;
                 }
-                Swal.fire('{{ __('global.warning') }}', msg + '<br><br>' + wageErrorMsg, 'warning')
-                  .then(() => window.location.reload());
-              });
-            } else {
-              // No wage data - just show success and reload
-              swal_loader.close();
-              Swal.fire('{{ __('global.success') }}', msg, 'success').then(() => window.location.reload());
-            }
-          })
-          .fail(function(xhr){
-            swal_loader.close();
-            let msg = '{{ __('admin/employees.error-server') }}';
-            if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
-            Swal.fire('{{ __('global.error') }}', msg, 'error');
-          });
-        }
-      });
+                // Show warning but still close modal and reload
+                Swal.fire({
+                  icon: 'warning',
+                  title: '{{ __('global.warning') }}',
+                  html: '{{ __('admin/employees.employee-saved-wage-failed') }}<br><br>' + wageErrorMsg
+                }).then(() => {
+                  $('#employee-modal').modal('hide');
+                  window.location.reload();
+                });
+              }
+            });
+          } else {
+            // ✅ STANDARDIZED: No wage - close modal and use successMessage
+            $('#employee-modal').modal('hide');
+            
+            // Manually trigger reload with session flash since we need to do it here
+            sessionStorage.setItem('employee_save_toast', uid && parseInt(uid) > 0
+              ? '{{ __('admin/employees.modify-employee-success') }}'
+              : '{{ __('admin/employees.new-employee-success') }}');
+            window.location.reload();
+          }
+        })
+        .fail(function(xhr){
+          swal_loader.close();
+          let msg = '{{ __('admin/employees.error-server') }}';
+          if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
+          Swal.fire('{{ __('global.error') }}', msg, 'error');
+          // Modal stays open on error
+        });
+      }
     });
   });
+});
+
+// Add this at the end of the script section to show toast after reload
+$(document).ready(function(){
+  const toastMsg = sessionStorage.getItem('employee_save_toast');
+  if (toastMsg) {
+    sessionStorage.removeItem('employee_save_toast');
+    toast('success', toastMsg);
+  }
+});
 </script>
 <script>
 $(document).on('click', '.trigger-mass-import', function(){

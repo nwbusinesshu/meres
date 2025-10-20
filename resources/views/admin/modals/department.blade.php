@@ -150,74 +150,96 @@ $(document).ready(function(){
     });
 
     // Submit department (create/update)
-    $(document).on('click', '.trigger-submit-dept', function(){
-        const id = $('#department-modal').attr('data-id');
-        const name = $('#department-modal .dept-name').val().trim();
-        
-        // Collect selected manager IDs
-        const managerIds = [];
-        $('#department-modal .manager-item').each(function(){
-            managerIds.push($(this).attr('data-id')*1);
-        });
+$(document).on('click', '.trigger-submit-dept', function(){
+    const name = $('#department-modal .dept-name').val().trim();
+    const id = $('#department-modal').attr('data-id') || '';
+    const isEdit = id !== '';
 
-        if (!name) {
-            $('#dept-error').removeClass('d-none').text('{{ __('admin/employees.department-error-name-required') }}');
-            return;
-        }
+    // Validation
+    if(!name){
+        $('#dept-error').removeClass('d-none').text('{{ __('admin/employees.department-name-required') }}');
+        return;
+    }
+    
+    $('#dept-error').addClass('d-none').text('');
 
-        if (managerIds.length === 0) {
-            $('#dept-error').removeClass('d-none').text('{{ __('admin/employees.department-error-manager-required') }}');
-            return;
-        }
+    // Collect manager IDs
+    const managerIds = [];
+    $('.managers-list .manager-item').each(function(){
+        managerIds.push($(this).attr('data-id')*1);
+    });
 
-        const isEdit = !!id;
-        const url = isEdit ? "{{ route('admin.employee.department.update') }}" : "{{ route('admin.employee.department.store') }}";
-        const title = isEdit ? '{{ __('admin/employees.department-save-changes-title') }}' : '{{ __('admin/employees.department-create-confirm-title') }}';
+    if(managerIds.length === 0){
+        $('#dept-error').removeClass('d-none').text('{{ __('admin/employees.department-manager-required') }}');
+        return;
+    }
 
-        swal_confirm.fire({
-            title: title,
-            text: isEdit ? '{{ __('admin/employees.department-managers-check-text') }}' : '{{ __('admin/employees.department-managers-limit-text') }}'
-        }).then((res) => {
-            if(!res.isConfirmed) return;
+    const url = isEdit 
+        ? "{{ route('admin.employee.department.update') }}"
+        : "{{ route('admin.employee.department.store') }}";
+    
+    const title = isEdit 
+        ? '{{ __('admin/employees.department-save-changes-title') }}' 
+        : '{{ __('admin/employees.department-create-confirm-title') }}';
 
-            swal_loader.fire();
-            const payload = isEdit
-                ? { id: id, name: name, manager_ids: managerIds }
-                : { name: name, manager_ids: managerIds };
+    swal_confirm.fire({
+        title: title,
+        text: isEdit ? '{{ __('admin/employees.department-managers-check-text') }}' : '{{ __('admin/employees.department-managers-limit-text') }}'
+    }).then((res) => {
+        if(!res.isConfirmed) return;
 
-            fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify(payload)
-            })
-            .then(async r => {
-                if (!r.ok) {
-                    const errorData = await r.json();
-                    throw new Error(errorData.message || 'HTTP ' + r.status);
-                }
-                return r.json();
-            })
-            .then(data => {
-                swal_loader.close();
-                $('#department-modal').modal('hide');
-                
-                const successText = isEdit ? '{{ __('admin/employees.department-updated') }}' : '{{ __('admin/employees.department-created') }}';
-                Swal.fire({ icon:'success', title:'{{ __('global.success') }}', text: successText }).then(() => {
-                    window.location.reload();
-                });
-            })
-            .catch(err => {
-                swal_loader.close();
-                const errorMsg = err.message || '{{ __('admin/employees.department-error-unknown') }}';
-                $('#dept-error').removeClass('d-none').text(errorMsg);
-                console.error(err);
+        swal_loader.fire();
+        const payload = isEdit
+            ? { id: id, name: name, manager_ids: managerIds }
+            : { name: name, manager_ids: managerIds };
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(async r => {
+            if (!r.ok) {
+                const errorData = await r.json();
+                throw new Error(errorData.message || 'HTTP ' + r.status);
+            }
+            return r.json();
+        })
+        .then(data => {
+            swal_loader.close();
+            
+            // ✅ STANDARDIZED: Close modal and use sessionStorage toast
+            $('#department-modal').modal('hide');
+            
+            const successText = isEdit 
+                ? '{{ __('admin/employees.department-update-success') }}' 
+                : '{{ __('admin/employees.department-create-success') }}';
+            
+            sessionStorage.setItem('department_save_toast', successText);
+            window.location.reload();
+        })
+        .catch(err => {
+            swal_loader.close();
+            Swal.fire({
+                icon: 'error',
+                title: '{{ __('global.error') }}',
+                text: err.message || '{{ __('admin/employees.department-save-error') }}'
             });
+            // Modal stays open on error
         });
     });
+});
+
+$(document).ready(function(){
+  const toastMsg = sessionStorage.getItem('department_save_toast');
+  if (toastMsg) {
+    sessionStorage.removeItem('department_save_toast');
+    toast('success', toastMsg);
+  }
 });
 </script>
 

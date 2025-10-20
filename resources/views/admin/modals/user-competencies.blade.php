@@ -271,47 +271,44 @@ $(document).ready(function(){
   });
 
   $('.save-competency').click(function(){
-    swal_confirm.fire({
-      title: '{{ __('admin/employees.save-competency-confirm') }}'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        swal_loader.fire();
+  swal_confirm.fire({
+    title: '{{ __('admin/employees.save-competencies-confirm') }}'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      swal_loader.fire();
 
-        var competencies = [];
+      var competencies = [];
 
-        // Only get manual competencies (excluding those that are ONLY from groups)
-        $('#user-competencies-modal .competency-item.manual, #user-competencies-modal .competency-item.both-sources').each(function(){
-          competencies.push($(this).attr('data-id')*1);
-        });
+      // Only get manual competencies (excluding those that are ONLY from groups)
+      $('#user-competencies-modal .competency-item.manual, #user-competencies-modal .competency-item.both-sources').each(function(){
+        competencies.push($(this).attr('data-id')*1);
+      });
 
-        $.ajax({
-          url: "{{ route('admin.employee.competencies.save') }}",
-          method: 'POST',
-          data: {
-            id: $('#user-competencies-modal').attr('data-id'),
-            competencies: competencies
-          },
-        })
-        .done(function(response){
-          swal_loader.close();
+      // ✅ STANDARDIZED: Use successMessage and close modal in success callback
+      $.ajax({
+        url: "{{ route('admin.employee.competencies.save') }}",
+        method: 'POST',
+        data: {
+          id: $('#user-competencies-modal').attr('data-id'),
+          competencies: competencies
+        },
+        success: function(response){
+          // Close modal only on success
           $('#user-competencies-modal').modal('hide');
-          Swal.fire({
-            icon: 'success',
-            title: '{{ __('global.success') }}',
-            text: response.message
-          });
-          location.reload();
-        })
-        .fail(function(xhr){
+        },
+        successMessage: '{{ __('admin/employees.save-competencies-success') }}',
+        error: function(xhr){
           swal_loader.close();
           Swal.fire({
             icon: 'error',
             title: '{{ __('global.error') }}',
             text: xhr.responseJSON?.message || '{{ __('global.error-occurred') }}'
           });
-        });
-      }
-    });
+          // Modal stays open on error
+        }
+      });
+    }
   });
 });
+}); 
 </script>

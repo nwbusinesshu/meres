@@ -128,43 +128,37 @@
 
   // Save department members
   $(document).on('click', '.save-dept-members', function(){
-    const deptId = $('#dept-members-modal').attr('data-id');
-    var ids = [];
-    $('#dept-members-modal .dept-member-item').each(function(){
-      ids.push($(this).data('id')*1);
-    });
-    
-    swal_confirm.fire({ 
-      title: '{{ __("admin/employees.department-save-members-confirm-title") }}',
-      text: '{{ __("admin/employees.department-save-members-confirm-text") }}'
-    })
-    }).then((result) => {
-      if (result.isConfirmed) {
-        swal_loader.fire();
-        $.ajax({
-          url: "{{ route('admin.employee.department.members.save') }}",
-          method: 'POST',
-          data: { 
-            department_id: deptId,
-            user_ids: ids 
-          },
-          headers: {
-            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-          }
-        })
-        .done(function(resp){
-          swal_loader.close();
+  const deptId = $('#dept-members-modal').attr('data-id');
+  
+  swal_confirm.fire({
+    title: '{{ __("admin/employees.confirm-save-dept-members") }}',
+    icon: 'question'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      swal_loader.fire();
+      
+      var ids = [];
+      $('#dept-members-modal .dept-member-item').each(function(){
+        ids.push($(this).attr('data-id') * 1);
+      });
+      
+      // ✅ STANDARDIZED: Use successMessage and close modal in success callback
+      $.ajax({
+        url: "{{ route('admin.employee.department.members.save') }}",
+        method: 'POST',
+        data: { 
+          department_id: deptId,
+          user_ids: ids 
+        },
+        headers: {
+          'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+        },
+        success: function(resp){
+          // Close modal only on success
           $('#dept-members-modal').modal('hide');
-          Swal.fire({
-            icon: 'success',
-            title: '{{ __("admin/employees.department-members-save-success-title") }}',
-            text: '{{ __("admin/employees.department-members-save-success-text") }}',
-            timer: 2000,
-            showConfirmButton: false
-          });
-          location.reload();
-        })
-        .fail(function(xhr){
+        },
+        successMessage: '{{ __("admin/employees.department-members-save-success-text") }}',
+        error: function(xhr){
           swal_loader.close();
           const errorMsg = xhr.responseJSON?.message || '{{ __("admin/employees.department-members-save-error") }}';
           Swal.fire({ 
@@ -172,10 +166,12 @@
             title: '{{ __("admin/employees.department-save-error-title") }}', 
             text: errorMsg 
           });
-        });
-      }
-    });
+          // Modal stays open on error
+        }
+      });
+    }
   });
+});
 
   // Empty department (remove all members)
   $(document).on('click', '.trigger-empty-department', function(){

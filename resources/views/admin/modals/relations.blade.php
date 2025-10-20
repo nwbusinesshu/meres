@@ -139,7 +139,7 @@ let currentUserId = null;
 console.log('Relations Modal: Easy Setup Mode =', EASY_RELATION_SETUP);
 
 /**
- * NEW: Get the inverse relation type
+ * Get the inverse relation type
  */
 function getInverseType(type) {
   switch(type) {
@@ -151,7 +151,19 @@ function getInverseType(type) {
 }
 
 /**
- * NEW: Check if reverse relation exists and return required type
+ * Get human-readable relation type name
+ */
+function getRelationTypeName(type) {
+  const names = {
+    'colleague': '{{ __('userrelationtypes.colleague') }}',
+    'subordinate': '{{ __('userrelationtypes.subordinate') }}',
+    'superior': '{{ __('userrelationtypes.superior') }}'
+  };
+  return names[type] || type;
+}
+
+/**
+ * Check if reverse relation exists and return required type
  * Returns null if no restriction, or the required type if restricted
  */
 function getReverseRelationRestriction(targetId) {
@@ -181,7 +193,7 @@ function getReverseRelationRestriction(targetId) {
 }
 
 /**
- * UPDATED: Add a relation item to the list with optional button restrictions
+ * Add a relation item to the list with optional button restrictions
  */
 function addNewRelationItem(uid, name, type = 'colleague', restrictedType = null) {
   console.log('addNewRelationItem called:', {uid, name, type, restrictedType, easySetup: EASY_RELATION_SETUP});
@@ -201,10 +213,9 @@ function addNewRelationItem(uid, name, type = 'colleague', restrictedType = null
       + '{{ __('userrelationtypes.superior') }}'
       + '</button>';
   } else {
-    // EASY SETUP OFF: Show 3 buttons, but disable based on restrictions
+    // EASY SETUP OFF: Show 3 buttons with restrictions if needed
     if (restrictedType) {
-      console.log('Creating RESTRICTED buttons - only', restrictedType, 'enabled');
-      // Restricted - only one type allowed
+      // Show buttons but disable the non-matching ones
       buttonsHtml = ''
         + '<button type="button" class="toggle-option ' + (restrictedType === 'colleague' ? 'active' : '') + '" data-value="colleague" ' + (restrictedType !== 'colleague' ? 'disabled' : '') + '>'
         + '{{ __('userrelationtypes.colleague') }}'
@@ -216,7 +227,6 @@ function addNewRelationItem(uid, name, type = 'colleague', restrictedType = null
         + '{{ __('userrelationtypes.superior') }}'
         + '</button>';
     } else {
-      console.log('Creating UNRESTRICTED buttons - all enabled');
       // No restriction - all buttons enabled
       buttonsHtml = ''
         + '<button type="button" class="toggle-option ' + (type === 'colleague' ? 'active' : '') + '" data-value="colleague">'
@@ -315,11 +325,17 @@ function initRelationsModal(uid) {
     console.log('Relations FROM user:', relationsFromUser);
     
     // Display each relation
-    // IMPORTANT: Don't apply restrictions to EXISTING relations, only to NEW ones
+    // Check for restrictions even on EXISTING relations
     relationsFromUser.forEach(item => {
       console.log('Loading existing relation:', item.target.name, 'Type:', item.type);
-      // Pass null for restrictedType - existing relations are already saved
-      addNewRelationItem(item.target.id, item.target.name, item.type, null);
+      
+      // Check for restrictions even on EXISTING relations
+      let restrictedType = null;
+      if (!EASY_RELATION_SETUP) {
+        restrictedType = getReverseRelationRestriction(item.target.id);
+      }
+      
+      addNewRelationItem(item.target.id, item.target.name, item.type, restrictedType);
     });
     
     // Initialize tooltips
@@ -379,7 +395,7 @@ $(document).ready(function() {
         console.log('Easy Setup:', EASY_RELATION_SETUP);
         
         if ($('#relations-modal .relation-item[data-id="' + selectedId + '"]').length === 0) {
-          // NEW: Check if reverse relation exists and restricts button options
+          // Check if reverse relation exists and restricts button options
           let restrictedType = null;
           
           if (!EASY_RELATION_SETUP) {
@@ -416,6 +432,7 @@ $(document).ready(function() {
     const $toggle = $(this).closest('.relation-type-toggle');
     const $item = $(this).closest('.relation-item');
     const value = $(this).data('value');
+    const targetId = parseInt($item.attr('data-id'));
     
     // Update UI
     $toggle.find('.toggle-option').removeClass('active');
@@ -427,24 +444,34 @@ $(document).ready(function() {
     
     // REAL-TIME VALIDATION
     if (EASY_RELATION_SETUP) {
-      // Easy Setup ON: Check for bidirectional subordinate conflict
-      if (value === 'subordinate') {
-        const targetId = parseInt($item.attr('data-id'));
-        
-        const reverseRelation = storedAllRelations.find(r => 
-          r.user_id === targetId && r.target_id === currentUserId && r.type === 'subordinate'
-        );
-        
-        if (reverseRelation) {
+      // Easy Setup ON: Check for bidirectional subordinate conflict OR reverse relation update
+      const reverseRelation = storedAllRelations.find(r => 
+        parseInt(r.user_id) === targetId && parseInt(r.target_id) === currentUserId
+      );
+      
+      if (reverseRelation) {
+        // Check if it's a bidirectional subordinate (blocking conflict)
+        if (value === 'subordinate' && reverseRelation.type === 'subordinate') {
           $item.find('p').append('<span class="conflict-badge">⚠ {{ __('admin/employees.bidirectional-subordinate-error') }}</span>');
-          console.warn('Conflict detected:', targetId, '↔', currentUserId);
+          console.warn('Bidirectional subordinate conflict detected:', targetId, '↔', currentUserId);
+        } else {
+          // Show update warning
+          const expectedInverse = getInverseType(value);
+          if (reverseRelation.type !== expectedInverse) {
+            const targetName = $item.find('p').first().text().trim();
+            $item.find('p').append('<span class="conflict-badge">⚠ {{ __('admin/employees.bidirectional-update-warning', ['name' => '']) }}' + targetName + '</span>');
+            console.log('Bidirectional update will occur:', {
+              forward: currentUserId + '→' + targetId + '=' + value,
+              reverseCurrent: reverseRelation.type,
+              reverseWillBe: expectedInverse
+            });
+          }
         }
       }
     } else {
       // Easy Setup OFF: Check for inconsistent reverse relation
-      const targetId = parseInt($item.attr('data-id'));
       const reverseRelation = storedAllRelations.find(r => 
-        r.user_id === targetId && r.target_id === currentUserId
+        parseInt(r.user_id) === targetId && parseInt(r.target_id) === currentUserId
       );
       
       if (reverseRelation) {
@@ -465,8 +492,9 @@ $(document).ready(function() {
   // Save relations
   $('.save-relation').click(function() {
     
-    // PRE-SAVE VALIDATION: Check for conflicts
-    let conflicts = [];
+    // PRE-SAVE VALIDATION: Check for conflicts and updates
+    let blockingConflicts = [];
+    let bidirectionalUpdates = [];
     
     $('#relations-modal .relation-item:not(.cant-remove)').each(function() {
       const $item = $(this);
@@ -476,31 +504,45 @@ $(document).ready(function() {
       const targetName = $item.find('p').first().text().trim();
       
       if (EASY_RELATION_SETUP) {
-        // Easy Setup ON: Check bidirectional subordinate
-        if (type === 'subordinate') {
-          const reverseRelation = storedAllRelations.find(r => 
-            r.user_id === targetId && r.target_id === currentUserId && r.type === 'subordinate'
-          );
-          
-          if (reverseRelation) {
-            conflicts.push({
+        // Easy Setup ON: Check bidirectional subordinate (blocking) and collect updates
+        const reverseRelation = storedAllRelations.find(r => 
+          parseInt(r.user_id) === targetId && parseInt(r.target_id) === currentUserId
+        );
+        
+        if (reverseRelation) {
+          // Check for bidirectional subordinate (blocking)
+          if (type === 'subordinate' && reverseRelation.type === 'subordinate') {
+            blockingConflicts.push({
               id: targetId,
               name: targetName,
               message: '{{ __('admin/employees.bidirectional-subordinate-error') }}'
             });
+          } else {
+            // Check if reverse relation will be updated
+            const expectedInverse = getInverseType(type);
+            if (reverseRelation.type !== expectedInverse) {
+              bidirectionalUpdates.push({
+                id: targetId,
+                name: targetName,
+                currentType: reverseRelation.type,
+                newType: expectedInverse,
+                currentTypeName: getRelationTypeName(reverseRelation.type),
+                newTypeName: getRelationTypeName(expectedInverse)
+              });
+            }
           }
         }
       } else {
-        // Easy Setup OFF: Check reverse relation consistency
+        // Easy Setup OFF: Check reverse relation consistency (blocking)
         const reverseRelation = storedAllRelations.find(r => 
-          r.user_id === targetId && r.target_id === currentUserId
+          parseInt(r.user_id) === targetId && parseInt(r.target_id) === currentUserId
         );
         
         if (reverseRelation) {
           const expectedType = getInverseType(reverseRelation.type);
           
           if (type !== expectedType) {
-            conflicts.push({
+            blockingConflicts.push({
               id: targetId,
               name: targetName,
               message: '{{ __('admin/employees.inconsistent-relation-error') }}'
@@ -510,13 +552,13 @@ $(document).ready(function() {
       }
     });
     
-    // If conflicts found, BLOCK save
-    if (conflicts.length > 0) {
+    // If blocking conflicts found, BLOCK save completely
+    if (blockingConflicts.length > 0) {
       let conflictHtml = '<div style="text-align: left;">';
       conflictHtml += '<p><strong>{{ __('admin/employees.relation-conflicts-detected') }}</strong></p>';
       conflictHtml += '<ul style="margin: 10px 0;">';
       
-      conflicts.forEach(function(conflict) {
+      blockingConflicts.forEach(function(conflict) {
         conflictHtml += '<li><strong>' + conflict.name + '</strong>: ' + conflict.message + '</li>';
       });
       
@@ -534,87 +576,117 @@ $(document).ready(function() {
       return; // BLOCK save completely
     }
     
-    // No conflicts - proceed with save
-    swal_confirm.fire({
-      title: '{{ __('admin/employees.save-relation-confirm') }}'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        swal_loader.fire();
-        
-        var relations = [];
-        
-        // Build relations array - SEND EXACTLY WHAT'S SELECTED
-        $('#relations-modal .relation-item:not(.cant-remove)').each(function() {
-          const $toggle = $(this).find('.relation-type-toggle');
-          let type = $toggle.attr('data-value');
-          const targetId = $(this).attr('data-id') * 1;
-          
-          relations.push({
-            target_id: targetId,
-            type: type
-          });
-        });
-        
-        console.log('Saving relations:', relations);
-        
-        // Send to backend
-        $.ajax({
-          url: "{{ route('admin.employee.relations.save') }}",
-          method: 'POST',
-          data: {
-            id: $('#relations-modal').attr('data-id'),
-            relations: relations
-          },
-          success: function(response) {
-            swal_loader.close();
-            
-            if (response.success) {
-              $('#relations-modal').modal('hide');
-              swal.fire({
-                icon: 'success',
-                title: '{{ __('global.success') }}',
-                text: '{{ __('admin/employees.relations-saved') }}'
-              });
-              
-              // Reload page or update UI
-              if (typeof refreshEmployeeList === 'function') {
-                refreshEmployeeList();
-              }
-            } else if (response.has_conflicts) {
-              // Backend detected conflicts (safety net)
-              let conflictHtml = '<div style="text-align: left;">';
-              conflictHtml += '<p><strong>{{ __('admin/employees.relation-conflicts-detected') }}</strong></p>';
-              conflictHtml += '<ul>';
-              response.conflicts.forEach(function(conflict) {
-                conflictHtml += '<li>' + conflict.target_name + ': ' + conflict.message + '</li>';
-              });
-              conflictHtml += '</ul>';
-              conflictHtml += '</div>';
-              
-              swal.fire({
-                icon: 'error',
-                title: '{{ __('admin/employees.cannot-save') }}',
-                html: conflictHtml
-              });
-            }
-          },
-          error: function(xhr) {
-            swal_loader.close();
-            
-            let errorMessage = '{{ __('admin/employees.failed-to-save') }}';
-            if (xhr.responseJSON && xhr.responseJSON.message) {
-              errorMessage = xhr.responseJSON.message;
-            }
-            
-            swal.fire({
-              icon: 'error',
-              title: '{{ __('global.error') }}',
-              text: errorMessage
-            });
-          }
-        });
-      }
+    // If bidirectional updates exist, show warning confirmation
+    if (bidirectionalUpdates.length > 0) {
+      let updateHtml = '<div style="text-align: left;">';
+      updateHtml += '<p><strong>{{ __('admin/employees.bidirectional-updates-intro') }}</strong></p>';
+      updateHtml += '<ul style="margin: 10px 0; list-style: none; padding-left: 0;">';
+      
+      bidirectionalUpdates.forEach(function(update) {
+        updateHtml += '<li style="margin-bottom: 8px;"><strong>' + update.name + '</strong>: ';
+        updateHtml += '<span style="color: #dc3545;">' + update.currentTypeName + '</span> → ';
+        updateHtml += '<span style="color: #28a745;">' + update.newTypeName + '</span>';
+        updateHtml += '</li>';
+      });
+      
+      updateHtml += '</ul>';
+      updateHtml += '</div>';
+      
+      swal.fire({
+        title: '{{ __('admin/employees.bidirectional-updates-detected') }}',
+        html: updateHtml,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: '{{ __('admin/employees.proceed-with-updates') }}',
+        cancelButtonText: '{{ __('global.swal-cancel') }}',
+        confirmButtonColor: COLOR_SUCCESS,
+        cancelButtonColor: COLOR_SECONDARY
+      }).then((result) => {
+        if (result.isConfirmed) {
+          proceedWithSave();
+        }
+      });
+    } else {
+      // No updates needed, proceed with normal confirmation
+      swal_confirm.fire({
+        title: '{{ __('admin/employees.save-relation-confirm') }}'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          proceedWithSave();
+        }
+      });
+    }
+  });
+  // Extracted save function
+function proceedWithSave() {
+  var relations = [];
+  
+  // Build relations array - SEND EXACTLY WHAT'S SELECTED
+  $('#relations-modal .relation-item:not(.cant-remove)').each(function() {
+    const $toggle = $(this).find('.relation-type-toggle');
+    let type = $toggle.attr('data-value');
+    const targetId = $(this).attr('data-id') * 1;
+    
+    relations.push({
+      target_id: targetId,
+      type: type
     });
   });
+  
+  console.log('Saving relations:', relations);
+  
+  // Start loader
+  swal_loader.fire();
+  
+  // ✅ STANDARDIZED: Use successMessage for automatic toast handling
+  $.ajax({
+    url: "{{ route('admin.employee.relations.save') }}",
+    method: 'POST',
+    data: {
+      id: $('#relations-modal').attr('data-id'),
+      relations: relations
+    },
+    successMessage: '{{ __('admin/employees.relations-saved') }}',
+    success: function(response) {
+      // ✅ Close modal ONLY on success - global handler will reload and show toast
+      $('#relations-modal').modal('hide');
+    },
+    error: function(xhr) {
+      swal_loader.close();
+      
+      // Handle backend conflicts (safety net)
+      if (xhr.responseJSON && xhr.responseJSON.has_conflicts) {
+        let conflictHtml = '<div style="text-align: left;">';
+        conflictHtml += '<p><strong>{{ __('admin/employees.relation-conflicts-detected') }}</strong></p>';
+        conflictHtml += '<ul>';
+        xhr.responseJSON.conflicts.forEach(function(conflict) {
+          conflictHtml += '<li>' + conflict.target_name + ': ' + conflict.message + '</li>';
+        });
+        conflictHtml += '</ul>';
+        conflictHtml += '</div>';
+        
+        swal.fire({
+          icon: 'error',
+          title: '{{ __('admin/employees.cannot-save') }}',
+          html: conflictHtml
+        });
+        return;
+      }
+      
+      // Generic error - modal stays open
+      let errorMessage = '{{ __('admin/employees.failed-to-save') }}';
+      if (xhr.responseJSON && xhr.responseJSON.message) {
+        errorMessage = xhr.responseJSON.message;
+      }
+      
+      swal.fire({
+        icon: 'error',
+        title: '{{ __('global.error') }}',
+        text: errorMessage
+      });
+    }
+  });
+}
+ 
 });
 </script>

@@ -863,7 +863,7 @@ public function getEmployeeRelations(Request $request)
 
     $request->validate([
         'id' => 'required|integer|exists:user,id',
-        'relations' => 'required|array|min:1',
+        'relations' => 'array',
         'relations.*.target_id' => 'required|integer|exists:user,id',
         'relations.*.type' => 'required|string|in:self,colleague,subordinate,superior', // Now accepts superior!
     ]);

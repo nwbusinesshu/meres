@@ -221,6 +221,111 @@
 		/* Moment js locale */
 		moment().locale(LANG_CODE);
 
+		// Add this to resources/views/layouts/head.blade.php, inside the <script> section
+// Place it BEFORE the existing AJAX setup code
+
+// ============================================================================
+// GLOBAL PAGE STATE MANAGEMENT - Save/Restore search and scroll on reload
+// ============================================================================
+
+(function() {
+  const STATE_KEY = 'page_state_' + window.location.pathname;
+  
+  /**
+   * Save current page state to sessionStorage
+   */
+  function savePageState() {
+    try {
+      const state = {
+        searchValue: $('.search-input').val() || '',
+        scrollY: window.scrollY || 0,
+        timestamp: Date.now()
+      };
+      sessionStorage.setItem(STATE_KEY, JSON.stringify(state));
+      console.log('📦 Page state saved:', state);
+    } catch(e) {
+      console.warn('Could not save page state:', e);
+    }
+  }
+  
+  /**
+   * Restore page state from sessionStorage
+   */
+  function restorePageState() {
+    try {
+      const stateJson = sessionStorage.getItem(STATE_KEY);
+      if (!stateJson) return;
+      
+      const state = JSON.parse(stateJson);
+      
+      // Only restore if saved within last 5 seconds (to avoid restoring old state)
+      const age = Date.now() - (state.timestamp || 0);
+      if (age > 5000) {
+        sessionStorage.removeItem(STATE_KEY);
+        return;
+      }
+      
+      console.log('📂 Restoring page state:', state);
+      
+      // Restore search value
+      if (state.searchValue && $('.search-input').length) {
+        $('.search-input').val(state.searchValue);
+        // Trigger the search
+        $('.search-input').trigger(jQuery.Event('keyup', { key: 'Enter' }));
+      }
+      
+      // Restore scroll position after a short delay (wait for content to render)
+      if (state.scrollY > 0) {
+        setTimeout(() => {
+          window.scrollTo({
+            top: state.scrollY,
+            behavior: 'smooth'
+          });
+        }, 100);
+      }
+      
+      // Clean up
+      sessionStorage.removeItem(STATE_KEY);
+      
+    } catch(e) {
+      console.warn('Could not restore page state:', e);
+    }
+  }
+  
+  // Restore state on page load
+  $(document).ready(function() {
+    restorePageState();
+  });
+  
+  // Hook into the global AJAX complete handler to save state before reload
+  const originalComplete = $.ajaxSetup().complete;
+  
+  $.ajaxSetup({
+    complete: function(xhr, status) {
+      // Call original complete handler if it exists
+      if (originalComplete) {
+        originalComplete.call(this, xhr, status);
+      }
+      
+      // If this request has successMessage and succeeded, save state before reload
+      if (status === 'success' && this.successMessage) {
+        savePageState();
+      }
+    }
+  });
+  
+  // Also save state when using sessionStorage toast pattern (for fetch API)
+  const originalSetItem = sessionStorage.setItem;
+  sessionStorage.setItem = function(key, value) {
+    // If setting a toast message, also save page state
+    if (key.includes('_toast') || key.includes('toast')) {
+      savePageState();
+    }
+    return originalSetItem.apply(this, arguments);
+  };
+  
+})();
+
 	/* Ajax setup */
 $.ajaxSetup({
   beforeSend: function (xhr, settings) {
