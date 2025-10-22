@@ -200,6 +200,10 @@ $(document).ready(function(){
 
     // New employee button
      $(document).on('click', '.trigger-new', function(){
+
+        if ($(this).hasClass('import-in-progress')) {
+        return; // Let the import-in-progress handler handle it
+    }
         // Check if limit is reached
         if (window.isEmployeeLimitReached) {
             Swal.fire({

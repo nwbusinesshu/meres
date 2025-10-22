@@ -37,12 +37,13 @@ class AssessmentValidator
      */
     protected function validateMinimumUsers(int $orgId, int $minUsers = 2): void
     {
-        // FIXED: Only exclude SUPERADMIN (system-level), not organization admins
+        // ✅ FIXED: Exclude both SUPERADMIN and organization admins
         $userCount = User::whereHas('organizations', function($q) use ($orgId) {
-                $q->where('organization_id', $orgId);
+                $q->where('organization_id', $orgId)
+                  ->where('role', '!=', OrgRole::ADMIN);  // ✅ Exclude org admins
             })
             ->whereNull('removed_at')
-            ->where('type', '!=', UserType::SUPERADMIN)  // Only exclude superadmins
+            ->where('type', '!=', UserType::SUPERADMIN)  // Exclude superadmins
             ->count();
         
         if ($userCount < $minUsers) {
@@ -60,16 +61,17 @@ class AssessmentValidator
      */
     protected function validateUserCompetencies(int $orgId): void
     {
-        // Get active users in organization
+        // ✅ FIXED: Get active users excluding organization admins
         $userIds = DB::table('organization_user')
             ->where('organization_id', $orgId)
+            ->where('role', '!=', OrgRole::ADMIN)  // ✅ Exclude org admins
             ->pluck('user_id')
             ->toArray();
         
-        // FIXED: Only exclude SUPERADMIN (system-level)
+        // Also exclude SUPERADMIN users
         $activeUserIds = User::whereIn('id', $userIds)
             ->whereNull('removed_at')
-            ->where('type', '!=', UserType::SUPERADMIN)  // Only exclude superadmins
+            ->where('type', '!=', UserType::SUPERADMIN)
             ->pluck('id')
             ->toArray();
         
@@ -108,16 +110,17 @@ class AssessmentValidator
      */
     protected function validateUserRelations(int $orgId): void
     {
-        // Get active users
+        // ✅ FIXED: Get active users excluding organization admins
         $userIds = DB::table('organization_user')
             ->where('organization_id', $orgId)
+            ->where('role', '!=', OrgRole::ADMIN)  // ✅ Exclude org admins
             ->pluck('user_id')
             ->toArray();
         
-        // FIXED: Only exclude SUPERADMIN (system-level)
+        // Also exclude SUPERADMIN users
         $activeUserIds = User::whereIn('id', $userIds)
             ->whereNull('removed_at')
-            ->where('type', '!=', UserType::SUPERADMIN)  // Only exclude superadmins
+            ->where('type', '!=', UserType::SUPERADMIN)
             ->pluck('id')
             ->toArray();
         
@@ -264,15 +267,15 @@ class AssessmentValidator
         }
         
         if (!empty($usersWithIncompleteData)) {
-            $userList = implode('; ', array_slice($usersWithIncompleteData, 0, 5));
-            $remaining = count($usersWithIncompleteData) - 5;
+            $userList = implode('<br>', array_slice($usersWithIncompleteData, 0, 10));
+            $remaining = count($usersWithIncompleteData) - 10;
             
             if ($remaining > 0) {
-                $userList .= " (és még {$remaining} fő)";
+                $userList .= "<br>(és még {$remaining} fő)";
             }
             
             throw ValidationException::withMessages([
-                'incomplete_data' => "A következő felhasználók értékelése hiányos: {$userList}"
+                'incomplete' => "Az alábbi felhasználók értékelései hiányosak:<br>{$userList}"
             ]);
         }
     }
@@ -285,46 +288,50 @@ class AssessmentValidator
      */
     protected function validateCeoRanksComplete(int $assessmentId): void
     {
-        // Get assessment
+        // Get assessment and organization
         $assessment = DB::table('assessment')->find($assessmentId);
         $orgId = $assessment->organization_id;
         
-        // FIXED: Count CEOs using organization_user.role instead of user.type
-        $ceoCount = DB::table('user as u')
-            ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
-            ->where('ou.organization_id', $orgId)
-            ->where('ou.role', OrgRole::CEO)  // FIXED: Use organization_user.role
-            ->whereNull('u.removed_at')
-            ->count();
+        // Get all CEO rank definitions
+        $ceoRanks = DB::table('ceo_rank')
+            ->where(function($q) use ($orgId) {
+                $q->whereNull('organization_id')
+                  ->orWhere('organization_id', $orgId);
+            })
+            ->whereNull('removed_at')
+            ->pluck('id')
+            ->toArray();
         
-        // FIXED: Count managers using organization_user.role
-        $managerCount = DB::table('organization_department_managers as odm')
-            ->join('user as u', 'u.id', '=', 'odm.manager_id')
-            ->where('odm.organization_id', $orgId)
-            ->whereNull('u.removed_at')
-            ->distinct('odm.manager_id')
-            ->count('odm.manager_id');
-        
-        $neededRankers = $ceoCount + $managerCount;
-        
-        if ($neededRankers === 0) {
-            // No CEOs or managers - skip validation
-            return;
+        if (empty($ceoRanks)) {
+            return; // No CEO ranks defined, skip validation
         }
         
-        // Count actual rankings submitted
+        // Get users who should submit CEO ranks (managers and CEOs)
+        $rankerIds = DB::table('organization_user')
+            ->where('organization_id', $orgId)
+            ->whereIn('role', [OrgRole::MANAGER, OrgRole::CEO])
+            ->pluck('user_id')
+            ->toArray();
+        
+        if (empty($rankerIds)) {
+            return; // No managers/CEOs to submit rankings
+        }
+        
+        // Count expected vs actual CEO rank submissions
+        $expectedRankings = count($rankerIds) * count($ceoRanks);
         $actualRankings = DB::table('user_ceo_rank')
             ->where('assessment_id', $assessmentId)
-            ->distinct('ceo_id')
-            ->count('ceo_id');
+            ->whereIn('user_id', $rankerIds)
+            ->count();
         
-        if ($actualRankings < $neededRankers) {
-            $remaining = $neededRankers - $actualRankings;
+        if ($actualRankings < $expectedRankings) {
+            $remaining = $expectedRankings - $actualRankings;
+            $percentage = round(($actualRankings / $expectedRankings) * 100, 1);
             
             throw ValidationException::withMessages([
-                'ceo_ranks' => "Nem minden vezető adta le a rangsorolást. " .
-                               "Leadott: {$actualRankings}/{$neededRankers}. " .
-                               "Hiányzó rangsorolások: {$remaining} db."
+                'ceo_ranks' => "A vezető ranglista kitöltése hiányos. " .
+                              "Kitöltöttség: {$actualRankings}/{$expectedRankings} ({$percentage}%). " .
+                              "Hiányzó ranglista bejegyzések: {$remaining} db."
             ]);
         }
     }

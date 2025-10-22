@@ -59,5 +59,9 @@ return [
         // NEW: Redirect notification
         'redirecting_title' => 'Átirányítás...',
         'redirecting_text' => 'Azonnal átirányítjuk a Barion fizetési oldalára.',
+        // NEW: Initial payment blocking modal
+'initial_payment_required_title' => 'Belépési díj rendezése szükséges',
+'initial_payment_required_text' => 'A rendszer használatához először rendezze a belépési díjat. Kérjük, indítsa el a fizetést az alábbi gombbal.',
+'understand' => 'Értem',
     ],
 ];

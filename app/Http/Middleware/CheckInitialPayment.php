@@ -4,8 +4,9 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use App\Models\Enums\UserType;
 use Illuminate\Support\Facades\DB;
+use App\Models\Enums\OrgRole;
+
 
 class CheckInitialPayment
 {
@@ -22,10 +23,10 @@ class CheckInitialPayment
     public function handle(Request $request, Closure $next)
     {
         // Only check for admin users
-        $userType = session('utype');
-        if ($userType !== UserType::ADMIN) {
-            return $next($request);
-        }
+        $orgRole = session('org_role');
+if ($orgRole !== \App\Models\Enums\OrgRole::ADMIN) {
+    return $next($request);
+}
 
         // Get organization ID from session
         $orgId = session('org_id');

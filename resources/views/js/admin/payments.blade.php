@@ -8,6 +8,8 @@ $(function(){
   const REFRESH_URL = '{{ route('admin.payments.refresh') }}';
   const csrf        = '{{ csrf_token() }}';
 
+  
+
   // Visszatérés a Barionból: csak akkor kérdezzük le a státuszt, ha paymentId paraméter van az URL-ben
   const url   = new URL(window.location.href);
   const param = url.searchParams.get('paymentId') || url.searchParams.get('PaymentId') || url.searchParams.get('Id');

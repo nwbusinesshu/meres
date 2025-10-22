@@ -66,7 +66,7 @@ class AdminAssessmentController extends Controller
         $this->validate(
             request: $request,
             rules: $rules,
-            customAttributes: $attributes,
+            attributes: $attributes,
         );
 
         // ✅ NEW: Pre-creation validation (only for NEW assessments)
@@ -123,22 +123,25 @@ class AdminAssessmentController extends Controller
                 $snapshotJson = $this->safeJsonEncode($snapshotArr, 'organization snapshot');
 
                 // Assessment létrehozása
-                $assessment = Assessment::create([
-                    'organization_id'     => $orgId,
-                    'started_at'          => now(),
-                    'due_at'              => $request->due,
-                    'closed_at'           => null,
-                    'threshold_method'    => $init['threshold_method'] ?? null,
-                    'normal_level_up'     => $init['normal_level_up'] ?? null,
-                    'normal_level_down'   => $init['normal_level_down'] ?? null,
-                    'monthly_level_down'  => $init['monthly_level_down'] ?? null,
-                    'org_snapshot'        => $snapshotJson,
-                ]);
+                $assessment = new Assessment();
+                $assessment->organization_id = $orgId;
+                $assessment->started_at = now();
+                $assessment->due_at = $request->due;
+                $assessment->closed_at = null;
+                $assessment->threshold_method = $init['threshold_method'] ?? null;
+                $assessment->normal_level_up = $init['normal_level_up'] ?? null;
+                $assessment->normal_level_down = $init['normal_level_down'] ?? null;
+                $assessment->monthly_level_down = $init['monthly_level_down'] ?? null;
+                $assessment->org_snapshot = $snapshotJson;
+                $assessment->org_snapshot_version = 'v1';
+                $assessment->save();
 
                 // ========== BILLING LOGIC (unchanged) ==========
                 // Count employees (excluding admins)
+                // Count employees (EXCLUDING admins)
                 $userIds = DB::table('organization_user')
                     ->where('organization_id', $orgId)
+                    ->where('role', '!=', OrgRole::ADMIN)  // ✅ ADD THIS LINE
                     ->pluck('user_id')
                     ->unique()
                     ->toArray();
@@ -146,6 +149,7 @@ class AdminAssessmentController extends Controller
                 $employeeCount = User::query()
                     ->whereIn('id', $userIds)
                     ->whereNull('removed_at')
+                    ->where('type', '!=', UserType::SUPERADMIN)  // ✅ ADD THIS LINE TOO
                     ->count();
 
                 // Check if there are any closed assessments for this organization

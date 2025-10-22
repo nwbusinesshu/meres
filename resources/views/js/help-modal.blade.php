@@ -391,7 +391,7 @@ function showFirstLoginWelcome() {
   const orgRole = '{{ session("org_role") ?? "" }}';
   
   let welcomeMessage = `Üdvözlünk a rendszerben, ${userName}! 👋\n\n`;
-  welcomeMessage += `Segíthetek navigálni az alkalmazásban és válaszolok minden kérdésedre.\n\n`;
+  welcomeMessage += `Én vagyok a QUARMA360 app fejlett AI súgója. Segíthetek navigálni az alkalmazásban és válaszolok minden kérdésedre. Pontosan ismerem a program használatát és azt is láthatom, amit éppen te. Engem itt, a képernyő bal oldalán a kék súgó gombra nyomva mindig megtalálsz, és a korábbi beszélgetéseinket is meg tudod nézni.\n\n`;
   
   // Add role-specific tips
   if (orgRole === 'admin' || orgRole === 'ceo') {
@@ -400,6 +400,7 @@ function showFirstLoginWelcome() {
     welcomeMessage += `• Értékelések indítása\n`;
     welcomeMessage += `• Szervezeti beállítások\n\n`;
     welcomeMessage += `Kérdezz bármit a rendszer használatával kapcsolatban!`;
+    welcomeMessage += `Első lépésként a regisztrációkor megadott létszámadatok alapján fizetési kötelezettséged keletkezett. Kérlek ezt a fizetések oldalon rendezd, utána tudunk továbbhaladni.`;
   } else if (orgRole === 'manager') {
     welcomeMessage += `👥 Vezető funkcióid:\n`;
     welcomeMessage += `• Csapattagjaid értékelése\n`;

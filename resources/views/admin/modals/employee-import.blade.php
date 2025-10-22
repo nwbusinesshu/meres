@@ -512,22 +512,48 @@
                     return;
                 }
                 
-                // Extract headers (first row)
-                const headers = jsonData[0].map(h => h ? h.toString().trim().toLowerCase() : '');
-                console.log('📋 Headers:', headers);
+                // Extract headers (first row) - normalize for flexible matching
+                const rawHeaders = jsonData[0].map(h => h ? h.toString().trim() : '');
+                const headers = rawHeaders.map(h => h.toLowerCase().replace(/[\s_-]/g, ''));
                 
-                // Map column indices
-                const columnMap = {
-                    name: headers.indexOf('név') !== -1 ? headers.indexOf('név') : headers.indexOf('name'),
-                    email: headers.indexOf('e-mail') !== -1 ? headers.indexOf('e-mail') : headers.indexOf('email'),
-                    type: headers.indexOf('típus') !== -1 ? headers.indexOf('típus') : headers.indexOf('type'),
-                    position: headers.indexOf('beosztás') !== -1 ? headers.indexOf('beosztás') : headers.indexOf('position'),
-                    department_name: headers.indexOf('részleg') !== -1 ? headers.indexOf('részleg') : headers.indexOf('department'),
-                    wage: headers.indexOf('bér') !== -1 ? headers.indexOf('bér') : headers.indexOf('wage'),
-                    currency: headers.indexOf('pénznem') !== -1 ? headers.indexOf('pénznem') : headers.indexOf('currency')
+                console.log('📋 Raw Headers:', rawHeaders);
+                console.log('📋 Normalized Headers:', headers);
+                
+                // Flexible header matching function
+                const findColumn = function(possibleNames) {
+                    for (let name of possibleNames) {
+                        const normalizedName = name.toLowerCase().replace(/[\s_-]/g, '');
+                        const idx = headers.indexOf(normalizedName);
+                        if (idx !== -1) return idx;
+                    }
+                    return -1;
                 };
                 
+                // Map column indices with multiple possible names
+                const columnMap = {
+    name: findColumn(['név', 'name', 'nev', 'fullname', 'teljes név', 'teljesnev', 'employee name', 'employeename']),
+    email: findColumn(['email', 'e-mail', 'e mail', 'emailcím', 'emailcim', 'cím', 'cim', 'employee email', 'employeeemail']),
+    type: findColumn(['típus', 'type', 'tipus', 'role', 'szerep', 'pozíció típusa', 'poziciotipusa', 'employee type', 'employeetype']),
+    position: findColumn(['beosztás', 'position', 'beosztas', 'title', 'munkakör', 'munkakor', 'positition']),
+    department_name: findColumn(['részleg', 'department', 'reszleg', 'dept', 'osztály', 'osztaly', 'departmentname', 'részleg neve', 'reszlegneve']),
+    wage: findColumn(['bér', 'wage', 'ber', 'salary', 'fizetés', 'fizetes', 'mothly net wage', 'mothlynetwage', 'monthly net wage', 'monthlynetwage', 'net wage', 'netwage']),
+    currency: findColumn(['valuta', 'currency', 'pénznem', 'penznem', 'curr'])
+};
+                
                 console.log('🗺️ Column mapping:', columnMap);
+                
+                // Check for required columns
+                const missingColumns = [];
+                if (columnMap.name === -1) missingColumns.push('Név/Name');
+                if (columnMap.email === -1) missingColumns.push('E-mail/Email');
+                if (columnMap.type === -1) missingColumns.push('Típus/Type');
+                
+                if (missingColumns.length > 0) {
+                    console.error('❌ Missing required columns:', missingColumns);
+                    showToast('error', 'Missing required columns: ' + missingColumns.join(', ') + '<br>Found headers: ' + rawHeaders.join(', '));
+                    resetUploadZone();
+                    return;
+                }
                 
                 // Normalize data rows (skip header)
                 const normalizedData = jsonData.slice(1).map(row => {
@@ -817,6 +843,8 @@ function showPreviewView(data) {
             success: function(response) {
                 // Open the modal
                 $('#employee-import-modal').modal('show');
+                $('#employee-import-modal .modal-dialog').addClass('expanded');
+
                 
                 // Hide all steps first
                 $('.import-step').addClass('hidden');
