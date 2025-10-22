@@ -72,7 +72,10 @@ class Auth
   /**
    * Jogosultság ellenőrzés az adott route-hoz kért $utype alapján
    * 
-   * SECURITY FIX: Admins now require 'admin' role in the current organization
+   * ✅ UPDATED: Now explicitly supports OrgRole enum values
+   * 
+   * @param string $utype UserType or OrgRole constant
+   * @return bool
    */
   public static function isAuthorized($utype)
 {
@@ -81,7 +84,7 @@ class Auth
     }
 
     $current = session('utype');     // 'superadmin' or 'normal'
-    $orgRole = session('org_role');  // 🆕 NEW: 'admin', 'manager', 'ceo', 'employee'
+    $orgRole = session('org_role');  // 'admin', 'manager', 'ceo', 'employee'
     $uid = session('uid');
     $orgId = session('org_id');
 
@@ -93,21 +96,27 @@ class Auth
     // NORMAL users: Check organization role
     if ($current === UserType::NORMAL) {
         
-        // Route requires ADMIN
-        if ($utype === UserType::ADMIN || $utype === 'admin') {
+        // ✅ Route requires ADMIN (supports both deprecated UserType and new OrgRole)
+        if ($utype === OrgRole::ADMIN || $utype === UserType::ADMIN || $utype === 'admin') {
             return $orgRole === OrgRole::ADMIN;
         }
         
-        // Route requires CEO
-        if ($utype === UserType::CEO || $utype === 'ceo') {
+        // ✅ Route requires CEO (supports both deprecated UserType and new OrgRole)
+        if ($utype === OrgRole::CEO || $utype === UserType::CEO || $utype === 'ceo') {
             // Admin can access CEO routes too (hierarchical)
             return in_array($orgRole, [OrgRole::ADMIN, OrgRole::CEO]);
         }
         
-        // Route requires MANAGER
-        if ($utype === UserType::MANAGER || $utype === 'manager') {
+        // ✅ Route requires MANAGER (supports both deprecated UserType and new OrgRole)
+        if ($utype === OrgRole::MANAGER || $utype === UserType::MANAGER || $utype === 'manager') {
             // Admin can access manager routes too (hierarchical)
             return in_array($orgRole, [OrgRole::ADMIN, OrgRole::MANAGER]);
+        }
+        
+        // ✅ Route requires EMPLOYEE (new - only OrgRole)
+        if ($utype === OrgRole::EMPLOYEE || $utype === 'employee') {
+            // All organization members can access employee routes (hierarchical)
+            return in_array($orgRole, [OrgRole::ADMIN, OrgRole::CEO, OrgRole::MANAGER, OrgRole::EMPLOYEE]);
         }
         
         // Route requires NORMAL (any logged-in user)

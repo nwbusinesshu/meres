@@ -13,6 +13,7 @@ use App\Http\Controllers\LoginController;
 use App\Http\Controllers\ResultsController;
 use App\Http\Middleware\Auth;
 use App\Models\Enums\UserType;
+use App\Models\Enums\OrgRole; // ✅ ADDED: Import for organization roles
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\SuperAdminController;
@@ -103,7 +104,8 @@ Route::controller(RegistrationController::class)
 
 // home redirect
 Route::get('/home-redirect', function(Request $request){
-    $target = Auth::isAuthorized(UserType::ADMIN) ? 'admin.home' : 'home';
+    // ✅ FIXED: Changed from UserType::ADMIN to OrgRole::ADMIN
+    $target = Auth::isAuthorized(OrgRole::ADMIN) ? 'admin.home' : 'home';
     session()->reflash();
     return redirect()->route($target);
 })->name('home-redirect')->middleware('auth:'.UserType::NORMAL);
@@ -114,7 +116,9 @@ Route::match(['POST'], '/webhook/barion', [PaymentWebhookController::class, 'bar
     ->middleware(['barion.webhook.ip', 'throttle:webhook']);
     
 // ADMIN ROUTES
-Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'org', 'check.initial.payment'])->group(function(){
+// ✅ FIXED: Changed middleware from 'auth:'.UserType::ADMIN to 'auth:'.OrgRole::ADMIN
+// This properly uses OrgRole for organization-level permissions
+Route::prefix('/admin')->name('admin.')->middleware(['auth:'.OrgRole::ADMIN, 'org', 'check.initial.payment'])->group(function(){
     Route::get('/home', [HomeController::class, 'admin'])->name('home');
 
     // assessment
@@ -161,17 +165,9 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
             Route::get('/{jobId}/status', 'status')->name('status');
             Route::get('/{jobId}/report', 'downloadReport')->name('report');
             Route::get('/check-active', 'checkActiveImport')->name('check-active');
-
         });
 
-    // payments
-    Route::controller(AdminPaymentController::class)->name('payments.')->prefix('/payments')->group(function () {
-        Route::get('/index', 'index')->name('index');
-        Route::post('/start', 'start')->name('start');
-        Route::get('/invoice/{id}', 'invoice')->name('invoice');
-        Route::post('/refresh', 'refresh')->name('refresh');
-    });
-
+    // bonuses
     Route::controller(AdminBonusesController::class)->name('bonuses.')->prefix('/bonuses')->group(function () {
         Route::get('/{assessmentId?}', 'index')->name('index');
         Route::post('/wage/get', 'getWage')->name('wage.get');
@@ -179,6 +175,14 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.UserType::ADMIN, 'o
         Route::post('/config/get', 'getMultiplierConfig')->name('config.get');
         Route::post('/config/save', 'saveMultiplierConfig')->name('config.save');
         Route::post('/payment/toggle', 'togglePayment')->name('payment.toggle');
+    });
+
+    // payments
+    Route::controller(AdminPaymentController::class)->name('payments.')->prefix('/payments')->group(function () {
+        Route::get('/index', 'index')->name('index');
+        Route::post('/start', 'start')->name('start');
+        Route::get('/invoice/{id}', 'invoice')->name('invoice');
+        Route::post('/refresh', 'refresh')->name('refresh');
     });
 
     // competency
