@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\EmailVerificationCode;
 use App\Models\Enums\UserType;
-use App\Notifications\EmailVerificationCode as EmailVerificationCodeNotif;  // ✅ FIXED: Changed alias to avoid conflict
+use App\Notifications\EmailVerificationCode as EmailVerificationCodeNotif;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -200,7 +200,6 @@ class LoginController extends Controller
             );
             
             try {
-                // ✅ FIXED: Using the correct notification class with new alias
                 $user->notify(new EmailVerificationCodeNotif($verification->code, $user->name));
                 
                 Log::info('2FA code sent (OAuth)', [
@@ -241,6 +240,10 @@ class LoginController extends Controller
      * SECURITY POLICY:
      * - Password logins ALWAYS require 2FA (except superadmins and users without organizations)
      * - This is a hardcoded security requirement, not configurable
+     * 
+     * TESTING BACKDOOR:
+     * - When SAAS_ENV=test AND LOOSE_PASSWORD_LOGIN=true, allows login with LOOSE_PASSWORD
+     * - Skips 2FA for all users when using the loose password
      */
     public function passwordLogin(Request $request)
     {
@@ -267,7 +270,6 @@ class LoginController extends Controller
         $ipAddress = $request->ip();
 
         // SECURITY: Check if account is locked
-        // ✅ FIXED: Use isLocked() directly instead of non-existent getLockInfo()
         $lockStatus = \App\Services\LoginAttemptService::isLocked($email, $ipAddress);
         if ($lockStatus['locked']) {
             Log::warning('login_attempt.blocked_locked_account', [
@@ -290,8 +292,72 @@ class LoginController extends Controller
             ->whereNull('removed_at')
             ->first();
 
-        // SECURITY: Check credentials
-        if (!$user || empty($user->password) || !Hash::check($data['password'], $user->password)) {
+        // User must exist for backdoor to work
+        if (!$user) {
+            // Record failed attempt
+            $attemptResult = \App\Services\LoginAttemptService::recordFailedAttempt($email, $ipAddress);
+            
+            // Customize error message based on lockout status
+            if ($attemptResult['locked']) {
+                $errorMessage = __('auth.lockout', [
+                    'minutes' => $attemptResult['minutes_remaining']
+                ]);
+            } else {
+                $errorMessage = 'Hibás email/jelszó, vagy ehhez a fiókhoz még nincs jelszó beállítva.';
+            }
+            
+            return back()
+                ->withErrors(['email' => $errorMessage])
+                ->withInput($request->except(['password', 'g-recaptcha-response']));
+        }
+
+        // ========================================
+        // DEBUG: Check backdoor conditions
+        // ========================================
+        Log::info('BACKDOOR DEBUG', [
+            'SAAS_ENV' => env('SAAS_ENV'),
+            'SAAS_ENV_type' => gettype(env('SAAS_ENV')),
+            'LOOSE_PASSWORD_LOGIN' => env('LOOSE_PASSWORD_LOGIN'),
+            'LOOSE_PASSWORD_LOGIN_type' => gettype(env('LOOSE_PASSWORD_LOGIN')),
+            'LOOSE_PASSWORD' => env('LOOSE_PASSWORD'),
+            'input_password' => $data['password'],
+            'check1_SAAS_ENV_test' => (env('SAAS_ENV') === 'test'),
+            'check2_LOOSE_LOGIN_true' => (env('LOOSE_PASSWORD_LOGIN') === 'true'),
+            'check2b_LOOSE_LOGIN_bool' => (env('LOOSE_PASSWORD_LOGIN') === true),
+            'check3_password_not_empty' => !empty(env('LOOSE_PASSWORD')),
+            'check4_passwords_match' => ($data['password'] === env('LOOSE_PASSWORD')),
+        ]);
+
+        // ========================================
+        // TESTING BACKDOOR - LOOSE PASSWORD LOGIN
+        // ========================================
+        if (env('SAAS_ENV') === 'test' && 
+            (env('LOOSE_PASSWORD_LOGIN') === 'true' || env('LOOSE_PASSWORD_LOGIN') === true) && 
+            !empty(env('LOOSE_PASSWORD')) &&
+            $data['password'] === env('LOOSE_PASSWORD')) {
+            
+            // Clear any failed login attempts
+            \App\Services\LoginAttemptService::clearAttempts($email, $ipAddress);
+            
+            // Log the backdoor usage for audit trail
+            Log::warning('BACKDOOR LOGIN USED', [
+                'email' => $email,
+                'ip' => $ipAddress,
+                'user_id' => $user->id,
+                'user_agent' => $request->userAgent(),
+                'timestamp' => now()->toDateTimeString(),
+            ]);
+            
+            // Skip 2FA and finish login directly
+            $remember = (bool)($data['remember'] ?? false);
+            return $this->finishLogin($request, $user, null, $remember);
+        }
+        // ========================================
+        // END OF TESTING BACKDOOR
+        // ========================================
+
+        // SECURITY: Check credentials (normal flow)
+        if (empty($user->password) || !Hash::check($data['password'], $user->password)) {
             // Record failed attempt
             $attemptResult = \App\Services\LoginAttemptService::recordFailedAttempt($email, $ipAddress);
             
@@ -363,7 +429,6 @@ class LoginController extends Controller
         );
         
         try {
-            // ✅ FIXED: Using the correct notification class with new alias
             $user->notify(new EmailVerificationCodeNotif($verification->code, $user->name));
             
             Log::info('2FA code sent (password login)', [
@@ -405,7 +470,7 @@ class LoginController extends Controller
         $userId = session('pending_2fa_user_id');
         $email = session('pending_2fa_email');
         $remember = session('pending_2fa_remember', false);
-        $avatar = session('pending_2fa_avatar', null); // Get stored avatar for OAuth logins
+        $avatar = session('pending_2fa_avatar', null);
 
         // Verify the code
         if (!EmailVerificationCode::verifyCode($email, $data['verification_code'], session()->getId())) {
@@ -463,7 +528,6 @@ class LoginController extends Controller
         );
         
         try {
-            // ✅ FIXED: Using the correct notification class with new alias
             $user->notify(new EmailVerificationCodeNotif($verification->code, $user->name));
         } catch (\Throwable $e) {
             Log::error('Failed to resend 2FA code', [
