@@ -183,6 +183,8 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.OrgRole::ADMIN, 'or
         Route::post('/start', 'start')->name('start');
         Route::get('/invoice/{id}', 'invoice')->name('invoice');
         Route::post('/refresh', 'refresh')->name('refresh');
+        Route::post('/billing/get', 'getBillingData')->name('billing.get');
+    Route::post('/billing/save', 'saveBillingData')->name('billing.save');
     });
 
     // competency

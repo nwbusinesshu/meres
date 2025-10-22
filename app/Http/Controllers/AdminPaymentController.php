@@ -483,4 +483,118 @@ class AdminPaymentController extends Controller
 
         return $email ?: 'info@example.com';
     }
+
+    public function getBillingData(Request $request)
+    {
+        $orgId = (int) $request->session()->get('org_id');
+        
+        // Get organization name
+        $organization = \DB::table('organization')
+            ->where('id', $orgId)
+            ->whereNull('removed_at')
+            ->first();
+        
+        // Get organization profile
+        $profile = \DB::table('organization_profiles')
+            ->where('organization_id', $orgId)
+            ->first();
+        
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'organization_name' => $organization->name ?? '',
+                'profile' => $profile ? (array) $profile : []
+            ]
+        ]);
+    }
+
+    /**
+     * Save billing data for the organization
+     */
+    public function saveBillingData(Request $request)
+    {
+        $orgId = (int) $request->session()->get('org_id');
+        
+        // Validate input
+        $request->validate([
+            'company_name' => 'required|string|max:255',
+            'tax_number' => 'required|string|max:191',
+            'eu_vat_number' => 'nullable|string|max:32',
+            'country_code' => 'required|string|size:2',
+            'postal_code' => 'nullable|string|max:16',
+            'city' => 'nullable|string|max:64',
+            'region' => 'nullable|string|max:64',
+            'street' => 'nullable|string|max:128',
+            'house_number' => 'nullable|string|max:32',
+            'phone' => 'nullable|string|max:32',
+        ]);
+        
+        try {
+            \DB::beginTransaction();
+            
+            // Update organization name
+            \DB::table('organization')
+                ->where('id', $orgId)
+                ->update([
+                    'name' => $request->company_name,
+                    'updated_at' => now()
+                ]);
+            
+            // Check if profile exists
+            $profileExists = \DB::table('organization_profiles')
+                ->where('organization_id', $orgId)
+                ->exists();
+            
+            $profileData = [
+                'tax_number' => $request->tax_number,
+                'eu_vat_number' => $request->eu_vat_number,
+                'country_code' => $request->country_code,
+                'postal_code' => $request->postal_code,
+                'city' => $request->city,
+                'region' => $request->region,
+                'street' => $request->street,
+                'house_number' => $request->house_number,
+                'phone' => $request->phone,
+                'updated_at' => now()
+            ];
+            
+            if ($profileExists) {
+                // Update existing profile
+                \DB::table('organization_profiles')
+                    ->where('organization_id', $orgId)
+                    ->update($profileData);
+            } else {
+                // Create new profile
+                $profileData['organization_id'] = $orgId;
+                $profileData['created_at'] = now();
+                \DB::table('organization_profiles')->insert($profileData);
+            }
+            
+            \DB::commit();
+            
+            \Log::info('billing.data.saved', [
+                'org_id' => $orgId,
+                'company_name' => $request->company_name
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => __('payment.billing_data.save_success')
+            ]);
+            
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+            
+            \Log::error('billing.data.save.error', [
+                'org_id' => $orgId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => __('payment.billing_data.save_error')
+            ], 500);
+        }
+    }
 }

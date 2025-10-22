@@ -9,9 +9,15 @@ use App\Models\UserWage;
 use App\Services\OrgConfigService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Services\AssessmentService;
 
 class AdminBonusesController extends Controller
 {
+    public function __construct(){
+        if(AssessmentService::isAssessmentRunning()){
+            return abort(403);
+        }
+    }
     /**
      * Main bonuses page
      */

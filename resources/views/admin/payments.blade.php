@@ -8,6 +8,9 @@
 
 {{-- Nyitott tartozások --}}
 <div class="title"><h4>{{ __('payment.sections.open') }}</h4></div>
+<button class="btn btn-outline-primary btn-sm" id="open-billing-data-modal">
+      <i class="fa fa-building"></i> {{ __('payment.billing_data.button') }}
+    </button>
   {{-- Desktop Table --}}
   <table class="table table-hover payment-table">
     <thead>
@@ -550,4 +553,8 @@
     @endforelse
   </div>
 </div>
+@endsection
+
+@section('scripts')
+@include('admin.modals.billing-data')
 @endsection
