@@ -14,6 +14,7 @@ use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Facades\Log;
 use App\Services\RecaptchaService;
 use App\Services\OrgConfigService;
+use App\Models\Enums\OrgRole;
 
 class LoginController extends Controller
 {
@@ -491,44 +492,53 @@ try {
      * - Org választás/irányítás
      */
     private function finishLogin(Request $request, User $user, ?string $avatar = null, bool $remember = false)
-    {
-        // Laravel auth + remember cookie (framework kezeli az élettartamot)
-        Auth::login($user, $remember);
+{
+    // Laravel auth + remember cookie
+    Auth::login($user, $remember);
 
-        // Alap session adatok
-        session([
-            'uid'     => $user->id,
-            'uname'   => $user->name,
-            'utype'   => $user->type,
-            'uavatar' => $avatar,
-        ]);
+    // Alap session adatok
+    session([
+        'uid'     => $user->id,
+        'uname'   => $user->name,
+        'utype'   => $user->type,
+        'uavatar' => $avatar,
+    ]);
 
-        // Login naplózása a meglévő mechanizmusoddal
-        $user->logins()->create([
-            'logged_in_at' => date('Y-m-d H:i:s'),
-            'token'        => session()->getId(),
-            'ip'           => $request->ip(),
-            'user_agent'   => substr($request->userAgent(), 0, 255),
-        ]);
+    // Login naplózása
+    $user->logins()->create([
+        'logged_in_at' => date('Y-m-d H:i:s'),
+        'token'        => session()->getId(),
+        'ip'           => $request->ip(),
+        'user_agent'   => substr($request->userAgent(), 0, 255),
+    ]);
 
-        // --- ORG kiválasztás / irányítás ---
-        // 1) SUPERADMIN → dashboard (org választó helyett)
-        if ($user->type === UserType::SUPERADMIN) {
-            session()->forget('org_id');
-            return redirect()->route('superadmin.dashboard');
-        }
-
-        // 2) Nem superadmin:
-        //    - ha pontosan 1 org tagja → automatikus org_id, mehet tovább
-        //    - különben org választó
-        $orgIds = $user->organizations()->pluck('organization.id')->toArray();
-
-        if (count($orgIds) === 1) {
-            session(['org_id' => $orgIds[0]]);
-            return redirect('home-redirect');
-        }
-
+    // SUPERADMIN → dashboard
+    if ($user->type === UserType::SUPERADMIN) {
         session()->forget('org_id');
-        return redirect()->route('org.select');
+        session()->forget('org_role'); // 🆕 NEW
+        return redirect()->route('superadmin.dashboard');
     }
+
+    // Nem superadmin: org választás
+    $orgIds = $user->organizations()->pluck('organization.id')->toArray();
+
+    if (count($orgIds) === 1) {
+        $orgId = $orgIds[0];
+        session(['org_id' => $orgId]);
+        
+        // 🆕 SET ORG ROLE - NEW CODE
+        $orgRole = DB::table('organization_user')
+            ->where('organization_id', $orgId)
+            ->where('user_id', $user->id)
+            ->value('role');
+        
+        session(['org_role' => $orgRole ?? OrgRole::EMPLOYEE]);
+        
+        return redirect('home-redirect');
+    }
+
+    session()->forget('org_id');
+    session()->forget('org_role'); // 🆕 NEW
+    return redirect()->route('org.select');
+}
 }

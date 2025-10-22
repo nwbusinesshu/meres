@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use App\Models\User;
 use Illuminate\Validation\Rules\Password;
+use App\Models\Enums\OrgRole;
 
 class PasswordSetupController extends Controller
 {
@@ -106,6 +107,13 @@ class PasswordSetupController extends Controller
             'uavatar' => null,
             'org_id'  => $organization->id,
         ]);
+
+        $orgRole = DB::table('organization_user')
+            ->where('organization_id', $organization->id)
+            ->where('user_id', $user->id)
+            ->value('role');
+
+        session(['org_role' => $orgRole ?? OrgRole::EMPLOYEE]);
 
         // Login log
         try {

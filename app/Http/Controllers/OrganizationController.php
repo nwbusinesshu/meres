@@ -8,6 +8,8 @@ use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Enums\OrgRole;
+use Illuminate\Support\Facades\DB;
 
 
 class OrganizationController extends Controller
@@ -53,10 +55,11 @@ public function switch(Request $request)
     // Szuperadmin bárhová válthat
     if ($user->type === UserType::SUPERADMIN) {
         session()->put('org_id', $orgId);
+        session()->put('org_role', OrgRole::ADMIN); // 🆕 NEW
         return to_route('home-redirect')->with('info', 'Szervezet kiválasztva.');
     }
 
-    // Tag-e a felhasználó az adott szervezetben?
+    // Tag-e a felhasználó?
     $hasAccess = $user->organizations()
         ->where('organization.id', $orgId)
         ->exists();
@@ -67,6 +70,14 @@ public function switch(Request $request)
     }
 
     session()->put('org_id', $orgId);
+    
+    // 🆕 SET ORG ROLE - NEW CODE
+    $orgRole = DB::table('organization_user')
+        ->where('organization_id', $orgId)
+        ->where('user_id', $user->id)
+        ->value('role');
+    
+    session()->put('org_role', $orgRole ?? OrgRole::EMPLOYEE);
 
     return to_route('home-redirect')->with('info', 'Szervezet kiválasztva.');
 }

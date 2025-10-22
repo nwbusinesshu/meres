@@ -169,4 +169,92 @@ class User extends Authenticatable
             "month" => $month
         ]);
     }
+
+    public function getRoleInOrg(int $orgId): ?string
+{
+    return \App\Services\RoleHelper::getUserRole($this->id, $orgId);
+}
+
+/**
+ * Get user's role in current session organization
+ */
+public function getCurrentRole(): ?string
+{
+    return \App\Services\RoleHelper::getCurrentRole($this->id);
+}
+
+/**
+ * Check if user has a specific role in organization
+ */
+public function hasRoleInOrg(int $orgId, string $role, bool $strict = false): bool
+{
+    return \App\Services\RoleHelper::hasRole($this->id, $orgId, $role, $strict);
+}
+
+/**
+ * Check if user is admin in organization
+ */
+public function isAdminInOrg(int $orgId): bool
+{
+    return $this->getRoleInOrg($orgId) === \App\Models\Enums\OrgRole::ADMIN;
+}
+
+/**
+ * Check if user is CEO in organization
+ */
+public function isCeoInOrg(int $orgId): bool
+{
+    return $this->getRoleInOrg($orgId) === \App\Models\Enums\OrgRole::CEO;
+}
+
+/**
+ * Check if user is Manager in organization
+ */
+public function isManagerInOrg(int $orgId): bool
+{
+    return $this->getRoleInOrg($orgId) === \App\Models\Enums\OrgRole::MANAGER;
+}
+
+/**
+ * Check if user is admin in current session organization
+ */
+public function isCurrentAdmin(): bool
+{
+    $orgId = session('org_id');
+    return $orgId ? $this->isAdminInOrg($orgId) : false;
+}
+
+/**
+ * Check if user is CEO in current session organization
+ */
+public function isCurrentCeo(): bool
+{
+    $orgId = session('org_id');
+    return $orgId ? $this->isCeoInOrg($orgId) : false;
+}
+
+/**
+ * Check if user is Manager in current session organization
+ */
+public function isCurrentManager(): bool
+{
+    $orgId = session('org_id');
+    return $orgId ? $this->isManagerInOrg($orgId) : false;
+}
+
+/**
+ * Get all roles this user has across all organizations
+ */
+public function getAllRoles(): array
+{
+    return \App\Services\RoleHelper::getAllUserRoles($this->id);
+}
+
+/**
+ * Check if user can manage another user in organization
+ */
+public function canManage(User $targetUser, int $orgId): bool
+{
+    return \App\Services\RoleHelper::canManage($this->id, $targetUser->id, $orgId);
+}
 }
