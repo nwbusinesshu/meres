@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use App\Models\Enums\OrgRole;
 
 class SnapshotService
 {
@@ -214,9 +215,9 @@ foreach ($bonusMalusRows as $bm) {
         'login_mode'     => $u->password ? 'password' : 'passwordless',
         'competencies'   => $userCompMap[$uid] ?? [],
         // Menedzseri státusz (multi-manager térképből számolva korábban)
-        'is_manager'     => isset($managerIdSet[$uid]),
+        'is_manager' => ($u->role === OrgRole::MANAGER),
         // CEO flag a globális user_type alapján
-        'is_ceo'         => ($u->type === 'ceo'),
+        'is_ceo' => ($u->role === OrgRole::CEO),
         // Bonus-Malus legfrissebb rekord (ha van)
         'bonus_malus'    => $bonusMalusMap[$uid] ?? null,
         ];

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
 use App\Models\User;
+use App\Models\Enums\OrgRole; 
 
 class UserImportService
 {
@@ -23,7 +24,7 @@ class UserImportService
             ->join('user as u', 'u.id', '=', 'ou.user_id')
             ->where('ou.organization_id', $orgId)
             ->whereNull('u.removed_at')
-            ->whereNotIn('u.type', ['admin'])
+            ->where('ou.role', '!=', OrgRole::ADMIN)
             ->count();
         
         $hasClosedAssessment = DB::table('assessment')

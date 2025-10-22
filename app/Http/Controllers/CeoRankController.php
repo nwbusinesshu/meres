@@ -10,6 +10,8 @@ use App\Services\AssessmentService;
 use App\Services\OrgConfigService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Enums\OrgRole;
+use App\Services\RoleHelper; 
 
 class CeoRankController extends Controller
 {
@@ -29,7 +31,7 @@ class CeoRankController extends Controller
 
         $orgId   = (int) $assessment->organization_id;
         $userId  = (int) session('uid');
-        $utype   = (string) session('utype'); // App\Models\Enums\UserType
+        $orgRole = (string) session('org_role');
         $multiOn = OrgConfigService::getBool($orgId, 'enable_multi_level', false);
 
         // Get current locale for translations
@@ -49,7 +51,7 @@ class CeoRankController extends Controller
         }
 
         // Célcsoport (kit lehet rangsorolni)
-        [$employees, $totalCount] = $this->getAllowedTargets($orgId, $userId, $utype, $multiOn);
+        [$employees, $totalCount] = $this->getAllowedTargets($orgId, $userId, $orgRole, $multiOn);
 
         // Min/Max abszolút értékek számítása (frontend ezt várja: calcMin/calcMax)
         $employeesCount = $totalCount;
@@ -101,7 +103,7 @@ class CeoRankController extends Controller
 
         $orgId   = (int) $assessment->organization_id;
         $userId  = (int) session('uid');
-        $utype   = (string) session('utype');
+        $orgRole = (string) session('org_role');
         $multiOn = OrgConfigService::getBool($orgId, 'enable_multi_level', false);
 
         $payload = $request->input('ranks', []);
@@ -110,7 +112,7 @@ class CeoRankController extends Controller
         }
 
         // Engedélyezett célfelhasználók meghatározása (biztonsági guard)
-        [$allowedUsers, $totalCount] = $this->getAllowedTargets($orgId, $userId, $utype, $multiOn, wantIds: true);
+        [$allowedUsers, $totalCount] = $this->getAllowedTargets($orgId, $userId, $orgRole, $multiOn, wantIds: true);
         $allowedIds = collect($allowedUsers)->map(fn ($u) => (int) (is_array($u) ? $u['id'] : $u->id))->all();
 
         // Rank id -> rank adatok
@@ -199,14 +201,20 @@ class CeoRankController extends Controller
      * @return array [\Illuminate\Support\Collection $users, int $totalCount]
      *               ha wantIds=true: [array $usersAsArraysWithId, int $totalCount]
      */
-    private function getAllowedTargets(int $orgId, int $raterUserId, string $utype, bool $multiOn, bool $wantIds = false): array
+    private function getAllowedTargets(int $orgId, int $raterUserId, string $orgRole, bool $multiOn, bool $wantIds = false): array
     {
         // Multi-level OFF: csak CEO, minden normal user
         if (!$multiOn) {
-            if ($utype !== UserType::CEO) {
+            if ($orgRole !== OrgRole::CEO) {
                 abort(403, 'A rangsor oldalhoz nincs jogosultság.');
             }
-            $users = User::where('type', UserType::NORMAL)
+            $userIds = DB::table('organization_user')
+                ->where('organization_id', $orgId)
+                ->where('role', '!=', OrgRole::ADMIN)
+                ->pluck('user_id')
+                ->all();
+
+            $users = User::whereIn('id', $userIds)
                 ->whereNull('removed_at')
                 ->orderBy('name')
                 ->get(['id', 'name']);
@@ -214,7 +222,7 @@ class CeoRankController extends Controller
         }
 
         // Multi-level ON
-        if ($utype === UserType::CEO) {
+        if ($orgRole === OrgRole::CEO) {
             // CEO: managerek + részleg nélküli dolgozók
             $managerIds = DB::table('organization_user')
                 ->where('organization_id', $orgId)
@@ -226,6 +234,7 @@ class CeoRankController extends Controller
                 ->where('organization_id', $orgId)
                 ->whereNull('department_id')
                 ->where('role', '!=', 'manager')
+                ->where('role', '!=', OrgRole::ADMIN)
                 ->pluck('user_id')
                 ->all();
 
@@ -237,7 +246,6 @@ class CeoRankController extends Controller
             }
 
             $users = User::whereIn('id', $targetIds)
-                ->whereIn('type', [UserType::NORMAL, UserType::MANAGER])
                 ->whereNull('removed_at')
                 ->orderBy('name')
                 ->get(['id', 'name']);
@@ -268,7 +276,6 @@ class CeoRankController extends Controller
         }
 
         $users = User::whereIn('id', $subordinateIds)
-            ->where('type', UserType::NORMAL)
             ->whereNull('removed_at')
             ->orderBy('name')
             ->get(['id', 'name']);
