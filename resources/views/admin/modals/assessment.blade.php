@@ -46,6 +46,27 @@
           </div>
         </div>
 
+        {{-- Assessment Info Block (only visible when modifying) --}}
+        <div class="assessment-info-block" style="display: none;">
+          <div class="form-group">
+            <label class="d-block mb-2">{{ __('admin/home.assessment-info-title') }}</label>
+            <div class="assessment-info-content">
+              <div class="info-row">
+                <span class="info-label">{{ __('admin/home.assessment-info-method') }}:</span>
+                <span class="info-value" id="assessment-method">—</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{{ __('admin/home.assessment-info-upper-threshold') }}:</span>
+                <span class="info-value" id="assessment-upper">—</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{{ __('admin/home.assessment-info-lower-threshold') }}:</span>
+                <span class="info-value" id="assessment-lower">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="tile tile-warning">
           <p>{!! __('admin/home.assessment-warning') !!}</p>
         </div>    
@@ -57,7 +78,8 @@
   </div>
 </div>
 
-<style> /* Radio elrejtése */
+<style> 
+/* Radio elrejtése */
   .assessment-scope__radio {
     position: absolute;
     opacity: 0;
@@ -90,6 +112,12 @@
     cursor: not-allowed;
     background: #fafafa;
   }
+  
+  /* Hover letiltása disabled opcióra */
+   .assessment-scope__option--disabled:hover {
+    border-color: #e5e7eb;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, .04);
+  }
 
   /* Kiválasztott állapot – szépen beszínezve (info kékhez igazítva) */
    #scope-org:checked + .assessment-scope__option,
@@ -112,6 +140,44 @@
     font-size: .875rem;
     color: #6c757d;
   }
+
+  /* Assessment Info Block Styling */
+  .assessment-info-block {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 0.25rem;
+  }
+
+  .assessment-info-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .assessment-info-content .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e9ecef;
+  }
+
+  .assessment-info-content .info-row:last-child {
+    border-bottom: none;
+  }
+
+  .assessment-info-content .info-label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.9rem;
+  }
+
+  .assessment-info-content .info-value {
+    color: #6c757d;
+    font-weight: 500;
+  }
 </style>
 
 <script>
@@ -120,23 +186,69 @@ function openAssessmentModal(id = 0){
   $('#assessment-modal').attr('data-id', id ?? 0);
   $('#assessment-modal .assessment-due').val("{{ date('Y-m-d', strtotime('+7 Days')) }}");
 
-  // Radio-k alaphelyzetbe
-  $('#scope-org').prop('checked', true);
+  // Radio-k alaphelyzetbe (enable for creating new assessment)
+  $('#scope-org').prop('checked', true).prop('disabled', false);
   $('#scope-depts').prop('checked', false);
+  $('label[for="scope-org"]').removeClass('assessment-scope__option--disabled');
+
+  // Hide assessment info block by default
+  $('.assessment-info-block').hide();
 
   $('#assessment-modal .tile-warning').addClass("hidden");
-  if(id==0){
+  
+  if(id == 0){
+    // Creating new assessment
     swal_loader.close();
     $('#assessment-modal .tile-warning').removeClass("hidden");
     $('#assessment-modal').modal();
-  }else{
+  } else {
+    // Modifying existing assessment - disable mode switcher and show info
+    $('#scope-org').prop('disabled', true);
+    $('label[for="scope-org"]').addClass('assessment-scope__option--disabled');
+    
     swal_loader.fire();
     $.ajax({
       url: "{{ route('admin.assessment.get') }}",
       data: { id: id },
     })
     .done(function(response){
-      $('#assessment-modal .assessment-due').val((response.due_at || '').split(' ')[0] || "{{ date('Y-m-d', strtotime('+7 Days')) }}");
+      // Set due date - handle both date formats
+      let dueDate = response.due_at || '';
+      if (dueDate) {
+        // Extract just the date part (YYYY-MM-DD)
+        dueDate = dueDate.split('T')[0].split(' ')[0];
+      }
+      $('#assessment-modal .assessment-due').val(dueDate || "{{ date('Y-m-d', strtotime('+7 Days')) }}");
+      
+      // Show and populate assessment info block
+      if (response.threshold_method) {
+        $('.assessment-info-block').show();
+        
+        // Method name translation mapping
+        const methodNames = {
+          'fixed': '{{ __("admin/settings.settings.mode.options.fixed") }}',
+          'hybrid': '{{ __("admin/settings.settings.mode.options.hybrid") }}',
+          'dynamic': '{{ __("admin/settings.settings.mode.options.dynamic") }}',
+          'suggested': '{{ __("admin/settings.settings.mode.options.suggested") }}'
+        };
+        
+        $('#assessment-method').text(methodNames[response.threshold_method] || response.threshold_method);
+        
+        // Upper threshold
+        if (response.normal_level_up !== null && response.normal_level_up !== undefined) {
+          $('#assessment-upper').text(response.normal_level_up + ' {{ __("admin/home.assessment-info-points") }}');
+        } else {
+          $('#assessment-upper').text('{{ __("admin/home.assessment-info-will-be-calculated") }}');
+        }
+        
+        // Lower threshold
+        if (response.normal_level_down !== null && response.normal_level_down !== undefined) {
+          $('#assessment-lower').text(response.normal_level_down + ' {{ __("admin/home.assessment-info-points") }}');
+        } else {
+          $('#assessment-lower').text('{{ __("admin/home.assessment-info-will-be-calculated") }}');
+        }
+      }
+      
       swal_loader.close();
       $('#assessment-modal').modal();
     })

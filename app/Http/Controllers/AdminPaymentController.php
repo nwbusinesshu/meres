@@ -537,7 +537,6 @@ class AdminPaymentController extends Controller
                 ->where('id', $orgId)
                 ->update([
                     'name' => $request->company_name,
-                    'updated_at' => now()
                 ]);
             
             // Check if profile exists

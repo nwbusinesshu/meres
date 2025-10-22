@@ -358,7 +358,7 @@ protected static function buildBaseline(int $orgId, int $assessmentId, int $targ
             if (is_array($ai) && isset($ai['trust_score']) && is_numeric($ai['trust_score'])) {
                 $ts = max(0.0, min(20.0, (float)$ai['trust_score']));
                 // kis alsó korlát, hogy 0 ne nullázza le a ratert
-                $out[(int)$r->user_id] = max(1.0, $ts);
+                $out[(int)$r->user_id] = max(0.5, $ts);
             }
         }
         return $out;
@@ -462,6 +462,66 @@ protected static function buildBaseline(int $orgId, int $assessmentId, int $targ
             'method'          => 'weighted_by_trust',
             'mean_100'        => $meanPrev,
         ];
+    }
+
+    $ownPrevUcs = DB::table('user_competency_submit')
+        ->where('assessment_id', $assessmentId)
+        ->where('user_id', $excludeUserId)  // The current rater
+        ->where('target_id', '!=', $targetId)  // Different targets
+        ->whereNotNull('telemetry_ai')
+        ->whereNotNull('submitted_at')
+        ->get(['target_id', 'telemetry_ai', 'submitted_at']);
+
+    if ($ownPrevUcs->count() >= 3) {
+        // Get current submission time to only use EARLIER submissions
+        $currentSubmitTime = DB::table('user_competency_submit')
+            ->where('assessment_id', $assessmentId)
+            ->where('user_id', $excludeUserId)
+            ->where('target_id', $targetId)
+            ->value('submitted_at');
+        
+        $earlierSubmissions = $ownPrevUcs->filter(function($row) use ($currentSubmitTime) {
+            return $currentSubmitTime === null || 
+                   strtotime($row->submitted_at) < strtotime($currentSubmitTime);
+        });
+        
+        if ($earlierSubmissions->count() >= 3) {
+            // Get average scores for those previous targets
+            $ownAvgRows = DB::table('competency_submit')
+                ->select('target_id', DB::raw('AVG(value) as avg_value'))
+                ->where('assessment_id', $assessmentId)
+                ->where('user_id', $excludeUserId)
+                ->whereIn('target_id', $earlierSubmissions->pluck('target_id'))
+                ->groupBy('target_id')
+                ->get();
+
+            $ownAvgByTarget = [];
+            foreach ($ownAvgRows as $r) {
+                $ownAvgByTarget[(int)$r->target_id] = (float)$r->avg_value;
+            }
+
+            // Extract trust scores (use trust score itself as weight for own history)
+            $ownWByTarget = [];
+            foreach ($earlierSubmissions as $row) {
+                $ai = json_decode($row->telemetry_ai ?? 'null', true);
+                if (is_array($ai) && isset($ai['trust_score']) && is_numeric($ai['trust_score'])) {
+                    $ts = max(0.0, min(20.0, (float)$ai['trust_score']));
+                    $ownWByTarget[(int)$row->target_id] = $ts;
+                }
+            }
+
+            $ownMeanW = $weightedMean($ownAvgByTarget, $ownWByTarget);
+            
+            if ($ownMeanW !== null) {
+                return [
+                    'available'       => true,
+                    'raters_total'    => $earlierSubmissions->count(),
+                    'assessment_span' => 'current_intra',
+                    'method'          => 'rater_own_history',
+                    'mean_100'        => $ownMeanW,
+                ];
+            }
+        }
     }
 
     return [
@@ -937,7 +997,11 @@ Rules:
   * If delta_mean <= -15, suspect negative deflation; combine with behavior likewise.
 - Calibrate severity by "guidance": be_kind | balanced | strict.
 - When comparing numbers, do not state ‘above/below’ incorrectly; quote both values and the correct relation.
-- Set fast_read only if reading_speed_median_100ch <= 400 OR short_read_rate >= 0.60. Otherwise, do not set fast_read and do not use one_click_fast_read.
+- Set fast_read only if reading_speed_median_100ch <= 400 OR short_read_rate >= 0.60.
+- Set one_click_fast_read ONLY if one_click_rate >= 0.95 AND (reading_speed_median_100ch > 400 OR short_read_rate < 0.60).
+  IMPORTANT: Threshold raised from 0.90 to 0.95 to reduce false positives. Many users are confident in their 
+  initial responses in assessment contexts. Reserve this flag for clear patterns of minimum engagement.
+  Examples: one_click_rate=1.0 with fast reading, or one_click_rate=0.97+ with other low-effort signals.
 - Set trust_index = clamp(round(trust_score * 5), 0, 100). Only deviate by at most ±5 points if there is overwhelming evidence; justify the deviation.
 
 Scales:

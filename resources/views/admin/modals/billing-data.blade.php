@@ -39,14 +39,33 @@
           <div class="form-group">
             <label for="country_code">{{ __('payment.billing_data.country_code') }} <span class="text-danger">*</span></label>
             <select class="form-control" id="country_code" name="country_code" required>
-              <option value="HU">{{ __('payment.billing_data.countries.HU') }}</option>
-              <option value="AT">{{ __('payment.billing_data.countries.AT') }}</option>
-              <option value="DE">{{ __('payment.billing_data.countries.DE') }}</option>
-              <option value="SK">{{ __('payment.billing_data.countries.SK') }}</option>
-              <option value="RO">{{ __('payment.billing_data.countries.RO') }}</option>
-              <option value="HR">{{ __('payment.billing_data.countries.HR') }}</option>
-              <option value="SI">{{ __('payment.billing_data.countries.SI') }}</option>
-              <option value="RS">{{ __('payment.billing_data.countries.RS') }}</option>
+              <option value="HU">{{ __('global.countries.HU') }}</option>
+              <option value="AT">{{ __('global.countries.AT') }}</option>
+              <option value="BE">{{ __('global.countries.BE') }}</option>
+              <option value="BG">{{ __('global.countries.BG') }}</option>
+              <option value="HR">{{ __('global.countries.HR') }}</option>
+              <option value="CY">{{ __('global.countries.CY') }}</option>
+              <option value="CZ">{{ __('global.countries.CZ') }}</option>
+              <option value="DK">{{ __('global.countries.DK') }}</option>
+              <option value="EE">{{ __('global.countries.EE') }}</option>
+              <option value="FI">{{ __('global.countries.FI') }}</option>
+              <option value="FR">{{ __('global.countries.FR') }}</option>
+              <option value="DE">{{ __('global.countries.DE') }}</option>
+              <option value="GR">{{ __('global.countries.GR') }}</option>
+              <option value="IE">{{ __('global.countries.IE') }}</option>
+              <option value="IT">{{ __('global.countries.IT') }}</option>
+              <option value="LV">{{ __('global.countries.LV') }}</option>
+              <option value="LT">{{ __('global.countries.LT') }}</option>
+              <option value="LU">{{ __('global.countries.LU') }}</option>
+              <option value="MT">{{ __('global.countries.MT') }}</option>
+              <option value="NL">{{ __('global.countries.NL') }}</option>
+              <option value="PL">{{ __('global.countries.PL') }}</option>
+              <option value="PT">{{ __('global.countries.PT') }}</option>
+              <option value="RO">{{ __('global.countries.RO') }}</option>
+              <option value="SK">{{ __('global.countries.SK') }}</option>
+              <option value="SI">{{ __('global.countries.SI') }}</option>
+              <option value="ES">{{ __('global.countries.ES') }}</option>
+              <option value="SE">{{ __('global.countries.SE') }}</option>
             </select>
           </div>
 

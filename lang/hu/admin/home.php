@@ -52,4 +52,11 @@
 // Error messages
 "assessment-load-error-title" => "Hiba",
 "assessment-load-error-message" => "Nem sikerült betölteni az értékelést.",
+
+"assessment-info-title" => "Értékelési időszak információk",
+"assessment-info-method" => "Pontozási módszer",
+"assessment-info-upper-threshold" => "Felső küszöb",
+"assessment-info-lower-threshold" => "Alsó küszöb",
+"assessment-info-points" => "pont",
+"assessment-info-will-be-calculated" => "Számítás alatt",
   ];

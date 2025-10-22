@@ -8,5 +8,6 @@ return [
     "colleague" => "kollégád",
     "subordinate" => "beosztottad",
     "self" => "önmagad",
+    "superior" => "felettesed",
   ]
 ];

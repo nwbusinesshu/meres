@@ -21,7 +21,7 @@ class Kernel extends ConsoleKernel
             UserService::handleNewMonthLevels();
         })->monthly();
         
-        // NEW: Clean up old webhook events daily at 3 AM
+        // Clean up old webhook events daily at 3 AM
         $schedule->command('webhook:cleanup --days=30')
             ->dailyAt('03:00')
             ->onSuccess(function () {
@@ -32,7 +32,18 @@ class Kernel extends ConsoleKernel
             });
 
         // Clean up expired login attempts daily
-            $schedule->command('login-attempts:cleanup')->daily();
+        $schedule->command('login-attempts:cleanup')->daily();
+
+        // ✅ NEW: Retry failed AI telemetry processing every hour
+        $schedule->command('telemetry:retry-failed --limit=100')
+            ->hourly()
+            ->withoutOverlapping(10) // Prevent overlapping runs, 10 min expiry
+            ->onSuccess(function () {
+                \Log::info('telemetry.retry.scheduled.success');
+            })
+            ->onFailure(function () {
+                \Log::error('telemetry.retry.scheduled.failed');
+            });
     }
 
     /**

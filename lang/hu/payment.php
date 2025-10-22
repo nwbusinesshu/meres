@@ -41,6 +41,26 @@ return [
         'settled' => 'Nincs korábban rendezett tétel.',
     ],
 
+    'billing_data' => [
+        'title'              => 'Számlázási adatok',
+        'button'             => 'Számlázási adatok',
+        'company_name'       => 'Cégnév',
+        'tax_number'         => 'Adószám',
+        'tax_number_hint'    => 'Pl.: 12345678-1-23',
+        'eu_vat_number'      => 'EU ÁFA szám',
+        'eu_vat_hint'        => 'Opcionális, pl.: HU12345678',
+        'country_code'       => 'Ország',
+        'postal_code'        => 'Irányítószám',
+        'city'               => 'Város',
+        'region'             => 'Megye/Régió',
+        'street'             => 'Utca',
+        'house_number'       => 'Házszám',
+        'phone'              => 'Telefonszám',
+        'load_error'         => 'A számlázási adatok betöltése sikertelen.',
+        'save_success'       => 'Számlázási adatok sikeresen mentve.',
+        'save_error'         => 'A számlázási adatok mentése sikertelen.',
+    ],
+
     'swal' => [
         'paid_title'   => 'Sikeres fizetés',
         'paid_text'    => 'A fizetés rendezve, a számla kiállítva.',

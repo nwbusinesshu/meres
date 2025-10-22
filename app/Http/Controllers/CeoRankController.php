@@ -203,7 +203,7 @@ class CeoRankController extends Controller
      */
     private function getAllowedTargets(int $orgId, int $raterUserId, string $orgRole, bool $multiOn, bool $wantIds = false): array
     {
-        // Multi-level OFF: csak CEO, minden normal user
+        // ✅ FIXED: Multi-level OFF - Exclude both CEO and ADMIN roles
         if (!$multiOn) {
             if ($orgRole !== OrgRole::CEO) {
                 abort(403, 'A rangsor oldalhoz nincs jogosultság.');
@@ -211,6 +211,7 @@ class CeoRankController extends Controller
             $userIds = DB::table('organization_user')
                 ->where('organization_id', $orgId)
                 ->where('role', '!=', OrgRole::ADMIN)
+                ->where('role', '!=', OrgRole::CEO)  // ✅ ADDED: Exclude CEO
                 ->pluck('user_id')
                 ->all();
 
@@ -221,20 +222,22 @@ class CeoRankController extends Controller
             return [$wantIds ? $users->map(fn($u) => ['id' => (int)$u->id])->all() : $users, $users->count()];
         }
 
-        // Multi-level ON
+        // ✅ FIXED: Multi-level ON - CEO ranks managers + unassigned employees
         if ($orgRole === OrgRole::CEO) {
-            // CEO: managerek + részleg nélküli dolgozók
+            // Get all managers (who have departments assigned)
             $managerIds = DB::table('organization_user')
                 ->where('organization_id', $orgId)
-                ->where('role', 'manager')
+                ->where('role', OrgRole::MANAGER)
                 ->pluck('user_id')
                 ->all();
 
+            // ✅ FIXED: Get unassigned users, excluding CEO, ADMIN, and MANAGER roles
             $unassignedIds = DB::table('organization_user')
                 ->where('organization_id', $orgId)
                 ->whereNull('department_id')
-                ->where('role', '!=', 'manager')
-                ->where('role', '!=', OrgRole::ADMIN)
+                ->where('role', '!=', OrgRole::MANAGER)  // ✅ Keep existing
+                ->where('role', '!=', OrgRole::ADMIN)    // ✅ Keep existing
+                ->where('role', '!=', OrgRole::CEO)      // ✅ ADDED: Exclude CEO
                 ->pluck('user_id')
                 ->all();
 
@@ -253,6 +256,7 @@ class CeoRankController extends Controller
             return [$wantIds ? $users->map(fn($u) => ['id' => (int)$u->id])->all() : $users, $users->count()];
         }
 
+        // ✅ FIXED: Multi-level ON - Manager ranks their department employees only
         // Manager: csak a saját részlege(i) beosztottjai
         $deptIds = DB::table('organization_department_managers')
             ->where('organization_id', $orgId)
@@ -264,10 +268,13 @@ class CeoRankController extends Controller
             abort(403, 'Nincs hozzárendelt részleg.');
         }
 
+        // ✅ FIXED: Exclude CEO, ADMIN, and MANAGER roles from subordinates
         $subordinateIds = DB::table('organization_user')
             ->where('organization_id', $orgId)
             ->whereIn('department_id', $deptIds)
-            ->where('role', '!=', 'manager')
+            ->where('role', '!=', OrgRole::MANAGER)  // ✅ Keep existing
+            ->where('role', '!=', OrgRole::ADMIN)    // ✅ ADDED: Exclude ADMIN
+            ->where('role', '!=', OrgRole::CEO)      // ✅ ADDED: Exclude CEO
             ->pluck('user_id')
             ->all();
 
