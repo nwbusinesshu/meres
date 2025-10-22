@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\User;
 use App\Models\UserRelation;
 use App\Models\Enums\UserRelationType;
+use App\Models\Enums\OrgRole;  // ✅ ADDED
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -13,7 +14,10 @@ class EmployeeCreationService
     /**
      * Create a new employee with all required setup
      * 
+     * ✅ FIXED: Now properly handles user.type vs organization_user.role
+     * 
      * @param array $data Employee data (name, email, type, position, wage, currency)
+     *                    Note: 'type' parameter is actually the org role (admin/manager/ceo/employee)
      * @param int $orgId Organization ID
      * @return User Created user
      * @throws \Exception
@@ -23,10 +27,15 @@ class EmployeeCreationService
         // Normalize data
         $email = strtolower(trim($data['email']));
         $name = trim($data['name']);
-        $type = strtolower(trim($data['type']));
+        $role = strtolower(trim($data['type']));  // ✅ RENAMED: This is the ORG ROLE, not user type!
         $position = isset($data['position']) ? trim($data['position']) : null;
         $wage = isset($data['wage']) ? (float) $data['wage'] : null;
         $currency = isset($data['currency']) ? strtoupper(trim($data['currency'])) : 'HUF';
+        
+        // Validate role
+        if (!OrgRole::isValid($role)) {
+            throw new \Exception("Invalid role: {$role}");
+        }
         
         // Double-check email doesn't exist
         $existingUser = User::where('email', $email)
@@ -37,34 +46,41 @@ class EmployeeCreationService
             throw new \Exception("Email already exists: {$email}");
         }
         
-        // 1) Create User
+        // ✅ FIX #1: Create User with type='normal' ALWAYS
+        // user.type should only be 'superadmin', 'normal', or 'guest'
         $user = User::create([
             'name' => $name,
             'email' => $email,
-            'type' => $type,
+            'type' => 'normal',  // ✅ FIXED: Always 'normal' for org members
             'has_auto_level_up' => 0, // deprecated field but required
         ]);
         
         Log::info('employee.create.user', [
             'user_id' => $user->id,
             'email' => $email,
-            'org_id' => $orgId
+            'org_id' => $orgId,
+            'user_type' => 'normal',
+            'org_role' => $role
         ]);
         
-        // 2) Attach to organization (use syncWithoutDetaching for idempotency like old code)
+        // 2) Attach to organization (use syncWithoutDetaching for idempotency)
         $user->organizations()->syncWithoutDetaching([$orgId]);
         
-        // 3) Set position in organization_user (use updateOrInsert like old code)
+        // ✅ FIX #2: Set BOTH position AND role in organization_user
         $positionValue = ($position && $position !== '') ? $position : null;
         DB::table('organization_user')->updateOrInsert(
             ['organization_id' => $orgId, 'user_id' => $user->id],
-            ['position' => $positionValue]
+            [
+                'position' => $positionValue,
+                'role' => $role  // ✅ ADDED: Set the org-specific role here!
+            ]
         );
         
         Log::info('employee.create.org_attached', [
             'user_id' => $user->id,
             'org_id' => $orgId,
-            'position' => $position
+            'position' => $position,
+            'role' => $role  // ✅ ADDED: Log the role
         ]);
         
         // 4) Create SELF relation (CRITICAL - required for system)
@@ -91,14 +107,14 @@ class EmployeeCreationService
                 'organization_id' => $orgId,
             ],
             [
-                'level' => UserService::DEFAULT_BM,
+                'level' => \App\Services\UserService::DEFAULT_BM,
             ]
         );
         
         Log::info('employee.create.bonus_malus', [
             'user_id' => $user->id,
             'org_id' => $orgId,
-            'level' => UserService::DEFAULT_BM
+            'level' => \App\Services\UserService::DEFAULT_BM
         ]);
         
         // 6) Set wage if provided
@@ -130,11 +146,12 @@ class EmployeeCreationService
      * @param User $user
      * @param int $orgId
      * @param int $departmentId
-     * @param string $type User type (normal/manager/ceo)
+     * @param string $role User role (employee/manager/ceo) - ✅ RENAMED from $type
      */
-    public static function assignToDepartment(User $user, int $orgId, int $departmentId, string $type): void
+    public static function assignToDepartment(User $user, int $orgId, int $departmentId, string $role): void
     {
-        if ($type === 'normal') {
+        // ✅ UPDATED: Check role instead of type
+        if ($role === OrgRole::EMPLOYEE || $role === 'normal') {
             // BUGFIX: Get current position to preserve it
             $currentData = DB::table('organization_user')
                 ->where('organization_id', $orgId)
@@ -160,7 +177,7 @@ class EmployeeCreationService
                 'position_preserved' => $currentPosition
             ]);
             
-        } elseif ($type === 'manager') {
+        } elseif ($role === OrgRole::MANAGER || $role === 'manager') {
             // Manager = department manager (not member)
             DB::table('organization_department_managers')->insert([
                 'organization_id' => $orgId,
@@ -175,7 +192,7 @@ class EmployeeCreationService
                 'org_id' => $orgId
             ]);
         }
-        // CEO type ignores departments
+        // CEO role ignores departments
     }
     
     /**

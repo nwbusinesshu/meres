@@ -444,7 +444,6 @@ private function getRaterCounts($userIds, $orgId)
         abort(403, 'User does not belong to your organization');
     }
 
-    // Rest of the method remains unchanged...
     $isDeptManager = DB::table('organization_department_managers as odm')
         ->join('organization_departments as d', 'd.id', '=', 'odm.department_id')
         ->where('d.organization_id', $orgId)
@@ -462,11 +461,16 @@ private function getRaterCounts($userIds, $orgId)
         ->where('user_id', $u->id)
         ->value('position');
 
+    $orgRole = DB::table('organization_user')
+        ->where('organization_id', $orgId)
+        ->where('user_id', $u->id)
+        ->value('role');
+
     return response()->json([
         'id'                => $u->id,
         'name'              => $u->name,
         'email'             => $u->email,
-        'type'              => $u->type,
+        'type'              => $orgRole ?? OrgRole::EMPLOYEE,
         'has_auto_level_up' => (int) $u->has_auto_level_up,
         'is_dept_manager'   => (bool) $isDeptManager,
         'is_in_department'  => !is_null($deptId),
@@ -531,10 +535,23 @@ private function getRaterCounts($userIds, $orgId)
         }
     }
 
+
+
     // Type change protection (only for UPDATE mode)
     if ($user) {
-        $currentType = $user->type;
-        $requestedType = $request->type;
+        $currentRole = DB::table('organization_user')
+            ->where('organization_id', $orgId)
+            ->where('user_id', $user->id)
+            ->value('role');
+        
+        $requestedRole = $request->type;
+
+        if ($requestedRole === OrgRole::ADMIN) {
+            return response()->json([
+        'message' => 'Can not make new admins. Contact us.',
+        'errors'  => ['type' => ['Can not make new admins. Contact us.']]
+    ], 422);
+}
 
         // Check department relationships
         $isDeptManager = DB::table('organization_department_managers as odm')
@@ -550,19 +567,17 @@ private function getRaterCounts($userIds, $orgId)
             ->whereNotNull('department_id')
             ->exists();
 
-        // Rule 1: If manager with department assignment, cannot change type
-        if ($currentType === 'manager' && ($isDeptManager || $hasDept) && $requestedType !== 'manager') {
+        if ($currentRole === OrgRole::MANAGER && ($isDeptManager || $hasDept) && $requestedRole !== OrgRole::MANAGER) {
             return response()->json([
-                'message' => 'A felhasználó menedzser és részleghez van rendelve; a típus nem módosítható.',
-                'errors'  => ['type' => ['A felhasználó menedzser és részleghez van rendelve; a típus nem módosítható.']]
+                'message' => 'A felhasználó menedzser és részleghez van rendelve; a szerepkör nem módosítható.',
+                'errors'  => ['type' => ['A felhasználó menedzser és részleghez van rendelve; a szerepkör nem módosítható.']]
             ], 422);
         }
 
-        // Rule 2: If department member and normal type, cannot change type
-        if ($hasDept && $currentType === 'normal' && $requestedType !== 'normal') {
+        if ($hasDept && $currentRole === OrgRole::EMPLOYEE && $requestedRole !== OrgRole::EMPLOYEE) {
             return response()->json([
-                'message' => 'Ez a dolgozó már tagja egy részlegnek, ezért a típus nem módosítható.',
-                'errors'  => ['type' => ['Ez a dolgozó már tagja egy részlegnek, ezért a típus nem módosítható.']]
+                'message' => 'Ez a dolgozó már tagja egy részlegnek, ezért a szerepkör nem módosítható.',
+                'errors'  => ['type' => ['Ez a dolgozó már tagja egy részlegnek, ezért a szerepkör nem módosítható.']]
             ], 422);
         }
     }
@@ -601,8 +616,7 @@ private function getRaterCounts($userIds, $orgId)
             } else {
                 $user->name = $request->name;
                 $user->email = $request->email;
-                $user->type = $request->type;
-                $user->save();
+                $user->save();  // ✅ FIXED: Don't touch user.type!
 
                 Log::info('employee.save.step_ok', ['step' => 'update_user', 'user_id' => $user->id]);
 
@@ -610,12 +624,22 @@ private function getRaterCounts($userIds, $orgId)
                 $user->organizations()->syncWithoutDetaching([$orgId]);
                 Log::info('employee.save.step_ok', ['step' => 'attach_org', 'user_id' => $user->id, 'org_id' => $orgId]);
 
-                // Update position
+                // ✅ FIX: Update BOTH position AND role in organization_user
                 $position = trim((string) $request->input('position', ''));
                 DB::table('organization_user')->updateOrInsert(
                     ['organization_id' => $orgId, 'user_id' => $user->id],
-                    ['position' => ($position !== '' ? $position : null)]
+                    [
+                        'position' => ($position !== '' ? $position : null),
+                        'role' => $request->type  // ✅ ADDED: Update org role here!
+                    ]
                 );
+                
+                Log::info('employee.save.step_ok', [
+                    'step' => 'update_role', 
+                    'user_id' => $user->id,
+                    'org_id' => $orgId,
+                    'new_role' => $request->type  // ✅ ADDED: Log role change
+                ]);
 
                 // Ensure SELF relation exists (idempotent)
                 UserRelation::updateOrCreate(

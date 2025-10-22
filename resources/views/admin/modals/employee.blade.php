@@ -23,26 +23,30 @@
         </div>
         @php
         use Illuminate\Support\Facades\Auth;
-  use App\Models\Enums\UserType;
-  use App\Services\AssessmentService;
-   $user = Auth::user();
-  $orgId = session('org_id');
-  $isSuperadmin = $user && $user->type === UserType::SUPERADMIN;
-  $hasOrg = session()->has('org_id');
-          $enableMultiLevel = \App\Services\OrgConfigService::getBool((int)session('org_id'), 'enable_multi_level', false);
-          $showBonuses = false;
-if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
-  $showBonusMalus = \App\Services\OrgConfigService::getBool((int)$orgId, 'show_bonus_malus', true);
-  $enableBonusCalculation = \App\Services\OrgConfigService::getBool((int)$orgId, 'enable_bonus_calculation', false);
-  $showBonuses = $showBonusMalus && $enableBonusCalculation; // ✅ Both must be ON
-}
+        use App\Models\Enums\OrgRole;  // ✅ CHANGED: Use OrgRole instead of UserType
+        use App\Services\AssessmentService;
+        $user = Auth::user();
+        $orgId = session('org_id');
+        $orgRole = session('org_role');  // ✅ ADDED: Get org role from session
+        $isSuperadmin = $user && $user->type === 'superadmin';  // ✅ FIXED: Direct string check
+        $isAdmin = $orgRole === OrgRole::ADMIN;  // ✅ ADDED: Check if current user is admin
+        $hasOrg = session()->has('org_id');
+        $enableMultiLevel = \App\Services\OrgConfigService::getBool((int)session('org_id'), 'enable_multi_level', false);
+        $showBonuses = false;
+        if ($isAdmin && $orgId) {  // ✅ CHANGED: Use $isAdmin instead of MyAuth
+            $showBonusMalus = \App\Services\OrgConfigService::getBool((int)$orgId, 'show_bonus_malus', true);
+            $enableBonusCalculation = \App\Services\OrgConfigService::getBool((int)$orgId, 'enable_bonus_calculation', false);
+            $showBonuses = $showBonusMalus && $enableBonusCalculation;
+        }
         @endphp
 
         <div class="form-row" data-enable-multi="{{ $enableMultiLevel ? '1' : '0' }}">
           <div class="form-group">
             <label>{{ __('global.type') }}</label>
             <select class="form-control type">
-              <option value="normal">{{ __('usertypes.normal') }}</option>
+              {{-- ✅ FIXED: Changed "normal" to "employee" to match OrgRole enum --}}
+              <option value="employee">{{ __('usertypes.normal') }}</option>
+              {{-- ✅ ADDED: Admin option (only visible to admins) --}}
               @if($enableMultiLevel)
                 <option value="manager">{{ __('usertypes.manager') }}</option>
               @endif
@@ -125,7 +129,8 @@ if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
     // Alap: minden szabad; aztán ráhúzzuk a tiltást a szabályok szerint
     clearTypeLocks();
 
-    // 1) Ha részlegvezető (és type=manager): teljes tiltás
+    // ✅ UPDATED: Check for 'manager' role instead of 'manager' type
+    // 1) Ha részlegvezető (és role=manager): teljes tiltás
     if (response.is_dept_manager && response.type === 'manager') {
       $type.val('manager');
       $type.prop('disabled', true);
@@ -135,10 +140,11 @@ if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
       return; // a teljes tiltás mindent lefed
     }
 
-    // 2) Ha részlegtag és normal: teljes tiltás (kért módosítás)
-    if (response.is_in_department && response.type === 'normal') {
-      // biztos ami biztos: normalra állítjuk és lezárjuk
-      $type.val('normal');
+    // ✅ UPDATED: Check for 'employee' role instead of 'normal' type
+    // 2) Ha részlegtag és employee: teljes tiltás
+    if (response.is_in_department && response.type === 'employee') {
+      // biztos ami biztos: employee-re állítjuk és lezárjuk
+      $type.val('employee');
       $type.prop('disabled', true);
       $hint
         .text('{{ __('admin/employees.type-locked-dept-member') }}')
@@ -162,11 +168,10 @@ if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
 
       $('#employee-modal .name').val('');
       $('#employee-modal .email').val('').prop('readonly', false);
-      $('#employee-modal .type').val('normal');
+      $('#employee-modal .type').val('employee');  // ✅ CHANGED: Default to 'employee' instead of 'normal'
       $('#employee-modal .auto-level-up').prop('checked', false);
       $('#employee-modal .position').val('');
       
-      // ✅ FIX: Use correct ID selectors
       $('#employee-modal #user-wage').val('');
       $('#employee-modal #user-currency').val('HUF');
 
@@ -191,7 +196,10 @@ if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
       .done(function(response){
         $('#employee-modal .name').val(response.name);
         $('#employee-modal .email').val(response.email).prop('readonly', true);
+        
+        // ✅ FIXED: response.type now returns OrgRole values ('employee', 'admin', 'manager', 'ceo')
         $('#employee-modal .type').val(response.type);
+        
         $('#employee-modal .auto-level-up').prop('checked', response.has_auto_level_up == 1);
         $('#employee-modal .position').val(response.position || '');
 
@@ -206,7 +214,6 @@ if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
         })
         .done(function(wageResponse){
           if (wageResponse.ok && wageResponse.wage) {
-            // ✅ FIX: Use correct ID selectors
             $('#employee-modal #user-wage').val(wageResponse.wage.net_wage);
             $('#employee-modal #user-currency').val(wageResponse.wage.currency);
           } else {
@@ -235,8 +242,6 @@ if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
 
   // -- Mentés gomb ------------------------------------------------------------
 
-  // Replace the entire $('.trigger-submit').click(function() block in employee.blade.php
-
 $(document).ready(function(){
   $('.trigger-submit').click(function(){
     const uid = $('#employee-modal').attr('data-id');
@@ -257,7 +262,7 @@ $(document).ready(function(){
             id: uid,
             name:  $('#employee-modal .name').val(),
             email: $('#employee-modal .email').val(),
-            type:  $('#employee-modal .type').val(),
+            type:  $('#employee-modal .type').val(),  // ✅ Now sends OrgRole values
             position: $('#employee-modal .position').val(),
             autoLevelUp:  $('#employee-modal .auto-level-up').is(':checked') ? 1 : 0,
             _token: "{{ csrf_token() }}"
@@ -286,7 +291,6 @@ $(document).ready(function(){
                 currency: currency,
                 _token: "{{ csrf_token() }}"
               },
-              // ✅ STANDARDIZED: Close modal in success callback, use successMessage
               success: function(wageResponse){
                 console.log('✅ Wage saved successfully:', wageResponse);
                 $('#employee-modal').modal('hide');
@@ -312,10 +316,10 @@ $(document).ready(function(){
               }
             });
           } else {
-            // ✅ STANDARDIZED: No wage - close modal and use successMessage
+            // No wage - close modal and reload
             $('#employee-modal').modal('hide');
             
-            // Manually trigger reload with session flash since we need to do it here
+            // Manually trigger reload with session flash
             sessionStorage.setItem('employee_save_toast', uid && parseInt(uid) > 0
               ? '{{ __('admin/employees.modify-employee-success') }}'
               : '{{ __('admin/employees.new-employee-success') }}');
@@ -334,7 +338,7 @@ $(document).ready(function(){
   });
 });
 
-// Add this at the end of the script section to show toast after reload
+// Show toast after reload
 $(document).ready(function(){
   const toastMsg = sessionStorage.getItem('employee_save_toast');
   if (toastMsg) {
