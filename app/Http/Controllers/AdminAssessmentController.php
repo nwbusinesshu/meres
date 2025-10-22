@@ -146,9 +146,6 @@ class AdminAssessmentController extends Controller
                 $employeeCount = User::query()
                     ->whereIn('id', $userIds)
                     ->whereNull('removed_at')
-                    ->where(function ($q) {
-                        $q->whereNull('type')->orWhere('type', '!=', 'admin');
-                    })
                     ->count();
 
                 // Check if there are any closed assessments for this organization

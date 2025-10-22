@@ -158,7 +158,7 @@ class RegistrationController extends Controller
                 'created_at' => now(),
             ]);
 
-            $user->type = UserType::ADMIN;
+            $user->type = UserType::NORMAL;
             $user->save();
 
             // 3) Kapcsolás (pivot) – admin szerep

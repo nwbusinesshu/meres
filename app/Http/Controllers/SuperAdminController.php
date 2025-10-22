@@ -73,15 +73,15 @@ public function store(Request $request)
 
     // 2) Admin user
     $user = \App\Models\User::firstOrCreate(
-        ['email' => $request->admin_email],
-        [
-            'name' => $request->admin_name,
-            'type' => \App\Models\Enums\UserType::ADMIN,
-        ]
-    );
+    ['email' => $request->admin_email],
+    [
+        'name' => $request->admin_name,
+        'type' => UserType::NORMAL,  // ✅ CORRECT - System level type
+    ]
+);
 
-    // 3) Kapcsolat
-    $org->users()->attach($user->id, ['role' => 'admin']);
+// Admin role is properly set via pivot table:
+$org->users()->attach($user->id, ['role' => OrgRole::ADMIN]);  // ✅ Org level role
 
     // 4) Profil
     \App\Models\OrganizationProfile::create([
@@ -201,11 +201,11 @@ public function update(Request $request)
         $newAdmin = \App\Models\User::create([
             'name'       => $request->admin_name,
             'email'      => $request->admin_email,
-            'type'       => \App\Models\Enums\UserType::ADMIN,
+            'type'       => UserType::NORMAL,  // ✅ CORRECT - System level type
             'created_at' => now(),
         ]);
 
-        $org->users()->attach($newAdmin->id, ['role' => 'admin']);
+        $org->users()->attach($newAdmin->id, ['role' => OrgRole::ADMIN]);  // ✅ Org level role
     }
 
     return response()->json(['success' => true]);
