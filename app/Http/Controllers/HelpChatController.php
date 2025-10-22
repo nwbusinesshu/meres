@@ -168,16 +168,8 @@ class HelpChatController extends Controller
             }
 
             // UPDATED: Handle welcome mode differently
-            if (isset($validated['welcome_mode']) && $validated['welcome_mode'] === true) {
-                // Welcome mode: Save pre-generated message without calling AI
-                
-                // Save user's implicit greeting
-                $session->messages()->create([
-                    'role' => 'user',
-                    'content' => $validated['message']
-                ]);
-                
-                // Save the pre-generated welcome response
+            if (isset($validated['welcome_mode']) && $validated['welcome_mode'] == 1) {                  
+                // Save ONLY the pre-generated welcome response
                 $welcomeResponse = $validated['welcome_response'] ?? 'Üdvözlöm! Segíthetek?';
                 $session->messages()->create([
                     'role' => 'assistant',
