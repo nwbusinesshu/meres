@@ -6,7 +6,7 @@
 	<meta name="theme-color" content="#2B7A78" />
 	<meta name="csrf-token" content="{{ csrf_token() }}">
 	<meta name="app-view-key" content="{{ $view_key ?? $currentViewName ?? '' }}">
-	<meta name="app-user-role" content="{{ session('type') ?? 'guest' }}">
+	<meta name="app-user-role" content="{{ session('org_role') ?? session('utype') ?? 'guest' }}">
 	<meta name="app-locale" content="{{ app()->getLocale() }}">
  
   <!-- Favicon -->

@@ -1,9 +1,3 @@
-{{-- 
-  RESTORED ORIGINAL NAVBAR + MOBILE ADDITIONS
-  Replace: resources/views/navs/navbar.blade.php
-  Desktop navbar is UNCHANGED, mobile elements added at the end
---}}
-
 <div class="navbar">
   <div class="logo">
     <img src="{{ asset('assets/logo/quarma360.svg') }}" alt="mewo-logo">
@@ -12,12 +6,19 @@
 @php
   use Illuminate\Support\Facades\Auth;
   use App\Models\Enums\UserType;
+  use App\Models\Enums\OrgRole;  // ✅ ADDED: OrgRole support
   use App\Services\AssessmentService;
 
   $user = Auth::user();
   $orgId = session('org_id');
+  $orgRole = session('org_role');  // ✅ ADDED: Get org role from session
   $isSuperadmin = $user && $user->type === UserType::SUPERADMIN;
   $hasOrg = session()->has('org_id');
+  
+  // ✅ ADDED: Organization role checks
+  $isAdmin = $orgRole === OrgRole::ADMIN;
+  $isCeo = $orgRole === OrgRole::CEO;
+  $isManager = $orgRole === OrgRole::MANAGER;
 
   $organizations = collect();
   $currentOrg = null;
@@ -25,12 +26,8 @@
   if ($user) {
       if ($user->type === UserType::SUPERADMIN) {
           $organizations = \App\Models\Organization::whereNull('removed_at')->get();
-      } elseif ($user->type === UserType::ADMIN) {
-          $organizations = $user->organizations()
-                                ->wherePivot('role', 'admin')
-                                ->whereNull('organization.removed_at')
-                                ->get();
       } else {
+          // ✅ CHANGED: Simplified - get all organizations user belongs to
           $organizations = $user->organizations()
                                 ->whereNull('organization.removed_at')
                                 ->get();
@@ -49,13 +46,13 @@
   ];
   $isOnConfigChild = request()->routeIs($configChildRoutes);
   
-   // ✅ Check if bonuses should be shown (both settings must be ON)
+  // ✅ Check if bonuses should be shown (both settings must be ON)
   $showBonuses = false;
-if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
-  $showBonusMalus = \App\Services\OrgConfigService::getBool((int)$orgId, 'show_bonus_malus', true);
-  $enableBonusCalculation = \App\Services\OrgConfigService::getBool((int)$orgId, 'enable_bonus_calculation', false);
-  $showBonuses = $showBonusMalus && $enableBonusCalculation; // ✅ Both must be ON
-}
+  if ($isAdmin && $orgId) {  // ✅ CHANGED: Use $isAdmin instead of MyAuth
+      $showBonusMalus = \App\Services\OrgConfigService::getBool((int)$orgId, 'show_bonus_malus', true);
+      $enableBonusCalculation = \App\Services\OrgConfigService::getBool((int)$orgId, 'enable_bonus_calculation', false);
+      $showBonuses = $showBonusMalus && $enableBonusCalculation;
+  }
 
   // ✅ Check for unpaid payments (for conditional payments button display)
   $hasUnpaidPayment = false;
@@ -87,18 +84,18 @@ if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
         <span>{{ __('titles.home') }}</span>
       </a>
 
-      @if (MyAuth::isAuthorized(UserType::ADMIN))
+      @if ($isAdmin)  {{-- ✅ CHANGED: Use $isAdmin instead of MyAuth --}}
         <a class="menuitem" href="{{ route('admin.results.index') }}" data-route="admin.results.index">
           <i class="fa fa-chart-line"></i>
           <span>{{ __('titles.admin.results') }}</span>
         </a>
 
-         @if($showBonuses)
-        <a class="menuitem" href="{{ route('admin.bonuses.index') }}" data-route="admin.bonuses.index">
-          <i class="fa fa-money-bill-wave"></i>
-          <span>{{ __('titles.admin.bonuses') }}</span>
-        </a>
-      @endif
+        @if($showBonuses)
+          <a class="menuitem" href="{{ route('admin.bonuses.index') }}" data-route="admin.bonuses.index">
+            <i class="fa fa-money-bill-wave"></i>
+            <span>{{ __('titles.admin.bonuses') }}</span>
+          </a>
+        @endif
 
         @if (!AssessmentService::isAssessmentRunning())
           <div class="menuitem dropdown-toggle {{ $isOnConfigChild ? 'active' : '' }}" id="config-dropdown-toggle">
@@ -106,14 +103,15 @@ if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
             <span>{{ __('global.navbar-configuration') }}</span>
           </div>
         @endif
-          {{-- ÚJ: ha fut a mérés és van nyitott tartozás, tegyük ki fent a Fizetések menüt is --}}
-  @if (AssessmentService::isAssessmentRunning())
-    <a class="menuitem {{ request()->routeIs('admin.payments.index') ? 'active' : '' }}"
-       href="{{ route('admin.payments.index') }}" data-route="admin.payments.index">
-      <i class="fas fa-credit-card"></i>
-      <span>{{ __('titles.admin.payments') }}</span>
-    </a>
-  @endif
+
+        {{-- ✅ NEW: Show payments menu during assessment if unpaid --}}
+        @if (AssessmentService::isAssessmentRunning())
+          <a class="menuitem {{ request()->routeIs('admin.payments.index') ? 'active' : '' }}"
+             href="{{ route('admin.payments.index') }}" data-route="admin.payments.index">
+            <i class="fas fa-credit-card"></i>
+            <span>{{ __('titles.admin.payments') }}</span>
+          </a>
+        @endif
 
       @else
         @if (Route::currentRouteName() == "assessment.index")
@@ -141,7 +139,7 @@ if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
         </a>
       @endif
     @endif
-  </div> <!-- menuitems lezárása -->
+  </div> {{-- menuitems closing --}}
 
   <div class="userinfo">
     @php
@@ -182,9 +180,10 @@ if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
       <i class="fa fa-right-from-bracket" data-tippy-content="{{ __('titles.logout') }}"></i>
     </a>
   </div>
-</div> <!-- navbar lezárása -->
+</div> {{-- navbar closing --}}
 
-@if (MyAuth::isAuthorized(UserType::ADMIN) && !AssessmentService::isAssessmentRunning())
+{{-- ✅ CHANGED: Use $isAdmin instead of MyAuth --}}
+@if ($isAdmin && !AssessmentService::isAssessmentRunning())
   <div class="config-bar" id="config-dropdown" style="{{ $isOnConfigChild ? 'display: flex;' : 'display: none;' }}">
     <a class="menuitem {{ request()->routeIs('admin.employee.index') ? 'active' : '' }}" 
        href="{{ route('admin.employee.index') }}" data-route="admin.employee.index">
@@ -243,7 +242,7 @@ if ($user && MyAuth::isAuthorized(UserType::ADMIN) && $orgId) {
       <span>{{ __('titles.home') }}</span>
     </a>
 
-    @if (MyAuth::isAuthorized(UserType::ADMIN))
+    @if ($isAdmin)  {{-- ✅ CHANGED: Use $isAdmin instead of MyAuth --}}
       <a class="menuitem {{ request()->routeIs('admin.results.index') ? 'active' : '' }}" 
          href="{{ route('admin.results.index') }}">
         <i class="fa fa-chart-line"></i>
