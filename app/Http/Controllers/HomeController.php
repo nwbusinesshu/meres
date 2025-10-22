@@ -14,6 +14,8 @@ use App\Services\UserService;
 use App\Services\WelcomeMessageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Enums\OrgRole;
+use App\Services\RoleHelper; 
 
 class HomeController extends Controller
 {
@@ -24,9 +26,9 @@ class HomeController extends Controller
 
     // Dolgozók betöltése (változatlan)
     $employees = User::whereNull('removed_at')
-        ->where('type', '!=', UserType::ADMIN)
         ->whereHas('organizations', function ($q) use ($orgId) {
-            $q->where('organization_id', $orgId);
+            $q->where('organization_id', $orgId)
+              ->where('organization_user.role', '!=', OrgRole::ADMIN); // 🆕 Filter by org role
         })
         ->withCount('relations')
         ->get()
@@ -37,11 +39,7 @@ class HomeController extends Controller
         });
 
     // CEO-k száma
-    $ceoCount = User::where('type', UserType::CEO)
-        ->whereHas('organizations', function ($q) use ($orgId) {
-            $q->where('organization_id', $orgId);
-        })
-        ->count();
+    $ceoCount = RoleHelper::countByRole($orgId, OrgRole::CEO);
 
     // Managerek száma, akiknek van beosztottjuk
     $managerCount = DB::table('organization_department_managers as odm')

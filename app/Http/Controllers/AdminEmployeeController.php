@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Enums\UserRelationType;
 use App\Models\Enums\UserType;
 use App\Models\User;
+use App\Models\Enums\OrgRole;
 use App\Models\UserBonusMalus;
 use App\Models\UserCompetency;
 use App\Models\UserRelation;
@@ -64,7 +65,8 @@ public function index(Request $request)
             ->join('user as u', 'u.id', '=', 'ou.user_id')
             ->where('ou.organization_id', $orgId)
             ->whereNull('u.removed_at')
-            ->whereNotIn('u.type', ['admin'])
+            // 🔄 CHANGE 1: Use ou.role instead of u.type
+            ->where('ou.role', '!=', OrgRole::ADMIN)
             ->count();
         
         // Check if limit is reached
@@ -74,9 +76,21 @@ public function index(Request $request)
     }
 
     // ===== LEGACY (régi) lista adatai – változatlan =====
-    $users = \App\Services\UserService::getUsers()->map(function ($user) {
+    $users = \App\Services\UserService::getUsers()
+         ->filter(function ($user) use ($orgId) {
+                // Get user's role in this organization
+                $role = DB::table('organization_user')
+                    ->where('user_id', $user->id)
+                    ->where('organization_id', $orgId)
+                    ->value('role');
+                
+                // Exclude admins (maintains original behavior)
+                return $role !== OrgRole::ADMIN;
+            })
+
+    ->map(function ($user) {
         // bonusMalus feltöltése biztonságosan (nincs eager load, nincs created_at ordering)
-        $user['bonusMalus'] = $user->bonusMalus()->first()?->level ?? null;
+        $user['bonusMalus'] = $user->bonusMalus()->first()?->level ?? 0;
         $user['is_locked'] = $this->isUserLocked($user->email);
         return $user;
     });
@@ -87,7 +101,7 @@ public function index(Request $request)
     // multi-level flag
     $enableMultiLevel = \App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false);
     $showBonusMalus = \App\Services\OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
-$easyRelationSetup = \App\Services\OrgConfigService::getBool($orgId, 'easy_relation_setup', false);
+    $easyRelationSetup = \App\Services\OrgConfigService::getBool($orgId, 'easy_relation_setup', false);
 
     if ($users->count() > 0) {
         $userIds = $users->pluck('id')->all();
@@ -107,29 +121,30 @@ $easyRelationSetup = \App\Services\OrgConfigService::getBool($orgId, 'easy_relat
     if ($enableMultiLevel) {
         
         // ===== CEO + nem besorolt felhasználók =====
+        // 🔄 CHANGE 2: Use ou.role instead of u.type for CEOs
         $ceos = DB::table('user as u')
             ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
             ->where('ou.organization_id', $orgId)
             ->whereNull('u.removed_at')
-            ->where('u.type', 'ceo')
+            ->where('ou.role', OrgRole::CEO) // 🆕 UPDATED
             ->orderBy('u.name')
-            ->get(['u.id', 'u.name', 'u.email', 'u.type', 'ou.position']);
+            ->get(['u.id', 'u.name', 'u.email', 'ou.role as type', 'ou.position']);
 
-        // FIXED: Exclude admins AND already assigned managers from unassigned list
+        // 🔄 CHANGE 3: Use ou.role for unassigned users filtering
         $unassigned = DB::table('user as u')
             ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
             ->where('ou.organization_id', $orgId)
             ->whereNull('u.removed_at')
             ->whereNull('ou.department_id')
-            ->where('u.type', '!=', 'ceo')
-            ->where('u.type', '!=', 'admin')
+            ->where('ou.role', '!=', OrgRole::CEO) // 🆕 UPDATED
+            ->where('ou.role', '!=', OrgRole::ADMIN) // 🆕 UPDATED
             ->whereNotExists(function($query) use ($orgId) {
                 $query->from('organization_department_managers as odm')
                       ->whereColumn('odm.manager_id', 'u.id')
                       ->where('odm.organization_id', $orgId);
             })
             ->orderBy('u.name')
-            ->get(['u.id', 'u.name', 'u.email', 'u.type', 'ou.position']);
+            ->get(['u.id', 'u.name', 'u.email', 'ou.role as type', 'ou.position']);
 
         // FIXED: Add rater counts to CEOs and unassigned
         $ceos = $this->addRaterCounts($ceos, $orgId);
@@ -168,18 +183,19 @@ $easyRelationSetup = \App\Services\OrgConfigService::getBool($orgId, 'easy_relat
                 ->where('odm.organization_id', $orgId)
                 ->where('odm.department_id', $dept->id)
                 ->whereNull('u.removed_at')
-                ->select('u.id', 'u.name', 'u.email', 'u.type', 'ou.position', 'odm.created_at as assigned_at')
+                ->select('u.id', 'u.name', 'u.email', 'ou.role as type', 'ou.position', 'odm.created_at as assigned_at')
                 ->get();
 
-            // Members - FIXED: Remove hardcoded rater_count
+            // Members
             $members = DB::table('user as u')
                 ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
                 ->where('ou.organization_id', $orgId)
                 ->where('ou.department_id', $dept->id)
-                ->where('ou.role', '!=', 'manager')
+                ->where('ou.role', '!=', OrgRole::MANAGER) // Keep this, it's correct
+                ->where('ou.role', '!=', OrgRole::ADMIN)
                 ->whereNull('u.removed_at')
                 ->orderBy('u.name')
-                ->get(['u.id', 'u.name', 'u.email', 'u.type', 'ou.position']);
+                ->get(['u.id', 'u.name', 'u.email', 'ou.role as type', 'ou.position']);
 
             // FIXED: Add rater counts to managers and members
             $managers = $this->addRaterCounts($managers, $orgId);
@@ -210,12 +226,12 @@ $easyRelationSetup = \App\Services\OrgConfigService::getBool($orgId, 'easy_relat
             }
         }
 
-        // UPDATED: Get eligible managers for CREATE/EDIT modals (all managers, not just unused ones)
+        // 🔄 CHANGE 4: Use ou.role for eligible managers
         $eligibleManagers = DB::table('user as u')
             ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
             ->where('ou.organization_id', $orgId)
             ->whereNull('u.removed_at')
-            ->where('u.type', 'manager')
+            ->where('ou.role', OrgRole::MANAGER) // 🆕 UPDATED
             ->orderBy('u.name')
             ->get(['u.id', 'u.name', 'u.email']);
 
@@ -231,36 +247,32 @@ $easyRelationSetup = \App\Services\OrgConfigService::getBool($orgId, 'easy_relat
             'ceos'             => $ceos,
             'unassigned'       => $unassigned,
             'departments'      => $departments,
-
-            // modálokhoz
             'eligibleManagers' => $eligibleManagers,
             
-            // settings
-            'showBonusMalus'   => $showBonusMalus,
+            // Flags
+            'showBonusMalus' => $showBonusMalus,
+            'easyRelationSetup' => $easyRelationSetup,
             'selectedLanguages' => $selectedLanguages,
             
-            // NEW: Employee limit
-            'hasClosedAssessment'   => $hasClosedAssessment,
-            'employeeLimit'         => $employeeLimit,
-            'currentEmployeeCount'  => $currentEmployeeCount,
-            'isLimitReached'        => $isLimitReached,
-            'easyRelationSetup' => $easyRelationSetup,
+            // Employee limit info
+            'hasClosedAssessment' => $hasClosedAssessment,
+            'employeeLimit' => $employeeLimit,
+            'currentEmployeeCount' => $currentEmployeeCount,
+            'isLimitReached' => $isLimitReached,
         ]);
     }
 
-    // ===== LEGACY VIEW (multi-level OFF) =====
+    // LEGACY mode
     return view('admin.employees', [
-        'users'             => $users,
-        'enableMultiLevel'  => false,
-        'showBonusMalus'    => $showBonusMalus,
-        'selectedLanguages' => $selectedLanguages,
-        
-        // NEW: Employee limit
+        'users'                 => $users,
+        'enableMultiLevel'      => false,
+        'showBonusMalus'        => $showBonusMalus,
+        'easyRelationSetup'     => $easyRelationSetup,
+        'selectedLanguages'     => $selectedLanguages,
         'hasClosedAssessment'   => $hasClosedAssessment,
         'employeeLimit'         => $employeeLimit,
         'currentEmployeeCount'  => $currentEmployeeCount,
         'isLimitReached'        => $isLimitReached,
-        'easyRelationSetup' => $easyRelationSetup,
     ]);
 }
 
@@ -377,12 +389,12 @@ private function getRaterCounts($userIds, $orgId)
     $orgId = (int) session('org_id');
     $currentDepartmentId = $request->input('department_id'); // For edit mode
 
-    // Get all managers in the organization
+    // 🔄 CHANGE 7: Use ou.role for manager query
     $managersQuery = DB::table('user as u')
         ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
         ->where('ou.organization_id', $orgId)
         ->whereNull('u.removed_at')
-        ->where('u.type', 'manager');
+        ->where('ou.role', OrgRole::MANAGER); // 🆕 UPDATED
 
     // Filter out managers who are already managing other departments
     $managersQuery->whereNotExists(function ($q) use ($currentDepartmentId) {
@@ -1381,17 +1393,17 @@ private function applyBidirectionalRelations($userId, $rows, $organizationId)
 
     // Check all managers are valid
     foreach ($data['manager_ids'] as $managerId) {
-        // Manager validation: organization member and type='manager'
+        // Manager validation: organization member and role='manager'
         $manager = \DB::table('user as u')
             ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
             ->where('ou.organization_id', $orgId)
             ->where('u.id', $managerId)
-            ->where('u.type', 'manager')
+            ->where('ou.role', OrgRole::MANAGER) // 🆕 UPDATED (was u.type)
             ->whereNull('u.removed_at')
             ->first(['u.id']);
 
         if (!$manager) {
-            return response()->json(['message' => "Manager ID {$managerId} nem található vagy nem manager típusú."], 422);
+            return response()->json(['message' => "Manager ID {$managerId} nem található vagy nem manager szerepkörű."], 422);
         }
 
         // Check if manager is already managing another department
@@ -1485,7 +1497,7 @@ public function getDepartment(Request $request)
     $eligibleManagers = \DB::table('user as u')
         ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
         ->where('ou.organization_id', $orgId)
-        ->where('u.type', 'manager')
+        ->where('ou.role', OrgRole::MANAGER) // 🆕 UPDATED (was u.type)
         ->whereNull('u.removed_at')
         ->whereNotExists(function($q) use ($orgId, $data) {
             $q->from('organization_department_managers as odm')
@@ -1659,7 +1671,7 @@ public function getEligibleForDepartment(Request $request)
         ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
         ->where('ou.organization_id', $orgId)
         ->whereNull('u.removed_at')
-        ->whereNotIn('u.type', ['admin','manager','ceo'])
+        ->whereNotIn('ou.role', [OrgRole::ADMIN, OrgRole::MANAGER, OrgRole::CEO])
         ->whereNull('ou.department_id') // még nincs részleghez rendelve
         ->orderBy('u.name')
         ->get(['u.id','u.name','u.email']);
@@ -1698,7 +1710,7 @@ public function saveDepartmentMembers(Request $request)
             ->where('ou.organization_id', $orgId)
             ->whereIn('u.id', $ids)
             ->whereNull('u.removed_at')
-            ->whereNotIn('u.type', ['admin','manager','ceo'])
+            ->whereNotIn('ou.role', [OrgRole::ADMIN, OrgRole::MANAGER, OrgRole::CEO])
             ->pluck('u.id');
 
         $invalid = $ids->diff($validIds);
@@ -1823,50 +1835,28 @@ public function deleteDepartment(Request $request)
 
     public function getNetworkData(Request $request)
 {
-    $request->validate([
-        'user_id' => 'nullable|integer|exists:user,id'
-    ]);
-
     $orgId = (int) session('org_id');
 
-    if ($request->has('user_id')) {
-        $user = User::find($request->user_id);
-        if ($user) {
-            $belongsToOrg = $user->organizations()->where('organization_id', $orgId)->exists();
-            if (!$belongsToOrg) {
-                abort(403, 'User does not belong to your organization');
-            }
-        }
-    }
-    
-    try {
-        // UPDATED: Get all users in the organization with proper multi-manager support
-        $users = DB::table('organization_user as ou')
-            ->join('user as u', 'u.id', '=', 'ou.user_id')
-            ->leftJoin('organization_departments as d', function($join) {
-                $join->on('d.id', '=', 'ou.department_id')
-                     ->whereNull('d.removed_at');
-            })
-            // UPDATED: Check if user is a manager using the new table structure
+    // 🔄 CHANGE 8 & 9: Use ou.role in network data queries
+    $users = DB::table('user as u')
+            ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+            ->leftJoin('organization_departments as d', 'd.id', '=', 'ou.department_id')
             ->leftJoin('organization_department_managers as odm', function($join) use ($orgId) {
                 $join->on('odm.manager_id', '=', 'u.id')
                      ->where('odm.organization_id', '=', $orgId);
             })
-            ->leftJoin('organization_departments as managed_dept', function($join) {
-                $join->on('managed_dept.id', '=', 'odm.department_id')
-                     ->whereNull('managed_dept.removed_at');
-            })
+            ->leftJoin('organization_departments as managed_dept', 'managed_dept.id', '=', 'odm.department_id')
             ->where('ou.organization_id', $orgId)
             ->whereNull('u.removed_at')
-            ->whereNotIn('u.type', ['admin']) // Exclude admins from network
+            ->whereNotIn('ou.role', [OrgRole::ADMIN]) // 🆕 UPDATED
             ->select([
                 'u.id',
                 'u.name', 
                 'u.email',
-                'u.type',
+                'ou.role as type', // 🆕 Get role from ou, alias as 'type' for frontend compatibility
                 'ou.department_id',
                 'd.department_name',
-                'managed_dept.id as managed_dept_id', // Department they manage
+                'managed_dept.id as managed_dept_id',
                 'managed_dept.department_name as managed_dept_name'
             ])
             ->get();
@@ -1890,8 +1880,8 @@ public function deleteDepartment(Request $request)
             ->where('ur.organization_id', $orgId)
             ->whereNull('u1.removed_at')
             ->whereNull('u2.removed_at')
-            ->whereNotIn('u1.type', ['admin'])
-            ->whereNotIn('u2.type', ['admin'])
+            ->whereNotIn('ou1.role', [OrgRole::ADMIN]) // 🆕 UPDATED
+            ->whereNotIn('ou2.role', [OrgRole::ADMIN]) // 🆕 UPDATED
             ->whereColumn('ur.user_id', '!=', 'ur.target_id') // Exclude self relations
             ->select([
                 'ur.user_id',
@@ -1937,18 +1927,16 @@ public function deleteDepartment(Request $request)
             $raterCount = $raterCounts->get($user->id, 0);
             $raterStatus = $raterCount < 3 ? 'insufficient' : ($raterCount < 7 ? 'okay' : 'sufficient');
             
-            
-            
             return [
                 'id' => 'user_' . $user->id,
                 'user_id' => $user->id,
                 'label' => $user->name,
                 'email' => $user->email,
-                'type' => $user->type,
+                'type' => $user->type, // This now comes from ou.role
                 'department_id' => $user->department_id,
                 'department_name' => $user->department_name,
                 'managed_dept_id' => $user->managed_dept_id,
-                'managed_dept_name' => $user->managed_dept_name, // ADDED
+                'managed_dept_name' => $user->managed_dept_name,
                 'rater_count' => $raterCount,
                 'rater_status' => $raterStatus,
                 'is_manager' => !empty($user->managed_dept_id),
@@ -1963,72 +1951,54 @@ public function deleteDepartment(Request $request)
             $sourceId = 'user_' . $relation->user_id;
             $targetId = 'user_' . $relation->target_id;
             $pairKey = min($sourceId, $targetId) . '_' . max($sourceId, $targetId);
-            
+
+            // Track both users and their relationship
             if (!isset($relationshipPairs[$pairKey])) {
                 $relationshipPairs[$pairKey] = [
                     'source' => $sourceId,
                     'target' => $targetId,
-                    'types' => [],
-                    'bidirectional' => false
+                    'types' => []
                 ];
             }
             
-            $relationshipPairs[$pairKey]['types'][] = $relation->type;
-            
-            // Check if we have the reverse relationship
-            $reverseExists = $relations->contains(function($r) use ($relation) {
-                return $r->user_id == $relation->target_id && $r->target_id == $relation->user_id;
-            });
-            
-            if ($reverseExists) {
-                $relationshipPairs[$pairKey]['bidirectional'] = true;
-            }
+            $relationshipPairs[$pairKey]['types'][] = [
+                'from' => $sourceId,
+                'to' => $targetId,
+                'type' => $relation->type
+            ];
         }
 
-        // Create edges from relationship pairs
-        $edgeId = 0;
+        // Convert relationship pairs to edges with combined types
         foreach ($relationshipPairs as $pair) {
-            // Determine the strongest relationship type
             $types = $pair['types'];
-            $strongestType = 'colleague'; // default
             
-            if (in_array('superior', $types)) {
-                $strongestType = 'superior';
-            } elseif (in_array('subordinate', $types)) {
-                $strongestType = 'subordinate';
-            } elseif (in_array('colleague', $types)) {
-                $strongestType = 'colleague';
+            // Determine the display relationship
+            $displayType = 'colleague'; // default
+            $isReciprocal = count($types) > 1;
+            
+            // Check for subordinate/superior relationships
+            $hasSubordinate = collect($types)->contains('type', 'subordinate');
+            $hasSuperior = collect($types)->contains('type', 'superior');
+            
+            if ($hasSubordinate || $hasSuperior) {
+                $displayType = 'hierarchical';
             }
             
             $networkEdges[] = [
-                'id' => 'edge_' . $edgeId++,
+                'id' => implode('_', [$pair['source'], $pair['target']]),
                 'source' => $pair['source'],
                 'target' => $pair['target'],
-                'type' => $strongestType,
-                'bidirectional' => $pair['bidirectional'],
-                'types' => array_unique($pair['types']),
-                'is_subordinate' => in_array('subordinate', $pair['types']) || in_array('superior', $pair['types'])
+                'type' => $displayType,
+                'is_reciprocal' => $isReciprocal,
+                'details' => $types
             ];
         }
 
         return response()->json([
             'nodes' => $networkNodes->values(),
             'edges' => $networkEdges,
-            'departments' => $departments,
-            'organization_id' => $orgId
+            'departments' => $departments
         ]);
-
-    } catch (\Exception $e) {
-        Log::error('Network data fetch failed', [
-            'organization_id' => $orgId,
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
-
-        return response()->json([
-            'message' => 'Failed to fetch network data: ' . $e->getMessage(),
-        ], 500);
-    }
 }
 
 /**
