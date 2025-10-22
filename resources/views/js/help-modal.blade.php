@@ -10,6 +10,7 @@ $(document).ready(function() {
   // Session storage keys
   const STORAGE_KEY_MODAL_STATE = 'helpModalState';
   const STORAGE_KEY_CURRENT_SESSION = 'helpCurrentSession';
+  const STORAGE_KEY_FIRST_LOGIN_SHOWN = 'help_first_login_shown';
   
   // Current state variables
   let helpModalOpen = false;
@@ -73,6 +74,23 @@ $(document).ready(function() {
       return null;
     }
   }
+
+  // First login tracking functions
+function isFirstLoginShown() {
+  try {
+    return sessionStorage.getItem(STORAGE_KEY_FIRST_LOGIN_SHOWN) === 'true';
+  } catch (e) {
+    return false;
+  }
+}
+
+function markFirstLoginShown() {
+  try {
+    sessionStorage.setItem(STORAGE_KEY_FIRST_LOGIN_SHOWN, 'true');
+  } catch (e) {
+    // Silently fail
+  }
+}
   
   /* =======================================================================
      READ META TAGS & INITIALIZE
@@ -118,6 +136,10 @@ $(document).ready(function() {
       // Modal is already open, just refresh content
       loadCurrentTabContent();
     }
+
+    setTimeout(function() {
+    checkFirstLogin();
+    }, 500);
     
     if (isDebugMode) {
       console.log('[Help System] Initialized:', {
@@ -188,6 +210,30 @@ $(document).ready(function() {
       console.log('[Help Modal] Closed');
     }
   }
+
+  // Check if this is first login and auto-open help
+function checkFirstLogin() {
+  // Read first login flag from meta tag
+  const isFirstLogin = $('meta[name="app-first-login"]').attr('content') === 'true';
+  
+  if (isFirstLogin && !isFirstLoginShown()) {
+    if (isDebugMode) {
+      console.log('[Help System] First login detected, opening welcome modal');
+    }
+    
+    // Mark as shown so it doesn't repeat
+    markFirstLoginShown();
+    
+    // Open modal and switch to AI tab
+    currentActiveTab = 'ai-support';
+    openHelpModal(false); // Use animation for better UX
+    
+    // Show welcome message after modal opens
+    setTimeout(function() {
+      showFirstLoginWelcome();
+    }, 500);
+  }
+}
 
   /* =======================================================================
      TAB SWITCHING
@@ -321,6 +367,42 @@ function showContentNotFound() {
       console.log('[Help Modal] AI Support tab loaded, session:', currentSessionId);
     }
   }
+
+  // Show personalized welcome message for first-time users
+function showFirstLoginWelcome() {
+  const userName = '{{ session("uname") ?? "User" }}';
+  const orgRole = '{{ session("org_role") ?? "" }}';
+  
+  let welcomeMessage = `Üdvözlünk a rendszerben, ${userName}! 👋\n\n`;
+  welcomeMessage += `Segíthetek navigálni az alkalmazásban és válaszolok minden kérdésedre.\n\n`;
+  
+  // Add role-specific tips
+  if (orgRole === 'admin' || orgRole === 'ceo') {
+    welcomeMessage += `📊 Admin funkcióid:\n`;
+    welcomeMessage += `• Munkatársak kezelése\n`;
+    welcomeMessage += `• Értékelések indítása\n`;
+    welcomeMessage += `• Szervezeti beállítások\n\n`;
+    welcomeMessage += `Kérdezz bármit a rendszer használatával kapcsolatban!`;
+  } else if (orgRole === 'manager') {
+    welcomeMessage += `👥 Vezető funkcióid:\n`;
+    welcomeMessage += `• Csapattagjaid értékelése\n`;
+    welcomeMessage += `• Értékelési eredmények megtekintése\n\n`;
+    welcomeMessage += `Kérdezz bármit a rendszer használatával kapcsolatban!`;
+  } else {
+    welcomeMessage += `🎯 Gyakran kérdezett:\n`;
+    welcomeMessage += `• Hogyan töltsek ki egy értékelést?\n`;
+    welcomeMessage += `• Hol találom az eredményeimet?\n`;
+    welcomeMessage += `• Hogyan változtatom a beállításaimat?\n\n`;
+    welcomeMessage += `Bátran kérdezz bármit!`;
+  }
+  
+  // Display the welcome message
+  appendAiMessage(welcomeMessage);
+  
+  if (isDebugMode) {
+    console.log('[Help System] First login welcome message displayed');
+  }
+}
 
   /* =======================================================================
      CHAT FUNCTIONALITY

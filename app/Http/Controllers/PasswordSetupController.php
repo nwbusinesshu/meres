@@ -57,9 +57,12 @@ class PasswordSetupController extends Controller
             return redirect()->route('login')->with('error', 'A jelszó beállító link érvénytelen vagy lejárt.');
         }
 
+        
+
         $organization = Organization::findOrFail($ps->organization_id);
         $passwordSetup = PasswordSetup::findOrFail($ps->id);
         $user = $passwordSetup->user;
+        $isFirstLogin = $user->logins()->count() === 0;
 
         if (!$user || !is_null($user->removed_at)) {
             return redirect()->route('login')->with('error', 'A felhasználói fiók nem aktív.');
@@ -106,6 +109,7 @@ class PasswordSetupController extends Controller
             'uname'   => $user->name,
             'uavatar' => null,
             'org_id'  => $organization->id,
+            'first_login' => $isFirstLogin,
         ]);
 
         // Get the user's role in the organization

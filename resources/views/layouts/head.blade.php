@@ -8,6 +8,7 @@
 	<meta name="app-view-key" content="{{ $view_key ?? $currentViewName ?? '' }}">
 	<meta name="app-user-role" content="{{ session('org_role') ?? session('utype') ?? 'guest' }}">
 	<meta name="app-locale" content="{{ app()->getLocale() }}">
+	<meta name="app-first-login" content="{{ session('first_login', false) ? 'true' : 'false' }}">
  
   <!-- Favicon -->
 	<link rel="icon" type="image/png" href="{{ assets('favicon.png') }}">
