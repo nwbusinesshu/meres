@@ -10,6 +10,9 @@ class UserImportService
 {
     /**
      * Validate import data and return structured results
+     * 
+     * 🔒 SECURITY: Only allows employee, manager, ceo roles
+     * ✅ FIXED: Updated to use 'employee' instead of 'normal'
      */
     public function validateImportData(array $rows, int $orgId): array
     {
@@ -20,6 +23,7 @@ class UserImportService
             ->where('organization_id', $orgId)
             ->value('employee_limit');
         
+        // ✅ FIXED: Count excludes admins using org_role
         $currentCount = DB::table('organization_user as ou')
             ->join('user as u', 'u.id', '=', 'ou.user_id')
             ->where('ou.organization_id', $orgId)
@@ -108,9 +112,17 @@ class UserImportService
                 }
             }
             
-            // 5. Valid type
-            if (!empty($type) && !in_array($type, ['normal', 'manager', 'ceo'])) {
-                $errors[] = 'Type must be: normal, manager, or ceo';
+            // 🔒 5. Valid type - SECURITY: Only allow employee, manager, ceo
+            // ✅ FIXED: Changed from 'normal' to 'employee'
+            if (!empty($type)) {
+                if (!in_array($type, ['employee', 'manager', 'ceo'])) {
+                    $errors[] = 'Type must be: employee, manager, or ceo';
+                }
+                
+                // 🔒 SECURITY: Explicitly block admin/owner roles
+                if (in_array($type, ['admin', 'owner'])) {
+                    $errors[] = 'Cannot import admin or owner users via mass import';
+                }
             }
             
             // 6. Wage validation
@@ -139,7 +151,7 @@ class UserImportService
                 // Manager + Department = becomes dept manager
                 if ($type === 'manager') {
                     $warnings[] = "Will be assigned as manager of '{$deptName}'";
-                } elseif ($type === 'normal') {
+                } elseif ($type === 'employee') {  // ✅ FIXED: Changed from 'normal' to 'employee'
                     $warnings[] = "Will be assigned to department '{$deptName}'";
                 }
             } elseif ($type === 'manager' && empty($deptName) && $enableMultiLevel) {
