@@ -813,9 +813,10 @@ public function PasswordReset(Request $request)
         ]);
 
         $query = User::whereNull('removed_at')
-            ->where('type', '!=', UserType::ADMIN)
+            ->where('type', '!=', UserType::SUPERADMIN)  // ✅ Only exclude superadmins
             ->whereHas('organizations', function ($q) {
-                $q->where('organization_id', session('org_id'));
+                $q->where('organization_id', session('org_id'))
+                  ->where('organization_user.role', '!=', OrgRole::ADMIN);  // ✅ Exclude org admins
             });
 
         // SECURITY FIX: Escape LIKE wildcards and use parameterized binding

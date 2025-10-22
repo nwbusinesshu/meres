@@ -763,10 +763,10 @@ public function getAllCompetencyGroups(Request $request)
             ->where('ou.organization_id', $orgId)
             ->whereNull('u.removed_at')
             ->whereNotIn('u.id', $assignedUserIds)
-            ->where('u.type', '!=', 'admin')  // Exclude global admin users
-            ->where('ou.role', '!=', 'admin') // Exclude organization admin users
+            ->where('u.type', '!=', UserType::SUPERADMIN)  // ✅ Only exclude superadmins
+            ->where('ou.role', '!=', OrgRole::ADMIN)       // ✅ Exclude org admins
             ->orderBy('u.name')
-            ->select('u.id', 'u.name', 'u.email', 'u.type', 'ou.position')
+            ->select('u.id', 'u.name', 'u.email', 'ou.role as type', 'ou.position')  // ✅ Use org role
             ->get();
 
         return response()->json($eligibleUsers);
