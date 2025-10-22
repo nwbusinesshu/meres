@@ -34,22 +34,35 @@
     </div>
 
     {{-- Típus / Szerep --}}
-    <div class="col col-type">
-        @if(isset($user->type))
-            @if($user->type === 'ceo')
-                {{ __('usertypes.ceo') }}
-            @elseif($user->type === 'manager')
-                {{ __('usertypes.manager') }}
-            @elseif($user->type === 'normal')
-                {{ __('usertypes.normal') }}
-            @else
-                {{ method_exists($user, 'getNameOfType') ? $user->getNameOfType() : ucfirst($user->type ?? '—') }}
-            @endif
+<div class="col col-type">
+    @php
+        // Use org_role if available, otherwise fall back to type
+        $displayRole = $user->org_role ?? $user->type ?? null;
+    @endphp
+    
+    @if($displayRole)
+        @if($displayRole === 'ceo')
+            {{ __('usertypes.ceo') }}
+        @elseif($displayRole === 'manager')
+            {{ __('usertypes.manager') }}
+        @elseif($displayRole === 'employee' || $displayRole === 'normal')
+            {{ __('usertypes.normal') }}
+        @elseif($displayRole === 'admin')
+            {{ __('usertypes.admin') }}
+        @elseif($displayRole === 'owner')
+            {{ __('usertypes.owner') }}
         @else
-            —
-        @endif @php $pos = data_get($user, 'position'); @endphp
+            {{ ucfirst($displayRole) }}
+        @endif
+    @else
+        —
+    @endif
+    
+    @php 
+        $pos = data_get($user, 'position'); 
+    @endphp
     <br><small>{{ (is_string($pos) ? trim($pos) : $pos) ?: '—' }}</small>
-    </div>
+</div>
 
     {{-- Bonus/Malus (conditionally shown) --}}
     

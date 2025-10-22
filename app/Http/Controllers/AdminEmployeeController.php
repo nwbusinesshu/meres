@@ -65,7 +65,6 @@ public function index(Request $request)
             ->join('user as u', 'u.id', '=', 'ou.user_id')
             ->where('ou.organization_id', $orgId)
             ->whereNull('u.removed_at')
-            // 🔄 CHANGE 1: Use ou.role instead of u.type
             ->where('ou.role', '!=', OrgRole::ADMIN)
             ->count();
         
@@ -75,41 +74,65 @@ public function index(Request $request)
         }
     }
 
-    // ===== LEGACY (régi) lista adatai – változatlan =====
-    $users = \App\Services\UserService::getUsers()
-         ->filter(function ($user) use ($orgId) {
-                // Get user's role in this organization
-                $role = DB::table('organization_user')
-                    ->where('user_id', $user->id)
-                    ->where('organization_id', $orgId)
-                    ->value('role');
-                
-                // Exclude admins (maintains original behavior)
-                return $role !== OrgRole::ADMIN;
-            })
+    // ===== LEGACY (régi) lista adatai =====
+    $users = DB::table('user as u')
+        ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+        ->where('ou.organization_id', $orgId)
+        ->whereNull('u.removed_at')
+        ->where('ou.role', '!=', OrgRole::ADMIN)
+        ->select([
+            'u.id',
+            'u.name',
+            'u.email',
+            'u.password',
+            'ou.role as org_role',
+            'ou.position',
+            'ou.department_id'
+        ])
+        ->orderBy('u.name')
+        ->get();
 
-    ->map(function ($user) {
-        // bonusMalus feltöltése biztonságosan (nincs eager load, nincs created_at ordering)
-        $user['bonusMalus'] = $user->bonusMalus()->first()?->level ?? 0;
-        $user['is_locked'] = $this->isUserLocked($user->email);
+    // Convert to collection and add computed fields
+    $users = collect($users)->map(function($user) {
+        return (object)[
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'type' => $user->org_role,
+            'org_role' => $user->org_role,
+            'position' => $user->position,
+            'department_id' => $user->department_id,
+            'password' => $user->password,
+        ];
+    });
+
+    // Add bonus malus data
+    $users = $this->attachBonusMalus($users);
+
+    // Add login locked status
+    $users = $users->map(function($user) {
+        $user->is_locked = $this->isUserLocked($user->email);
         return $user;
     });
 
     // Add rater counts to legacy users
     $users = $this->addRaterCounts($users, $orgId);
 
-    // multi-level flag
+    // ========================================
+    // 🔥 MISSING VARIABLES - ADD THESE! 🔥
+    // ========================================
     $enableMultiLevel = \App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false);
     $showBonusMalus = \App\Services\OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
     $easyRelationSetup = \App\Services\OrgConfigService::getBool($orgId, 'easy_relation_setup', false);
 
+    // OPTIONAL: Add position data (if not already in query above)
     if ($users->count() > 0) {
         $userIds = $users->pluck('id')->all();
 
         $positionsMap = DB::table('organization_user')
             ->where('organization_id', $orgId)
             ->whereIn('user_id', $userIds)
-            ->pluck('position', 'user_id'); // [user_id => position]
+            ->pluck('position', 'user_id');
 
         $users = $users->map(function ($u) use ($positionsMap) {
             $u->position = $positionsMap[$u->id] ?? null;
@@ -121,23 +144,21 @@ public function index(Request $request)
     if ($enableMultiLevel) {
         
         // ===== CEO + nem besorolt felhasználók =====
-        // 🔄 CHANGE 2: Use ou.role instead of u.type for CEOs
         $ceos = DB::table('user as u')
             ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
             ->where('ou.organization_id', $orgId)
             ->whereNull('u.removed_at')
-            ->where('ou.role', OrgRole::CEO) // 🆕 UPDATED
+            ->where('ou.role', OrgRole::CEO)
             ->orderBy('u.name')
             ->get(['u.id', 'u.name', 'u.email', 'ou.role as type', 'ou.position']);
 
-        // 🔄 CHANGE 3: Use ou.role for unassigned users filtering
         $unassigned = DB::table('user as u')
             ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
             ->where('ou.organization_id', $orgId)
             ->whereNull('u.removed_at')
             ->whereNull('ou.department_id')
-            ->where('ou.role', '!=', OrgRole::CEO) // 🆕 UPDATED
-            ->where('ou.role', '!=', OrgRole::ADMIN) // 🆕 UPDATED
+            ->where('ou.role', '!=', OrgRole::CEO)
+            ->where('ou.role', '!=', OrgRole::ADMIN)
             ->whereNotExists(function($query) use ($orgId) {
                 $query->from('organization_department_managers as odm')
                       ->whereColumn('odm.manager_id', 'u.id')
@@ -146,7 +167,7 @@ public function index(Request $request)
             ->orderBy('u.name')
             ->get(['u.id', 'u.name', 'u.email', 'ou.role as type', 'ou.position']);
 
-        // FIXED: Add rater counts to CEOs and unassigned
+        // Add rater counts
         $ceos = $this->addRaterCounts($ceos, $orgId);
         $unassigned = $this->addRaterCounts($unassigned, $orgId);
         $ceos = $this->attachBonusMalus($ceos);
@@ -191,13 +212,13 @@ public function index(Request $request)
                 ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
                 ->where('ou.organization_id', $orgId)
                 ->where('ou.department_id', $dept->id)
-                ->where('ou.role', '!=', OrgRole::MANAGER) // Keep this, it's correct
+                ->where('ou.role', '!=', OrgRole::MANAGER)
                 ->where('ou.role', '!=', OrgRole::ADMIN)
                 ->whereNull('u.removed_at')
                 ->orderBy('u.name')
                 ->get(['u.id', 'u.name', 'u.email', 'ou.role as type', 'ou.position']);
 
-            // FIXED: Add rater counts to managers and members
+            // Add rater counts
             $managers = $this->addRaterCounts($managers, $orgId);
             $members = $this->addRaterCounts($members, $orgId);
             $managers = $this->attachBonusMalus($managers);
@@ -226,39 +247,31 @@ public function index(Request $request)
             }
         }
 
-        // 🔄 CHANGE 4: Use ou.role for eligible managers
         $eligibleManagers = DB::table('user as u')
             ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
             ->where('ou.organization_id', $orgId)
             ->whereNull('u.removed_at')
-            ->where('ou.role', OrgRole::MANAGER) // 🆕 UPDATED
+            ->where('ou.role', OrgRole::MANAGER)
             ->orderBy('u.name')
             ->get(['u.id', 'u.name', 'u.email']);
 
         // Üres részlegek a végére
         $departments = $departments->concat($emptyDepartments);
 
-         return view('admin.employees', [
-            // LEGACY-hoz
-            'users'            => $users,
-
-            // MULTI-LEVEL adatok
-            'enableMultiLevel' => true,
-            'ceos'             => $ceos,
-            'unassigned'       => $unassigned,
-            'departments'      => $departments,
-            'eligibleManagers' => $eligibleManagers,
-            
-            // Flags
-            'showBonusMalus' => $showBonusMalus,
-            'easyRelationSetup' => $easyRelationSetup,
-            'selectedLanguages' => $selectedLanguages,
-            
-            // Employee limit info
-            'hasClosedAssessment' => $hasClosedAssessment,
-            'employeeLimit' => $employeeLimit,
-            'currentEmployeeCount' => $currentEmployeeCount,
-            'isLimitReached' => $isLimitReached,
+        return view('admin.employees', [
+            'users'                 => $users,
+            'enableMultiLevel'      => true,
+            'ceos'                  => $ceos,
+            'unassigned'            => $unassigned,
+            'departments'           => $departments,
+            'eligibleManagers'      => $eligibleManagers,
+            'showBonusMalus'        => $showBonusMalus,
+            'easyRelationSetup'     => $easyRelationSetup,
+            'selectedLanguages'     => $selectedLanguages,
+            'hasClosedAssessment'   => $hasClosedAssessment,
+            'employeeLimit'         => $employeeLimit,
+            'currentEmployeeCount'  => $currentEmployeeCount,
+            'isLimitReached'        => $isLimitReached,
         ]);
     }
 

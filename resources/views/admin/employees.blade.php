@@ -187,20 +187,33 @@
                     </td>
                     
                     <td data-col="{{ __('global.type') }}">
-                        @if(isset($user->type))
-                            @if($user->type === 'ceo')
+                        @php
+                            // Use org_role if available (from DB query), otherwise fall back to type
+                            $displayRole = $user->org_role ?? $user->type ?? null;
+                        @endphp
+                        
+                        @if($displayRole)
+                            @if($displayRole === 'ceo')
                                 {{ __('usertypes.ceo') }}
-                            @elseif($user->type === 'manager')
+                            @elseif($displayRole === 'manager')
                                 {{ __('usertypes.manager') }}
-                            @elseif($user->type === 'normal')
+                            @elseif($displayRole === 'employee' || $displayRole === 'normal')
                                 {{ __('usertypes.normal') }}
+                            @elseif($displayRole === 'admin')
+                                {{ __('usertypes.admin') }}
+                            @elseif($displayRole === 'owner')
+                                {{ __('usertypes.owner') }}
                             @else
-                                {{ method_exists($user, 'getNameOfType') ? $user->getNameOfType() : ucfirst($user->type ?? '—') }}
+                                {{ ucfirst($displayRole) }}
                             @endif
                         @else
                             —
-                        @endif@php $pos = data_get($user, 'position'); @endphp
-    <br><small>{{ (is_string($pos) ? trim($pos) : $pos) ?: '—' }}</small>
+                        @endif
+                        
+                        @php 
+                            $pos = data_get($user, 'position'); 
+                        @endphp
+                        <br><small>{{ (is_string($pos) ? trim($pos) : $pos) ?: '—' }}</small>
                     </td>
                     
                     @if(!empty($showBonusMalus))
