@@ -45,45 +45,45 @@ class PasswordSetupController extends Controller
     }
 
     public function store(Request $request, string $token)
-        {
-            $ps = DB::table('password_setup as ps')
-                ->join('organization as o', 'o.id', '=', 'ps.organization_id')
-                ->select('ps.*', 'o.slug as org_slug')
-                ->where('ps.token_hash', hash('sha256', $token))
-                ->whereNull('ps.used_at')
-                ->first();
+    {
+        $ps = DB::table('password_setup as ps')
+            ->join('organization as o', 'o.id', '=', 'ps.organization_id')
+            ->select('ps.*', 'o.slug as org_slug')
+            ->where('ps.token_hash', hash('sha256', $token))
+            ->whereNull('ps.used_at')
+            ->first();
 
-            if (!$ps || now()->greaterThan($ps->expires_at)) {
-                return redirect()->route('login')->with('error', 'A jelszó beállító link érvénytelen vagy lejárt.');
-            }
+        if (!$ps || now()->greaterThan($ps->expires_at)) {
+            return redirect()->route('login')->with('error', 'A jelszó beállító link érvénytelen vagy lejárt.');
+        }
 
-            $organization = Organization::findOrFail($ps->organization_id);
-            $passwordSetup = PasswordSetup::findOrFail($ps->id);
-            $user = $passwordSetup->user;
+        $organization = Organization::findOrFail($ps->organization_id);
+        $passwordSetup = PasswordSetup::findOrFail($ps->id);
+        $user = $passwordSetup->user;
 
-            if (!$user || !is_null($user->removed_at)) {
-                return redirect()->route('login')->with('error', 'A felhasználói fiók nem aktív.');
-            }
+        if (!$user || !is_null($user->removed_at)) {
+            return redirect()->route('login')->with('error', 'A felhasználói fiók nem aktív.');
+        }
 
-            // reCAPTCHA validation
-            if (!\App\Services\RecaptchaService::validateRequest($request)) {
-                return back()
-                    ->withErrors(['email' => __('auth.recaptcha_failed')])
-                    ->withInput($request->except(['password', 'password_confirmation', 'g-recaptcha-response']));
-            }
+        // reCAPTCHA validation
+        if (!\App\Services\RecaptchaService::validateRequest($request)) {
+            return back()
+                ->withErrors(['email' => __('auth.recaptcha_failed')])
+                ->withInput($request->except(['password', 'password_confirmation', 'g-recaptcha-response']));
+        }
 
-            // SECURITY FIX: Enforce strong password requirements (12+ chars, letters, numbers, not compromised)
-            $data = $request->validate([
-                'password' => [
-                    'required',
-                    'string',
-                    'confirmed',
-                    Password::min(12)
-                        ->letters()
-                        ->numbers()
-                        ->uncompromised(),
-                ],
-            ]);
+        // SECURITY FIX: Enforce strong password requirements (12+ chars, letters, numbers, not compromised)
+        $data = $request->validate([
+            'password' => [
+                'required',
+                'string',
+                'confirmed',
+                Password::min(12)
+                    ->letters()
+                    ->numbers()
+                    ->uncompromised(),
+            ],
+        ]);
 
         // Save password + email verification
         $user->password = Hash::make($data['password']);
@@ -100,14 +100,15 @@ class PasswordSetupController extends Controller
         $request->session()->regenerate();
         Auth::login($user, false);
 
+        // FIXED: Removed deprecated 'utype' from session
         session([
             'uid'     => $user->id,
             'uname'   => $user->name,
-            'utype'   => $user->type,
             'uavatar' => null,
             'org_id'  => $organization->id,
         ]);
 
+        // Get the user's role in the organization
         $orgRole = DB::table('organization_user')
             ->where('organization_id', $organization->id)
             ->where('user_id', $user->id)

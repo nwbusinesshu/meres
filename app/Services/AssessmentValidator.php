@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use App\Models\User;
 use App\Models\Enums\UserType;
+use App\Models\Enums\OrgRole;
 
 class AssessmentValidator
 {
@@ -36,11 +37,12 @@ class AssessmentValidator
      */
     protected function validateMinimumUsers(int $orgId, int $minUsers = 2): void
     {
+        // FIXED: Only exclude SUPERADMIN (system-level), not organization admins
         $userCount = User::whereHas('organizations', function($q) use ($orgId) {
                 $q->where('organization_id', $orgId);
             })
             ->whereNull('removed_at')
-            ->whereNotIn('type', [UserType::ADMIN, UserType::SUPERADMIN])
+            ->where('type', '!=', UserType::SUPERADMIN)  // Only exclude superadmins
             ->count();
         
         if ($userCount < $minUsers) {
@@ -64,9 +66,10 @@ class AssessmentValidator
             ->pluck('user_id')
             ->toArray();
         
+        // FIXED: Only exclude SUPERADMIN (system-level)
         $activeUserIds = User::whereIn('id', $userIds)
             ->whereNull('removed_at')
-            ->whereNotIn('type', [UserType::ADMIN, UserType::SUPERADMIN])
+            ->where('type', '!=', UserType::SUPERADMIN)  // Only exclude superadmins
             ->pluck('id')
             ->toArray();
         
@@ -111,9 +114,10 @@ class AssessmentValidator
             ->pluck('user_id')
             ->toArray();
         
+        // FIXED: Only exclude SUPERADMIN (system-level)
         $activeUserIds = User::whereIn('id', $userIds)
             ->whereNull('removed_at')
-            ->whereNotIn('type', [UserType::ADMIN, UserType::SUPERADMIN])
+            ->where('type', '!=', UserType::SUPERADMIN)  // Only exclude superadmins
             ->pluck('id')
             ->toArray();
         
@@ -285,21 +289,19 @@ class AssessmentValidator
         $assessment = DB::table('assessment')->find($assessmentId);
         $orgId = $assessment->organization_id;
         
-        // Count CEOs and Managers who should rank
+        // FIXED: Count CEOs using organization_user.role instead of user.type
         $ceoCount = DB::table('user as u')
             ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
             ->where('ou.organization_id', $orgId)
-            ->where('u.type', 'ceo')
+            ->where('ou.role', OrgRole::CEO)  // FIXED: Use organization_user.role
             ->whereNull('u.removed_at')
             ->count();
         
+        // FIXED: Count managers using organization_user.role
         $managerCount = DB::table('organization_department_managers as odm')
-            ->join('organization_user as ou', function ($j) {
-                $j->on('ou.organization_id', '=', 'odm.organization_id')
-                  ->on('ou.department_id', '=', 'odm.department_id');
-            })
+            ->join('user as u', 'u.id', '=', 'odm.manager_id')
             ->where('odm.organization_id', $orgId)
-            ->where('ou.role', '!=', 'manager')
+            ->whereNull('u.removed_at')
             ->distinct('odm.manager_id')
             ->count('odm.manager_id');
         
