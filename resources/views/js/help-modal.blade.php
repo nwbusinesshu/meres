@@ -369,40 +369,97 @@ function showContentNotFound() {
   }
 
   // Show personalized welcome message for first-time users
-function showFirstLoginWelcome() {
-  const userName = '{{ session("uname") ?? "User" }}';
-  const orgRole = '{{ session("org_role") ?? "" }}';
-  
-  let welcomeMessage = `Üdvözlünk a rendszerben, ${userName}! 👋\n\n`;
-  welcomeMessage += `Segíthetek navigálni az alkalmazásban és válaszolok minden kérdésedre.\n\n`;
-  
-  // Add role-specific tips
-  if (orgRole === 'admin' || orgRole === 'ceo') {
-    welcomeMessage += `📊 Admin funkcióid:\n`;
-    welcomeMessage += `• Munkatársak kezelése\n`;
-    welcomeMessage += `• Értékelések indítása\n`;
-    welcomeMessage += `• Szervezeti beállítások\n\n`;
-    welcomeMessage += `Kérdezz bármit a rendszer használatával kapcsolatban!`;
-  } else if (orgRole === 'manager') {
-    welcomeMessage += `👥 Vezető funkcióid:\n`;
-    welcomeMessage += `• Csapattagjaid értékelése\n`;
-    welcomeMessage += `• Értékelési eredmények megtekintése\n\n`;
-    welcomeMessage += `Kérdezz bármit a rendszer használatával kapcsolatban!`;
-  } else {
-    welcomeMessage += `🎯 Gyakran kérdezett:\n`;
-    welcomeMessage += `• Hogyan töltsek ki egy értékelést?\n`;
-    welcomeMessage += `• Hol találom az eredményeimet?\n`;
-    welcomeMessage += `• Hogyan változtatom a beállításaimat?\n\n`;
-    welcomeMessage += `Bátran kérdezz bármit!`;
+// Show personalized welcome message for first-time users
+  function showFirstLoginWelcome() {
+    const userName = '{{ session("uname") ?? "User" }}';
+    const orgRole = '{{ session("org_role") ?? "" }}';
+    
+    let welcomeMessage = `Üdvözlünk a rendszerben, ${userName}! 👋\n\n`;
+    welcomeMessage += `Segíthetek navigálni az alkalmazásban és válaszolok minden kérdésedre.\n\n`;
+    
+    // Add role-specific tips
+    if (orgRole === 'admin' || orgRole === 'ceo') {
+      welcomeMessage += `📊 Admin funkcióid:\n`;
+      welcomeMessage += `• Munkatársak kezelése\n`;
+      welcomeMessage += `• Értékelések indítása\n`;
+      welcomeMessage += `• Szervezeti beállítások\n\n`;
+      welcomeMessage += `Kérdezz bármit a rendszer használatával kapcsolatban!`;
+    } else if (orgRole === 'manager') {
+      welcomeMessage += `👥 Vezető funkcióid:\n`;
+      welcomeMessage += `• Csapattagjaid értékelése\n`;
+      welcomeMessage += `• Értékelési eredmények megtekintése\n\n`;
+      welcomeMessage += `Kérdezz bármit a rendszer használatával kapcsolatban!`;
+    } else {
+      welcomeMessage += `🎯 Gyakran kérdezett:\n`;
+      welcomeMessage += `• Hogyan töltsek ki egy értékelést?\n`;
+      welcomeMessage += `• Hol találom az eredményeimet?\n`;
+      welcomeMessage += `• Hogyan változtatom a beállításaimat?\n\n`;
+      welcomeMessage += `Bátran kérdezz bármit!`;
+    }
+    
+    // Display the welcome message in UI immediately
+    appendAiMessage(welcomeMessage);
+    
+    // Create a new session and save the welcome message to database
+    $.ajax({
+      url: '{{ route("help.chat.session.new") }}',
+      method: 'POST',
+      data: {
+        view_key: currentViewKey,
+        locale: currentLocale,
+        _token: '{{ csrf_token() }}'
+      },
+      success: function(response) {
+        if (response.success && response.session) {
+          currentSessionId = response.session.id;
+          saveCurrentSession(currentSessionId);
+          
+          // Save welcome message to the session
+          saveWelcomeMessageToDb(welcomeMessage);
+          
+          if (isDebugMode) {
+            console.log('[Help System] First login welcome session created:', currentSessionId);
+          }
+        }
+      },
+      error: function(xhr) {
+        if (isDebugMode) {
+          console.error('[Help System] Failed to create welcome session:', xhr);
+        }
+      }
+    });
+    
+    if (isDebugMode) {
+      console.log('[Help System] First login welcome message displayed');
+    }
   }
-  
-  // Display the welcome message
-  appendAiMessage(welcomeMessage);
-  
-  if (isDebugMode) {
-    console.log('[Help System] First login welcome message displayed');
+
+  // Save welcome message to database (NEW HELPER FUNCTION)
+  function saveWelcomeMessageToDb(welcomeMessage) {
+    $.ajax({
+      url: '{{ route("help.chat.send") }}',
+      method: 'POST',
+      data: {
+        message: 'Üdvözlet', // User's implicit greeting
+        session_id: currentSessionId,
+        view_key: currentViewKey,
+        locale: currentLocale,
+        welcome_mode: 1,
+        welcome_response: welcomeMessage, // Pre-generated response
+        _token: '{{ csrf_token() }}'
+      },
+      success: function(response) {
+        if (isDebugMode) {
+          console.log('[Help System] Welcome message saved to database');
+        }
+      },
+      error: function(xhr) {
+        if (isDebugMode) {
+          console.error('[Help System] Failed to save welcome message:', xhr);
+        }
+      }
+    });
   }
-}
 
   /* =======================================================================
      CHAT FUNCTIONALITY

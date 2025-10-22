@@ -135,7 +135,9 @@ class HelpChatController extends Controller
             'message' => 'required|string|max:1000',
             'session_id' => 'nullable|integer|exists:help_chat_sessions,id',
             'view_key' => 'nullable|string|max:100',
-            'locale' => 'nullable|string|max:10'
+            'locale' => 'nullable|string|max:10',
+            'welcome_mode' => 'nullable|boolean',  // NEW: Flag for welcome messages
+            'welcome_response' => 'nullable|string|max:2000'  // NEW: Pre-generated welcome message
         ]);
 
         $userId = session('uid');
@@ -165,7 +167,39 @@ class HelpChatController extends Controller
                 ]);
             }
 
-            // Send message to AI
+            // UPDATED: Handle welcome mode differently
+            if (isset($validated['welcome_mode']) && $validated['welcome_mode'] === true) {
+                // Welcome mode: Save pre-generated message without calling AI
+                
+                // Save user's implicit greeting
+                $session->messages()->create([
+                    'role' => 'user',
+                    'content' => $validated['message']
+                ]);
+                
+                // Save the pre-generated welcome response
+                $welcomeResponse = $validated['welcome_response'] ?? 'Üdvözlöm! Segíthetek?';
+                $session->messages()->create([
+                    'role' => 'assistant',
+                    'content' => $welcomeResponse
+                ]);
+                
+                // Update session
+                $session->title = 'Első belépés';
+                $session->last_message_at = now();
+                $session->save();
+                
+                return response()->json([
+                    'success' => true,
+                    'response' => $welcomeResponse,
+                    'timestamp' => now()->toIso8601String(),
+                    'model' => 'welcome-message',
+                    'session_id' => $session->id,
+                    'session_title' => $session->title
+                ]);
+            }
+
+            // Normal mode: Send message to AI
             $response = $this->chatService->sendMessage(
                 $validated['message'],
                 $session
@@ -199,6 +233,7 @@ class HelpChatController extends Controller
             ], 500);
         }
     }
+
 
     /**
      * Get list of user's chat sessions

@@ -347,14 +347,11 @@ class LoginController extends Controller
             'email' => $user->email,
         ]);
 
-        $isFirstLogin = $user->logins()->count() === 0;
-
         // Store pending login in session
         session([
             'pending_2fa_user_id' => $user->id,
             'pending_2fa_email' => $user->email,
             'pending_2fa_remember' => $remember,
-            'first_login' => $isFirstLogin,
         ]);
 
         // Generate and send verification code
@@ -501,12 +498,15 @@ class LoginController extends Controller
         // Laravel auth + remember cookie
         Auth::login($user, $remember);
 
+        $isFirstLogin = $user->logins()->count() === 0;
+
         // Basic session data
         session([
             'uid'     => $user->id,
             'uname'   => $user->name,
             'utype'   => $user->type,
             'uavatar' => $avatar,
+            'first_login' => $isFirstLogin,
         ]);
 
         // Log the login

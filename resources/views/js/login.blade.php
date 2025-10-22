@@ -1,6 +1,13 @@
 <script>
 // Auto-format verification code input
 document.addEventListener('DOMContentLoaded', function() {
+    try {
+    sessionStorage.removeItem('help_first_login_shown');
+    sessionStorage.removeItem('helpModalState');
+    sessionStorage.removeItem('helpCurrentSession');
+} catch (e) {
+    // Silently fail if sessionStorage is not available
+}
     const verificationInput = document.getElementById('verification-code');
     if (verificationInput) {
         verificationInput.addEventListener('input', function(e) {
