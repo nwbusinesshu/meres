@@ -44,10 +44,12 @@ class AdminResultsController extends Controller
             ->first();
 
         // Résztvevő userek (admin/szuperadmin out), aztán szűrés arra, hogy VAN statjuk ebben a mérésben
-        $users = User::whereHas('organizations', function ($q) use ($orgId) {
-                $q->where('organization_id', $orgId);
+        $users = User::whereNull('removed_at')
+            ->where('type', '!=', UserType::SUPERADMIN)  // ✅ Exclude system superadmins
+            ->whereHas('organizations', function ($q) use ($orgId) {
+                $q->where('organization_id', $orgId)
+                  ->where('organization_user.role', '!=', OrgRole::ADMIN);  // ✅ Exclude org admins
             })
-            ->whereNotIn('type', [UserType::ADMIN, UserType::SUPERADMIN])
             ->orderBy('name')
             ->get()
             ->map(function ($user) use ($assessment) {

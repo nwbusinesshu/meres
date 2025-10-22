@@ -168,8 +168,9 @@ if ($already) {
                 ? UserRelationType::SELF
                 : optional($user->relations()->where('target_id', $target->id)->first())['type'];
 
-            if ($type == UserRelationType::SUBORDINATE && session('utype') == UserType::CEO) {
-                $type = UserType::CEO;
+            // ✅ FIXED: Check organization role, not system-level user type
+            if ($type == UserRelationType::SUBORDINATE && session('org_role') == OrgRole::CEO) {
+                $type = UserType::CEO;  // Keep this for backward compatibility with competency_submit table
             }
 
             CompetencySubmit::create([
