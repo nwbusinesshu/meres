@@ -37,13 +37,12 @@ class AssessmentValidator
      */
     protected function validateMinimumUsers(int $orgId, int $minUsers = 2): void
     {
-        // ✅ FIXED: Exclude both SUPERADMIN and organization admins
         $userCount = User::whereHas('organizations', function($q) use ($orgId) {
                 $q->where('organization_id', $orgId)
-                  ->where('role', '!=', OrgRole::ADMIN);  // ✅ Exclude org admins
+                  ->where('role', '!=', OrgRole::ADMIN);
             })
             ->whereNull('removed_at')
-            ->where('type', '!=', UserType::SUPERADMIN)  // Exclude superadmins
+            ->where('type', '!=', UserType::SUPERADMIN)
             ->count();
         
         if ($userCount < $minUsers) {
@@ -61,14 +60,12 @@ class AssessmentValidator
      */
     protected function validateUserCompetencies(int $orgId): void
     {
-        // ✅ FIXED: Get active users excluding organization admins
         $userIds = DB::table('organization_user')
             ->where('organization_id', $orgId)
-            ->where('role', '!=', OrgRole::ADMIN)  // ✅ Exclude org admins
+            ->where('role', '!=', OrgRole::ADMIN)
             ->pluck('user_id')
             ->toArray();
         
-        // Also exclude SUPERADMIN users
         $activeUserIds = User::whereIn('id', $userIds)
             ->whereNull('removed_at')
             ->where('type', '!=', UserType::SUPERADMIN)
@@ -76,15 +73,18 @@ class AssessmentValidator
             ->toArray();
         
         if (empty($activeUserIds)) {
-            return; // No active users, will be caught by validateMinimumUsers
+            return;
         }
         
-        // Check which users have NO competencies
-        $usersWithoutCompetencies = User::whereIn('id', $activeUserIds)
-            ->whereDoesntHave('competencies', function($q) use ($orgId) {
-                $q->where('user_competency.organization_id', $orgId);
+        $usersWithoutCompetencies = DB::table('user as u')
+            ->whereIn('u.id', $activeUserIds)
+            ->whereNotExists(function($q) use ($orgId) {
+                $q->select(DB::raw(1))
+                  ->from('user_competency as uc')
+                  ->whereColumn('uc.user_id', 'u.id')
+                  ->where('uc.organization_id', $orgId);
             })
-            ->pluck('name')
+            ->pluck('u.name')
             ->toArray();
         
         if (!empty($usersWithoutCompetencies)) {
@@ -96,7 +96,7 @@ class AssessmentValidator
             }
             
             throw ValidationException::withMessages([
-                'competencies' => "A következő felhasználóknak nincsenek kompetenciák hozzárendelve: {$userList}. " .
+                'competencies' => "A következő felhasználókhoz nincsenek kompetenciák rendelve: {$userList}. " .
                                   "Minden felhasználónak legalább 1 kompetenciával kell rendelkeznie."
             ]);
         }
@@ -110,14 +110,12 @@ class AssessmentValidator
      */
     protected function validateUserRelations(int $orgId): void
     {
-        // ✅ FIXED: Get active users excluding organization admins
         $userIds = DB::table('organization_user')
             ->where('organization_id', $orgId)
-            ->where('role', '!=', OrgRole::ADMIN)  // ✅ Exclude org admins
+            ->where('role', '!=', OrgRole::ADMIN)
             ->pluck('user_id')
             ->toArray();
         
-        // Also exclude SUPERADMIN users
         $activeUserIds = User::whereIn('id', $userIds)
             ->whereNull('removed_at')
             ->where('type', '!=', UserType::SUPERADMIN)
@@ -128,7 +126,6 @@ class AssessmentValidator
             return;
         }
         
-        // Check which users have NO relations (excluding self-relations)
         $usersWithoutRelations = DB::table('user as u')
             ->whereIn('u.id', $activeUserIds)
             ->whereNotExists(function($q) use ($orgId) {
@@ -136,7 +133,7 @@ class AssessmentValidator
                   ->from('user_relation as ur')
                   ->whereColumn('ur.user_id', 'u.id')
                   ->where('ur.organization_id', $orgId)
-                  ->where('ur.type', '!=', 'self'); // Exclude self-relations
+                  ->where('ur.type', '!=', 'self');
             })
             ->pluck('u.name')
             ->toArray();
@@ -157,32 +154,42 @@ class AssessmentValidator
     }
     
     /**
-     * Validate that an assessment is ready to be closed
+     * ========================================================================
+     * NEW VALIDATION LOGIC - Assessment Ready to Close
+     * ========================================================================
+     * 
+     * Validate that an assessment is ready to be closed with NEW rules:
+     * 1. Every user must have self-evaluation
+     * 2. Every non-CEO must have CEO rank
+     * 3. Every CEO must have direct reports feedback
+     * 4. Every user must have external feedback
      * 
      * @param int $assessmentId
      * @throws ValidationException
      */
     public function validateAssessmentReadyToClose(int $assessmentId): void
     {
-        // 1. Check all users have been evaluated
-        $this->validateAllUsersEvaluated($assessmentId);
+        // 1. Every user must have self-evaluation
+        $this->validateAllUsersHaveSelfEvaluation($assessmentId);
         
-        // 2. Check minimum scores per user (at least 1 colleague, 1 subordinate if applicable)
-        $this->validateMinimumScoresPerUser($assessmentId);
+        // 2. Every non-CEO must have CEO rank
+        $this->validateNonCeosHaveCeoRank($assessmentId);
         
-        // 3. Check CEO ranks are complete
-        $this->validateCeoRanksComplete($assessmentId);
+        // 3. Every CEO must have direct reports feedback
+        $this->validateCeosHaveDirectReports($assessmentId);
+        
+        // 4. Every user must have external feedback
+        $this->validateUsersHaveExternalFeedback($assessmentId);
     }
     
     /**
-     * Validate all users have submitted their evaluations
+     * NEW RULE 1: Validate all users have completed self-evaluation
      * 
      * @param int $assessmentId
      * @throws ValidationException
      */
-    protected function validateAllUsersEvaluated(int $assessmentId): void
+    protected function validateAllUsersHaveSelfEvaluation(int $assessmentId): void
     {
-        // Get assessment and organization
         $assessment = DB::table('assessment')->find($assessmentId);
         
         if (!$assessment) {
@@ -191,147 +198,264 @@ class AssessmentValidator
             ]);
         }
         
-        $orgId = $assessment->organization_id;
-        
-        // Get total expected submissions (relations count, excluding self)
-        $expectedSubmissions = DB::table('user_relation')
-            ->where('organization_id', $orgId)
-            ->where('type', '!=', 'self')
-            ->count();
-        
-        // Get actual submissions
-        $actualSubmissions = DB::table('user_competency_submit')
-            ->where('assessment_id', $assessmentId)
-            ->count();
-        
-        if ($actualSubmissions < $expectedSubmissions) {
-            $remaining = $expectedSubmissions - $actualSubmissions;
-            $percentage = round(($actualSubmissions / $expectedSubmissions) * 100, 1);
-            
+        $snapshot = json_decode($assessment->org_snapshot, true);
+        if (!$snapshot) {
             throw ValidationException::withMessages([
-                'submissions' => "Még nem minden értékelés lett leadva. " .
-                                "Kitöltöttség: {$actualSubmissions}/{$expectedSubmissions} ({$percentage}%). " .
-                                "Hiányzó értékelések: {$remaining} db."
+                'snapshot' => 'Nincs snapshot az értékeléshez.'
             ]);
         }
-    }
-    
-    /**
-     * Validate each user has minimum required evaluations
-     * 
-     * @param int $assessmentId
-     * @throws ValidationException
-     */
-    protected function validateMinimumScoresPerUser(int $assessmentId): void
-    {
-        // Get all users who should be evaluated
-        $assessment = DB::table('assessment')->find($assessmentId);
-        $orgId = $assessment->organization_id;
         
-        // Get user IDs who are targets in this assessment
-        $targetIds = DB::table('user_relation')
-            ->where('organization_id', $orgId)
-            ->where('type', '!=', 'self')
-            ->distinct('target_id')
-            ->pluck('target_id')
-            ->toArray();
+        // Get all user IDs from snapshot
+        $allUserIds = array_keys($snapshot['_index']['user_ids'] ?? []);
         
-        $usersWithIncompleteData = [];
+        if (empty($allUserIds)) {
+            return; // No users to validate
+        }
         
-        foreach ($targetIds as $targetId) {
-            // Count colleague evaluations (excluding self)
-            $colleagueCount = DB::table('competency_submit')
+        $usersWithoutSelf = [];
+        
+        foreach ($allUserIds as $userId) {
+            // Check if user has self-evaluation (user_competency_submit table)
+            $hasSelf = DB::table('user_competency_submit')
                 ->where('assessment_id', $assessmentId)
-                ->where('target_id', $targetId)
-                ->where('type', 'colleague')
-                ->count();
+                ->where('user_id', $userId)
+                ->where('target_id', $userId)
+                ->exists();
             
-            // Count subordinate evaluations
-            $subordinateCount = DB::table('competency_submit')
-                ->where('assessment_id', $assessmentId)
-                ->where('target_id', $targetId)
-                ->where('type', 'subordinate')
-                ->count();
-            
-            // Get user name
-            $userName = DB::table('user')->where('id', $targetId)->value('name');
-            
-            $issues = [];
-            if ($colleagueCount === 0) {
-                $issues[] = 'nincs kolléga értékelés';
-            }
-            
-            if (!empty($issues)) {
-                $usersWithIncompleteData[] = "{$userName}: " . implode(', ', $issues);
+            if (!$hasSelf) {
+                // Get user name from snapshot
+                $userName = null;
+                foreach ($snapshot['users'] ?? [] as $u) {
+                    if ((int)($u['id'] ?? 0) === $userId) {
+                        $userName = $u['name'] ?? null;
+                        break;
+                    }
+                }
+                
+                if (!$userName) {
+                    $user = DB::table('user')->find($userId);
+                    $userName = $user->name ?? "User ID {$userId}";
+                }
+                
+                $usersWithoutSelf[] = $userName;
             }
         }
         
-        if (!empty($usersWithIncompleteData)) {
-            $userList = implode('<br>', array_slice($usersWithIncompleteData, 0, 10));
-            $remaining = count($usersWithIncompleteData) - 10;
+        if (!empty($usersWithoutSelf)) {
+            $userList = implode(', ', array_slice($usersWithoutSelf, 0, 10));
+            $remaining = count($usersWithoutSelf) - 10;
             
             if ($remaining > 0) {
-                $userList .= "<br>(és még {$remaining} fő)";
+                $userList .= " (és még {$remaining} fő)";
             }
             
             throw ValidationException::withMessages([
-                'incomplete' => "Az alábbi felhasználók értékelései hiányosak:<br>{$userList}"
+                'self_evaluation' => "A következő felhasználók nem töltötték ki az önértékelést: {$userList}. " .
+                                    "Minden felhasználónak kötelező az önértékelés."
             ]);
         }
     }
     
     /**
-     * Validate CEO rankings are complete
+     * NEW RULE 2: Validate all non-CEOs have CEO rank
      * 
      * @param int $assessmentId
      * @throws ValidationException
      */
-    protected function validateCeoRanksComplete(int $assessmentId): void
+    protected function validateNonCeosHaveCeoRank(int $assessmentId): void
     {
-        // Get assessment and organization
         $assessment = DB::table('assessment')->find($assessmentId);
-        $orgId = $assessment->organization_id;
+        $snapshot = json_decode($assessment->org_snapshot, true);
         
-        // Get all CEO rank definitions
-        $ceoRanks = DB::table('ceo_rank')
-            ->where(function($q) use ($orgId) {
-                $q->whereNull('organization_id')
-                  ->orWhere('organization_id', $orgId);
-            })
-            ->whereNull('removed_at')
-            ->pluck('id')
-            ->toArray();
-        
-        if (empty($ceoRanks)) {
-            return; // No CEO ranks defined, skip validation
+        if (!$snapshot) {
+            throw ValidationException::withMessages([
+                'snapshot' => 'Nincs snapshot az értékeléshez.'
+            ]);
         }
         
-        // Get users who should submit CEO ranks (managers and CEOs)
-        $rankerIds = DB::table('organization_user')
-            ->where('organization_id', $orgId)
-            ->whereIn('role', [OrgRole::MANAGER, OrgRole::CEO])
-            ->pluck('user_id')
-            ->toArray();
+        $ceoIds = array_keys($snapshot['_index']['ceo_ids'] ?? []);
+        $allUserIds = array_keys($snapshot['_index']['user_ids'] ?? []);
+        $nonCeoIds = array_diff($allUserIds, $ceoIds);
         
-        if (empty($rankerIds)) {
-            return; // No managers/CEOs to submit rankings
+        if (empty($nonCeoIds)) {
+            return; // No non-CEOs to validate
         }
         
-        // Count expected vs actual CEO rank submissions
-        $expectedRankings = count($rankerIds) * count($ceoRanks);
-        $actualRankings = DB::table('user_ceo_rank')
-            ->where('assessment_id', $assessmentId)
-            ->whereIn('user_id', $rankerIds)
-            ->count();
+        $usersWithoutCeoRank = [];
         
-        if ($actualRankings < $expectedRankings) {
-            $remaining = $expectedRankings - $actualRankings;
-            $percentage = round(($actualRankings / $expectedRankings) * 100, 1);
+        foreach ($nonCeoIds as $userId) {
+            // Check if user has been ranked by any CEO
+            $hasCeoRank = DB::table('user_ceo_rank')
+                ->where('assessment_id', $assessmentId)
+                ->where('user_id', $userId)
+                ->exists();
+            
+            if (!$hasCeoRank) {
+                // Get user name from snapshot
+                $userName = null;
+                foreach ($snapshot['users'] ?? [] as $u) {
+                    if ((int)($u['id'] ?? 0) === $userId) {
+                        $userName = $u['name'] ?? null;
+                        break;
+                    }
+                }
+                
+                if (!$userName) {
+                    $user = DB::table('user')->find($userId);
+                    $userName = $user->name ?? "User ID {$userId}";
+                }
+                
+                $usersWithoutCeoRank[] = $userName;
+            }
+        }
+        
+        if (!empty($usersWithoutCeoRank)) {
+            $userList = implode(', ', array_slice($usersWithoutCeoRank, 0, 10));
+            $remaining = count($usersWithoutCeoRank) - 10;
+            
+            if ($remaining > 0) {
+                $userList .= " (és még {$remaining} fő)";
+            }
             
             throw ValidationException::withMessages([
-                'ceo_ranks' => "A vezető ranglista kitöltése hiányos. " .
-                              "Kitöltöttség: {$actualRankings}/{$expectedRankings} ({$percentage}%). " .
-                              "Hiányzó ranglista bejegyzések: {$remaining} db."
+                'ceo_rank' => "A következő felhasználókat nem rangsorolta egyetlen CEO sem: {$userList}. " .
+                             "Minden nem-CEO felhasználót kötelező rangsorolni."
+            ]);
+        }
+    }
+    
+    /**
+     * NEW RULE 3: Validate all CEOs have direct reports feedback
+     * 
+     * @param int $assessmentId
+     * @throws ValidationException
+     */
+    protected function validateCeosHaveDirectReports(int $assessmentId): void
+    {
+        $assessment = DB::table('assessment')->find($assessmentId);
+        $snapshot = json_decode($assessment->org_snapshot, true);
+        
+        if (!$snapshot) {
+            throw ValidationException::withMessages([
+                'snapshot' => 'Nincs snapshot az értékeléshez.'
+            ]);
+        }
+        
+        $ceoIds = array_keys($snapshot['_index']['ceo_ids'] ?? []);
+        
+        if (empty($ceoIds)) {
+            return; // No CEOs to validate
+        }
+        
+        $ceosWithoutFeedback = [];
+        
+        foreach ($ceoIds as $ceoId) {
+            // Check if CEO has feedback from direct reports (type='superior' in competency_submit)
+            $hasDirectReports = DB::table('competency_submit')
+                ->where('assessment_id', $assessmentId)
+                ->where('target_id', $ceoId)
+                ->where('type', 'superior')
+                ->exists();
+            
+            if (!$hasDirectReports) {
+                // Get CEO name from snapshot
+                $ceoName = null;
+                foreach ($snapshot['users'] ?? [] as $u) {
+                    if ((int)($u['id'] ?? 0) === $ceoId) {
+                        $ceoName = $u['name'] ?? null;
+                        break;
+                    }
+                }
+                
+                if (!$ceoName) {
+                    $user = DB::table('user')->find($ceoId);
+                    $ceoName = $user->name ?? "CEO ID {$ceoId}";
+                }
+                
+                $ceosWithoutFeedback[] = $ceoName;
+            }
+        }
+        
+        if (!empty($ceosWithoutFeedback)) {
+            $userList = implode(', ', array_slice($ceosWithoutFeedback, 0, 10));
+            $remaining = count($ceosWithoutFeedback) - 10;
+            
+            if ($remaining > 0) {
+                $userList .= " (és még {$remaining} fő)";
+            }
+            
+            throw ValidationException::withMessages([
+                'ceo_feedback' => "A következő CEO-k nem kaptak visszajelzést a beosztottaiktól: {$userList}. " .
+                                 "Minden CEO-t kötelező értékelni a beosztottjainak (felettesi viszony)."
+            ]);
+        }
+    }
+    
+    /**
+     * NEW RULE 4: Validate all users have external feedback
+     * 
+     * External feedback means any evaluation where user_id != target_id
+     * 
+     * @param int $assessmentId
+     * @throws ValidationException
+     */
+    protected function validateUsersHaveExternalFeedback(int $assessmentId): void
+    {
+        $assessment = DB::table('assessment')->find($assessmentId);
+        $snapshot = json_decode($assessment->org_snapshot, true);
+        
+        if (!$snapshot) {
+            throw ValidationException::withMessages([
+                'snapshot' => 'Nincs snapshot az értékeléshez.'
+            ]);
+        }
+        
+        $allUserIds = array_keys($snapshot['_index']['user_ids'] ?? []);
+        
+        if (empty($allUserIds)) {
+            return; // No users to validate
+        }
+        
+        $usersWithoutExternal = [];
+        
+        foreach ($allUserIds as $userId) {
+            // Check if user has been evaluated by others (user_competency_submit where user_id != target_id)
+            $hasExternal = DB::table('user_competency_submit')
+                ->where('assessment_id', $assessmentId)
+                ->where('target_id', $userId)
+                ->where('user_id', '!=', $userId)
+                ->exists();
+            
+            if (!$hasExternal) {
+                // Get user name from snapshot
+                $userName = null;
+                foreach ($snapshot['users'] ?? [] as $u) {
+                    if ((int)($u['id'] ?? 0) === $userId) {
+                        $userName = $u['name'] ?? null;
+                        break;
+                    }
+                }
+                
+                if (!$userName) {
+                    $user = DB::table('user')->find($userId);
+                    $userName = $user->name ?? "User ID {$userId}";
+                }
+                
+                $usersWithoutExternal[] = $userName;
+            }
+        }
+        
+        if (!empty($usersWithoutExternal)) {
+            $userList = implode(', ', array_slice($usersWithoutExternal, 0, 10));
+            $remaining = count($usersWithoutExternal) - 10;
+            
+            if ($remaining > 0) {
+                $userList .= " (és még {$remaining} fő)";
+            }
+            
+            throw ValidationException::withMessages([
+                'external_feedback' => "A következő felhasználók nem kaptak külső értékelést: {$userList}. " .
+                                      "Minden felhasználót kötelező értékelni legalább egy másik felhasználónak."
             ]);
         }
     }
