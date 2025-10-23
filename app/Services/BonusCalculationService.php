@@ -35,7 +35,7 @@ class BonusCalculationService
         $assessment = Assessment::findOrFail($assessmentId);
         $orgId = $assessment->organization_id;
 
-        // ✅ CHECK: Is bonus calculation enabled?
+        // ✅ STEP 1: Check if bonus calculation is enabled
         $enableBonusCalculation = OrgConfigService::getBool($orgId, 'enable_bonus_calculation', false);
         
         if (!$enableBonusCalculation) {
@@ -43,7 +43,7 @@ class BonusCalculationService
             return; // Exit early if bonus calculation is disabled
         }
 
-        // Get snapshot
+        // ✅ STEP 2: Load snapshot
         $snapshot = json_decode($assessment->org_snapshot, true);
         if (!$snapshot) {
             Log::warning("No snapshot for assessment {$assessmentId}");
@@ -51,7 +51,39 @@ class BonusCalculationService
         }
 
         $users = $snapshot['users'] ?? [];
+        
+        // ✅ STEP 3: Check if wage data exists in snapshot
+        $hasWageData = false;
+        foreach ($users as $user) {
+            if (isset($user['net_wage']) && $user['net_wage'] > 0) {
+                $hasWageData = true;
+                break;
+            }
+        }
+
+        // ✅ STEP 4: If no wage data, refresh it from database
+        if (!$hasWageData) {
+            Log::info("Wage data missing in snapshot for assessment {$assessmentId}, refreshing...");
+            
+            $snapshotService = app(SnapshotService::class);
+            $updated = $snapshotService->updateSnapshotWageData($assessmentId, $orgId);
+            
+            if (!$updated) {
+                Log::error("Failed to update wage data in snapshot for assessment {$assessmentId}");
+                return;
+            }
+
+            // Reload snapshot with updated wage data
+            $assessment = Assessment::findOrFail($assessmentId);
+            $snapshot = json_decode($assessment->org_snapshot, true);
+            $users = $snapshot['users'] ?? [];
+            
+            Log::info("Wage data refreshed in snapshot for assessment {$assessmentId}");
+        }
+
+        // ✅ STEP 5: Calculate bonuses for each user
         $bonusRecords = [];
+        $bonusDataForSnapshot = [];
 
         foreach ($users as $user) {
             $userId = $user['id'];
@@ -60,6 +92,7 @@ class BonusCalculationService
 
             // Skip if no wage data
             if ($netWage <= 0) {
+                Log::debug("Skipping bonus for user {$userId} - no wage data");
                 continue;
             }
 
@@ -72,7 +105,7 @@ class BonusCalculationService
             // Calculate bonus
             $bonusAmount = $this->calculateBonus($netWage, $multiplier);
 
-            // Store bonus record
+            // Prepare bonus record for database
             $bonusRecords[] = [
                 'assessment_id' => $assessmentId,
                 'user_id' => $userId,
@@ -85,14 +118,34 @@ class BonusCalculationService
                 'paid_at' => null,
                 'created_at' => now(),
             ];
+
+            // Prepare bonus data for snapshot
+            $bonusDataForSnapshot[$userId] = [
+                'bonus_malus_level' => $newLevel,
+                'multiplier' => $multiplier,
+                'bonus_amount' => $bonusAmount,
+                'currency' => $currency,
+                'calculated_at' => now()->toIso8601String(),
+            ];
         }
 
-        // Bulk insert bonuses
+        // ✅ STEP 6: Save bonus records to database
         if (!empty($bonusRecords)) {
             DB::table('assessment_bonuses')->insert($bonusRecords);
             Log::info("Created " . count($bonusRecords) . " bonus records for assessment {$assessmentId}");
         } else {
             Log::info("No bonuses to create for assessment {$assessmentId} - no users with wage data");
+            return; // No bonuses to save to snapshot either
+        }
+
+        // ✅ STEP 7: Save bonus results to snapshot for historical record
+        $snapshotService = app(SnapshotService::class);
+        $snapshotUpdated = $snapshotService->updateSnapshotBonusData($assessmentId, $bonusDataForSnapshot);
+        
+        if ($snapshotUpdated) {
+            Log::info("Bonus calculation results saved to snapshot for assessment {$assessmentId}");
+        } else {
+            Log::warning("Failed to save bonus results to snapshot for assessment {$assessmentId}");
         }
     }
 

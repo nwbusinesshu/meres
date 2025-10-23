@@ -4,6 +4,7 @@ return [
     'title' => 'Bónuszok',
     'bonuses' => 'Bónuszok',
     'manage-bonuses' => 'Bónuszok kezelése',
+    'bonus-summary' => 'Időszak bónuszai',
     
     // Assessment selection
     'select-assessment' => 'Válassz értékelést',

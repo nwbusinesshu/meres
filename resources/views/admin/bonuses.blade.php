@@ -29,16 +29,17 @@
     </div>
 
     {{-- Summary Stats --}}
+    <h3>{{ __('admin/bonuses.bonus-summary') }}</h3>
     <div class="stats-grid">
-        <div class="stat-card">
+        <div class="stat-card tile tile-info">
             <div class="stat-value">{{ number_format($totalBonus, 0, ',', ' ') }} HUF</div>
             <div class="stat-label">{{ __('admin/bonuses.total-bonuses') }}</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card tile tile-info">
             <div class="stat-value">{{ $paidCount }}</div>
             <div class="stat-label">{{ __('admin/bonuses.paid') }}</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card tile tile-info">
             <div class="stat-value">{{ $unpaidCount }}</div>
             <div class="stat-label">{{ __('admin/bonuses.unpaid') }}</div>
         </div>
@@ -46,10 +47,8 @@
 
     {{-- Bonus List Table --}}
     @if($bonuses->isNotEmpty())
+    <h3>{{ __('admin/bonuses.bonus-list') }}</h3>
         <div class="bonus-table-container">
-            <div class="bonus-table-header">
-                <h3>{{ __('admin/bonuses.bonus-list') }}</h3>
-            </div>
             <div class="bonus-table-body">
                 <div class="table-responsive">
                     <table class="bonus-table">

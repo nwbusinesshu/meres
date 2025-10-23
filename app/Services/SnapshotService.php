@@ -279,6 +279,164 @@ foreach ($bonusMalusRows as $bm) {
     ];
 }
 
+public function updateSnapshotWageData(int $assessmentId, int $orgId): bool
+    {
+        try {
+            return DB::transaction(function () use ($assessmentId, $orgId) {
+                // Load current assessment with lock
+                $assessment = DB::table('assessment')
+                    ->where('id', $assessmentId)
+                    ->lockForUpdate()
+                    ->first(['id', 'org_snapshot']);
+
+                if (!$assessment) {
+                    Log::error('SnapshotService: Assessment not found for wage update', [
+                        'assessment_id' => $assessmentId
+                    ]);
+                    return false;
+                }
+
+                // Decode snapshot
+                $snapshot = json_decode($assessment->org_snapshot, true);
+                if (!is_array($snapshot) || !isset($snapshot['users'])) {
+                    Log::error('SnapshotService: Invalid snapshot for wage update', [
+                        'assessment_id' => $assessmentId
+                    ]);
+                    return false;
+                }
+
+                // Get current wage data
+                $wageData = DB::table('user_wages')
+                    ->where('organization_id', $orgId)
+                    ->get(['user_id', 'net_wage', 'currency'])
+                    ->keyBy('user_id');
+
+                // Update each user with wage data
+                $updatedCount = 0;
+                foreach ($snapshot['users'] as &$user) {
+                    $userId = $user['id'];
+                    
+                    if (isset($wageData[$userId])) {
+                        $user['net_wage'] = (float) $wageData[$userId]->net_wage;
+                        $user['currency'] = $wageData[$userId]->currency;
+                        $updatedCount++;
+                    } else {
+                        $user['net_wage'] = 0;
+                        $user['currency'] = 'HUF';
+                    }
+                }
+                unset($user); // Break reference
+
+                // Save updated snapshot
+                $updatedJson = json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                
+                if ($updatedJson === false) {
+                    Log::error('SnapshotService: JSON encoding failed during wage update', [
+                        'assessment_id' => $assessmentId,
+                        'json_error' => json_last_error_msg()
+                    ]);
+                    return false;
+                }
+                
+                DB::table('assessment')
+                    ->where('id', $assessmentId)
+                    ->update(['org_snapshot' => $updatedJson]);
+
+                Log::info('SnapshotService: Wage data updated in snapshot', [
+                    'assessment_id' => $assessmentId,
+                    'users_updated' => $updatedCount
+                ]);
+
+                return true;
+            });
+        } catch (\Throwable $e) {
+            Log::error('SnapshotService: Failed to update wage data', [
+                'assessment_id' => $assessmentId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Update snapshot with calculated bonus data
+     * Called after bonuses are calculated to save results to snapshot
+     * 
+     * @param int $assessmentId
+     * @param array $bonusData Array keyed by user_id with bonus calculations
+     * @return bool
+     */
+    public function updateSnapshotBonusData(int $assessmentId, array $bonusData): bool
+    {
+        try {
+            return DB::transaction(function () use ($assessmentId, $bonusData) {
+                // Load current assessment with lock
+                $assessment = DB::table('assessment')
+                    ->where('id', $assessmentId)
+                    ->lockForUpdate()
+                    ->first(['id', 'org_snapshot']);
+
+                if (!$assessment) {
+                    Log::error('SnapshotService: Assessment not found for bonus update', [
+                        'assessment_id' => $assessmentId
+                    ]);
+                    return false;
+                }
+
+                // Decode snapshot
+                $snapshot = json_decode($assessment->org_snapshot, true);
+                if (!is_array($snapshot) || !isset($snapshot['users'])) {
+                    Log::error('SnapshotService: Invalid snapshot for bonus update', [
+                        'assessment_id' => $assessmentId
+                    ]);
+                    return false;
+                }
+
+                // Update each user with bonus data
+                $updatedCount = 0;
+                foreach ($snapshot['users'] as &$user) {
+                    $userId = $user['id'];
+                    
+                    if (isset($bonusData[$userId])) {
+                        $user['bonus_calculation'] = $bonusData[$userId];
+                        $updatedCount++;
+                    }
+                }
+                unset($user); // Break reference
+
+                // Save updated snapshot
+                $updatedJson = json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                
+                if ($updatedJson === false) {
+                    Log::error('SnapshotService: JSON encoding failed during bonus update', [
+                        'assessment_id' => $assessmentId,
+                        'json_error' => json_last_error_msg()
+                    ]);
+                    return false;
+                }
+                
+                DB::table('assessment')
+                    ->where('id', $assessmentId)
+                    ->update(['org_snapshot' => $updatedJson]);
+
+                Log::info('SnapshotService: Bonus data updated in snapshot', [
+                    'assessment_id' => $assessmentId,
+                    'users_updated' => $updatedCount
+                ]);
+
+                return true;
+            });
+        } catch (\Throwable $e) {
+            Log::error('SnapshotService: Failed to update bonus data', [
+                'assessment_id' => $assessmentId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
+        }
+    }
+
     /**
      * Típus-casting az org confighoz: bool / int / float.
      */
