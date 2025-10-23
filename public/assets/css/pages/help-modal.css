@@ -1127,3 +1127,39 @@ body.help-no-transition .page-container,
 .help-static-content > *:last-child {
   margin-bottom: 2rem;
 }
+
+/* Thinking indicator (when AI loads additional documents) */
+.help-thinking-text {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--outer_space);
+  font-weight: 500;
+  padding: 0.25rem 0;
+}
+
+.help-thinking-text i {
+  font-size: 1.1rem;
+  color: var(--info);
+}
+
+.help-thinking-text span {
+  font-size: 0.95rem;
+}
+
+/* Pulse animation for brain icon */
+@keyframes fa-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.fa-pulse {
+  animation: fa-pulse 2s ease-in-out infinite;
+}

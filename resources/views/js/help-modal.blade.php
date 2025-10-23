@@ -594,84 +594,184 @@ function showFirstLoginWelcome() {
   }
   
   function sendChatMessage() {
-    if (isSendingMessage) {
-      return; // Prevent multiple simultaneous sends
-    }
-    
-    const $input = $('.help-chat-input');
-    const message = $input.val().trim();
-    
-    if (!message) {
-      return; // Don't send empty messages
-    }
-    
-    // Append user message
-    appendUserMessage(message);
-    
-    // Clear input
-    $input.val('');
-    autoResizeTextarea($input[0]);
-    
-    // Disable input while sending
-    isSendingMessage = true;
-    $input.prop('disabled', true);
-    $('.help-chat-send').prop('disabled', true);
-    
-    // Show loading indicator
-    appendLoadingMessage();
-    
-    // Send to API
-    $.ajax({
-      url: '{{ route("help.chat.send") }}',
-      method: 'POST',
-      data: {
-        message: message,
-        session_id: currentSessionId,
-        view_key: currentViewKey,
-        locale: currentLocale,
-        _token: '{{ csrf_token() }}'
-      },
-      success: function(response) {
-        removeLoadingMessage();
+  if (isSendingMessage) {
+    return; // Prevent multiple simultaneous sends
+  }
+  
+  const $input = $('.help-chat-input');
+  const message = $input.val().trim();
+  
+  if (!message) {
+    return; // Don't send empty messages
+  }
+  
+  // Append user message
+  appendUserMessage(message);
+  
+  // Clear input
+  $input.val('');
+  autoResizeTextarea($input[0]);
+  
+  // Disable input while sending
+  isSendingMessage = true;
+  $input.prop('disabled', true);
+  $('.help-chat-send').prop('disabled', true);
+  
+  // Show loading indicator
+  appendLoadingMessage();
+  
+  // Send to API
+  $.ajax({
+    url: '{{ route("help.chat.send") }}',
+    method: 'POST',
+    data: {
+      message: message,
+      session_id: currentSessionId,
+      view_key: currentViewKey,
+      locale: currentLocale,
+      _token: '{{ csrf_token() }}'
+    },
+    success: function(response) {
+      removeLoadingMessage();
+      
+      // UPDATED: Check if response is a function call request
+      if (response.success && response.function_call) {
+        // AI wants to load additional documents
+        handleFunctionCall(response.function_call, message, response.session_id);
+        return;
+      }
+      
+      // Normal AI response
+      if (response.success && response.response) {
+        appendAiMessage(response.response);
         
-        if (response.success && response.response) {
-          appendAiMessage(response.response);
-          
-          // Update current session ID if new session was created
-          if (response.session_id) {
-            currentSessionId = response.session_id;
-            saveCurrentSession(currentSessionId);
-          }
-        } else {
-          appendAiMessage('{{ __("help.ai-error-generic") }}');
+        // Update current session ID if new session was created
+        if (response.session_id) {
+          currentSessionId = response.session_id;
+          saveCurrentSession(currentSessionId);
         }
-      },
-      error: function(xhr) {
-        removeLoadingMessage();
+      } else {
+        appendAiMessage('{{ __("help.ai-error-generic") }}');
+      }
+    },
+    error: function(xhr) {
+      removeLoadingMessage();
+      
+      let errorMessage = '{{ __("help.ai-error-generic") }}';
+      
+      if (xhr.status === 429) {
+        errorMessage = '{{ __("help.ai-error-rate-limit") }}';
+      } else if (xhr.responseJSON && xhr.responseJSON.error) {
+        errorMessage = xhr.responseJSON.error;
+      }
+      
+      appendAiMessage(errorMessage);
+      
+      if (isDebugMode) {
+        console.error('[Help Chat] Error:', xhr);
+      }
+    },
+    complete: function() {
+      // Re-enable input
+      isSendingMessage = false;
+      $input.prop('disabled', false);
+      $('.help-chat-send').prop('disabled', false);
+      $input.focus();
+    }
+  });
+}
+
+function handleFunctionCall(functionCall, originalMessage, sessionId) {
+  if (functionCall.name !== 'load_help_documents') {
+    appendAiMessage('{{ __("help.ai-error-generic") }}');
+    return;
+  }
+  
+  const viewKeys = functionCall.arguments.view_keys || [];
+  
+  if (!viewKeys.length) {
+    appendAiMessage('{{ __("help.ai-error-generic") }}');
+    return;
+  }
+  
+  if (isDebugMode) {
+    console.log('[Help Chat] Loading additional documents:', viewKeys);
+  }
+  
+  // Show thinking indicator
+  appendThinkingMessage();
+  
+  // Call load-docs endpoint
+  $.ajax({
+    url: '{{ route("help.chat.load-docs") }}',
+    method: 'POST',
+    data: {
+      session_id: sessionId,
+      view_keys: viewKeys,
+      original_message: originalMessage,
+      _token: '{{ csrf_token() }}'
+    },
+    success: function(response) {
+      removeThinkingMessage();
+      
+      if (response.success && response.response) {
+        appendAiMessage(response.response);
         
-        let errorMessage = '{{ __("help.ai-error-generic") }}';
-        
-        if (xhr.status === 429) {
-          errorMessage = '{{ __("help.ai-error-rate-limit") }}';
-        } else if (xhr.responseJSON && xhr.responseJSON.error) {
-          errorMessage = xhr.responseJSON.error;
+        // Update session ID
+        if (response.session_id) {
+          currentSessionId = response.session_id;
+          saveCurrentSession(currentSessionId);
         }
-        
-        appendAiMessage(errorMessage);
         
         if (isDebugMode) {
-          console.error('[Help Chat] Error:', xhr);
+          console.log('[Help Chat] Successfully loaded additional docs:', response.loaded_docs);
         }
-      },
-      complete: function() {
-        // Re-enable input
-        isSendingMessage = false;
-        $input.prop('disabled', false);
-        $('.help-chat-send').prop('disabled', false);
-        $input.focus();
+      } else {
+        appendAiMessage('{{ __("help.ai-error-generic") }}');
       }
-    });
-  }
+    },
+    error: function(xhr) {
+      removeThinkingMessage();
+      
+      let errorMessage = '{{ __("help.ai-error-load-session") }}';
+      
+      if (xhr.responseJSON && xhr.responseJSON.error) {
+        errorMessage = xhr.responseJSON.error;
+      }
+      
+      appendAiMessage(errorMessage);
+      
+      if (isDebugMode) {
+        console.error('[Help Chat] Load docs error:', xhr);
+      }
+    }
+  });
+}
+
+function appendThinkingMessage() {
+  const $history = $('.help-chat-history');
+  const $bubble = $(`
+    <div class="help-ai-bubble help-ai-thinking">
+      <div class="help-bubble-icon">
+        <i class="fa fa-robot"></i>
+      </div>
+      <div class="help-bubble-content">
+        <div class="help-thinking-text">
+          <i class="fa fa-brain fa-pulse"></i>
+          <span>{{ __('help.ai-thinking') }}</span>
+        </div>
+      </div>
+    </div>
+  `);
+  
+  $history.append($bubble);
+  scrollChatToBottom();
+}
+
+function removeThinkingMessage() {
+  $('.help-ai-thinking').remove();
+}
+
 
   /* =======================================================================
      CONVERSATION LIST

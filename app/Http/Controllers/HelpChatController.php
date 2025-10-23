@@ -128,6 +128,7 @@ class HelpChatController extends Controller
 
     /**
      * Send a chat message and get AI response
+     * UPDATED: Now detects function call requests
      */
     public function sendMessage(Request $request)
     {
@@ -136,8 +137,8 @@ class HelpChatController extends Controller
             'session_id' => 'nullable|integer|exists:help_chat_sessions,id',
             'view_key' => 'nullable|string|max:100',
             'locale' => 'nullable|string|max:10',
-            'welcome_mode' => 'nullable|boolean',  // NEW: Flag for welcome messages
-            'welcome_response' => 'nullable|string|max:2000'  // NEW: Pre-generated welcome message
+            'welcome_mode' => 'nullable|boolean',
+            'welcome_response' => 'nullable|string|max:2000'
         ]);
 
         $userId = session('uid');
@@ -152,12 +153,10 @@ class HelpChatController extends Controller
         try {
             // Get or create session
             if (isset($validated['session_id'])) {
-                // Load existing session
                 $session = HelpChatSession::where('id', $validated['session_id'])
                     ->where('user_id', $userId)
                     ->firstOrFail();
             } else {
-                // Create new session
                 $session = HelpChatSession::create([
                     'user_id' => $userId,
                     'title' => 'New Conversation',
@@ -167,16 +166,14 @@ class HelpChatController extends Controller
                 ]);
             }
 
-            // UPDATED: Handle welcome mode differently
-            if (isset($validated['welcome_mode']) && $validated['welcome_mode'] == 1) {                  
-                // Save ONLY the pre-generated welcome response
+            // Handle welcome mode
+            if (isset($validated['welcome_mode']) && $validated['welcome_mode'] == 1) {
                 $welcomeResponse = $validated['welcome_response'] ?? 'Üdvözlöm! Segíthetek?';
                 $session->messages()->create([
                     'role' => 'assistant',
                     'content' => $welcomeResponse
                 ]);
                 
-                // Update session
                 $session->title = 'Első belépés';
                 $session->last_message_at = now();
                 $session->save();
@@ -204,6 +201,16 @@ class HelpChatController extends Controller
                 ], 500);
             }
 
+            // UPDATED: Check if response is a function call request
+            if (isset($response['function_call'])) {
+                return response()->json([
+                    'success' => true,
+                    'function_call' => $response['function_call'],
+                    'session_id' => $response['session_id']
+                ]);
+            }
+
+            // Normal AI response
             return response()->json([
                 'success' => true,
                 'response' => $response['message'],
@@ -226,6 +233,85 @@ class HelpChatController extends Controller
         }
     }
 
+    /**
+     * NEW: Load additional help documents and get final AI response
+     * Called by frontend after receiving function_call request
+     */
+    public function loadAdditionalDocs(Request $request)
+    {
+        $validated = $request->validate([
+            'session_id' => 'required|integer|exists:help_chat_sessions,id',
+            'view_keys' => 'required|array|min:1|max:10',
+            'view_keys.*' => 'required|string|max:100',
+            'original_message' => 'required|string|max:1000'
+        ]);
+
+        $userId = session('uid');
+        
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'error' => 'User not authenticated'
+            ], 401);
+        }
+
+        try {
+            // Load session
+            $session = HelpChatSession::where('id', $validated['session_id'])
+                ->where('user_id', $userId)
+                ->firstOrFail();
+
+            // Get user role for content filtering
+            $userRole = $session->user->type ?? 'guest';
+
+            // Load additional help documents
+            $additionalDocs = $this->chatService->loadAdditionalHelpDocuments(
+                $validated['view_keys'],
+                $session->locale,
+                $userRole
+            );
+
+            Log::info('Help chat: loaded additional documents', [
+                'session_id' => $session->id,
+                'view_keys' => $validated['view_keys'],
+                'docs_length' => strlen($additionalDocs)
+            ]);
+
+            // Send message again with additional context
+            $response = $this->chatService->sendMessage(
+                $validated['original_message'],
+                $session,
+                $additionalDocs
+            );
+
+            if (!$response) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Failed to get AI response after loading documents.'
+                ], 500);
+            }
+
+            return response()->json([
+                'success' => true,
+                'response' => $response['message'],
+                'timestamp' => $response['timestamp'],
+                'model' => $response['model'],
+                'session_id' => $session->id,
+                'loaded_docs' => $validated['view_keys']
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Help chat load additional docs error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to load additional documents.'
+            ], 500);
+        }
+    }
 
     /**
      * Get list of user's chat sessions
@@ -246,7 +332,7 @@ class HelpChatController extends Controller
                 ->with(['messages' => function($query) {
                     $query->orderBy('created_at', 'asc');
                 }])
-                ->limit(50) // Last 50 conversations
+                ->limit(50)
                 ->get()
                 ->map(function($session) {
                     return [
@@ -313,9 +399,8 @@ class HelpChatController extends Controller
                     'title' => $session->title,
                     'view_key' => $session->view_key,
                     'locale' => $session->locale,
-                    'last_message_at' => $session->last_message_at->toIso8601String()
-                ],
-                'messages' => $messages
+                    'messages' => $messages
+                ]
             ]);
 
         } catch (\Exception $e) {
@@ -326,46 +411,7 @@ class HelpChatController extends Controller
 
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to load conversation'
-            ], 404);
-        }
-    }
-
-    /**
-     * Delete a chat session
-     */
-    public function deleteSession(Request $request, $sessionId)
-    {
-        $userId = session('uid');
-        
-        if (!$userId) {
-            return response()->json([
-                'success' => false,
-                'error' => 'User not authenticated'
-            ], 401);
-        }
-
-        try {
-            $session = HelpChatSession::where('id', $sessionId)
-                ->where('user_id', $userId)
-                ->firstOrFail();
-
-            $session->delete(); // Cascade deletes messages
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Conversation deleted'
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Help chat delete session error', [
-                'session_id' => $sessionId,
-                'message' => $e->getMessage()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'error' => 'Failed to delete conversation'
+                'error' => 'Failed to load session'
             ], 500);
         }
     }
@@ -415,7 +461,46 @@ class HelpChatController extends Controller
 
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to create conversation'
+                'error' => 'Failed to create session'
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete a chat session
+     */
+    public function deleteSession(Request $request, $sessionId)
+    {
+        $userId = session('uid');
+        
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'error' => 'User not authenticated'
+            ], 401);
+        }
+
+        try {
+            $session = HelpChatSession::where('id', $sessionId)
+                ->where('user_id', $userId)
+                ->firstOrFail();
+
+            $session->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Session deleted successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Help chat delete session error', [
+                'session_id' => $sessionId,
+                'message' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to delete session'
             ], 500);
         }
     }

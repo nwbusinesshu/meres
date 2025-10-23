@@ -36,4 +36,8 @@ return [
     'hours-ago' => 'órája',
     'yesterday' => 'tegnap',
     'days-ago' => 'napja',
+
+    'ai-thinking' => 'Gondolkozom...',
+'ai-loading-docs' => 'További dokumentumok betöltése...',
+'ai-error-load-session' => 'Nem sikerült betölteni a további információkat. Kérlek, próbáld újra.',
 ];
