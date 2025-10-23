@@ -9,94 +9,73 @@ use Illuminate\Support\Facades\DB;
 
 class AdminSettingsController extends Controller
 {
-    public function index(Request $request)
-    {
-        $orgId = (int) session('org_id');
+    public function index()
+{
+    $orgId = (int) session('org_id');
 
-        $strictAnon = OrgConfigService::getBool($orgId, OrgConfigService::STRICT_ANON_KEY, false);
-        $aiTelemetry = OrgConfigService::getBool($orgId, OrgConfigService::AI_TELEMETRY_KEY, true);
-        $showBonusMalus = OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
-        $easyRelationSetup = OrgConfigService::getBool($orgId, 'easy_relation_setup', false);
-        $forceOauth2fa = OrgConfigService::getBool($orgId, 'force_oauth_2fa', false);
-        
-        $employeesSeeBonuses = OrgConfigService::getBool($orgId, 'employees_see_bonuses', false);
-        $enableBonusCalculation = OrgConfigService::getBool($orgId, 'enable_bonus_calculation', false);
+    // Toggle settings
+    $strictAnon          = OrgConfigService::getBool($orgId, 'strict_anonymous_mode', false);
+    $aiTelemetry         = OrgConfigService::getBool($orgId, 'ai_telemetry_enabled', true);
+    $showBonusMalus      = OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
+    $easyRelationSetup   = OrgConfigService::getBool($orgId, 'easy_relation_setup', false);
+    $forceOauth2fa       = OrgConfigService::getBool($orgId, 'force_oauth_2fa', false);
+    $employeesSeeBonuses = OrgConfigService::getBool($orgId, 'employees_see_bonuses', false);
+    $enableBonusCalculation = OrgConfigService::getBool($orgId, 'enable_bonus_calculation', false);
 
-        // ✅ ENFORCE CASCADING RULES ON LOAD
-        // Rule 1: If bonus-malus is OFF, force others OFF
-        if (!$showBonusMalus) {
-            if ($enableBonusCalculation) {
-                OrgConfigService::setBool($orgId, 'enable_bonus_calculation', false);
-                $enableBonusCalculation = false;
-            }
-            if ($employeesSeeBonuses) {
-                OrgConfigService::setBool($orgId, 'employees_see_bonuses', false);
-                $employeesSeeBonuses = false;
-            }
-        }
-        
-        // Rule 2: If bonus calculation is OFF, force employees_see_bonuses OFF
-        if (!$enableBonusCalculation && $employeesSeeBonuses) {
-            OrgConfigService::setBool($orgId, 'employees_see_bonuses', false);
-            $employeesSeeBonuses = false;
-        }
+    // Threshold mode & config
+    $threshold_mode = OrgConfigService::get($orgId, 'threshold_mode', 'fixed');
+    
+    // All threshold config values with underscore naming to match blade
+    $threshold_min_abs_up     = (int) OrgConfigService::get($orgId, 'threshold_min_abs_up', 80);
+    $threshold_top_pct        = (int) OrgConfigService::get($orgId, 'threshold_top_pct', 15);
+    $threshold_bottom_pct     = (int) OrgConfigService::get($orgId, 'threshold_bottom_pct', 20);
+    $normal_level_up          = (int) OrgConfigService::get($orgId, 'normal_level_up', 85);
+    $normal_level_down        = (int) OrgConfigService::get($orgId, 'normal_level_down', 70);
+    $threshold_grace_points   = (int) OrgConfigService::get($orgId, 'threshold_grace_points', 5);
+    $threshold_gap_min        = (int) OrgConfigService::get($orgId, 'threshold_gap_min', 2);
 
-        // kizárólagosság biztosítása (ha strict anon ON, akkor AI OFF)
-        if ($strictAnon && $aiTelemetry) {
-            $aiTelemetry = false;
-            OrgConfigService::setBool($orgId, OrgConfigService::AI_TELEMETRY_KEY, false);
-        }
+    // SUGGESTED policy (internally 0..1, UI in %)
+    $promoRate = (float) OrgConfigService::get($orgId, 'target_promo_rate_max', 0.20);
+    $demoRate  = (float) OrgConfigService::get($orgId, 'target_demotion_rate_max', 0.10);
+    $target_promo_rate_max_pct    = (int)($promoRate * 100);
+    $target_demotion_rate_max_pct = (int)($demoRate * 100);
+    
+    $never_below_abs_min_for_promo        = OrgConfigService::get($orgId, 'never_below_abs_min_for_promo', null);
+    $use_telemetry_trust                  = OrgConfigService::getBool($orgId, 'use_telemetry_trust', true);
+    $no_forced_demotion_if_high_cohesion  = OrgConfigService::getBool($orgId, 'no_forced_demotion_if_high_cohesion', true);
 
-        // === ÚJ: ponthatár-mód és kapcsolódó értékek betöltése ===
-        $thresholdMode       = OrgConfigService::get($orgId, 'threshold_mode', 'fixed');
-        $thresholdMinAbsUp   = (int) OrgConfigService::get($orgId, 'threshold_min_abs_up', 80);
-        $thresholdTopPct     = (int) OrgConfigService::get($orgId, 'threshold_top_pct', 15);
-        $thresholdBottomPct  = (int) OrgConfigService::get($orgId, 'threshold_bottom_pct', 20);
-        $normalLevelUp   = (int) OrgConfigService::get($orgId, 'normal_level_up', 85);
-        $normalLevelDown = (int) OrgConfigService::get($orgId, 'normal_level_down', 70);
-        $thresholdGrace      = (int) OrgConfigService::get($orgId, 'threshold_grace_points', 5);
-        $thresholdGapMin     = (int) OrgConfigService::get($orgId, 'threshold_gap_min', 2);
+    // Multi-level & valid SUGGESTED check
+    $enableMultiLevel     = OrgConfigService::getBool($orgId, 'enable_multi_level', false);
+    $hasClosedAssessment = DB::table('assessment')
+        ->where('organization_id', $orgId)
+        ->whereNotNull('closed_at')
+        ->exists();
 
-        // ÚJ – SUGGESTED policy (belsőleg 0..1, UI %-ban)
-        $promoRateMax = (float) OrgConfigService::get($orgId, 'target_promo_rate_max', 0.20);
-        $demoRateMax  = (float) OrgConfigService::get($orgId, 'target_demotion_rate_max', 0.10);
-        $neverBelowAbsMin = OrgConfigService::get($orgId, 'never_below_abs_min_for_promo', null);
-        $useTrust     = OrgConfigService::getBool($orgId, 'use_telemetry_trust', true);
-        $noForcedDemotion = OrgConfigService::getBool($orgId, 'no_forced_demotion_if_high_cohesion', true);
-
-        // multi-level & érvényes SUGGESTED?
-        $enableMultiLevel = OrgConfigService::getBool($orgId, 'enable_multi_level', false);
-        $hasClosedAssessment = DB::table('assessment')
-            ->where('organization_id', $orgId)
-            ->whereNotNull('closed_at')
-            ->exists();
-
-        return view('admin.settings', compact(
-            'strictAnon',
-            'aiTelemetry',
-            'showBonusMalus',
-            'easyRelationSetup',
-            'forceOauth2fa',
-            'employeesSeeBonuses',
-            'enableBonusCalculation',
-            'thresholdMode',
-            'thresholdMinAbsUp',
-            'thresholdTopPct',
-            'thresholdBottomPct',
-            'normalLevelUp',
-            'normalLevelDown',
-            'thresholdGrace',
-            'thresholdGapMin',
-            'promoRateMax',
-            'demoRateMax',
-            'neverBelowAbsMin',
-            'useTrust',
-            'noForcedDemotion',
-            'enableMultiLevel',
-            'hasClosedAssessment',
-            'aiTelemetry'
-        ));
-    }
+    return view('admin.settings', compact(
+        'strictAnon',
+        'aiTelemetry',
+        'showBonusMalus',
+        'easyRelationSetup',
+        'forceOauth2fa',
+        'employeesSeeBonuses',
+        'enableBonusCalculation',
+        'threshold_mode',
+        'threshold_min_abs_up',
+        'threshold_top_pct',
+        'threshold_bottom_pct',
+        'normal_level_up',
+        'normal_level_down',
+        'threshold_grace_points',
+        'threshold_gap_min',
+        'target_promo_rate_max_pct',
+        'target_demotion_rate_max_pct',
+        'never_below_abs_min_for_promo',
+        'use_telemetry_trust',
+        'no_forced_demotion_if_high_cohesion',
+        'enableMultiLevel',
+        'hasClosedAssessment'
+    ));
+}
 
     public function toggle(Request $request)
     {

@@ -428,32 +428,53 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+});
+</script>
+<script>
+(function(){
+  // —— helpers
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  const $  = (sel, root=document) => root.querySelector(sel);
 
-   // ========== THRESHOLD MODE SWITCHING (RESTORED) ==========
-  const modeSwitch = document.getElementById('threshold-mode-switch');
-  const hiddenModeInput = document.getElementById('config-mode');
-  
-  if (modeSwitch && hiddenModeInput) {
-    // Listen for mode changes
-    modeSwitch.addEventListener('change', function(e) {
-      if (e.target.type === 'radio' && e.target.name === 'threshold_mode') {
-        const selectedMode = e.target.value;
-        
-        // Update hidden input
-        hiddenModeInput.value = selectedMode;
-        
-        // Hide all mode panes
-        document.querySelectorAll('.mode-pane').forEach(pane => {
-          pane.classList.remove('active');
-        });
-        
-        // Show selected mode pane
-        const targetPane = document.querySelector(`.mode-pane.mode-${selectedMode}`);
-        if (targetPane) {
-          targetPane.classList.add('active');
-        }
-      }
+  const radios = $$('input[name="threshold_mode"]');
+  const panes  = $$('.mode-pane');
+  const hiddenMode = $('#config-mode');
+
+  function setActivePane(mode){
+    // elrejtés
+    panes.forEach(p => p.classList.remove('active'));
+    // megjelenítés
+    const pane = document.querySelector('.mode-pane.mode-' + mode);
+    if (pane) pane.classList.add('active');
+    // hidden input frissítése (a config formnak)
+    if (hiddenMode) hiddenMode.value = mode;
+  }
+
+  function getCurrentMode(){
+    const r = $('input[name="threshold_mode"]:checked');
+    return r ? r.value : (hiddenMode?.value || 'fixed');
+  }
+
+  // Események
+  radios.forEach(radio => {
+    radio.addEventListener('change', function(){
+      setActivePane(this.value);
+      // ha azt szeretnéd, hogy a mód azonnal mentődjön:
+      // document.getElementById('mode-form').submit();
+    });
+  });
+
+  // Strict anon -> AI toggle tiltása/engedése kliensoldalon is
+  const strict = $('#toggle-strict');
+  const ai     = $('#toggle-ai');
+  if (strict && ai){
+    strict.addEventListener('change', function(){
+      ai.disabled = this.checked;
+      if (ai.disabled) ai.checked = false;
     });
   }
-});
+
+  // Init
+  setActivePane(getCurrentMode());
+})();
 </script>
