@@ -54,8 +54,7 @@ class UserService
         if (empty($ids)) return collect();
 
         // Megpróbálunk DB-ből is adatot, de ha már törölve van, fallback a snapshot.
-        $dbUsers = \App\Models\User::withTrashed()
-            ->whereIn('id', $ids)
+        $dbUsers = \App\Models\User::whereIn('id', $ids)
             ->get(['id','name','email','type','removed_at'])
             ->keyBy('id');
 

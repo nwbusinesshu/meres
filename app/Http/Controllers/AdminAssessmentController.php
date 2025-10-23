@@ -270,7 +270,6 @@ class AdminAssessmentController extends Controller
         try {
             $validator->validateAssessmentReadyToClose($assessment->id);
         } catch (ValidationException $e) {
-            // Return detailed validation errors
             Log::warning('Assessment close validation failed', [
                 'assessment_id' => $assessment->id,
                 'errors' => $e->errors()
@@ -298,14 +297,28 @@ class AdminAssessmentController extends Controller
             ]);
         }
 
-        // Calculate user stats and collect scores
+        // ✅ FIX: Calculate user stats using ID-based method
         $scores = [];
         $userStats = [];
         
-        foreach ($participants as $user) {
-            $stat = UserService::calculateUserPoints($assessment, $user);
-            if ($stat && $stat->total > 0) {
-                $userStats[$user->id] = $stat;
+        foreach ($participants as $participant) {
+            $detailedResult = UserService::calculateUserPointsDetailedByIds($assessment->id, $participant->id);
+            
+            if ($detailedResult && $detailedResult['final_0_100'] > 0) {
+                $stat = (object) [
+                    'total'              => $detailedResult['final_0_100'],
+                    'selfTotal'          => $detailedResult['self_points'] ?? 0,
+                    'colleagueTotal'     => $detailedResult['colleague_points'] ?? 0,
+                    'colleaguesTotal'    => $detailedResult['colleague_points'] ?? 0,
+                    'directReportsTotal' => $detailedResult['direct_reports_points'] ?? 0,
+                    'managersTotal'      => $detailedResult['boss_points'] ?? 0,
+                    'bossTotal'          => $detailedResult['boss_points'] ?? 0,
+                    'ceoTotal'           => $detailedResult['ceo_points'] ?? 0,
+                    'sum'                => $detailedResult['weighted_sum'] ?? 0,
+                    'complete'           => $detailedResult['complete'] ?? false,
+                ];
+                
+                $userStats[$participant->id] = $stat;
                 $scores[] = (float)$stat->total;
             }
         }
@@ -318,20 +331,19 @@ class AdminAssessmentController extends Controller
         }
 
         // ========================================
-        // SECTION 4: THRESHOLD CALCULATION WITH ERROR HANDLING
+        // SECTION 4: THRESHOLD CALCULATION
         // ========================================
         $T = $this->thresholds;
         $suggestedResult = null;
+        $hybridUpRaw = null;
 
-        // Special handling for SUGGESTED method (AI call)
+        // Calculate thresholds based on method
         if ($method === 'suggested') {
             try {
-                /** @var SuggestedThresholdService $ai */
                 $ai = app(SuggestedThresholdService::class);
                 $payload = $ai->buildAiPayload($assessment, $scores, $userStats);
                 $suggestedResult = $ai->callAiForSuggested($payload);
 
-                // Validate AI response
                 if (!$suggestedResult) {
                     throw new \RuntimeException('AI válasz üres.');
                 }
@@ -341,68 +353,59 @@ class AdminAssessmentController extends Controller
                     throw new \RuntimeException('AI válasz nem tartalmaz küszöbértékeket.');
                 }
 
+                // ✅ Use thresholdsFromSuggested
+                $result = $T->thresholdsFromSuggested($cfg, $suggestedResult);
+                $up = $result['normal_level_up'];
+                $down = $result['normal_level_down'];
+                $mon = $result['monthly_level_down'];
+                
+                $assessment->suggested_decision = $assessment->suggested_decision 
+                    ? array_merge((array)$assessment->suggested_decision, [$suggestedResult])
+                    : [$suggestedResult];
+
             } catch (\Throwable $e) {
                 Log::error('AI call failed during assessment close', [
                     'assessment_id' => $assessment->id,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
+                    'error' => $e->getMessage()
                 ]);
                 
                 throw ValidationException::withMessages([
-                    'ai' => 'AI küszöbszámítás sikertelen: ' . $e->getMessage() . 
-                            '. Az értékelés nem zárható le "suggested" móddal. ' .
-                            'Kérjük, változtassa meg a küszöbszámítási módot a beállításokban.'
+                    'ai' => 'AI küszöbszámítás sikertelen: ' . $e->getMessage()
                 ]);
             }
-        }
-
-        // Calculate thresholds based on method
-        try {
-            $result = match ($method) {
-                'fixed' => $T->thresholdsForFixed($cfg),
-                'hybrid' => $T->thresholdsForHybrid($cfg, $scores),
-                'dynamic' => $T->thresholdsForDynamic($cfg, $scores),
-                'suggested' => $T->thresholdsFromSuggested($cfg, $suggestedResult),
-                default => throw new \RuntimeException("Ismeretlen threshold_method: {$method}")
-            };
-        } catch (\Throwable $e) {
-            Log::error('Threshold calculation failed', [
-                'assessment_id' => $assessment->id,
-                'method' => $method,
-                'error' => $e->getMessage()
-            ]);
-            
-            throw ValidationException::withMessages([
-                'thresholds' => 'Küszöbszámítás sikertelen: ' . $e->getMessage()
-            ]);
-        }
-
-        $up = (int)$result['normal_level_up'];
-        $down = (int)$result['normal_level_down'];
-        $mon = (int)($result['monthly_level_down'] ?? $cfg['monthly_level_down'] ?? 70);
-
-        // ========================================
-        // SECTION 5: VALIDATE CALCULATED THRESHOLDS
-        // ========================================
-        if ($up < 0 || $up > 100 || $down < 0 || $down > 100 || $mon < 0 || $mon > 100) {
-            throw ValidationException::withMessages([
-                'thresholds' => "A küszöbök 0..100 tartományon kívüliek. Up: {$up}, Down: {$down}, Monthly: {$mon}"
-            ]);
-        }
-
-        if ($up <= $down) {
-            throw ValidationException::withMessages([
-                'thresholds' => "Az előléptetési küszöb ({$up}) nem lehet kisebb vagy egyenlő a lefokozási küszöbbel ({$down})."
-            ]);
+        } elseif ($method === 'fixed') {
+            // ✅ Use thresholdsForFixed
+            $result = $T->thresholdsForFixed($cfg);
+            $up = $result['normal_level_up'];
+            $down = $result['normal_level_down'];
+            $mon = $result['monthly_level_down'];
+        } elseif ($method === 'hybrid') {
+            // ✅ Use thresholdsForHybrid
+            $result = $T->thresholdsForHybrid($cfg, $scores);
+            $up = $result['normal_level_up'];
+            $down = $result['normal_level_down'];
+            $mon = $result['monthly_level_down'];
+            $hybridUpRaw = $result['_hybrid_up_raw'] ?? null;
+        } elseif ($method === 'dynamic') {
+            // ✅ Use thresholdsForDynamic
+            $result = $T->thresholdsForDynamic($cfg, $scores);
+            $up = $result['normal_level_up'];
+            $down = $result['normal_level_down'];
+            $mon = $result['monthly_level_down'];
+        } else {
+            // Fallback to fixed
+            $result = $T->thresholdsForFixed($cfg);
+            $up = $result['normal_level_up'];
+            $down = $result['normal_level_down'];
+            $mon = $result['monthly_level_down'];
         }
 
         // ========================================
-        // SECTION 6: TRANSACTION - ATOMIC CLOSE
+        // SECTION 5: TRANSACTION - UPDATE ASSESSMENT & BONUS/MALUS
         // ========================================
-        return DB::transaction(function () use (
-            $assessment, $up, $down, $mon, $method, $cfg, $participants, $userStats, $scores, $T, $orgId
-        ) {
-            // 1. Update assessment record
+        return DB::transaction(function () use ($assessment, $participants, $userStats, $scores, $up, $down, $mon, $method, $cfg, $orgId, $hybridUpRaw) {
+
+            // 1. Update assessment
             $assessment->normal_level_up = $up;
             $assessment->normal_level_down = $down;
             $assessment->monthly_level_down = $mon;
@@ -414,47 +417,37 @@ class AdminAssessmentController extends Controller
             $month = now()->format('Y-m-01');
             $useGrace = ($method === 'hybrid');
             $gracePts = $useGrace ? (int)($cfg['threshold_grace_points'] ?? 0) : 0;
-            $hybridUpRaw = null;
-            
-            if ($method === 'hybrid') {
-                $hybridUpRaw = $T->topPercentileScore($scores, (float)$cfg['threshold_top_pct']);
-            }
 
-            foreach ($participants as $user) {
-                $stat = $userStats[$user->id] ?? null;
-                if ($stat === null) {
-                    continue;
-                }
+            // ✅ Load User models for has_auto_level_up
+            $userModels = User::whereIn('id', array_keys($userStats))->get()->keyBy('id');
+
+            foreach ($participants as $participant) {
+                $stat = $userStats[$participant->id] ?? null;
+                if ($stat === null) continue;
 
                 $points = (float) $stat->total;
-
-                // Get or create bonus/malus record
-                $bm = UserBonusMalus::where('user_id', $user->id)
+                $bm = UserBonusMalus::where('user_id', $participant->id)
                     ->where('organization_id', $orgId)
                     ->where('month', $month)
                     ->first();
 
                 if (!$bm) {
                     $bm = UserBonusMalus::create([
-                        'user_id' => $user->id,
+                        'user_id' => $participant->id,
                         'organization_id' => $orgId,
                         'month' => $month,
                         'level' => UserService::DEFAULT_BM,
                     ]);
                 }
 
-                // Calculate promotion/demotion
                 $promote = false;
-
                 if ($useGrace && $gracePts > 0 && $hybridUpRaw !== null) {
                     if ($points >= $hybridUpRaw && $points >= ($up - $gracePts)) {
                         $promote = true;
                     }
                 }
 
-                if ($points >= $up) {
-                    $promote = true;
-                }
+                if ($points >= $up) $promote = true;
 
                 if ($promote) {
                     $bm->level = min(15, $bm->level + 1);
@@ -474,46 +467,43 @@ class AdminAssessmentController extends Controller
 
             $previousStats = [];
             if ($previousAssessment) {
-                foreach ($participants as $user) {
-                    $cached = UserService::getUserResultsFromSnapshot($previousAssessment->id, $user->id);
+                foreach ($participants as $participant) {
+                    $cached = UserService::getUserResultsFromSnapshot($previousAssessment->id, $participant->id);
                     if ($cached) {
-                        $previousStats[$user->id] = $cached['total'];
+                        $previousStats[$participant->id] = $cached['total'];
                     }
                 }
             }
 
             $userResults = [];
-            foreach ($participants as $user) {
-                $stat = $userStats[$user->id] ?? null;
-                if ($stat === null) {
-                    continue;
-                }
+            foreach ($participants as $participant) {
+                $stat = $userStats[$participant->id] ?? null;
+                if ($stat === null) continue;
 
-                // Get bonus/malus
-                $bm = UserBonusMalus::where('user_id', $user->id)
+                $bm = UserBonusMalus::where('user_id', $participant->id)
                     ->where('organization_id', $orgId)
                     ->where('month', $month)
                     ->first();
 
-                // Calculate change
                 $change = 'none';
-                if (isset($previousStats[$user->id])) {
-                    $prevTotal = (int)$previousStats[$user->id];
+                if (isset($previousStats[$participant->id])) {
+                    $prevTotal = (int)$previousStats[$participant->id];
                     $currTotal = (int)$stat->total;
-                    if ($currTotal > $prevTotal) {
-                        $change = 'up';
-                    } elseif ($currTotal < $prevTotal) {
-                        $change = 'down';
-                    }
+                    if ($currTotal > $prevTotal) $change = 'up';
+                    elseif ($currTotal < $prevTotal) $change = 'down';
                 }
 
-                // Build user result
-                $userResults[(string)$user->id] = [
+                $userModel = $userModels->get($participant->id);
+                $hasAutoLevelUp = $userModel ? (int)$userModel->has_auto_level_up : 0;
+
+                // ✅ Build user result with NEW 5-component structure
+                $userResults[(string)$participant->id] = [
                     'total' => (int)$stat->total,
                     'sum' => (int)$stat->sum,
                     'self' => (int)$stat->selfTotal,
                     'colleague' => (int)round($stat->colleagueTotal),
                     'colleagues_raw' => (int)$stat->colleaguesTotal,
+                    'direct_reports' => (int)($stat->directReportsTotal ?? 0),
                     'manager' => (int)round($stat->managersTotal),
                     'managers_raw' => (int)$stat->bossTotal,
                     'boss_raw' => (int)$stat->bossTotal,
@@ -522,12 +512,11 @@ class AdminAssessmentController extends Controller
                     'bonus_malus_level' => $bm?->level,
                     'bonus_malus_month' => $month,
                     'change' => $change,
-                    'has_auto_level_up' => (int)$user->has_auto_level_up,
+                    'has_auto_level_up' => $hasAutoLevelUp,
                 ];
             }
 
             // 4. Save user results to snapshot
-            /** @var \App\Services\SnapshotService $snapService */
             $snapService = app(\App\Services\SnapshotService::class);
             $saved = $snapService->saveUserResultsToSnapshot($assessment->id, $userResults);
 
@@ -547,19 +536,12 @@ class AdminAssessmentController extends Controller
                     'assessment_id' => $assessment->id,
                     'error' => $e->getMessage()
                 ]);
-                // Don't fail assessment close if bonus calc fails
             }
 
             // 6. Return success
             return response()->json([
                 'ok' => true,
-                'message' => 'Az értékelés sikeresen lezárva.',
-                'thresholds' => [
-                    'normal_level_up' => $up,
-                    'normal_level_down' => $down,
-                    'monthly_level_down' => $mon,
-                    'method' => $method,
-                ],
+                'message' => 'Az értékelés sikeresen lezárva.'
             ]);
         });
     }
