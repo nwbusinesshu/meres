@@ -9,11 +9,12 @@ use App\Services\UserService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use App\Http\Middleware\Auth as AuthMiddleware;
+use Illuminate\Support\Facades\DB;
 
 class ResultsController extends Controller
 {
     /**
-     * Felhasználói eredmények – időszakváltó + history + trendek
+     * Felhasználói eredmények – időszakváltó + history + trendek + kompetencia breakdown
      */
     public function index(Request $request, ?int $assessmentId = null)
     {
@@ -44,14 +45,15 @@ class ResultsController extends Controller
 
         if (!$assessment || !$user) {
             return view('results', [
-                'assessment'     => null,
-                'user'           => null,
-                'prevAssessment' => null,
-                'nextAssessment' => null,
-                'history'        => collect(),
-                'currentIdx'     => 0,
-                'minVal'         => 0,
-                'maxVal'         => 1,
+                'assessment'          => null,
+                'user'                => null,
+                'prevAssessment'      => null,
+                'nextAssessment'      => null,
+                'history'             => collect(),
+                'currentIdx'          => 0,
+                'minVal'              => 0,
+                'maxVal'              => 1,
+                'competencyScores'    => [], // NEW
             ]);
         }
 
@@ -76,11 +78,14 @@ class ResultsController extends Controller
             $user['stats'] = UserService::snapshotResultToStdClass($cached);
             $user['bonusMalus'] = $cached['bonus_malus_level'];
             $user['change'] = $cached['change'];
+            // ✅ NEW: Pass metadata for component status
+            $user['missingComponents'] = $cached['missing_components'] ?? [];
         } else {
             // No cached data
             $user['stats'] = null;
             $user['bonusMalus'] = null;
             $user['change'] = 'none';
+            $user['missingComponents'] = [];
         }
 
         /*
@@ -99,11 +104,12 @@ class ResultsController extends Controller
             $cached = UserService::getUserResultsFromSnapshot($a->id, $user->id);
             
             if ($cached) {
-                // Use cached data
-                $total        = (float)$cached['total'];
-                $selfVal      = (float)$cached['self'];
-                $employeesVal = (float)$cached['colleague'];
-                $leadersVal   = (float)$cached['manager'];
+                // Use cached data - NOW INCLUDING DIRECT_REPORTS
+                $total            = (float)$cached['total'];
+                $selfVal          = (float)$cached['self'];
+                $employeesVal     = (float)$cached['colleague'];
+                $directReportsVal = (float)($cached['direct_reports'] ?? 0);
+                $leadersVal       = (float)$cached['manager'];
             } else {
                 // No cached data - skip this assessment
                 continue;
@@ -111,13 +117,14 @@ class ResultsController extends Controller
 
             if ($total !== null) {
                 $history->push([
-                    'id'        => $a->id,
-                    'label'     => Carbon::parse($a->closed_at)->translatedFormat('Y. MMM'),
-                    'closed_at' => $a->closed_at,
-                    'total'     => round($total, 1),
-                    'self'      => $selfVal      !== null ? round($selfVal, 1)      : null,
-                    'employees' => $employeesVal !== null ? round($employeesVal, 1) : null,
-                    'leaders'   => $leadersVal   !== null ? round($leadersVal, 1)   : null,
+                    'id'             => $a->id,
+                    'label'          => Carbon::parse($a->closed_at)->translatedFormat('Y. MMM'),
+                    'closed_at'      => $a->closed_at,
+                    'total'          => round($total, 1),
+                    'self'           => $selfVal           !== null ? round($selfVal, 1)           : null,
+                    'employees'      => $employeesVal      !== null ? round($employeesVal, 1)      : null,
+                    'direct_reports' => $directReportsVal  !== null ? round($directReportsVal, 1)  : null,
+                    'leaders'        => $leadersVal        !== null ? round($leadersVal, 1)        : null,
                 ]);
             }
         }
@@ -128,40 +135,148 @@ class ResultsController extends Controller
             $currentIdx = 0;
             $minVal = 0;
             $maxVal = 1;
-            $user['trend'] = ['total'=>'flat','self'=>'flat','employees'=>'flat','leaders'=>'flat'];
-            return view('results', compact('assessment','user','prevAssessment','nextAssessment','history','currentIdx','minVal','maxVal'));
+            $user['trend'] = [
+                'total'          => 'flat',
+                'self'           => 'flat',
+                'employees'      => 'flat',
+                'direct_reports' => 'flat',
+                'leaders'        => 'flat'
+            ];
+            $competencyScores = []; // NEW
+        } else {
+            $currentIdx = $history->search(fn ($h) => $h['id'] === $assessment->id);
+            if ($currentIdx === false) $currentIdx = $history->count() - 1;
+            $prevIdx = $currentIdx - 1;
+
+            $minVal = $history->pluck('total')->min();
+            $maxVal = $history->pluck('total')->max();
+            if ($minVal === $maxVal) { $minVal = max(0, $minVal - 1); $maxVal = $maxVal + 1; }
+
+            $trend = function (?float $curr, ?float $prev) {
+                if ($curr === null || $prev === null) return 'flat';
+                $eps = 0.05;
+                if ($curr > $prev + $eps) return 'up';
+                if ($curr < $prev - $eps) return 'down';
+                return 'flat';
+            };
+
+            $currRow = $history->get($currentIdx);
+            $prevRow = $prevIdx >= 0 ? $history->get($prevIdx) : null;
+
+            // ✅ UPDATED: Include direct_reports trend
+            $user['trend'] = [
+                'total'          => $trend($currRow['total']          ?? null, $prevRow['total']          ?? null),
+                'self'           => $trend($currRow['self']           ?? null, $prevRow['self']           ?? null),
+                'employees'      => $trend($currRow['employees']      ?? null, $prevRow['employees']      ?? null),
+                'direct_reports' => $trend($currRow['direct_reports'] ?? null, $prevRow['direct_reports'] ?? null),
+                'leaders'        => $trend($currRow['leaders']        ?? null, $prevRow['leaders']        ?? null),
+            ];
+
+            // ✅ NEW: Calculate competency-based scores
+            $competencyScores = $this->calculateCompetencyScores($assessment->id, $user->id);
         }
 
-        $currentIdx = $history->search(fn ($h) => $h['id'] === $assessment->id);
-        if ($currentIdx === false) $currentIdx = $history->count() - 1;
-        $prevIdx = $currentIdx - 1;
-
-        $minVal = $history->pluck('total')->min();
-        $maxVal = $history->pluck('total')->max();
-        if ($minVal === $maxVal) { $minVal = max(0, $minVal - 1); $maxVal = $maxVal + 1; }
-
-        $trend = function (?float $curr, ?float $prev) {
-            if ($curr === null || $prev === null) return 'flat';
-            $eps = 0.05;
-            if ($curr > $prev + $eps) return 'up';
-            if ($curr < $prev - $eps) return 'down';
-            return 'flat';
-        };
-
-        $currRow = $history->get($currentIdx);
-        $prevRow = $prevIdx >= 0 ? $history->get($prevIdx) : null;
-
-        $user['trend'] = [
-            'total'     => $trend($currRow['total']     ?? null, $prevRow['total']     ?? null),
-            'self'      => $trend($currRow['self']      ?? null, $prevRow['self']      ?? null),
-            'employees' => $trend($currRow['employees'] ?? null, $prevRow['employees'] ?? null),
-            'leaders'   => $trend($currRow['leaders']   ?? null, $prevRow['leaders']   ?? null),
-        ];
-
         return view('results', compact(
-    'assessment','user','prevAssessment','nextAssessment',
-    'history','currentIdx','minVal','maxVal','showBonusMalus'
+            'assessment','user','prevAssessment','nextAssessment',
+            'history','currentIdx','minVal','maxVal','showBonusMalus',
+            'competencyScores' // NEW
         ));
+    }
 
+    /**
+     * ✅ NEW: Calculate average scores per competency for a user
+     * 
+     * @param int $assessmentId
+     * @param int $userId
+     * @return array [['competency_id' => X, 'name' => 'Name', 'avg_score' => 85.5], ...]
+     */
+    private function calculateCompetencyScores(int $assessmentId, int $userId): array
+    {
+        // Get competency averages from competency_submit
+        $scores = DB::table('competency_submit as cs')
+            ->select('cs.competency_id', DB::raw('AVG(cs.value) as avg_score'))
+            ->where('cs.assessment_id', $assessmentId)
+            ->where('cs.target_id', $userId)
+            ->groupBy('cs.competency_id')
+            ->get();
+
+        if ($scores->isEmpty()) {
+            return [];
+        }
+
+        // Get competency IDs
+        $competencyIds = $scores->pluck('competency_id')->toArray();
+
+        // Get competency details (names, translations)
+        $competencies = DB::table('competency')
+            ->whereIn('id', $competencyIds)
+            ->whereNull('removed_at')
+            ->get()
+            ->keyBy('id');
+
+        // Get current locale
+        $currentLocale = app()->getLocale() ?? 'hu';
+
+        // Build result array with localized names
+        $result = [];
+        foreach ($scores as $score) {
+            $competency = $competencies->get($score->competency_id);
+            if (!$competency) continue;
+
+            // Get localized name
+            $localizedName = $this->getLocalizedCompetencyName(
+                $competency->name,
+                $competency->name_json,
+                $competency->original_language ?? 'hu',
+                $currentLocale
+            );
+
+            $result[] = [
+                'competency_id' => (int)$score->competency_id,
+                'name'          => $localizedName,
+                'avg_score'     => round((float)$score->avg_score, 1),
+            ];
+        }
+
+        // Sort by competency name for consistent display
+        usort($result, function($a, $b) {
+            return strcmp($a['name'], $b['name']);
+        });
+
+        return $result;
+    }
+
+    /**
+     * ✅ NEW: Get localized competency name with fallback
+     * 
+     * @param string $originalName
+     * @param string|null $nameJson
+     * @param string $originalLanguage
+     * @param string $currentLocale
+     * @return string
+     */
+    private function getLocalizedCompetencyName(
+        string $originalName,
+        ?string $nameJson,
+        string $originalLanguage,
+        string $currentLocale
+    ): string {
+        // If no translations or we're in the original language, return original
+        if (empty($nameJson) || $currentLocale === $originalLanguage) {
+            return $originalName;
+        }
+
+        $translations = json_decode($nameJson, true);
+        if (!$translations || !is_array($translations)) {
+            return $originalName;
+        }
+
+        // Check if translation exists for current locale
+        if (isset($translations[$currentLocale]) && !empty(trim($translations[$currentLocale]))) {
+            return $translations[$currentLocale];
+        }
+
+        // Fallback to original
+        return $originalName;
     }
 }

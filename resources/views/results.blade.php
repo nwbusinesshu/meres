@@ -12,7 +12,7 @@
     <a
   class="nav-btn {{ $prevAssessment ? '' : 'is-disabled' }}"
   @if($prevAssessment)
-    href="{{ route(Route::currentRouteName(), $prevAssessment->id) }}{{ request()->has('as') ? '?as=' . request('as') : '' }}"
+    href="{{ route(Route::currentRouteName(), $assessmentId) }}{{ request()->has('as') ? '?as=' . request('as') : '' }}"
   @endif
   aria-label="{{ __('results.previous-closed-period') }}"
 >
@@ -51,6 +51,7 @@
 
 @php
   $trendIcon = function($t){ return $t==='up'?'▲':($t==='down'?'▼':'▬'); };
+  $missingList = $user['missingComponents'] ?? [];
 @endphp
 
 @if (is_null($assessment) || is_null($user->stats))
@@ -71,7 +72,7 @@
 
       <div class="result">
         <div class="pie"
-          data-pie='{ "percent":  {{ $user->stats?->total ?? 0 }}, "unit": "", "colorSlice": @switch($user->change)
+          data-pie='{ "percent":  {{ $user->stats?->total ?? 0 }}, "unit": "", "colorSlice": @switch($user['change'])
             @case("up")   "#6AB06E" @break
             @case("down") "#D9253D" @break
             @default      "#44A3BC"
@@ -90,6 +91,27 @@
 
   {{-- RÉSZPONTOK + TREND --}}
   <div class="tile tile-info">
+    @php
+      // ✅ Calculate merged managers score (average of manager + ceo if both present)
+      $managerScore = $user->stats?->managersTotal ?? null;
+      $ceoScore = $user->stats?->ceoTotal ?? null;
+      
+      $mergedManagerScore = null;
+      if ($managerScore !== null && $ceoScore !== null) {
+          // Both present: average them
+          $mergedManagerScore = ($managerScore + $ceoScore) / 2;
+      } elseif ($managerScore !== null) {
+          // Only manager present
+          $mergedManagerScore = $managerScore;
+      } elseif ($ceoScore !== null) {
+          // Only CEO present
+          $mergedManagerScore = $ceoScore;
+      }
+      // Otherwise both null, stay null
+    @endphp
+
+    {{-- Self --}}
+    @if(!in_array('self', $missingList))
     <div>
       <span>{{ $_('self') }}</span>
       <span class="value-trend">
@@ -97,6 +119,10 @@
         <span class="trend trend-{{ $user['trend']['self'] }}">{{ $trendIcon($user['trend']['self']) }}</span>
       </span>
     </div>
+    @endif
+
+    {{-- Colleagues --}}
+    @if(!in_array('colleagues', $missingList))
     <div>
       <span>{{ $_('colleagues') }}</span>
       <span class="value-trend">
@@ -104,14 +130,42 @@
         <span class="trend trend-{{ $user['trend']['employees'] }}">{{ $trendIcon($user['trend']['employees']) }}</span>
       </span>
     </div>
+    @endif
+
+    {{-- Direct Reports --}}
+    @if(!in_array('direct_reports', $missingList))
+    <div>
+      <span>{{ $_('direct_reports') }}</span>
+      <span class="value-trend">
+        <strong>{{ number_format(($user->stats?->directReportsTotal ?? 0) * 1, 1) }}</strong>
+        <span class="trend trend-{{ $user['trend']['direct_reports'] }}">{{ $trendIcon($user['trend']['direct_reports']) }}</span>
+      </span>
+    </div>
+    @endif
+
+    {{-- Managers (merged with CEO) --}}
+    @if($mergedManagerScore !== null)
     <div>
       <span>{{ $_('managers') }}</span>
       <span class="value-trend">
-        <strong>{{ number_format(($user->stats?->managersTotal ?? 0) / 1, 1) }}</strong>
+        <strong>{{ number_format($mergedManagerScore, 1) }}</strong>
         <span class="trend trend-{{ $user['trend']['leaders'] }}">{{ $trendIcon($user['trend']['leaders']) }}</span>
       </span>
     </div>
+    @endif
   </div>
+
+  {{-- ✅ MISSING COMPONENTS BADGES --}}
+  @if(!empty($missingList) && count($missingList) > 0)
+    <div class="tile tile-warning" style="padding: 0.75rem;">
+      <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;">
+        <span style="font-size: 0.85rem; color: #666; font-weight: 600;">{{ __('results.missing') }}:</span>
+        @foreach($missingList as $component)
+          <span class="badge badge-missing">{{ __('results.component_' . $component) }}</span>
+        @endforeach
+      </div>
+    </div>
+  @endif
 </div>
 @endif
 
@@ -123,14 +177,16 @@
     $seriesTotal = [];
     $seriesSelf = [];
     $seriesEmployees = [];
+    $seriesDirectReports = [];
     $seriesLeaders = [];
 
     foreach ($history as $row) {
         $labels[] = \Carbon\Carbon::parse($row['closed_at'])->format('Y.m'); // YYYY.MM
-        $seriesTotal[]     = isset($row['total'])     ? round($row['total'],1)         : null;
-        $seriesSelf[]      = isset($row['self'])      ? round($row['self'],1)          : null;
-        $seriesEmployees[] = isset($row['employees']) ? round($row['employees'],1)     : null;
-        $seriesLeaders[]   = isset($row['leaders'])   ? round($row['leaders'],1)       : null;
+        $seriesTotal[]         = isset($row['total'])          ? round($row['total'],1)          : null;
+        $seriesSelf[]          = isset($row['self'])           ? round($row['self'],1)           : null;
+        $seriesEmployees[]     = isset($row['employees'])      ? round($row['employees'],1)      : null;
+        $seriesDirectReports[] = isset($row['direct_reports']) ? round($row['direct_reports'],1) : null;
+        $seriesLeaders[]       = isset($row['leaders'])        ? round($row['leaders'],1)        : null;
     }
     $currentIdx = is_numeric($currentIdx) ? (int)$currentIdx : ($history->count()-1);
   @endphp
@@ -148,10 +204,11 @@
       const currentIdx = @json($currentIdx);
 
       const datasets = [
-        { key: '{{ __("results.total-points") }}',   data: @json($seriesTotal),     color: '#2F6FEB' },
-        { key: '{{ __("results.self-assessment") }}',data: @json($seriesSelf),      color: '#10B981' },
-        { key: '{{ __("results.colleagues-rating") }}',   data: @json($seriesEmployees), color: '#F59E0B' },
-        { key: '{{ __("results.managers-rating") }}',    data: @json($seriesLeaders),   color: '#EF4444' },
+        { key: '{{ __("results.total-points") }}',        data: @json($seriesTotal),         color: '#2F6FEB' },
+        { key: '{{ __("results.self-assessment") }}',     data: @json($seriesSelf),          color: '#10B981' },
+        { key: '{{ __("results.colleagues-rating") }}',   data: @json($seriesEmployees),     color: '#F59E0B' },
+        { key: '{{ __("results.direct-reports-rating") }}', data: @json($seriesDirectReports), color: '#8B5CF6' },
+        { key: '{{ __("results.managers-rating") }}',     data: @json($seriesLeaders),       color: '#EF4444' },
       ].filter(ds => Array.isArray(ds.data) && ds.data.some(v => v !== null));
 
       const ctx = document.getElementById('resultsTrendChart').getContext('2d');
@@ -170,39 +227,27 @@
             tension: 0.3,
             borderWidth: 2,
             pointRadius: ctx => (ctx.dataIndex === currentIdx ? 5 : 3),
-            pointHoverRadius: 6,
-            pointBackgroundColor: '#fff',
-            pointBorderColor: ds.color,
-            pointBorderWidth: 2,
+            pointHoverRadius: 7
           }))
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          interaction: { mode: 'nearest', intersect: false },
+          interaction: { mode: 'index', intersect: false },
           plugins: {
-            legend: {
-              position: 'top',
-              labels: { boxWidth: 14, usePointStyle: true, pointStyle: 'circle', font: { size: 12 } }
-            },
+            legend: { position: 'top' },
             tooltip: {
               callbacks: {
-                title: items => items[0].label, // YYYY.MM
-                label: item => `${item.dataset.label}: ${Number(item.formattedValue).toFixed(1)}`
-              },
-              bodyFont: { size: 12 },
-              titleFont: { size: 12 }
+                label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}`
+              }
             }
           },
           scales: {
-            x: {
-              ticks: { maxRotation: 0, autoSkip: true, font: { size: 11 } },
-              grid: { display: false }
-            },
+            x: { title: { display: true, text: '{{ __("results.period") }}' } },
             y: {
-              min: 0, max: 100,
-              ticks: { stepSize: 20, font: { size: 11 } },
-              grid: { color: 'rgba(0,0,0,.08)' }
+              title: { display: true, text: '{{ __("results.points") }}' },
+              min: 0,
+              max: 100
             }
           }
         }
@@ -210,7 +255,116 @@
     })();
   </script>
 @endif
-@if(auth()->check() && in_array(strtolower(auth()->user()->type), ['admin', 'superadmin']))
+
+{{-- ===== Kompetenciák szerinti eredmény (Bar Chart) ===== --}}
+@if($assessment && isset($competencyScores) && count($competencyScores) > 0)
+  <div class="tile tile-info" style="padding:16px; margin-top: 1rem;">
+    <h3 class="mb-2">{{ __('results.competency-breakdown') }}</h3>
+    <div class="chartjs-wrap">
+      <canvas id="competencyChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const competencyData = @json($competencyScores);
+      
+      const labels = competencyData.map(c => c.name);
+      const scores = competencyData.map(c => c.avg_score);
+      
+      const ctx = document.getElementById('competencyChart').getContext('2d');
+      
+      // Plugin to draw labels below bars
+      const belowBarLabelsPlugin = {
+        id: 'belowBarLabels',
+        afterDatasetsDraw(chart) {
+          const ctx = chart.ctx;
+          const meta = chart.getDatasetMeta(0);
+          
+          ctx.save();
+          ctx.font = '13px sans-serif';
+          ctx.fillStyle = '#495057';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          
+          meta.data.forEach((bar, index) => {
+            const label = competencyData[index].name;
+            const x = chart.scales.x.left + 5; // 5px from left edge
+            // For horizontal bars: bar.y is top, bar.height is the bar's vertical size
+            // Position label below the bar bottom edge
+            const y = bar.y + (bar.height / 2) + 5; // 5px below bar bottom
+            
+            ctx.fillText(label, x, y);
+          });
+          
+          ctx.restore();
+        }
+      };
+      
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels.map(() => ''), // Empty labels on y-axis
+          datasets: [{
+            label: '{{ __("results.average-score") }}',
+            data: scores,
+            backgroundColor: '#2F6FEB',
+            borderColor: '#1E4FBB',
+            borderWidth: 1,
+            barThickness: 40
+          }]
+        },
+        options: {
+          indexAxis: 'y', // Horizontal bar chart
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: {
+            padding: {
+              bottom: 25 // Space for labels below bars
+            }
+          },
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                title: (tooltipItems) => competencyData[tooltipItems[0].dataIndex].name,
+                label: (ctx) => `{{ __("results.average-score") }}: ${ctx.parsed.x.toFixed(1)}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              max: 100,
+              title: {
+                display: true,
+                text: '{{ __("results.points") }}'
+              },
+              grid: {
+                display: true
+              }
+            },
+            y: {
+              display: true,
+              grid: {
+                display: false
+              },
+              ticks: {
+                display: false // Hide y-axis labels
+              }
+            }
+          }
+        },
+        plugins: [belowBarLabelsPlugin]
+      });
+    })();
+  </script>
+@endif
+
+{{-- Back to admin results button (for admins viewing user results) --}}
+@if(auth()->user()->isCurrentAdmin())
   <div class="mb-4">
     <a href="{{ route('admin.results.index') }}" class="btn btn-primary">
       <i class="fa fa-arrow-left"></i>

@@ -190,3 +190,16 @@
   height:100% !important;
   display:block;
 }
+
+/* Missing Component Badge */
+.badge-missing {
+  display: inline-block;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.75em;
+  padding: 0.25em 0.6em;
+  border-radius: 4px;
+  font-weight: 500;
+  border: 1px solid #fbbf24;
+  white-space: nowrap;
+}
