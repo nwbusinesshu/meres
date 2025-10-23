@@ -364,9 +364,8 @@
 {{-- ===== USER AS RATER - AI TELEMETRY (ADMIN ONLY) ===== --}}
 @if(auth()->user()->isCurrentAdmin() && isset($raterTelemetry) && count($raterTelemetry) > 0)
   <div class="telemetry-section">
-    <div class="telemetry-title">
-      <i class="fa fa-chart-line"></i>
-      {{ __('results.user-as-rater-title') }}
+    <div>
+      <h3 class="mb-2">{{ __('results.user-as-rater-title') }}</h3>      
     </div>
 
     @if(empty($raterTelemetry))
