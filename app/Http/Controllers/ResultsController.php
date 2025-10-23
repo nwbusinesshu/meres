@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Assessment;
+use App\Models\AssessmentBonus;
 use App\Models\Enums\UserType;
 use App\Models\User;
+use App\Services\OrgConfigService;
 use App\Services\UserService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -53,7 +55,9 @@ class ResultsController extends Controller
                 'currentIdx'          => 0,
                 'minVal'              => 0,
                 'maxVal'              => 1,
-                'competencyScores'    => [], // NEW
+                'competencyScores'    => [],
+                'employeesSeeBonuses' => false,
+                'bonusData'           => null,
             ]);
         }
 
@@ -70,7 +74,18 @@ class ResultsController extends Controller
             ->orderBy('closed_at')
             ->first();
 
-        $showBonusMalus = \App\Services\OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
+        $showBonusMalus = OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
+
+        // ✅ NEW: Check if employees_see_bonuses is enabled
+        $employeesSeeBonuses = OrgConfigService::getBool($orgId, 'employees_see_bonuses', false);
+        
+        // ✅ NEW: Fetch bonus data if setting is enabled
+        $bonusData = null;
+        if ($employeesSeeBonuses) {
+            $bonusData = AssessmentBonus::where('assessment_id', $assessment->id)
+                ->where('user_id', $effectiveUid)
+                ->first();
+        }
 
         // Aktuális user stat - GET FROM CACHE
         $cached = UserService::getUserResultsFromSnapshot($assessment->id, $user->id);
@@ -142,7 +157,7 @@ class ResultsController extends Controller
                 'direct_reports' => 'flat',
                 'leaders'        => 'flat'
             ];
-            $competencyScores = []; // NEW
+            $competencyScores = [];
         } else {
             $currentIdx = $history->search(fn ($h) => $h['id'] === $assessment->id);
             if ($currentIdx === false) $currentIdx = $history->count() - 1;
@@ -176,7 +191,7 @@ class ResultsController extends Controller
             $competencyScores = $this->calculateCompetencyScores($assessment->id, $user->id);
         }
 
-                if (AuthMiddleware::isAuthorized(UserType::ADMIN)) {
+        if (AuthMiddleware::isAuthorized(UserType::ADMIN)) {
             $raterTelemetry = \DB::table('user_competency_submit')
                 ->where('assessment_id', $assessment->id)
                 ->where('user_id', $effectiveUid)
@@ -195,11 +210,20 @@ class ResultsController extends Controller
                 ->toArray();
         }
 
-
-
         return view('results', compact(
-    'assessment','user','prevAssessment','nextAssessment',
-    'history','currentIdx','minVal','maxVal','showBonusMalus','raterTelemetry', 'competencyScores',
+            'assessment',
+            'user',
+            'prevAssessment',
+            'nextAssessment',
+            'history',
+            'currentIdx',
+            'minVal',
+            'maxVal',
+            'showBonusMalus',
+            'raterTelemetry',
+            'competencyScores',
+            'employeesSeeBonuses',
+            'bonusData'
         ));
     }
 

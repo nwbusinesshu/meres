@@ -40,7 +40,7 @@ return [
   "average-score" => "Átlagos pontszám",
   "competency" => "Kompetencia",
 
-  'user-as-rater-title' => 'Felhasználó értékelőként - AI Telemetria',
+  'user-as-rater-title' => 'Felhasználó értékelőként',
     'no-telemetry-data' => 'Nincs elérhető telemetria adat',
     'trust-index' => 'Megbízhatósági Index',
     'trust-score' => 'Megbízhatósági Pontszám',

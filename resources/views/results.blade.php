@@ -153,19 +153,112 @@
       </span>
     </div>
     @endif
-  </div>
 
-  {{-- ✅ MISSING COMPONENTS BADGES --}}
-  @if(!empty($missingList) && count($missingList) > 0)
-    <div class="tile tile-warning" style="padding: 0.75rem;">
-      <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;">
+    {{-- ✅ MISSING COMPONENTS - Inside RÉSZPONTOK tile --}}
+    @if(!empty($missingList) && count($missingList) > 0)
+      <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
         <span style="font-size: 0.85rem; color: #666; font-weight: 600;">{{ __('results.missing') }}:</span>
         @foreach($missingList as $component)
           <span class="badge badge-missing">{{ __('results.component_' . $component) }}</span>
         @endforeach
       </div>
+    @endif
+  </div>
+</div>
+@endif
+
+{{-- ✅ BONUS TILE - Full width, outside list, above charts --}}
+@if($employeesSeeBonuses && $bonusData)
+<div class="tile tile-info mb-4" style="background: linear-gradient(135deg, #f59e0b15 0%, #d9770615 100%); border-left: 4px solid #f59e0b;">
+  <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
+    
+    {{-- Icon --}}
+    <div>
+      <i class="fa fa-coins" aria-hidden="true" style="font-size:2rem; color: #f59e0b;"></i>
     </div>
-  @endif
+    
+    {{-- Bonus Details --}}
+    <div style="flex: 1; min-width: 200px;">
+      <div style="font-size:1.2rem; font-weight:600; margin-bottom: 8px; color: #1f2937;">
+        {{ __('admin/bonuses.bonus-amount') }}
+      </div>
+      
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 12px;">
+        
+        {{-- Net Wage --}}
+        <div>
+          <div style="font-size:0.85rem; color:#6b7280; margin-bottom: 4px;">
+            {{ __('admin/bonuses.net-wage') }}
+          </div>
+          <div style="font-weight:600; font-size:1.1rem;">
+            {{ number_format($bonusData->net_wage, 0, ',', ' ') }} {{ $bonusData->currency }}
+          </div>
+        </div>
+        
+        {{-- Multiplier --}}
+        <div>
+          <div style="font-size:0.85rem; color:#6b7280; margin-bottom: 4px;">
+            {{ __('admin/bonuses.multiplier') }}
+          </div>
+          <div style="font-weight:600; font-size:1.1rem;">
+            {{ $bonusData->multiplier }}x
+          </div>
+        </div>
+        
+        {{-- Bonus Amount --}}
+        <div>
+          <div style="font-size:0.85rem; color:#6b7280; margin-bottom: 4px;">
+            {{ __('admin/bonuses.bonus-calculated') }}
+          </div>
+          <div style="font-weight:700; font-size:1.3rem; color: {{ $bonusData->bonus_amount > 0 ? '#10b981' : '#ef4444' }};">
+            {{ number_format($bonusData->bonus_amount, 0, ',', ' ') }} {{ $bonusData->currency }}
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
+    {{-- Payment Status Badge --}}
+    <div style="text-align: center;">
+      @if($bonusData->is_paid)
+        <span class="badge" style="
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+          color: white; 
+          padding: 8px 16px; 
+          font-size: 0.95rem;
+          font-weight: 600;
+          border-radius: 6px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        ">
+          <i class="fa fa-check-circle"></i>
+          {{ __('admin/bonuses.paid') }}
+        </span>
+        @if($bonusData->paid_at)
+          <div style="font-size:0.75rem; color:#6b7280; margin-top: 6px;">
+            {{ \Carbon\Carbon::parse($bonusData->paid_at)->translatedFormat('Y. m. d.') }}
+          </div>
+        @endif
+      @else
+        <span class="badge" style="
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); 
+          color: white; 
+          padding: 8px 16px; 
+          font-size: 0.95rem;
+          font-weight: 600;
+          border-radius: 6px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        ">
+          <i class="fa fa-clock"></i>
+          {{ __('admin/bonuses.unpaid') }}
+        </span>
+      @endif
+    </div>
+    
+  </div>
 </div>
 @endif
 
