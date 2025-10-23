@@ -31,9 +31,10 @@
   outline-offset: 2px;
 }
 .user-tile-link:hover .employee{
-  box-shadow: 0 6px 6px rgba(0,0,0,.2);
+  border-left: 3px solid var(--outer_space);
   transition: .15s ease;
-  border-left: 0;
+  background-color: var(--dim);
+
 }
 
 /* Maga a csempe tartalom – 100% a linken belül */

@@ -300,6 +300,7 @@ class AdminAssessmentController extends Controller
         // ✅ FIX: Calculate user stats using ID-based method
         $scores = [];
         $userStats = [];
+        $detailedResults = [];
         
         foreach ($participants as $participant) {
             $detailedResult = UserService::calculateUserPointsDetailedByIds($assessment->id, $participant->id);
@@ -319,6 +320,7 @@ class AdminAssessmentController extends Controller
                 ];
                 
                 $userStats[$participant->id] = $stat;
+                $detailedResults[$participant->id] = $detailedResult;
                 $scores[] = (float)$stat->total;
             }
         }
@@ -403,7 +405,7 @@ class AdminAssessmentController extends Controller
         // ========================================
         // SECTION 5: TRANSACTION - UPDATE ASSESSMENT & BONUS/MALUS
         // ========================================
-        return DB::transaction(function () use ($assessment, $participants, $userStats, $scores, $up, $down, $mon, $method, $cfg, $orgId, $hybridUpRaw) {
+        return DB::transaction(function () use ($assessment, $participants, $userStats, $detailedResults, $scores, $up, $down, $mon, $method, $cfg, $orgId, $hybridUpRaw) {
 
             // 1. Update assessment
             $assessment->normal_level_up = $up;
@@ -495,6 +497,8 @@ class AdminAssessmentController extends Controller
 
                 $userModel = $userModels->get($participant->id);
                 $hasAutoLevelUp = $userModel ? (int)$userModel->has_auto_level_up : 0;
+                $detailed = $detailedResults[$participant->id] ?? null;
+
 
                 // ✅ Build user result with NEW 5-component structure
                 $userResults[(string)$participant->id] = [
@@ -513,6 +517,11 @@ class AdminAssessmentController extends Controller
                     'bonus_malus_month' => $month,
                     'change' => $change,
                     'has_auto_level_up' => $hasAutoLevelUp,
+                    'components_available' => $detailed ? (int)$detailed['components_available'] : 0,
+                    'missing_components' => $detailed ? array_values((array)$detailed['missing_components']) : [],
+                    'is_ceo' => $detailed ? (bool)$detailed['is_ceo'] : false,
+                    'weighted_sum' => $detailed ? (float)$detailed['weighted_sum'] : 0.0,
+                    'total_weight' => $detailed ? (float)$detailed['total_weight'] : 0.0,
                 ];
             }
 

@@ -18,12 +18,12 @@ class Assessment extends Model
      * - closed_at: CRITICAL - controls assessment lifecycle, must not be manipulated
      * - org_snapshot: System-generated snapshot, must not be user-editable
      * - org_snapshot_version: System version control
-     * - suggested_decision: AI/system-generated, must not be user-editable
      * 
      * Safe for mass assignment (in controlled contexts):
      * - due_at: Can be updated by admins
      * - threshold_method, normal_level_up, normal_level_down, monthly_level_down:
      *   Threshold configuration values that can be set during creation
+     * - suggested_decision: AI/system-generated decisions array (set during closeAssessment)
      */
     protected $fillable = [
         'due_at',
@@ -31,6 +31,7 @@ class Assessment extends Model
         'normal_level_up',
         'normal_level_down',
         'monthly_level_down',
+        'suggested_decision',
     ];
     
     protected $hidden = [];

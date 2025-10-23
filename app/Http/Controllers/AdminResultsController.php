@@ -7,6 +7,8 @@ use App\Models\Enums\UserType;
 use App\Models\User;
 use App\Services\UserService;
 use Illuminate\Http\Request;
+use App\Models\Enums\OrgRole;
+
 
 class AdminResultsController extends Controller
 {
