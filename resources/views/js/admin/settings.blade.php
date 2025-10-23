@@ -429,6 +429,31 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // ... rest of the JavaScript (mode switching, etc.)
+   // ========== THRESHOLD MODE SWITCHING (RESTORED) ==========
+  const modeSwitch = document.getElementById('threshold-mode-switch');
+  const hiddenModeInput = document.getElementById('config-mode');
+  
+  if (modeSwitch && hiddenModeInput) {
+    // Listen for mode changes
+    modeSwitch.addEventListener('change', function(e) {
+      if (e.target.type === 'radio' && e.target.name === 'threshold_mode') {
+        const selectedMode = e.target.value;
+        
+        // Update hidden input
+        hiddenModeInput.value = selectedMode;
+        
+        // Hide all mode panes
+        document.querySelectorAll('.mode-pane').forEach(pane => {
+          pane.classList.remove('active');
+        });
+        
+        // Show selected mode pane
+        const targetPane = document.querySelector(`.mode-pane.mode-${selectedMode}`);
+        if (targetPane) {
+          targetPane.classList.add('active');
+        }
+      }
+    });
+  }
 });
 </script>

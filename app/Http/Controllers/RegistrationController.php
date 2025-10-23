@@ -68,58 +68,53 @@ class RegistrationController extends Controller
         // Conditional validation for tax fields
         if ($isHu) {
             // Hungary: tax_number required, eu_vat_number optional
-            $rules['tax_number'] = 'required|string|min:8|max:191';
+            $rules['tax_number'] = 'required|string|min:8|max:32';
             $rules['eu_vat_number'] = 'nullable|string|max:32';
-        } elseif ($isEu) {
-            // Other EU: eu_vat_number required, tax_number not used
+        } else if ($isEu) {
+            // Other EU: eu_vat_number required, tax_number optional
+            $rules['tax_number'] = 'nullable|string|max:32';
             $rules['eu_vat_number'] = 'required|string|max:32';
-            $rules['tax_number'] = 'nullable|string|max:191';
         } else {
             // Non-EU: both optional
-            $rules['tax_number'] = 'nullable|string|max:191';
+            $rules['tax_number'] = 'nullable|string|max:32';
             $rules['eu_vat_number'] = 'nullable|string|max:32';
         }
 
-        $request->validate($rules);
+        $this->validate($request, $rules);
 
-        // reCAPTCHA validation
-        if (!\App\Services\RecaptchaService::validateRequest($request)) {
-            return back()
-                ->withErrors(['g-recaptcha-response' => __('auth.recaptcha_failed')])
-                ->withInput($request->except('g-recaptcha-response'));
-        }
-
-        // Additional validation: uniqueness checks for tax numbers
-        $tax = trim((string) $request->input('tax_number', ''));
+        // Additional uniqueness validations (cannot be done in rules array directly)
+        $taxNum = trim((string) $request->input('tax_number', ''));
         $euVat = strtoupper(trim((string) $request->input('eu_vat_number', '')));
 
-        if ($isHu) {
-            // Hungary: tax_number must be unique
-            if ($tax === '' || mb_strlen($tax) < 8) {
-                return back()->withErrors(['tax_number' => __('register.errors.tax_number_invalid')])->withInput();
-            }
+        // Hungary: tax_number must be unique if provided
+        if ($isHu && $taxNum !== '') {
             $dup = DB::table('organization_profiles')
                 ->whereNotNull('tax_number')
-                ->where('tax_number', $tax)
+                ->where(DB::raw('UPPER(TRIM(tax_number))'), '=', strtoupper($taxNum))
                 ->exists();
             if ($dup) {
                 return back()->withErrors(['tax_number' => __('register.errors.tax_number_exists')])->withInput();
             }
+        }
 
-            // EU VAT is optional for Hungary, but if provided, check format and uniqueness
-            if ($euVat !== '') {
-                if (!preg_match('/^[A-Z]{2}[A-Za-z0-9]{2,12}$/', $euVat)) {
-                    return back()->withErrors(['eu_vat_number' => __('register.errors.eu_vat_invalid_format')])->withInput();
-                }
-                $dup = DB::table('organization_profiles')
-                    ->whereNotNull('eu_vat_number')
-                    ->where(DB::raw('UPPER(TRIM(eu_vat_number))'), '=', $euVat)
-                    ->exists();
-                if ($dup) {
-                    return back()->withErrors(['eu_vat_number' => __('register.errors.eu_vat_exists')])->withInput();
-                }
+        // EU VAT validation
+        if ($euVat !== '') {
+            // Format validation
+            if (!preg_match('/^[A-Z]{2}[A-Za-z0-9]{2,12}$/', $euVat)) {
+                return back()->withErrors(['eu_vat_number' => __('register.errors.eu_vat_invalid_format')])->withInput();
             }
-        } elseif ($isEu) {
+            // Uniqueness check
+            $dup = DB::table('organization_profiles')
+                ->whereNotNull('eu_vat_number')
+                ->where(DB::raw('UPPER(TRIM(eu_vat_number))'), '=', $euVat)
+                ->exists();
+            if ($dup) {
+                return back()->withErrors(['eu_vat_number' => __('register.errors.eu_vat_exists')])->withInput();
+            }
+        }
+
+        // For non-HU EU countries: EU VAT is required
+        if (!$isHu && $isEu) {
             // Other EU: EU VAT must be valid and unique
             if ($euVat === '' || !preg_match('/^[A-Z]{2}[A-Za-z0-9]{2,12}$/', $euVat)) {
                 return back()->withErrors(['eu_vat_number' => __('register.errors.eu_vat_invalid_or_missing')])->withInput();
@@ -194,14 +189,56 @@ class RegistrationController extends Controller
                 ]);
             }
 
-            // 6) Alapbeállítások mentése
+            // 6) ✅ COMPLETE ORGANIZATION CONFIG DEFAULTS
+            // User-selected values from registration form
             $aiTelemetry = $request->boolean('ai_telemetry_enabled');
             $multiLevel  = $request->boolean('enable_multi_level');
             $showBM      = $request->boolean('show_bonus_malus');
 
-            OrgConfigService::setBool($org->id, OrgConfigService::AI_TELEMETRY_KEY, $aiTelemetry);
-            OrgConfigService::setBool($org->id, 'enable_multi_level', $multiLevel);
-            OrgConfigService::setBool($org->id, 'show_bonus_malus', $showBM);
+            // Complete organization config defaults - matching SuperadminOrganizationController
+            $defaults = [
+                // --- Threshold mode + classic thresholds ---
+                'threshold_mode'        => 'fixed',
+                'normal_level_up'       => '85',
+                'normal_level_down'     => '70',
+                'monthly_level_down'    => '70',
+
+                // --- HYBRID / DYNAMIC base settings ---
+                'threshold_min_abs_up'  => '70',  // HYBRID: lower fixed threshold
+                'threshold_top_pct'     => '15',  // HYBRID + DYNAMIC: top X%
+                'threshold_bottom_pct'  => '20',  // DYNAMIC: bottom Y%
+
+                // --- HYBRID fine-tuning ---
+                'threshold_grace_points'=> '0',   // grace points below minAbs
+                'threshold_gap_min'     => '5',   // stagnation "dead zone" (points)
+
+                // --- AI/telemetry toggles ---
+                'strict_anonymous_mode' => '0',   // if 1 → ai_telemetry auto OFF
+                'ai_telemetry_enabled'  => $aiTelemetry ? '1' : '0',
+
+                // --- SUGGESTED (AI) policy ---
+                // Store rates as 0..1 float (displayed as %)
+                'target_promo_rate_max'          => '0.30',  // 30%
+                'target_demotion_rate_max'       => '0.30',  // 30%
+                'never_below_abs_min_for_promo'  => null,    // empty = no absolute min
+                'use_telemetry_trust'            => '1',
+                'no_forced_demotion_if_high_cohesion' => '1',
+
+                // --- Other UI/behavior settings ---
+                'enable_multi_level'    => $multiLevel ? '1' : '0',
+                'show_bonus_malus'      => $showBM ? '1' : '0',
+                'easy_relation_setup'   => '1',
+                'force_oauth_2fa'       => '0',
+                'employees_see_bonuses' => '0',
+                'enable_bonus_calculation' => '0',
+            ];
+
+            foreach ($defaults as $key => $val) {
+                DB::table('organization_config')->updateOrInsert(
+                    ['organization_id' => $org->id, 'name' => $key],
+                    ['value' => $val === null ? null : (string) $val]
+                );
+            }
 
             // 7) Default Bonus/Malus multipliers (Hungarian standard)
             $defaultMultipliers = [
@@ -220,7 +257,7 @@ class RegistrationController extends Controller
             }
             DB::table('bonus_malus_config')->insert($bonusConfigData);
 
-            // 7) INITIAL PAYMENT CREATION
+            // 8) INITIAL PAYMENT CREATION
             $employeeLimit = (int) $request->input('employee_limit', 1);
             $amountHuf = (int) ($employeeLimit * 950);
 
@@ -235,10 +272,10 @@ class RegistrationController extends Controller
                 ]);
             }
 
-            // 8) Password-setup email küldése
+            // 9) Password-setup email küldése
             PasswordSetupService::createAndSend($org->id, $user->id, null);
 
-            // 9) Válasz – vissza a loginra
+            // 10) Válasz – vissza a loginra
             return redirect()
                 ->route('login')
                 ->with('success', __('register.success_message'));
@@ -284,53 +321,26 @@ class RegistrationController extends Controller
             $isHu = ($country === 'HU');
             $isEu = in_array($country, $EU, true);
 
-            $errors = [];
-
-            if ($isHu) {
-                // Hungary: check tax_number
-                if ($tax !== '') {
-                    $dup = DB::table('organization_profiles')
-                        ->whereNotNull('tax_number')
-                        ->where('tax_number', $tax)
-                        ->exists();
-                    if ($dup) {
-                        $errors['tax_number'] = __('register.errors.tax_number_exists');
-                    }
-                }
-
-                // EU VAT optional for Hungary
-                if ($euVat !== '') {
-                    if (!preg_match('/^[A-Z]{2}[A-Za-z0-9]{2,12}$/', $euVat)) {
-                        $errors['eu_vat_number'] = __('register.errors.eu_vat_invalid_format');
-                    } else {
-                        $dup = DB::table('organization_profiles')
-                            ->whereNotNull('eu_vat_number')
-                            ->where(DB::raw('UPPER(TRIM(eu_vat_number))'), '=', $euVat)
-                            ->exists();
-                        if ($dup) {
-                            $errors['eu_vat_number'] = __('register.errors.eu_vat_exists');
-                        }
-                    }
-                }
-            } elseif ($isEu) {
-                // Other EU: check eu_vat_number
-                if ($euVat !== '') {
-                    if (!preg_match('/^[A-Z]{2}[A-Za-z0-9]{2,12}$/', $euVat)) {
-                        $errors['eu_vat_number'] = __('register.errors.eu_vat_invalid_format');
-                    } else {
-                        $dup = DB::table('organization_profiles')
-                            ->whereNotNull('eu_vat_number')
-                            ->where(DB::raw('UPPER(TRIM(eu_vat_number))'), '=', $euVat)
-                            ->exists();
-                        if ($dup) {
-                            $errors['eu_vat_number'] = __('register.errors.eu_vat_exists');
-                        }
-                    }
+            // Hungary: tax_number uniqueness
+            if ($isHu && $tax !== '') {
+                $dup = DB::table('organization_profiles')
+                    ->whereNotNull('tax_number')
+                    ->where(DB::raw('UPPER(TRIM(tax_number))'), '=', strtoupper($tax))
+                    ->exists();
+                if ($dup) {
+                    return response()->json(['ok' => false, 'errors' => ['tax_number' => __('register.errors.tax_number_exists')]], 200);
                 }
             }
 
-            if (!empty($errors)) {
-                return response()->json(['ok' => false, 'errors' => $errors], 200);
+            // EU VAT uniqueness
+            if ($euVat !== '') {
+                $dup = DB::table('organization_profiles')
+                    ->whereNotNull('eu_vat_number')
+                    ->where(DB::raw('UPPER(TRIM(eu_vat_number))'), '=', $euVat)
+                    ->exists();
+                if ($dup) {
+                    return response()->json(['ok' => false, 'errors' => ['eu_vat_number' => __('register.errors.eu_vat_exists')]], 200);
+                }
             }
 
             return response()->json(['ok' => true], 200);

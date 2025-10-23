@@ -243,7 +243,7 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.OrgRole::ADMIN, 'or
         ->group(function () {
             Route::get('/index', 'index')->name('index');
             Route::post('/toggle', 'toggle')->name('toggle');
-            Route::post('/thresholds', 'saveThresholds')->name('save');
+            Route::post('/thresholds', 'save')->name('save');
         });
 });
 
