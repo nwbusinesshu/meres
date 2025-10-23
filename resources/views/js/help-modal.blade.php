@@ -510,12 +510,12 @@ function showFirstLoginWelcome() {
     url: `/help/chat/session/${sessionId}`,
     method: 'GET',
     success: function(response) {
-      if (response.success && response.messages) {
+      if (response.success && response.session && response.session.messages) {
         // Clear history before rendering
         $('.help-chat-history').empty();
         
         // Render all messages
-        renderMessages(response.messages);
+        renderMessages(response.session.messages);
         
         // Update current session
         currentSessionId = response.session.id;
@@ -524,7 +524,7 @@ function showFirstLoginWelcome() {
         if (isDebugMode) {
           console.log('[Help Chat] Session loaded successfully:', {
             sessionId: response.session.id,
-            messageCount: response.messages.length
+            messageCount: response.session.messages.length
           });
         }
       }
