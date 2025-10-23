@@ -176,10 +176,30 @@ class ResultsController extends Controller
             $competencyScores = $this->calculateCompetencyScores($assessment->id, $user->id);
         }
 
+                if (AuthMiddleware::isAuthorized(UserType::ADMIN)) {
+            $raterTelemetry = \DB::table('user_competency_submit')
+                ->where('assessment_id', $assessment->id)
+                ->where('user_id', $effectiveUid)
+                ->whereNotNull('telemetry_ai')
+                ->select('target_id', 'telemetry_ai')
+                ->get()
+                ->map(function($row) {
+                    $telemetryData = json_decode($row->telemetry_ai, true);
+                    return [
+                        'target_id' => $row->target_id,
+                        'flags' => $telemetryData['flags'] ?? [],
+                        'trust_index' => $telemetryData['trust_index'] ?? null,
+                        'trust_score' => $telemetryData['trust_score'] ?? null,
+                    ];
+                })
+                ->toArray();
+        }
+
+
+
         return view('results', compact(
-            'assessment','user','prevAssessment','nextAssessment',
-            'history','currentIdx','minVal','maxVal','showBonusMalus',
-            'competencyScores' // NEW
+    'assessment','user','prevAssessment','nextAssessment',
+    'history','currentIdx','minVal','maxVal','showBonusMalus','raterTelemetry', 'competencyScores',
         ));
     }
 

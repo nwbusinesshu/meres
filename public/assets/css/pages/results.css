@@ -196,10 +196,127 @@
   display: inline-block;
   background: #fef3c7;
   color: #92400e;
-  font-size: 0.75em;
+  font-size: 0.75em!important;
   padding: 0.25em 0.6em;
-  border-radius: 4px;
   font-weight: 500;
   border: 1px solid #fbbf24;
   white-space: nowrap;
+}
+
+.flag-badge {
+  font-size: 1em!important;
+}
+
+.trust-badge {
+  font-size: 1.5em!important;
+}
+
+/* Telemetry section styles */
+.telemetry-section {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-left: 3px solid var(--info);
+}
+
+.telemetry-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #212529;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.telemetry-title i {
+  color: #6c757d;
+}
+
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.telemetry-card {
+  background: white;
+  padding: 1rem;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.telemetry-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.telemetry-target {
+  font-weight: 600;
+  color: #212529;
+}
+
+.telemetry-trust-index {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.trust-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.trust-badge-high {
+  background: #d4edda;
+  color: #155724;
+}
+
+.trust-badge-medium {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.trust-badge-low {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.telemetry-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.flag-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: #e9ecef;
+  color: #495057;
+}
+
+.flag-badge.flag-warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.flag-badge.flag-danger {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.no-telemetry-message {
+  text-align: center;
+  padding: 2rem;
+  color: #6c757d;
+  font-style: italic;
 }

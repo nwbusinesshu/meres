@@ -4,6 +4,9 @@ return [
   "result" => "Eredmény",
   "colleagues" => "Kollégák értékelése",
   "self" => "Önértékelés",
+  "total" => "Összpont",
+  "leaders" => "Vezetők",
+  "employees" => "Kollégák",
   "direct_reports" => "Beosztottak értékelése",
   "managers" => "Vezetők értékelése",
   "ceos" => "Ügyvezetők",
@@ -12,6 +15,7 @@ return [
   "next-closed-period" => "Következő lezárt időszak",
   "closure-date" => "Lezárás dátuma",
   "back-to-admin-results" => "Vissza az összesített eredményekhez",
+  'performance-over-time' => 'Idősoros értékelés',
   
   // ✅ NEW: Missing components
   "missing" => "Hiányzó",
@@ -35,4 +39,19 @@ return [
   "competency-breakdown" => "Kompetencia szerinti bontás",
   "average-score" => "Átlagos pontszám",
   "competency" => "Kompetencia",
+
+  'user-as-rater-title' => 'Felhasználó értékelőként - AI Telemetria',
+    'no-telemetry-data' => 'Nincs elérhető telemetria adat',
+    'trust-index' => 'Megbízhatósági Index',
+    'trust-score' => 'Megbízhatósági Pontszám',
+    'flags' => 'Jelzők',
+    'no-flags' => 'Nincs jelző',
+    'target' => 'Cél',
+    
+    // Flag translations
+    'flag_too_fast' => 'Túl gyors',
+    'flag_one_click_fast_read' => 'Egy kattintásos gyors olvasás',
+    'flag_suspicious_pattern' => 'Gyanús minta',
+    'flag_fast_read' => 'Gyors olvasás',
+    'flag_too_uniform' => 'Túl egyenletes',
 ];

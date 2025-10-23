@@ -257,7 +257,6 @@
 @endif
 
 {{-- ===== Kompetenciák szerinti eredmény (Bar Chart) ===== --}}
-@if($assessment && isset($competencyScores) && count($competencyScores) > 0)
   <div class="tile tile-info" style="padding:16px; margin-top: 1rem;">
     <h3 class="mb-2">{{ __('results.competency-breakdown') }}</h3>
     <div class="chartjs-wrap">
@@ -361,6 +360,71 @@
       });
     })();
   </script>
+
+{{-- ===== USER AS RATER - AI TELEMETRY (ADMIN ONLY) ===== --}}
+@if(auth()->user()->isCurrentAdmin() && isset($raterTelemetry) && count($raterTelemetry) > 0)
+  <div class="telemetry-section">
+    <div class="telemetry-title">
+      <i class="fa fa-chart-line"></i>
+      {{ __('results.user-as-rater-title') }}
+    </div>
+
+    @if(empty($raterTelemetry))
+      <div class="no-telemetry-message">
+        {{ __('results.no-telemetry-data') }}
+      </div>
+    @else
+      <div class="telemetry-grid">
+        @foreach($raterTelemetry as $telemetry)
+          @php
+            $target = \App\Models\User::find($telemetry['target_id']);
+            $trustIndex = $telemetry['trust_index'];
+            $trustClass = 'trust-badge-medium';
+            if($trustIndex !== null) {
+              if($trustIndex >= 60) $trustClass = 'trust-badge-high';
+              elseif($trustIndex < 40) $trustClass = 'trust-badge-low';
+            }
+          @endphp
+
+          <div class="telemetry-card">
+            <div class="telemetry-card-header">
+              <div class="telemetry-target">
+                <i class="fa fa-user"></i>
+                {{ $target ? $target->name : __('results.target') . ' #' . $telemetry['target_id'] }}
+              </div>
+              
+              @if($trustIndex !== null)
+                <div class="telemetry-trust-index">
+                  <span>{{ __('results.trust-index') }}:</span>
+                  <span class="trust-badge {{ $trustClass }}">{{ $trustIndex }}</span>
+                </div>
+              @endif
+            </div>
+
+            <div class="telemetry-flags">
+              @if(empty($telemetry['flags']))
+                <span class="flag-badge">{{ __('results.no-flags') }}</span>
+              @else
+                @foreach($telemetry['flags'] as $flag)
+                  @php
+                    $flagClass = '';
+                    if(in_array($flag, ['too_fast', 'fast_read', 'suspicious_pattern'])) {
+                      $flagClass = 'flag-danger';
+                    } elseif(in_array($flag, ['one_click_fast_read', 'too_uniform'])) {
+                      $flagClass = 'flag-warning';
+                    }
+                  @endphp
+                  <span class="flag-badge {{ $flagClass }}">
+                    {{ __('results.flag_' . $flag) }}
+                  </span>
+                @endforeach
+              @endif
+            </div>
+          </div>
+        @endforeach
+      </div>
+    @endif
+  </div>
 @endif
 
 {{-- Back to admin results button (for admins viewing user results) --}}
