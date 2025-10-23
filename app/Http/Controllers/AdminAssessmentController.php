@@ -286,7 +286,12 @@ class AdminAssessmentController extends Controller
         // SECTION 3: PREPARE DATA & CALCULATE THRESHOLDS
         // ========================================
         $cfg = $this->thresholds->getOrgConfigMap($orgId);
-        $method = strtolower((string)($cfg['threshold_mode'] ?? 'fixed'));
+        $method = strtolower((string)$assessment->threshold_method);
+        if (!$method || !in_array($method, ['fixed', 'hybrid', 'dynamic', 'suggested'])) {
+            throw ValidationException::withMessages([
+                'assessment' => 'Érvénytelen küszöbszámítási módszer: ' . $method
+            ]);
+        }
 
         // Get participants
         $participants = UserService::getAssessmentParticipants($assessment->id);

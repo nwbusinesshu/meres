@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ThresholdService
 {
@@ -53,7 +54,7 @@ class ThresholdService
     public function thresholdsForFixed(array $cfg): array
     {
         foreach (['normal_level_up','normal_level_down','monthly_level_down'] as $k) {
-            if (!isset($cfg[$k]) || $cfg[$k] === '' ) {
+            if (!isset($cfg[$k]) || $cfg[$k] === '') {
                 throw ValidationException::withMessages([
                     'config' => "FIXED: hiányzik a(z) {$k} beállítás.",
                 ]);
@@ -150,7 +151,7 @@ class ThresholdService
             ]);
         }
 
-        $up   = $this->topPercentileScore($scores,    $topPct);
+        $up   = $this->topPercentileScore($scores, $topPct);
         $down = $this->bottomPercentileScore($scores, $bottomPct);
 
         if (!($up > $down)) {
@@ -169,42 +170,41 @@ class ThresholdService
 
     // ---------- SUGGESTED (AI eredményből) ----------
     public function thresholdsFromSuggested(array $cfg, array $ai): array
-{
-    $up   = (int)($ai['thresholds']['normal_level_up']   ?? -1);
-    $down = (int)($ai['thresholds']['normal_level_down'] ?? -1);
-    $mon  = (int)($cfg['monthly_level_down'] ?? 70);
+    {
+        $up   = (int)($ai['thresholds']['normal_level_up']   ?? -1);
+        $down = (int)($ai['thresholds']['normal_level_down'] ?? -1);
+        $mon  = (int)($cfg['monthly_level_down'] ?? 70);
 
-    if ($up < 0 || $down < 0) {
-        throw ValidationException::withMessages([
-            'ai' => 'SUGGESTED: AI küszöb értéktelen.',
-        ]);
-    }
-
-    // ABS MIN mint konkrét pontszám (SUGGESTED-ben)
-    // Ha a configban NULL/üres -> nincs kényszer. Ha szám -> kényszer.
-    $absMinUp = $cfg['never_below_abs_min_for_promo'] ?? null;
-    if ($absMinUp !== null && $absMinUp !== '') {
-        $absMinUp = (int)$absMinUp;
-        if ($up < $absMinUp) {
+        if ($up < 0 || $down < 0) {
             throw ValidationException::withMessages([
-                'ai' => "SUGGESTED: az AI up ({$up}) kisebb, mint a kötelező minimum ({$absMinUp}).",
+                'ai' => 'SUGGESTED: AI küszöb értéktelen.',
             ]);
         }
+
+        // ABS MIN mint konkrét pontszám (SUGGESTED-ben)
+        // Ha a configban NULL/üres -> nincs kényszer. Ha szám -> kényszer.
+        $absMinUp = $cfg['never_below_abs_min_for_promo'] ?? null;
+        if ($absMinUp !== null && $absMinUp !== '') {
+            $absMinUp = (int)$absMinUp;
+            if ($up < $absMinUp) {
+                throw ValidationException::withMessages([
+                    'ai' => "SUGGESTED: az AI up ({$up}) kisebb, mint a kötelező minimum ({$absMinUp}).",
+                ]);
+            }
+        }
+
+        if (!($up > $down)) {
+            throw ValidationException::withMessages([
+                'ai' => 'SUGGESTED: upper <= lower küszöb (érvénytelen AI javaslat).',
+            ]);
+        }
+
+        return [
+            'normal_level_up'    => (int)$this->clamp($up),
+            'normal_level_down'  => (int)$this->clamp($down),
+            'monthly_level_down' => (int)$mon,
+        ];
     }
-
-    if (!($up > $down)) {
-        throw ValidationException::withMessages([
-            'ai' => 'SUGGESTED: upper <= lower küszöb (érvénytelen AI javaslat).',
-        ]);
-    }
-
-    return [
-        'normal_level_up'    => (int)$this->clamp($up),
-        'normal_level_down'  => (int)$this->clamp($down),
-        'monthly_level_down' => (int)$mon,
-    ];
-}
-
 
     // ---------- Segédek ----------
     public function topPercentileScore(array $scores, float $pct): int
@@ -235,52 +235,51 @@ class ThresholdService
     }
 
     public function buildInitialThresholdsForStart(int $orgId): array
-{
-    $cfg  = $this->getOrgConfigMap($orgId);
-    $mode = strtolower((string) $cfg['threshold_mode']); // fixed|hybrid|dynamic|suggested
+    {
+        $cfg  = $this->getOrgConfigMap($orgId);
+        $mode = strtolower((string) $cfg['threshold_mode']); // fixed|hybrid|dynamic|suggested
 
-    switch ($mode) {
-        case 'fixed':
-            return [
-                'threshold_method'    => 'fixed',
-                'normal_level_up'     => (int) $cfg['normal_level_up'],
-                'normal_level_down'   => (int) $cfg['normal_level_down'],
-                'monthly_level_down'  => (int) $cfg['monthly_level_down'],
-            ];
+        switch ($mode) {
+            case 'fixed':
+                return [
+                    'threshold_method'    => 'fixed',
+                    'normal_level_up'     => (int) $cfg['normal_level_up'],
+                    'normal_level_down'   => (int) $cfg['normal_level_down'],
+                    'monthly_level_down'  => (int) $cfg['monthly_level_down'],
+                ];
 
-        case 'hybrid':
-            $minAbs = (int) $cfg['threshold_min_abs_up'];
-            return [
-                'threshold_method'    => 'hybrid',
-                'normal_level_down'   => $minAbs,
-                'normal_level_up'     => null,
-                'monthly_level_down'  => (int) $cfg['monthly_level_down'],
-            ];
+            case 'hybrid':
+                $minAbs = (int) $cfg['threshold_min_abs_up'];
+                return [
+                    'threshold_method'    => 'hybrid',
+                    'normal_level_down'   => $minAbs,
+                    'normal_level_up'     => null,
+                    'monthly_level_down'  => (int) $cfg['monthly_level_down'],
+                ];
 
-        case 'dynamic':
-            return [
-                'threshold_method'    => 'dynamic',
-                'normal_level_up'     => null,
-                'normal_level_down'   => null,
-                'monthly_level_down'  => (int) $cfg['monthly_level_down'],
-            ];
+            case 'dynamic':
+                return [
+                    'threshold_method'    => 'dynamic',
+                    'normal_level_up'     => null,
+                    'normal_level_down'   => null,
+                    'monthly_level_down'  => (int) $cfg['monthly_level_down'],
+                ];
 
-        case 'suggested':
-            return [
-                'threshold_method'    => 'suggested',
-                'normal_level_up'     => null,
-                'normal_level_down'   => null,
-                'monthly_level_down'  => (int) $cfg['monthly_level_down'],
-            ];
+            case 'suggested':
+                return [
+                    'threshold_method'    => 'suggested',
+                    'normal_level_up'     => null,
+                    'normal_level_down'   => null,
+                    'monthly_level_down'  => (int) $cfg['monthly_level_down'],
+                ];
 
-        default:
-            return [
-                'threshold_method'    => 'fixed',
-                'normal_level_up'     => (int) $cfg['normal_level_up'],
-                'normal_level_down'   => (int) $cfg['normal_level_down'],
-                'monthly_level_down'  => (int) $cfg['monthly_level_down'],
-            ];
+            default:
+                return [
+                    'threshold_method'    => 'fixed',
+                    'normal_level_up'     => (int) $cfg['normal_level_up'],
+                    'normal_level_down'   => (int) $cfg['normal_level_down'],
+                    'monthly_level_down'  => (int) $cfg['monthly_level_down'],
+                ];
+        }
     }
-}
-
 }
