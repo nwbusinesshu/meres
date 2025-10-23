@@ -63,11 +63,20 @@ class AdminResultsController extends Controller
                     $user['stats'] = UserService::snapshotResultToStdClass($cached);
                     $user['bonusMalus'] = $cached['bonus_malus_level'];
                     $user['change'] = $cached['change'];
+                    // ✅ NEW: Pass metadata for displaying component status
+                    $user['componentsAvailable'] = $cached['components_available'] ?? 0;
+                    $user['missingComponents'] = $cached['missing_components'] ?? [];
+                    $user['isCeo'] = $cached['is_ceo'] ?? false;
+                    $user['complete'] = $cached['complete'] ?? true;
                 } else {
                     // No cached data - user has no results
                     $user['stats'] = null;
                     $user['bonusMalus'] = null;
                     $user['change'] = 'none';
+                    $user['componentsAvailable'] = 0;
+                    $user['missingComponents'] = [];
+                    $user['isCeo'] = false;
+                    $user['complete'] = false;
                 }
 
                 return $user;

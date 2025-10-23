@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!res.isConfirmed) return;
 
       this.checked = wasChecked;
-      const response = await postToggle('ai_telemetry', wasChecked);
+      const response = await postToggle('ai_telemetry_enabled', wasChecked);
 
       if (response.ok) {
         sessionStorage.setItem('settings_saved_toast', T.saved);

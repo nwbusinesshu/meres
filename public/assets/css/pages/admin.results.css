@@ -255,3 +255,154 @@
 }
 .tile-summary .tile-header i { color: #e0b200; }
 .tile-summary .tile-body p { margin: 0; white-space: pre-wrap; }
+
+/* === Additional styles for admin.results.blade.php === */
+
+/* CEO Badge */
+.badge-ceo {
+  display: inline-block;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 0.65em!important;
+  padding: 0.2em 0.5em;
+  font-weight: 600;
+  margin-left: 0.5em;
+  vertical-align: middle;
+  letter-spacing: 0.05em;
+}
+
+/* Bonus/Malus Badge - Top Right Corner of Result Container */
+.badge-bonusmalus {
+  position: absolute;
+  top: 0px;                     /* Spacing from top */
+  right: 0px;                   /* Spacing from right */
+  display: inline-block;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  font-size: 1em;
+  padding: 0.3em 0.6em;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  z-index: 10;
+  white-space: nowrap;
+}
+
+/* Missing Components Section */
+.missing-components {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  align-items: center;
+  margin-top: 0.5em;
+  padding-top: 0.5em;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.missing-label {
+  font-size: 0.8em;
+  color: #666;
+  font-weight: 600;
+  margin-right: 0.2em;
+}
+
+/* Missing Component Badge */
+.badge-missing {
+  display: inline-block;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.75em;
+  padding: 0.25em 0.6em;
+  font-weight: 500;
+  border: 1px solid #fbbf24;
+  white-space: nowrap;
+}
+
+/* Adjust stats grid for dynamic number of components */
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3em;
+  font-size: 0.9em;
+  flex-grow: 1;
+}
+
+.stats > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.2em 0;
+}
+
+.stats > div > span:first-child {
+  color: #666;
+  font-size: 0.85em;
+}
+
+.stats > div > span:last-child {
+  font-weight: 600;
+  color: #333;
+}
+
+/* Result container - ensure only one circle shows and position relative for badge */
+.result {
+  position: relative;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;               /* Prevent double circle rendering */
+  padding: 4px;                   /* Minimal padding for badge */
+}
+
+/* Ensure pie chart container is clean */
+.pie {
+  font-family: 'Kanit', sans-serif;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hide any duplicate canvas/svg elements that might be created */
+.pie canvas:not(:first-child),
+.pie svg:not(:first-child) {
+  display: none !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .user-tile-link {
+    width: 100%;
+  }
+  
+  .stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .missing-components {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .badge-ceo {
+    display: block;
+    margin-left: 0;
+    margin-top: 0.3em;
+    width: fit-content;
+  }
+  
+  .badge-bonusmalus {
+    font-size: 0.65em;
+    padding: 0.25em 0.5em;
+  }
+}
+
+/* Complete status indicator (optional) */
+.employee.incomplete {
+  opacity: 0.85;
+  border-left: 3px solid #fbbf24;
+}
+
+.employee.incomplete:hover {
+  opacity: 1;
+}
+

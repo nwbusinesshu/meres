@@ -2,28 +2,38 @@
 return [
   "no-results" => "Még nincsenek megjeleníthető eredmények!",
   "result" => "Eredmény",
-  "colleagues" => "Kollégák",
-  "self" => "Ön",
-  "managers" => "Felettesek",
-  "ceos" => "Rangsor",
-      // Navigation
-    'previous-closed-period' => 'Előző lezárt időszak',
-    'next-closed-period' => 'Következő lezárt időszak',
-    'closure-date' => 'Lezárás dátuma',
-
-    // Thresholds
-    'promotion-threshold' => 'Előléptetési küszöb',
-    'upper-score-limit' => 'Felső ponthatár',
-    'demotion-threshold' => 'Lefokozási küszöb',
-    'lower-score-limit' => 'Alsó ponthatár',
-    'threshold-calculation-method' => 'Küszöbszámítási mód',
-    'method' => 'Módszer',
-
-    // AI Summary
-    'ai-summary' => 'AI összefoglaló',
-    'ai-summary-not-available' => 'AI összefoglaló nem elérhető',
-    'summary-field-not-found' => 'A summary_hu mező nem található a suggested_decision logban.',
-
-    // User Results
-    'open-user-results' => 'Megnyitás: :name eredményei',
+  "colleagues" => "Kollégák értékelése",
+  "self" => "Önértékelés",
+  "direct_reports" => "Beosztottak értékelése",
+  "managers" => "Vezetők értékelése",
+  "ceos" => "Ügyvezetők",
+  "last-period" => "Az előző időszak eredménye",
+  "previous-closed-period" => "Előző lezárt időszak",
+  "next-closed-period" => "Következő lezárt időszak",
+  "closure-date" => "Lezárás dátuma",
+  "back-to-admin-results" => "Vissza az összesített eredményekhez",
+  "open-user-results" => "Megnyitás: :name eredményei",
+  "promotion-threshold" => "Előléptetési küszöb",
+  "demotion-threshold" => "Visszaléptetési küszöb",
+  "threshold-calculation-method" => "Küszöbszámítási módszer",
+  "upper-score-limit" => "Felső ponthatár",
+  "lower-score-limit" => "Alsó ponthatár",
+  "method" => "Módszer",
+  "ai-summary" => "AI összefoglaló",
+  "ai-summary-not-available" => "AI összefoglaló nem érhető el",
+  "summary-field-not-found" => "Összefoglaló mező nem található",
+  "ceo-role" => "Ügyvezető",
+  "missing" => "Hiányzó",
+  "component_self" => "Önértékelés",
+  "component_colleagues" => "Kollégák",
+  "component_direct_reports" => "Beosztottak",
+  "component_managers" => "Vezetők",
+  "component_ceo_rank" => "Ügyvezetői rangsor",
+  
+  // Chart-related
+  "time-series-performance" => "Idősoros teljesítmény",
+  "total-points" => "Összpont",
+  "self-assessment" => "Önértékelés",
+  "colleagues-rating" => "Kollégák",
+  "managers-rating" => "Vezetők",
 ];

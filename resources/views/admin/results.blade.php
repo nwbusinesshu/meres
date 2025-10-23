@@ -84,28 +84,76 @@
         <div class="tile tile-info employee">
           <div>
             <div class="name">
-              <span>{{ $user->name }}</span>
-              <span>@if(!empty($showBonusMalus)){{ __("global.bonus-malus.$user->bonusMalus") }}@endif</span>
+              <span>
+                {{ $user->name }}
+                {{-- ✅ CEO Badge --}}
+                @if($user->isCeo ?? false)
+                  <span class="badge badge-ceo" title="{{ __('admin/results.ceo-role') }}">CEO</span>
+                @endif
+              </span>
             </div>
 
             @if (is_null($user->stats))
+              {{-- ✅ No stats available --}}
               <div class="stats">
                 <div><span>{{ $_('self') }}</span><span>?</span></div>
                 <div><span>{{ $_('colleagues') }}</span><span>?</span></div>
+                <div><span>{{ $_('direct_reports') }}</span><span>?</span></div>
                 <div><span>{{ $_('managers') }}</span><span>?</span></div>
                 <div><span>{{ $_('ceos') }}</span><span>?</span></div>
               </div>
             @else
+              {{-- ✅ Display only available components (hide missing ones) --}}
+              @php
+                $missingList = $user->missingComponents ?? [];
+              @endphp
               <div class="stats">
-                <div><span>{{ $_('self') }}</span><span>{{ $user->stats->selfTotal }}</span></div>
-                <div><span>{{ $_('colleagues') }}</span><span>{{ $user->stats->colleagueTotal }}</span></div>
-                <div><span>{{ $_('managers') }}</span><span>{{ round($user->stats->managersTotal) }}</span></div>
-                <div><span>{{ $_('ceos') }}</span><span>{{ $user->stats->ceoTotal }}</span></div>
+                {{-- Self --}}
+                @if(!in_array('self', $missingList))
+                  <div><span>{{ $_('self') }}</span><span>{{ $user->stats->selfTotal }}</span></div>
+                @endif
+                
+                {{-- Colleagues --}}
+                @if(!in_array('colleagues', $missingList))
+                  <div><span>{{ $_('colleagues') }}</span><span>{{ $user->stats->colleagueTotal }}</span></div>
+                @endif
+                
+                {{-- Direct Reports --}}
+                @if(!in_array('direct_reports', $missingList))
+                  <div><span>{{ $_('direct_reports') }}</span><span>{{ $user->stats->directReportsTotal ?? 0 }}</span></div>
+                @endif
+                
+                {{-- Managers --}}
+                @if(!in_array('managers', $missingList))
+                  <div><span>{{ $_('managers') }}</span><span>{{ round($user->stats->managersTotal) }}</span></div>
+                @endif
+                
+                {{-- CEOs --}}
+                @if(!in_array('ceo_rank', $missingList))
+                  <div><span>{{ $_('ceos') }}</span><span>{{ $user->stats->ceoTotal }}</span></div>
+                @endif
               </div>
+
+              {{-- ✅ Missing Components Badges --}}
+              @if(!empty($missingList) && count($missingList) > 0)
+                <div class="missing-components">
+                  <span class="missing-label">{{ __('admin/results.missing') }}:</span>
+                  @foreach($missingList as $component)
+                    <span class="badge badge-missing">{{ __('admin/results.component_' . $component) }}</span>
+                  @endforeach
+                </div>
+              @endif
             @endif
           </div>
 
           <div class="result">
+            {{-- ✅ Bonus/Malus Badge - Top Right Corner --}}
+            @if(!empty($showBonusMalus) && isset($user->bonusMalus))
+              <span class="badge badge-bonusmalus" title="{{ __('global.bonusmalus') }}">
+                {{ __("global.bonus-malus.$user->bonusMalus") }}
+              </span>
+            @endif
+            
             <div class="pie"
                  data-pie='{
                    "percent": {{ $user->stats?->total ?? 0 }},
@@ -128,4 +176,5 @@
 @endsection
 
 @section('scripts')
+
 @endsection
