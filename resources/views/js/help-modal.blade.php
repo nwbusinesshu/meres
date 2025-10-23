@@ -350,36 +350,46 @@ function showContentNotFound() {
     </div>
   `);
 }
-  // MODIFIED: Control default welcome message visibility
+// FIXED: Simplified welcome message visibility logic
 function loadAiSupportContent() {
   // Enable the chat interface
   enableChatInterface();
   
+  // Clear chat history first
+  $('.help-chat-history').empty();
+  
   // Load current session if exists
   if (currentSessionId) {
-    // UPDATED: Hide default welcome when loading existing session
+    // Hide welcome message when loading existing session
     $('.help-welcome-message').hide();
     loadChatSession(currentSessionId);
+    
+    if (isDebugMode) {
+      console.log('[Help Modal] Loading existing session:', currentSessionId);
+    }
   } else {
-    // UPDATED: Show default welcome only if not first login
+    // No session - check if first login
     const isFirstLogin = $('meta[name="app-first-login"]').attr('content') === 'true';
     const firstLoginShown = isFirstLoginShown();
     
     if (isFirstLogin && !firstLoginShown) {
-      // Hide default welcome, personalized message will be shown
+      // First login - hide default welcome, show personalized
       $('.help-welcome-message').hide();
+      showFirstLoginWelcome();
+      
+      if (isDebugMode) {
+        console.log('[Help Modal] Showing first login welcome');
+      }
     } else {
-      // Show default welcome for normal usage
+      // Normal usage - show default welcome
       $('.help-welcome-message').show();
+      
+      if (isDebugMode) {
+        console.log('[Help Modal] Showing default welcome message');
+      }
     }
     
-    // Show welcome message only
-    $('.help-chat-history').empty();
     scrollChatToBottom();
-  }
-  
-  if (isDebugMode) {
-    console.log('[Help Modal] AI Support tab loaded, session:', currentSessionId);
   }
 }
 
@@ -491,28 +501,46 @@ function showFirstLoginWelcome() {
     $('.help-chat-send').prop('disabled', false);
   }
   
-  function loadChatSession(sessionId) {
-    $.ajax({
-      url: `/help/chat/session/${sessionId}`,
-      method: 'GET',
-      success: function(response) {
-        if (response.success && response.messages) {
-          renderMessages(response.messages);
-          currentSessionId = response.session.id;
-          saveCurrentSession(currentSessionId);
-        }
-      },
-      error: function(xhr) {
-        if (isDebugMode) {
-          console.error('[Help Chat] Failed to load session:', xhr);
-        }
-        // Clear invalid session
-        currentSessionId = null;
-        saveCurrentSession(null);
-        $('.help-chat-history').empty();
-      }
-    });
+ function loadChatSession(sessionId) {
+  if (isDebugMode) {
+    console.log('[Help Chat] Loading session:', sessionId);
   }
+  
+  $.ajax({
+    url: `/help/chat/session/${sessionId}`,
+    method: 'GET',
+    success: function(response) {
+      if (response.success && response.messages) {
+        // Clear history before rendering
+        $('.help-chat-history').empty();
+        
+        // Render all messages
+        renderMessages(response.messages);
+        
+        // Update current session
+        currentSessionId = response.session.id;
+        saveCurrentSession(currentSessionId);
+        
+        if (isDebugMode) {
+          console.log('[Help Chat] Session loaded successfully:', {
+            sessionId: response.session.id,
+            messageCount: response.messages.length
+          });
+        }
+      }
+    },
+    error: function(xhr) {
+      if (isDebugMode) {
+        console.error('[Help Chat] Failed to load session:', xhr);
+      }
+      // Clear invalid session
+      currentSessionId = null;
+      saveCurrentSession(null);
+      $('.help-chat-history').empty();
+      $('.help-welcome-message').show();
+    }
+  });
+}
   
   function renderMessages(messages) {
     const $history = $('.help-chat-history');

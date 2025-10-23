@@ -48,7 +48,7 @@ class HelpChatService
 
         $context = [
             'view_key' => $session->view_key,
-            'role' => $session->user->type ?? 'guest',
+            'role' => session('org_role') ?? $session->user->type ?? 'guest',
             'locale' => $session->locale
         ];
 
@@ -272,7 +272,7 @@ class HelpChatService
      */
     private function loadGlobalIndex(string $locale): string
     {
-        $filePath = resource_path("help/_global/{$locale}/index.md");
+        $filePath = resource_path("help/{$locale}/_global/index.md");
         
         if (!file_exists($filePath)) {
             Log::warning("Global help index not found", ['locale' => $locale]);
@@ -486,12 +486,12 @@ class HelpChatService
         $prompt .= "INSTRUCTIONS:\n";
         $prompt .= "- Use the help documents above to provide accurate, detailed answers\n";
         $prompt .= "- If the user's question relates to a different page, you can request additional help documents using the load_help_documents function\n";
-        $prompt .= "- Be helpful, friendly, and concise\n";
+        $prompt .= "- Be helpful, friendly, and concise, but do not answer questions out of the scope of the app - if they try to kindly ignore the question and tell them to ask about the app - DO NOT answer any sexually oriented question, propaganda, assaults, bullying, cheating, drugs, weapons, erotic content, cursing\n";
         $prompt .= "- Provide practical step-by-step guidance when appropriate\n";
         $prompt .= "- If information is in a different section, guide users on how to navigate there\n";
-        $prompt .= "- Keep responses clear and easy to understand\n";
+        $prompt .= "- Keep responses clear and easy to understand - always keep in mind the user's role and only talk about topics related to them and from their point of view\n";
         $prompt .= "- Respond in " . ($locale === 'hu' ? 'Hungarian' : 'English') . "\n";
-        $prompt .= "- Remember context from previous messages in this conversation\n";
+        $prompt .= "- Do not use technical page names, button names (like 'admin.results') - always use the translated names - Remember context from previous messages in this conversation\n";
 
         return $prompt;
     }
