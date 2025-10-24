@@ -14,7 +14,7 @@ return [
   "previous-closed-period" => "Előző lezárt időszak",
   "next-closed-period" => "Következő lezárt időszak",
   "closure-date" => "Lezárás dátuma",
-  "back-to-admin-results" => "Vissza az összesített eredményekhez",
+  "back-to-admin-results" => "Az időszak összesített eredményeinek megnyitása",
   'performance-over-time' => 'Idősoros értékelés',
   
   // ✅ NEW: Missing components

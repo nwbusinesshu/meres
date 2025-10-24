@@ -12,7 +12,7 @@
     <a
   class="nav-btn {{ $prevAssessment ? '' : 'is-disabled' }}"
   @if($prevAssessment)
-    href="{{ route(Route::currentRouteName(), $assessmentId) }}{{ request()->has('as') ? '?as=' . request('as') : '' }}"
+   href="{{ route(Route::currentRouteName(), $prevAssessment->id) }}{{ request()->has('as') ? '?as=' . request('as') : '' }}"
   @endif
   aria-label="{{ __('results.previous-closed-period') }}"
 >
@@ -522,7 +522,7 @@
 {{-- Back to admin results button (for admins viewing user results) --}}
 @if(auth()->user()->isCurrentAdmin())
   <div class="mb-4">
-    <a href="{{ route('admin.results.index') }}/$assessmentId class="btn btn-primary">
+    <a href="{{ route('admin.results.index', $assessment->id) }}" class="btn btn-primary">
       <i class="fa fa-arrow-left"></i>
       {{ __('results.back-to-admin-results') }}
     </a>
