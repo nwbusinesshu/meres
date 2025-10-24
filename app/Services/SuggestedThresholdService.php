@@ -84,7 +84,7 @@ class SuggestedThresholdService
         ];
     }
 
-     * OpenAI hívás (STRICT JSON) - IMPROVED with better error handling
+     /** OpenAI hívás (STRICT JSON) - IMPROVED with better error handling
      * Returns null on error and logs details.
      * 
      * @param array $payload
