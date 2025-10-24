@@ -86,34 +86,33 @@ class AdminResultsController extends Controller
             })
             ->values();
 
-            $summaryHu = null;
-$summaryDbg = null;
 
-if (strtolower((string)($assessment->threshold_method ?? '')) === 'suggested') {
-    // 1. Parse JSON
-    $logs = is_string($assessment->suggested_decision)
-    ? json_decode($assessment->suggested_decision, true)
-    : $assessment->suggested_decision;
-    
-    if (is_array($logs) && count($logs) > 0) {
-        // 2. Vedd az utolsó logot (feltételezem, hogy a legfrissebb van a végén)
-        $lastLog = end($logs);
+        $summaryHu = null;
+        $summaryDbg = null;
 
-        // 3. Ellenőrizd, hogy van-e 'response' mező benne (a példádban van!)
-        if (isset($lastLog['response'])) {
-            // 4. A 'response' mezőben van egy 'raw' (string, JSON) ÉS egy 'validated' (tömb)
-            if (isset($lastLog['response']['validated']['summary_hu'])) {
-                $summaryHu = $lastLog['response']['validated']['summary_hu'];
-                $summaryDbg = json_encode($lastLog['response']['validated'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-            } elseif (isset($lastLog['response']['raw'])) {
-                // Ha csak a 'raw' mezőben lenne
-                $raw = json_decode($lastLog['response']['raw'], true);
-                $summaryHu = $raw['summary_hu'] ?? null;
-                $summaryDbg = $lastLog['response']['raw'];
+        if (strtolower((string)($assessment->threshold_method ?? '')) === 'suggested') {
+            // Parse JSON - suggested_decision is an array with decision objects
+            $logs = is_string($assessment->suggested_decision)
+                ? json_decode($assessment->suggested_decision, true)
+                : $assessment->suggested_decision;
+            
+            if (is_array($logs) && count($logs) > 0) {
+                // Get the first (or last) decision object
+                // Based on the SQL dump, the structure is: [{"thresholds":{...}, "decisions":[...], "rates":{...}, "summary_hu":"..."}]
+                $decision = end($logs); // Get last decision (most recent)
+                
+                // Extract summary_hu directly from the decision object
+                if (isset($decision['summary_hu'])) {
+                    $summaryHu = $decision['summary_hu'];
+                }
+                
+                // For debugging, store the entire decision object
+                if (!empty($decision)) {
+                    $summaryDbg = json_encode($decision, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                }
             }
         }
-    }
-}
+
 
 
         return view('admin.results', [

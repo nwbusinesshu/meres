@@ -61,6 +61,8 @@ class ResultsController extends Controller
             ]);
         }
 
+        $assessmentId = $assessment->id;
+
         // Előző/következő lezárt mérés
         $prevAssessment = Assessment::where('organization_id', $orgId)
             ->whereNotNull('closed_at')
@@ -212,6 +214,7 @@ class ResultsController extends Controller
 
         return view('results', compact(
             'assessment',
+            'assessmentId',
             'user',
             'prevAssessment',
             'nextAssessment',
