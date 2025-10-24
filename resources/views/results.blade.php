@@ -522,7 +522,7 @@
 {{-- Back to admin results button (for admins viewing user results) --}}
 @if(auth()->user()->isCurrentAdmin())
   <div class="mb-4">
-    <a href="{{ route('admin.results.index') }}" class="btn btn-primary">
+    <a href="{{ route('admin.results.index') }}/$assessmentId class="btn btn-primary">
       <i class="fa fa-arrow-left"></i>
       {{ __('results.back-to-admin-results') }}
     </a>
