@@ -518,6 +518,71 @@ class HelpChatService
     }
 
     /**
+     * ✅ NEW: Get assessment status information
+     * 
+     * @return string
+     */
+    private function getAssessmentStatus(): string
+    {
+        try {
+            $isRunning = AssessmentService::isAssessmentRunning();
+            
+            $summary = "=== ASSESSMENT STATUS ===\n\n";
+            
+            if ($isRunning) {
+                $assessment = AssessmentService::getCurrentAssessment();
+                
+                if ($assessment) {
+                    $summary .= "**Status:** ASSESSMENT IN PROGRESS ⚠️\n\n";
+                    $summary .= "An active assessment period is currently running:\n";
+                    $summary .= "  - Started: " . $assessment->started_at->format('Y-m-d H:i') . "\n";
+                    $summary .= "  - Due Date: " . $assessment->due_at->format('Y-m-d H:i') . "\n";
+                    
+                    // Calculate days remaining
+                    $daysRemaining = now()->diffInDays($assessment->due_at, false);
+                    if ($daysRemaining > 0) {
+                        $summary .= "  - Days Remaining: {$daysRemaining} days\n";
+                    } elseif ($daysRemaining === 0) {
+                        $summary .= "  - Due: TODAY!\n";
+                    } else {
+                        $summary .= "  - Status: OVERDUE by " . abs($daysRemaining) . " days\n";
+                    }
+                    
+                    // Add threshold method info
+                    if ($assessment->threshold_method) {
+                        $summary .= "  - Threshold Method: " . strtoupper($assessment->threshold_method) . "\n";
+                    }
+                    
+                    $summary .= "\n**Important Notes:**\n";
+                    $summary .= "  - Employees can submit evaluations during this period\n";
+                    $summary .= "  - Configuration changes are LOCKED (employees, competencies, CEO ranks, departments cannot be modified)\n";
+                    $summary .= "  - Only the due date can be extended if needed\n";
+                    $summary .= "  - Admins can view progress but cannot close until all requirements are met\n";
+                    
+                } else {
+                    $summary .= "**Status:** Assessment detected but details unavailable\n";
+                }
+                
+            } else {
+                $summary .= "**Status:** NO ACTIVE ASSESSMENT\n\n";
+                $summary .= "  - No assessment is currently running\n";
+                $summary .= "  - Admins can freely modify configuration (employees, competencies, departments, etc.)\n";
+                $summary .= "  - A new assessment can be started at any time from the Admin Home page\n";
+            }
+            
+            $summary .= "\n---\n";
+            
+            return $summary;
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to load assessment status for help chat', [
+                'error' => $e->getMessage()
+            ]);
+            return "=== ASSESSMENT STATUS ===\nStatus information could not be loaded.\n\n";
+        }
+    }
+
+    /**
      * Build the system prompt with enhanced context
      * 
      * ✅ UPDATED: Now includes organization configuration for context-aware help
@@ -546,6 +611,11 @@ class HelpChatService
             $prompt .= $this->getOrgConfigSummary($orgId);
             $prompt .= "\n";
         }
+
+         // ✅ NEW: Add assessment status context
+        $prompt .= $this->getAssessmentStatus();
+        $prompt .= "\n";
+
         
         // Load global index (always)
         $globalIndex = $this->loadGlobalIndex($locale);
@@ -564,7 +634,7 @@ class HelpChatService
         }
         
         $prompt .= "INSTRUCTIONS:\n";
-        $prompt .= "- Use the help documents AND organization configuration above to provide accurate, detailed answers\n";
+        $prompt .= "- Use the help documents AND organization configuration above to provide accurate, detailed answers. If you are asked to give information about another page, always load the help document of that page first, do not answer just based on the global helper.\n";
         $prompt .= "- Tailor your responses based on the organization's enabled features and settings\n";
         $prompt .= "- If a feature is disabled in the organization, explain that it's not available for them\n";
         $prompt .= "- If the user's question relates to a different page, you can request additional help documents using the load_help_documents function\n";

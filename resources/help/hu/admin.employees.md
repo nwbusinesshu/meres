@@ -1,6 +1,6 @@
 ---
 view: admin.employees
-title: Alkalmazottak kezelése
+title: Alkalmazottak
 role: admin
 visible_to: [admin]
 related: [admin.home, admin.competency, admin.results, admin.bonuses]

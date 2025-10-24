@@ -220,20 +220,20 @@ A rendszer **automatikusan meghatározza**, ki kit értékelhet:
 ## 📍 Elérhető Oldalak és Súgók
 
 ### **Admin Oldalak:**
-1. **admin.home** - Kezdőlap, értékelés indítása, statisztikák
-2. **admin.results** - Értékelési eredmények megtekintése, rangsorok
-3. **admin.bonuses** - Bónuszok kezelése, bérek, szorzók
-4. **admin.employees** - Alkalmazottak kezelése, osztályok, kapcsolatok
-5. **admin.competency** - Kompetenciák és kérdések szerkesztése
-6. **admin.ceoranks** - CEO rangsorolási szempontok beállítása
-7. **admin.settings** - Rendszer beállítások (küszöbök, funkciók)
-8. **admin.payments** - Fizetések kezelése, számlák, Barion integráció
+1. **admin.home** - Admin főoldal: értékelés indítása, statisztikák értékelések közben
+2. **admin.results** - Eredmények: értékelési eredmények megtekintése
+3. **admin.bonuses** - Bónuszok: bónuszok, jutalmak kezelése, bérek szerint
+4. **admin.employees** - Alkalmazottak: alkalmazottak, managerek, vezetők felvitele, tömeges import, relációk beállítása, kompetenciák hozzárendelése
+5. **admin.competency** - Kompetenciák: kompetenciák, kompetenciacsoportok és kérdések szerkesztése
+6. **admin.ceoranks** - Vezetői rangsor: vezetői rangsorolási szempontok beállítása
+7. **admin.settings** - Beállítások: rendszer beállítások (küszöbök, funkciók) kezelése
+8. **admin.payments** - Számlázás: fizetések kezelése, számlák, Barion integráció, számlázási adatok módosítása
 
 ### **Felhasználói Oldalak:**
-9. **home** - Alkalmazotti kezdőlap, értékelési feladatok
-10. **assessment** - Értékelések kitöltése
-11. **results** - Saját eredmények megtekintése
-12. **ceorank** - CEO/Manager rangsorolás kitöltése
+9. **home** - Főoldal: értékelési feladatok elvégzése, kérdőívek, vezetői rangsor indítása
+10. **assessment** - Értékelési oldal: kompetencia értékelések kitöltése
+11. **results** - Eredmények: saját eredmények (esetleg bónuszok) megtekintése (korábbiak is)
+12. **ceorank** - Vezetői rangsor: CEO/Manager rangsorolás kitöltése
 
 ### **Egyéb:**
 13. **org.select** - Szervezetváltás (több céges felhasználóknak)
@@ -265,9 +265,9 @@ A rendszer **automatikusan meghatározza**, ki kit értékelhet:
 - **Konfigurácó** ⚙️ - Dropdown menü (csak az admin látja, ha nem fut értékelés):
   - Alkalmazottak
   - Kompetenciák
-  - CEO Rangsorolás
+  - Vezetői rangsor
   - Beállítások
-  - Fizetések
+  - Számlázás
 
 ### **Felső Sáv (Navbar) extra infók:**
 - Felhasználó neve és email

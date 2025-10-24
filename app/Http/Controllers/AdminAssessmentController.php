@@ -5,6 +5,7 @@ use App\Models\Assessment;
 use App\Models\Enums\UserType;
 use App\Models\User;
 use App\Models\UserBonusMalus;
+use App\Models\Enums\OrgRole;
 use App\Services\AjaxService;
 use App\Services\AssessmentService;
 use App\Services\ConfigService;
