@@ -19,31 +19,42 @@ class ThresholdService
 
         // Biztonságos alapértékek (visszafelé kompatibilitás a config táblával)
         $defaults = [
-            // Klasszikus
+            // --- Threshold mode + classic thresholds ---
             'threshold_mode'      => 'fixed',
             'normal_level_up'     => '85',
             'normal_level_down'   => '70',
             'monthly_level_down'  => '70',
 
-            // HYBRID/DYNAMIC alapok
+            // --- HYBRID/DYNAMIC alapok ---
             'threshold_min_abs_up'=> '70',
             'threshold_top_pct'   => '15',
             'threshold_bottom_pct'=> '20',
 
-            // HYBRID finomhangolás
+            // --- HYBRID finomhangolás ---
             'threshold_grace_points' => '0',
             'threshold_gap_min'      => '5',
 
-            // AI / telemetria toggle
+            // --- AI / telemetria toggle ---
             'strict_anonymous_mode' => '0',
             'ai_telemetry_enabled'  => '1',
 
-            // SUGGESTED policy (0..1 float, de itt stringben tárolódik → majd floatval-lal használod)
+            // --- SUGGESTED policy (0..1 float, de itt stringben tárolódik) ---
             'target_promo_rate_max'         => '0.30',
             'target_demotion_rate_max'      => '0.30',
             'never_below_abs_min_for_promo' => null,
             'use_telemetry_trust'           => '1',
             'no_forced_demotion_if_high_cohesion' => '1',
+
+            // ✅ NEW: Additional organization feature toggles
+            'enable_multi_level'       => '0',
+            'enable_bonus_calculation' => '0',
+            'easy_relation_setup'      => '0',
+            'show_bonus_malus'         => '1',
+            'employees_see_bonuses'    => '0',
+            'force_oauth_2fa'          => '0',
+            
+            // ✅ NEW: Translation settings (JSON)
+            'translation_languages'    => null,
         ];
 
         // Merge: org config felülírja a defaultokat

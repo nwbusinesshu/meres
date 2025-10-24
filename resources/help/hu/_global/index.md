@@ -217,9 +217,7 @@ A rendszer **automatikusan meghatározza**, ki kit értékelhet:
 
 ---
 
-## 📍 Elérhető Oldal
-
-ak és Súgók
+## 📍 Elérhető Oldalak és Súgók
 
 ### **Admin Oldalak:**
 1. **admin.home** - Kezdőlap, értékelés indítása, statisztikák
@@ -287,6 +285,22 @@ A **súgó rendszer AI asszisztense** segít:
 - **Funkciók megértésében**: "Hogyan számolódik a CEO rangsorolás?"
 - **Hibakeresésben**: "Miért nem látom a fizetések menüt?"
 - **Lépésről lépésre útmutatásban**: "Hogyan indítsak új értékelést?"
+
+**Használati tippek:**
+- Kérdezz konkrétan: "Hogyan töltök ki egy értékelést?"
+- Ha több oldalra vonatkozik a kérdés, az AI automatikusan betölt további súgót
+- Minden válasznál megkapod a pontos lépéseket és gombneveket
+
+---
+
+## Fordítások, multilingual működés
+
+A rendszer képes **multilingual, többnyelvű** módban működni:
+- **Nyelvválasztó**: Az admin meghatározhatja a listából a szükséges nyelveket, ha pl. van több angol nyelvű kolléga, akkor a magyar mellett az angol nyelvet is választhatja.
+- **Fordítások**: Ha több nyelv is ki van választva (az admin nyelve az alapértelmezett), akkor az egyedileg létrehozott kompetenciák és vezetői rangsor kategóriák egy AI fordító asszisztens segítségével egy gombnyomással létrehozhatóak MINDEN kiválasztott nyelvre.
+- **Fordítások megjelenítése**: az értékelések futtatása során minden kolléga az általa kiválasztott nyelven látja nem csak az oldalt, hanem a mérési kompetenciákat is.
+- **Elérhető nyelvek**: a globális kompetenciák és az alap vezetői rangsor elemei az összes támgoatott nyelven elérhetőek, azokat nem kell fordítani.
+
 
 **Használati tippek:**
 - Kérdezz konkrétan: "Hogyan töltök ki egy értékelést?"
