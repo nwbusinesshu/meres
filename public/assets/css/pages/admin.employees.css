@@ -113,6 +113,17 @@ tr.hidden { display: none; }
     gap: 1rem;
 }
 
+.badge-bonusmalus {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  font-size: 1em;
+  padding: 0.3em 0.6em;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  z-index: 10;
+  white-space: nowrap;
+}
+
 .employees-ml .dept-header .caret {
     transition: transform .15s ease;
 }

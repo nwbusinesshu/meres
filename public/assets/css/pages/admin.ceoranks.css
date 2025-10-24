@@ -90,3 +90,14 @@
     line-height: 0.8;
   }
 }
+
+.main-content > .double-tiles{
+  display: flex;
+  justify-content: center;
+  gap: 1em;
+  flex-wrap: wrap;
+}
+
+.main-content > .double-tiles > .tile {
+    flex: 1 400px;
+  }

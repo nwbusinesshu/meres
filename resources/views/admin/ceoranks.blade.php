@@ -19,7 +19,7 @@
 @section('content')
 <h1>{{ __('titles.admin.ceoranks') }}</h1>
 
-<div class="fixed-row">
+<div class="double-tiles">
   <div class="tile tile-button add-rank">
     <span>{{ $_('add-rank') }}</span>
   </div>

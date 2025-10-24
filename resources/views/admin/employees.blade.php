@@ -14,7 +14,7 @@
 
 
 <div class="mb-2">
-    <div class="tile tile-info search-tile" style="margin-bottom:.75rem;">
+    <div class="tile tile-info search-tile">
         <p>{{ $_('search') }}</p>
         <div>
             <input type="text" class="form-control search-input" @if ($users->count() < 5) readonly @endif>
@@ -217,9 +217,9 @@
                     </td>
                     
                     @if(!empty($showBonusMalus))
-                    <td data-col="{{ __('global.bonusmalus') }}">
+                    <td data-col="{{ __('global.bonusmalus') }}" >
                         @if(!empty($user->bonusMalus))
-                            {{ __("global.bonus-malus.$user->bonusMalus") }}
+                            <span class="badge badge-bonusmalus">{{ __("global.bonus-malus.$user->bonusMalus") }}</span>
                         @else
                             —
                         @endif

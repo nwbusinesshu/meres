@@ -250,14 +250,12 @@ class AdminSettingsController extends Controller
             $val = $request->input('never_below_abs_min_for_promo');
             OrgConfigService::set($orgId, 'never_below_abs_min_for_promo', $val === '' ? null : $val);
         }
-        if ($request->has('use_telemetry_trust')) {
-            $bool = $request->boolean('use_telemetry_trust');
-            OrgConfigService::setBool($orgId, 'use_telemetry_trust', $bool);
-        }
-        if ($request->has('no_forced_demotion_if_high_cohesion')) {
-            $bool = $request->boolean('no_forced_demotion_if_high_cohesion');
-            OrgConfigService::setBool($orgId, 'no_forced_demotion_if_high_cohesion', $bool);
-        }
+        // Always save checkbox state - $request->boolean() treats missing as false
+        $use_telemetry_trust = $request->boolean('use_telemetry_trust');
+            OrgConfigService::setBool($orgId, 'use_telemetry_trust', $use_telemetry_trust);
+
+        $no_forced_demotion = $request->boolean('no_forced_demotion_if_high_cohesion');
+            OrgConfigService::setBool($orgId, 'no_forced_demotion_if_high_cohesion', $no_forced_demotion);
 
         return redirect()->route('admin.settings.index')->with('success', 'Beállítások elmentve!');
     }

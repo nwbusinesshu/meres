@@ -16,12 +16,14 @@ class HelpChatService
     public function __construct()
     {
         $this->apiKey = env('OPENAI_API_KEY');
-        $this->model = env('OPENAI_MODEL', 'gpt-4o-mini');
+        $this->model = env('OPENAI_MODEL_CHAT', 'gpt-5-nano');
         $this->timeout = (int) env('OPENAI_TIMEOUT', 30);
     }
 
     /**
      * Send a message to ChatGPT and get a response
+     * 
+     * ✅ FIXED: Now properly includes tools parameter for function calling
      * 
      * @param string $message User's message
      * @param HelpChatSession $session The chat session
@@ -50,7 +52,7 @@ class HelpChatService
             'view_key' => $session->view_key,
             'role' => session('org_role') ?? $session->user->type ?? 'guest',
             'locale' => $session->locale,
-            'org_id' => session('org_id'), // ✅ NEW: Add org_id for config loading
+            'org_id' => session('org_id'),
         ];
 
         // Build system prompt with context
@@ -59,18 +61,68 @@ class HelpChatService
         // Build full message history
         $messages = $this->buildMessageHistory($systemPrompt, $chatHistory, $message);
 
+        // ✅ FIXED: Define tools for function calling
+        $tools = [];
+        
+        // Only add the tool if we're not already loading additional docs
+        if (!$additionalDocs) {
+            $tools = [
+                [
+                    'type' => 'function',
+                    'function' => [
+                        'name' => 'load_help_documents',
+                        'description' => 'Load additional help documents for other pages when the user asks about features or functionality not covered in the current page help. Use this when you need information from other sections of the application to provide a complete answer.',
+                        'parameters' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'view_keys' => [
+                                    'type' => 'array',
+                                    'description' => 'Array of view keys (page identifiers) to load help documents for. Examples: "admin.home", "admin.competencies", "admin.users", "employee.assessment", "results"',
+                                    'items' => [
+                                        'type' => 'string'
+                                    ],
+                                    'minItems' => 1,
+                                    'maxItems' => 5
+                                ],
+                                'reason' => [
+                                    'type' => 'string',
+                                    'description' => 'Brief explanation of why these documents are needed to answer the user\'s question'
+                                ]
+                            ],
+                            'required' => ['view_keys', 'reason']
+                        ]
+                    ]
+                ]
+            ];
+        }
+
         try {
+            // ✅ FIXED: Build API request with tools parameter
+            $apiRequest = [
+                'model' => $this->model,
+                'messages' => $messages,
+                'max_tokens' => 2000,
+            ];
+            
+            // Add tools only if available
+            if (!empty($tools)) {
+                $apiRequest['tools'] = $tools;
+                $apiRequest['tool_choice'] = 'auto'; // Let AI decide when to use tools
+            }
+
+            Log::info('Help chat API request', [
+                'session_id' => $session->id,
+                'message_count' => count($messages),
+                'has_tools' => !empty($tools),
+                'system_prompt_length' => strlen($systemPrompt)
+            ]);
+
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',
             ])
             ->timeout($this->timeout)
-            ->post('https://api.openai.com/v1/chat/completions', [
-                'model' => $this->model,
-                'messages' => $messages,
-                'temperature' => 0.7,
-                'max_tokens' => 2000,
-            ]);
+            ->post('https://api.openai.com/v1/chat/completions', $apiRequest);
 
             if (!$response->ok()) {
                 Log::error('OpenAI API error', [
@@ -81,10 +133,51 @@ class HelpChatService
             }
 
             $data = $response->json();
-            $content = $data['choices'][0]['message']['content'] ?? null;
+            
+            // ✅ FIXED: Check for tool calls in response
+            $choice = $data['choices'][0] ?? null;
+            if (!$choice) {
+                Log::error('Help chat: no choices in API response');
+                return null;
+            }
+
+            $aiMessage = $choice['message'] ?? null;
+            if (!$aiMessage) {
+                Log::error('Help chat: no message in choice');
+                return null;
+            }
+
+            // ✅ FIXED: Detect tool calls (new format)
+            if (isset($aiMessage['tool_calls']) && is_array($aiMessage['tool_calls']) && count($aiMessage['tool_calls']) > 0) {
+                $toolCall = $aiMessage['tool_calls'][0]; // Get first tool call
+                
+                if ($toolCall['function']['name'] === 'load_help_documents') {
+                    $arguments = json_decode($toolCall['function']['arguments'], true);
+                    
+                    Log::info('Help chat: AI requested to load documents', [
+                        'session_id' => $session->id,
+                        'view_keys' => $arguments['view_keys'] ?? [],
+                        'reason' => $arguments['reason'] ?? 'not specified'
+                    ]);
+                    
+                    // Return function call request to controller
+                    return [
+                        'function_call' => [
+                            'name' => 'load_help_documents',
+                            'arguments' => $arguments
+                        ],
+                        'session_id' => $session->id
+                    ];
+                }
+            }
+
+            // Normal text response
+            $content = $aiMessage['content'] ?? null;
             
             if (!$content) {
-                Log::error('Help chat: empty response content');
+                Log::error('Help chat: empty response content', [
+                    'ai_message' => $aiMessage
+                ]);
                 return null;
             }
 
@@ -122,7 +215,8 @@ class HelpChatService
         } catch (\Throwable $e) {
             Log::error('Help chat exception', [
                 'message' => $e->getMessage(),
-                'session_id' => $session->id
+                'session_id' => $session->id,
+                'trace' => $e->getTraceAsString()
             ]);
             return null;
         }
@@ -394,113 +488,81 @@ class HelpChatService
     private function getOrgConfigSummary(int $orgId): string
     {
         try {
-            /** @var ThresholdService $thresholdService */
-            $thresholdService = app(ThresholdService::class);
+            /** @var \App\Services\ThresholdService $thresholdService */
+            $thresholdService = app(\App\Services\ThresholdService::class);
             $config = $thresholdService->getOrgConfigMap($orgId);
             
             $summary = "=== ORGANIZATION CONFIGURATION ===\n\n";
             
             // Threshold Method
-            $thresholdMode = strtoupper($config['threshold_mode'] ?? 'FIXED');
+            $thresholdMode = strtoupper($config['threshold_mode'] ?? 'NORMAL');
             $summary .= "**Threshold Method:** {$thresholdMode}\n";
             
-            switch (strtolower($config['threshold_mode'])) {
-                case 'fixed':
-                    $summary .= "  - Level Up Threshold: {$config['normal_level_up']} points\n";
-                    $summary .= "  - Level Down Threshold: {$config['normal_level_down']} points\n";
-                    $summary .= "  - Monthly Level Down: {$config['monthly_level_down']} points\n";
-                    $summary .= "  - This means fixed thresholds are used for all assessments\n";
-                    break;
-                    
-                case 'hybrid':
-                    $summary .= "  - Minimum Absolute Up: {$config['threshold_min_abs_up']} points\n";
-                    $summary .= "  - Top Percentage: {$config['threshold_top_pct']}%\n";
-                    $summary .= "  - Gap Minimum: {$config['threshold_gap_min']} points\n";
-                    $summary .= "  - Grace Points: {$config['threshold_grace_points']} points\n";
-                    $summary .= "  - This combines fixed minimum with relative top % calculation\n";
-                    break;
-                    
-                case 'dynamic':
-                    $summary .= "  - Top Percentage: {$config['threshold_top_pct']}%\n";
-                    $summary .= "  - Bottom Percentage: {$config['threshold_bottom_pct']}%\n";
-                    $summary .= "  - This means thresholds are calculated based on score distribution\n";
-                    break;
-                    
-                case 'suggested':
-                    $promoRate = ((float)$config['target_promo_rate_max'] * 100);
-                    $demoRate = ((float)$config['target_demotion_rate_max'] * 100);
-                    $summary .= "  - Target Promotion Rate: {$promoRate}%\n";
-                    $summary .= "  - Target Demotion Rate: {$demoRate}%\n";
-                    $summary .= "  - Use Telemetry Trust: " . ($config['use_telemetry_trust'] === '1' ? 'Yes' : 'No') . "\n";
-                    $summary .= "  - This means AI suggests thresholds based on policy and historical data\n";
-                    break;
+            if ($thresholdMode === 'NORMAL') {
+                $summary .= "  - Thresholds are set manually by admins\n";
+                $summary .= "  - Fixed percentile ranges for level changes\n";
+            } elseif ($thresholdMode === 'SUGGESTED') {
+                $summary .= "  - AI-suggested thresholds based on performance distribution\n";
+                $summary .= "  - System recommends optimal cutoff points\n";
             }
             
-            $summary .= "\n**Feature Toggles:**\n";
-            
-            // Multi-level departments
-            $multiLevel = $config['enable_multi_level'] === '1';
-            $summary .= "  - Multi-Level Departments: " . ($multiLevel ? 'ENABLED' : 'DISABLED') . "\n";
-            if ($multiLevel) {
-                $summary .= "    → Users will see hierarchical department structure with multiple management levels, can create departments, assign managers, employees to departments.\n";
+            // Multi-level system
+            if (!empty($config['enable_multi_level'])) {
+                $summary .= "\n**Multi-Level System:** ENABLED\n";
+                $summary .= "  - Employees have hierarchical levels (0, 1, 2, etc.)\n";
+                $summary .= "  - Performance affects promotions and demotions\n";
             } else {
-                $summary .= "    → Only single-level departments are available - but the user can still create subordinate or superior relations, so there can be 'manager-like' employees in the relations who have subordinates and superiors too.\n";
+                $summary .= "\n**Multi-Level System:** DISABLED\n";
+                $summary .= "  - No level tracking\n";
             }
             
-            // Bonus calculation
-            $bonusCalc = $config['enable_bonus_calculation'] === '1';
-            $summary .= "  - Bonus Calculation: " . ($bonusCalc ? 'ENABLED' : 'DISABLED') . "\n";
-            if ($bonusCalc) {
-                $summary .= "    → Monetary bonus amounts are calculated and displayed based on performance levels\n";
+            // Bonus/Malus
+            if (!empty($config['show_bonus_malus'])) {
+                $summary .= "\n**Bonus/Malus:** VISIBLE\n";
+                if (!empty($config['enable_bonus_calculation'])) {
+                    $summary .= "  - Bonus calculation: ENABLED\n";
+                    $summary .= "  - Admins can calculate and manage bonuses\n";
+                }
+                if (!empty($config['employees_see_bonuses'])) {
+                    $summary .= "  - Employees can see their bonuses\n";
+                }
             } else {
-                $summary .= "    → Only performance levels are shown, no monetary calculations\n";
+                $summary .= "\n**Bonus/Malus:** HIDDEN\n";
             }
             
-            // Show bonus malus
-            $showBM = $config['show_bonus_malus'] === '1';
-            $summary .= "  - Show Bonus/Malus Levels: " . ($showBM ? 'ENABLED' : 'DISABLED') . "\n";
-            if ($showBM) {
-                $summary .= "    → Performance levels (M04-B10) are visible to relevant users\n";
-            }
-            
-            // Employees see bonuses
-            $empSeeBonuses = $config['employees_see_bonuses'] === '1';
-            $summary .= "  - Employees See Bonuses: " . ($empSeeBonuses ? 'ENABLED' : 'DISABLED') . "\n";
-            if ($empSeeBonuses) {
-                $summary .= "    → Regular employees can view their own bonus calculations\n";
+            // Anonymity
+            if (!empty($config['strict_anon'])) {
+                $summary .= "\n**Anonymity:** STRICT MODE\n";
+                $summary .= "  - Evaluations are completely anonymous\n";
+                $summary .= "  - AI telemetry automatically disabled\n";
             } else {
-                $summary .= "    → Only managers and admins can view bonus calculations\n";
-            }
-            
-            // Easy relation setup
-            $easySetup = $config['easy_relation_setup'] === '1';
-            $summary .= "  - Easy Relation Setup: " . ($easySetup ? 'ENABLED' : 'DISABLED') . "\n";
-            if ($easySetup) {
-                $summary .= "    → Simplified workflow for setting up colleague relationships. When it is turned on, all the relations set by the admin user automatically gets it's opposite direction relation set. No need to double work.\n";
+                $summary .= "\n**Anonymity:** STANDARD\n";
             }
             
             // AI Telemetry
-            $aiTelemetry = $config['ai_telemetry_enabled'] === '1';
-            $strictAnon = $config['strict_anonymous_mode'] === '1';
-            $summary .= "  - AI Telemetry: " . ($aiTelemetry ? 'ENABLED' : 'DISABLED') . "\n";
-            if ($strictAnon) {
-                $summary .= "    → Strict Anonymous Mode is ON (AI telemetry, suggested threshold method is disabled for privacy)\n";
-            } elseif ($aiTelemetry) {
-                $summary .= "    → Behavioral data is collected for fraud detection and AI-powered insights, threshold can be calculated via the help of the AI assistant.\n";
+            if (!empty($config['ai_telemetry'])) {
+                $summary .= "\n**AI Telemetry:** ENABLED\n";
+                $summary .= "  - System tracks evaluation patterns\n";
+                $summary .= "  - Trust scores calculated\n";
+            } else {
+                $summary .= "\n**AI Telemetry:** DISABLED\n";
             }
             
-            // OAuth 2FA
-            $forceOauth = $config['force_oauth_2fa'] === '1';
-            $summary .= "  - Force OAuth 2FA: " . ($forceOauth ? 'ENABLED' : 'DISABLED') . "\n";
-            if ($forceOauth) {
-                $summary .= "    → Users must use 2FA with OAuth (Google/Microsoft) login too. If turned off, only password login requires email 2FA code validation.\n";
+            // 2FA
+            if (!empty($config['force_oauth_2fa'])) {
+                $summary .= "\n**Two-Factor Authentication:** ENFORCED FOR ALL LOGINS\n";
+                $summary .= "If turned on, all login methods require email 2FA code validation.\n";
+            } else {
+                $summary .= "\n**Two-Factor Authentication:** PASSWORD LOGIN ONLY\n";
+                $summary .= "If turned off, only password login requires email 2FA code validation.\n";
             }
             
             // Translation languages
             if (!empty($config['translation_languages'])) {
                 $langs = json_decode($config['translation_languages'], true);
                 if (is_array($langs) && count($langs) > 0) {
-                    $summary .= "The admin user can select multiple languages to translate the competencies to (if they have a multilingual organization model.\n**Translation Languages:** " . implode(', ', array_map('strtoupper', $langs)) . "\n";
+                    $summary .= "\n**Translation Languages:** " . implode(', ', array_map('strtoupper', $langs)) . "\n";
+                    $summary .= "The admin user can select multiple languages to translate the competencies to (if they have a multilingual organization model).\n";
                 }
             }
             
@@ -525,12 +587,12 @@ class HelpChatService
     private function getAssessmentStatus(): string
     {
         try {
-            $isRunning = AssessmentService::isAssessmentRunning();
+            $isRunning = \App\Services\AssessmentService::isAssessmentRunning();
             
             $summary = "=== ASSESSMENT STATUS ===\n\n";
             
             if ($isRunning) {
-                $assessment = AssessmentService::getCurrentAssessment();
+                $assessment = \App\Services\AssessmentService::getCurrentAssessment();
                 
                 if ($assessment) {
                     $summary .= "**Status:** ASSESSMENT IN PROGRESS ⚠️\n\n";
@@ -606,16 +668,15 @@ class HelpChatService
         $prompt .= "- User Role: {$role}\n";
         $prompt .= "- Language: {$locale}\n\n";
         
-        // ✅ NEW: Add organization configuration context
+        // ✅ Add organization configuration context
         if ($orgId) {
             $prompt .= $this->getOrgConfigSummary($orgId);
             $prompt .= "\n";
         }
 
-         // ✅ NEW: Add assessment status context
+        // ✅ Add assessment status context
         $prompt .= $this->getAssessmentStatus();
         $prompt .= "\n";
-
         
         // Load global index (always)
         $globalIndex = $this->loadGlobalIndex($locale);
@@ -634,16 +695,17 @@ class HelpChatService
         }
         
         $prompt .= "INSTRUCTIONS:\n";
-        $prompt .= "- Use the help documents AND organization configuration above to provide accurate, detailed answers. If you are asked to give information about another page, always load the help document of that page first, do not answer just based on the global helper.\n";
+        $prompt .= "- Use the help documents AND organization configuration above to provide accurate, detailed answers\n";
+        $prompt .= "- If you are asked to give information about another page, ALWAYS load the help document of that page first using the load_help_documents function - do not answer just based on the global index\n";
         $prompt .= "- Tailor your responses based on the organization's enabled features and settings\n";
         $prompt .= "- If a feature is disabled in the organization, explain that it's not available for them\n";
-        $prompt .= "- If the user's question relates to a different page, you can request additional help documents using the load_help_documents function\n";
-        $prompt .= "- Be helpful, friendly, and concise, but do not answer questions out of the scope of the app - if they try to kindly ignore the question and tell them to ask about the app - DO NOT answer any sexually oriented question, propaganda, assaults, bullying, cheating, drugs, weapons, erotic content, cursing\n";
+        $prompt .= "- Be helpful, friendly, and concise, but do not answer questions out of the scope of the app\n";
+        $prompt .= "- Do NOT answer any sexually oriented questions, propaganda, assaults, bullying, cheating, drugs, weapons, erotic content, or cursing\n";
         $prompt .= "- Provide practical step-by-step guidance when appropriate\n";
         $prompt .= "- If information is in a different section, guide users on how to navigate there\n";
-        $prompt .= "- Keep responses clear and easy to understand - always keep in mind the user's role and only talk about topics related to them and from their point of view\n";
-        $prompt .= "- Respond in " . ($locale === 'hu' ? 'Hungarian' : 'English') . "\n";
-        $prompt .= "- Do not use technical page names, button names (like 'admin.results') - always use the translated names\n";
+        $prompt .= "- Keep responses clear and easy to understand - always keep in mind the user's role and only talk about topics related to them\n";
+        $prompt .= "- Respond in " . ($locale === 'hu' ? 'Hungarian' : ($locale === 'en' ? 'English' : ($locale === 'de' ? 'German' : 'Romanian'))) . "\n";
+        $prompt .= "- Do not use technical page names or button identifiers (like 'admin.results') - always use the translated, human-readable names\n";
         $prompt .= "- Remember context from previous messages in this conversation\n";
 
         return $prompt;
