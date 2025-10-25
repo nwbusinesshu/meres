@@ -129,45 +129,107 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.OrgRole::ADMIN, 'or
         Route::post('/close', 'closeAssessment')->name('close');
     });
 
-    // employee
-    Route::controller(AdminEmployeeController::class)->name('employee.')->prefix('/employee')->group(function () {
-        Route::get('/index', 'index')->name('index');
-        Route::post('/get', 'getEmployee')->name('get');
-        Route::post('/save', 'saveEmployee')->name('save');
-        Route::post('/remove', 'removeEmployee')->name('remove');
-        Route::post('/all', 'getAllEmployee')->name('all');
-        Route::post('/relations', 'getEmployeeRelations')->name('relations');
-        Route::post('/relations/save', 'saveEmployeeRelations')->name('relations.save');
-        Route::post('/competencies', 'getEmployeeCompetencies')->name('competencies');
-        Route::post('/competencies/save', 'saveEmployeeCompetencies')->name('competencies.save');
-        Route::post('/bonusmalus/get', 'getBonusMalus')->name('bonusmalus.get');
-        Route::post('/bonusmalus/set', 'setBonusMalus')->name('bonusmalus.set');
-        Route::post('/password-reset', 'passwordReset')->name('password-reset');
-        Route::post('/unlock-account', 'unlockAccount')->name('unlock-account');
-        Route::post('/department', 'storeDepartment')->name('department.store');
-        Route::post('/department/get', 'getDepartment')->name('department.get');
-        Route::post('/department/update', 'updateDepartment')->name('department.update');
-        Route::post('/department/members', 'getDepartmentMembers')->name('department.members');
-        Route::post('/department/eligible', 'getEligibleForDepartment')->name('department.eligible');
-        Route::post('/department/members/save', 'saveDepartmentMembers')->name('department.members.save');
-        Route::post('/department/delete', 'deleteDepartment')->name('department.delete');
-        Route::post('/network', 'getNetworkData')->name('network');
-        Route::post('/get-eligible-managers', [AdminEmployeeController::class, 'getEligibleManagers'])->name('get-eligible-managers');
-    });
-
-    // Employee Mass Import Routes
-    Route::prefix('employee/import')
-        ->name('employee.import.')
-        ->controller(AdminEmployeeImportController::class)
-        ->group(function () {
-            Route::get('/template/{type}', 'downloadTemplate')->name('template');
-            Route::post('/validate', 'validateImport')->name('validate');
-            Route::post('/start', 'start')->name('start');
-            Route::get('/{jobId}/status', 'status')->name('status');
-            Route::get('/{jobId}/report', 'downloadReport')->name('report');
-            Route::get('/check-active', 'checkActiveImport')->name('check-active');
+    // ✅ CONFIG ROUTES - BLOCKED DURING ASSESSMENT
+    Route::middleware('block.during.assessment')->group(function () {
+        
+        // employee
+        Route::controller(AdminEmployeeController::class)->name('employee.')->prefix('/employee')->group(function () {
+            Route::get('/index', 'index')->name('index');
+            Route::post('/get', 'getEmployee')->name('get');
+            Route::post('/save', 'saveEmployee')->name('save');
+            Route::post('/remove', 'removeEmployee')->name('remove');
+            Route::post('/all', 'getAllEmployee')->name('all');
+            Route::post('/relations', 'getEmployeeRelations')->name('relations');
+            Route::post('/relations/save', 'saveEmployeeRelations')->name('relations.save');
+            Route::post('/competencies', 'getEmployeeCompetencies')->name('competencies');
+            Route::post('/competencies/save', 'saveEmployeeCompetencies')->name('competencies.save');
+            Route::post('/bonusmalus/get', 'getBonusMalus')->name('bonusmalus.get');
+            Route::post('/bonusmalus/set', 'setBonusMalus')->name('bonusmalus.set');
+            Route::post('/password-reset', 'passwordReset')->name('password-reset');
+            Route::post('/unlock-account', 'unlockAccount')->name('unlock-account');
+            Route::post('/department', 'storeDepartment')->name('department.store');
+            Route::post('/department/get', 'getDepartment')->name('department.get');
+            Route::post('/department/update', 'updateDepartment')->name('department.update');
+            Route::post('/department/members', 'getDepartmentMembers')->name('department.members');
+            Route::post('/department/eligible', 'getEligibleForDepartment')->name('department.eligible');
+            Route::post('/department/members/save', 'saveDepartmentMembers')->name('department.members.save');
+            Route::post('/department/delete', 'deleteDepartment')->name('department.delete');
+            Route::post('/network', 'getNetworkData')->name('network');
+            Route::post('/get-eligible-managers', [AdminEmployeeController::class, 'getEligibleManagers'])->name('get-eligible-managers');
         });
 
+        // Employee Mass Import Routes
+        Route::prefix('employee/import')
+            ->name('employee.import.')
+            ->controller(AdminEmployeeImportController::class)
+            ->group(function () {
+                Route::get('/template/{type}', 'downloadTemplate')->name('template');
+                Route::post('/validate', 'validateImport')->name('validate');
+                Route::post('/start', 'start')->name('start');
+                Route::get('/{jobId}/status', 'status')->name('status');
+                Route::get('/{jobId}/report', 'downloadReport')->name('report');
+                Route::get('/check-active', 'checkActiveImport')->name('check-active');
+            });
+
+        // competency
+        Route::controller(AdminCompetencyController::class)->name('competency.')->prefix('/competency')->group(function () {
+            Route::get('/index', 'index')->name('index');
+            Route::post('/all', 'getAllCompetency')->name('all');
+            Route::post('/save', 'saveCompetency')->name('save');
+            Route::post('/remove', 'removeCompetency')->name('remove');
+            Route::post('/question/save', 'saveCompetencyQuestion')->name('question.save');
+            Route::post('/question/get', 'getCompetencyQuestion')->name('question.get');
+            Route::post('/question/remove', 'removeCompetencyQuestion')->name('question.remove');
+            Route::post('/question/translations/get', 'getCompetencyQuestionTranslations')->name('question.translations.get');
+            Route::post('/translations/get', 'getCompetencyTranslations')->name('translations.get');
+            Route::post('/translate-name', 'translateCompetencyName')->name('translate-name');
+            Route::post('/translate-question', 'translateCompetencyQuestion')->name('translate-question');
+        });
+
+        Route::controller(AdminCompetencyController::class)->name('competency-group.')->prefix('/competency-group')->group(function () {
+            Route::post('/save', 'saveCompetencyGroup')->name('save');
+            Route::post('/get', 'getCompetencyGroup')->name('get');
+            Route::post('/remove', 'removeCompetencyGroup')->name('remove');
+            Route::post('/all', 'getAllCompetencyGroups')->name('all');
+            Route::post('/users/get', 'getCompetencyGroupUsers')->name('users.get');
+            Route::post('/users/save', 'saveCompetencyGroupUsers')->name('users.save');
+            Route::post('/users/eligible', 'getEligibleUsersForGroup')->name('users.eligible');
+        });
+
+        Route::controller(AdminCompetencyController::class)->name('languages.')->prefix('/languages')->group(function () {
+            Route::get('/available', 'getAvailableLanguages')->name('available');
+            Route::get('/selected', 'getSelectedLanguages')->name('selected');
+            Route::post('/selected', 'getSelectedLanguages')->name('selected.post');  // ← FIXED
+            Route::post('/save', 'saveTranslationLanguages')->name('save');
+        });
+
+        // ceoranks
+        Route::controller(AdminCeoRanksController::class)->name('ceoranks.')->prefix('/ceoranks')->group(function () {
+            Route::get('/index', 'index')->name('index');
+            Route::post('/get', 'getCeoRank')->name('get');
+            Route::post('/save', 'saveCeoRank')->name('save');
+            Route::post('/remove', 'removeCeoRank')->name('remove');
+            Route::post('/translations/get', 'getCeoRankTranslations')->name('translations.get');
+        Route::get('/languages/available', 'getAvailableLanguages')->name('languages.available');
+        Route::get('/languages/selected', 'getSelectedLanguages')->name('languages.selected');
+        Route::post('/languages/save', 'saveTranslationLanguages')->name('languages.save');
+        Route::post('/translate-name', 'translateCeoRankName')->name('translate-name');
+
+        });
+
+        // settings (admin)
+        Route::controller(\App\Http\Controllers\AdminSettingsController::class)
+            ->name('settings.')
+            ->prefix('/settings')
+            ->group(function () {
+                Route::get('/index', 'index')->name('index');
+                Route::post('/toggle', 'toggle')->name('toggle');
+                Route::post('/thresholds', 'save')->name('save');
+            });
+    });
+    // ✅ END CONFIG ROUTES BLOCK
+
+    // ✅ ACCESSIBLE DURING ASSESSMENT - These routes remain available
     // bonuses
     Route::controller(AdminBonusesController::class)->name('bonuses.')->prefix('/bonuses')->group(function () {
         Route::get('/{assessmentId?}', 'index')->name('index');
@@ -188,64 +250,8 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.OrgRole::ADMIN, 'or
     Route::post('/billing/save', 'saveBillingData')->name('billing.save');
     });
 
-    // competency
-    Route::controller(AdminCompetencyController::class)->name('competency.')->prefix('/competency')->group(function () {
-        Route::get('/index', 'index')->name('index');
-        Route::post('/all', 'getAllCompetency')->name('all');
-        Route::post('/save', 'saveCompetency')->name('save');
-        Route::post('/remove', 'removeCompetency')->name('remove');
-        Route::post('/question/save', 'saveCompetencyQuestion')->name('question.save');
-        Route::post('/question/get', 'getCompetencyQuestion')->name('question.get');
-        Route::post('/question/remove', 'removeCompetencyQuestion')->name('question.remove');
-        Route::post('/question/translations/get', 'getCompetencyQuestionTranslations')->name('question.translations.get');
-        Route::post('/translations/get', 'getCompetencyTranslations')->name('translations.get');
-        Route::post('/translate-name', 'translateCompetencyName')->name('translate-name');
-        Route::post('/translate-question', 'translateCompetencyQuestion')->name('translate-question');
-    });
-
-    Route::controller(AdminCompetencyController::class)->name('competency-group.')->prefix('/competency-group')->group(function () {
-        Route::post('/save', 'saveCompetencyGroup')->name('save');
-        Route::post('/get', 'getCompetencyGroup')->name('get');
-        Route::post('/remove', 'removeCompetencyGroup')->name('remove');
-        Route::post('/all', 'getAllCompetencyGroups')->name('all');
-        Route::post('/users/get', 'getCompetencyGroupUsers')->name('users.get');
-        Route::post('/users/save', 'saveCompetencyGroupUsers')->name('users.save');
-        Route::post('/users/eligible', 'getEligibleUsersForGroup')->name('users.eligible');
-    });
-
-    Route::controller(AdminCompetencyController::class)->name('languages.')->prefix('/languages')->group(function () {
-        Route::get('/available', 'getAvailableLanguages')->name('available');
-        Route::get('/selected', 'getSelectedLanguages')->name('selected');
-        Route::post('/selected', 'getSelectedLanguages')->name('selected.post');  // ← FIXED
-        Route::post('/save', 'saveTranslationLanguages')->name('save');
-    });
-
-    // ceoranks
-    Route::controller(AdminCeoRanksController::class)->name('ceoranks.')->prefix('/ceoranks')->group(function () {
-        Route::get('/index', 'index')->name('index');
-        Route::post('/get', 'getCeoRank')->name('get');
-        Route::post('/save', 'saveCeoRank')->name('save');
-        Route::post('/remove', 'removeCeoRank')->name('remove');
-        Route::post('/translations/get', 'getCeoRankTranslations')->name('translations.get');
-    Route::get('/languages/available', 'getAvailableLanguages')->name('languages.available');
-    Route::get('/languages/selected', 'getSelectedLanguages')->name('languages.selected');
-    Route::post('/languages/save', 'saveTranslationLanguages')->name('languages.save');
-    Route::post('/translate-name', 'translateCeoRankName')->name('translate-name');
-
-    });
-
     // results
     Route::get('/results/{assessmentId?}', [AdminResultsController::class, 'index'])->name('results.index');
-
-    // settings (admin)
-    Route::controller(\App\Http\Controllers\AdminSettingsController::class)
-        ->name('settings.')
-        ->prefix('/settings')
-        ->group(function () {
-            Route::get('/index', 'index')->name('index');
-            Route::post('/toggle', 'toggle')->name('toggle');
-            Route::post('/thresholds', 'save')->name('save');
-        });
 });
 
 // NORMAL USER ROUTES (includes CEO and Manager access via middleware)

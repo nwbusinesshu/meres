@@ -38,7 +38,9 @@ return [
 
     'empty' => [
         'open'    => 'Nincs nyitott tartozás.',
+        'open-info' => 'Fizetésre váró tételeid majd itt fognak megjelenni!',
         'settled' => 'Nincs korábban rendezett tétel.',
+        'info-settled' => 'Számláid itt fognak megjelenni. Ne felejtsd el beállítani a pontos számlázási adatokat! Kiállított számlán már nem tudunk módosítani!',
     ],
 
     'billing_data' => [

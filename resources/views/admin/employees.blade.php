@@ -47,9 +47,9 @@
         <div class="tile tile-button trigger-new-dept">
             <span><i class="fa fa-sitemap"></i> {{ $_('new-department') }}</span>
         </div>
-        <div class="tile tile-button network">
+        {{-- <div class="tile tile-button network">
             <span><i class="fa fa-project-diagram"></i> {{ $_('company-network') }}</span>
-        </div>
+        </div>--}}
     @endif
 </div>
 
@@ -60,7 +60,7 @@
             @foreach(collect($ceos)->concat($unassigned) as $user)
                 @include('admin.partials.user-row', ['user' => $user])
             @endforeach
-            @if(collect($ceos)->concat($unassigned)->isEmpty())
+            @if(collect($ceos)->concat($unassigned)->isEmpty() && $users->count() > 0)
                 <div class="tile tile-info">{{ $_('no-users-at-level') }}</div>
             @endif
         </div>
@@ -148,6 +148,7 @@
 
 @else
     {{-- === RÉGI NÉZET (multi-level OFF) === --}}
+    @if($users->count() > 0)
     <div class="tile userlist">
         <table class="table table-hover">
             <thead>
@@ -259,11 +260,23 @@
                 </tr>
                 @endforeach
                 <tr class="no-employee @if($users->count() != 0) hidden @endif">
-                    <td colspan="{{ !empty($showBonusMalus) ? '5' : '4' }}">{{ __('global.no-employee') }}</td>
+                    <td></td>
                 </tr>
             </tbody>
         </table>
     </div>
+    @endif
+@endif
+@if ($users->count() === 0)
+<div class="tile tile-empty-info">
+  <img src="{{ asset('assets/img/monster-info-tile-2.svg') }}" alt="No assessment" class="empty-tile-monster">
+  <div class="empty-tile-text">
+    <p class="empty-tile-title">{{ $_('no-employees-added') }}</p>
+    <p class="empty-tile-subtitle">{{ $_('no-employees-info') }}</p>
+    <p class="empty-tile-tasks">{!! $_('no-employees-tasks') !!}
+</p>
+  </div>
+</div>
 @endif
 @endsection
 

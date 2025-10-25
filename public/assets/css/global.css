@@ -867,3 +867,221 @@ button.swal2-styled{
     margin-left: 0;
   }
 }
+
+/* Empty Info Tile - Reusable for "no data" states */
+.tile-empty-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 2rem 1rem;
+  background-color: var(--dim);
+  min-height: 300px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* "OH NO!" background text */
+.tile-empty-info::before {
+  content: 'OH NO!';
+  position: absolute;
+  font-size: 12rem;
+  font-weight: 900;
+  opacity: 0.05;
+  z-index: 0;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.empty-tile-monster {
+  width: 400px;
+  height: auto;
+  filter: grayscale(60%);
+  opacity: 0.7;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.tile-empty-info:hover .empty-tile-monster {
+  filter: grayscale(40%);
+  opacity: 1;
+}
+
+.empty-tile-text {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.empty-tile-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.empty-tile-subtitle {
+  font-size: 1.2rem;
+  color: var(--silver_chalice);
+  margin: 0;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.empty-tile-tasks {
+  font-size: 1rem;
+  color: var(--silver_chalice);
+  margin: 0;
+  font-style: italic;
+  font-weight: 500;
+}
+
+/* Large screens - side by side layout */
+@media (min-width: 900px) {
+  .tile-empty-info {
+    flex-direction: row;
+    gap: 3rem;
+    padding: 3rem 2rem;
+  }
+  
+  .empty-tile-text {
+    text-align: left;
+    align-items: flex-start;
+  }
+  
+  .empty-tile-title {
+    font-size: 2.2rem;
+  }
+  
+  .empty-tile-subtitle {
+    font-size: 1.4rem;
+  }
+  
+  .tile-empty-info::before {
+    font-size: 10rem;
+  }
+}
+
+/* Responsive - mobile */
+@media (max-width: 680px) {
+  .empty-tile-monster {
+    width: 200px;
+  }
+  
+  .tile-empty-info {
+    min-height: 180px;
+    padding: 1.5rem 1rem;
+    gap: 1.5rem;
+  }
+  
+  .empty-tile-title {
+    font-size: 1.4rem;
+  }
+  
+  .empty-tile-subtitle {
+    font-size: 1rem;
+  }
+  
+  .tile-empty-info::before {
+    font-size: 5rem;
+  }
+}
+
+/* Empty Info Tile Slim - Compact version for sections */
+.tile-empty-info-slim {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1.5rem 1rem;
+  background-color: var(--dim);
+  min-height: 150px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* "OH NO!" background text - smaller */
+.tile-empty-info-slim::before {
+  content: 'OH NO!';
+  position: absolute;
+  font-size: 6rem;
+  font-weight: 900;
+  opacity: 0.03;
+  z-index: 0;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.empty-tile-monster-slim {
+  max-width: 150px;
+  height: auto;
+  filter: grayscale(30%);
+  opacity: 0.8;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.tile-empty-info-slim:hover .empty-tile-monster-slim {
+  filter: grayscale(20%);
+  opacity: 1;
+}
+
+.tile-empty-info-slim .empty-tile-text {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.tile-empty-info-slim .empty-tile-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.tile-empty-info-slim .empty-tile-subtitle {
+  font-size: 1rem;
+  color: var(--silver_chalice);
+  margin: 0;
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Responsive - mobile */
+@media (max-width: 680px) {
+  .tile-empty-info-slim {
+    flex-direction: column;
+    min-height: 120px;
+    padding: 1rem;
+    gap: 1rem;
+  }
+  
+  .empty-tile-monster-slim {
+    width: 100px;
+  }
+  
+  .tile-empty-info-slim .empty-tile-title {
+    font-size: 1.1rem;
+  }
+  
+  .tile-empty-info-slim .empty-tile-subtitle {
+    font-size: 0.9rem;
+  }
+  
+  .tile-empty-info-slim::before {
+    font-size: 4rem;
+  }
+}

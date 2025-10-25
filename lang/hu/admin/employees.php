@@ -4,6 +4,12 @@ return [
 
   "new-employee" => "Új alkalmazott felvétele",
 
+  "no-employees-added" => "Nincs dolgozó a rendszerben!",
+
+  "no-employees-info" => "Itt az ideje felvenni mindenkit!",
+
+  "no-employees-tasks" => "Kezdheted egyesével, de akár tömeges importálással is. Ha részlegkezelésre is szükséged van, azt mindenképp kapcsold be a beállításokban!",
+
   "relations" => "Viszonylista",
 
   "datas" => "Adatok módosítása",

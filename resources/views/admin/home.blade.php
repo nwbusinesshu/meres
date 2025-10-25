@@ -29,9 +29,20 @@
   </div>    
   <div class="tile tile-button create-assessment">
     <span><i class="fa fa-file-pen"></i>{{ $_('create-assessment') }}</span>
-  </div>    
+  </div>
   @endif
 </div>
+@if (is_null($assessment))
+<div class="tile tile-empty-info">
+  <img src="{{ asset('assets/img/monster-info-tile.svg') }}" alt="No assessment" class="empty-tile-monster">
+  <div class="empty-tile-text">
+    <p class="empty-tile-title">{{ $_('no-assessment-running') }}</p>
+    <p class="empty-tile-subtitle">{{ $_('no-assessment-running-info') }}</p>
+    <p class="empty-tile-tasks">{!! $_('no-assessment-running-tasks') !!}
+</p>
+  </div>
+</div>
+@endif
 @if (!is_null($assessment))
 <div class="double-tiles stats">
   <div class="tile {{ $assessed == $neededAssessment ? "tile-success" : "tile-info" }}">

@@ -2,6 +2,7 @@
 return [
   "add-rank" => "Új szint hozzáadása",
   "rank-settings" => "Szint beállítása",
+  "ranking-infos" => "A rendszerben 5 rangsor kategóriát állítottunk be, a megfelelő minimum és maximum követelményekkel. Minden cégvezető vagy részlegvezető manager ezekbe a kategóriákba kell, hogy besorolja a beosztottjait. Az értékelési pontszám számításakor az értékelt személy a besorolt kategória értékét kapja meg, több vezetői rangsor érték esetén azok átlagát 100 pontra vetítve. A szintek testreszabhatóak és újak is hozzáadhatóak, törölhetőek.",
   "save-rank" => "Szint mentése",
   "save-confirm" => "Biztosan mented a szintet?",
   "save-success" => "A szint sikeresen mentésre került!",

@@ -55,9 +55,15 @@
 @endphp
 
 @if (is_null($assessment) || is_null($user->stats))
-  <div class="tile tile-warning">
-    <p>{{ $_('no-results') }}</p>
+   <div class="tile tile-empty-info">
+  <img src="{{ asset('assets/img/monster-info-tile-3.svg') }}" alt="No assessment" class="empty-tile-monster">
+  <div class="empty-tile-text">
+    <p class="empty-tile-title">{{ $_('no-results-yet') }}</p>
+    <p class="empty-tile-subtitle">{{ $_('no-results-info') }}</p>
+    <p class="empty-tile-tasks">{!! $_('no-results-tasks') !!}
+</p>
   </div>
+</div>
 @else
 <div class="list">
   {{-- ÖSSZPONT + BONUS/MALUS + TREND --}}
@@ -347,7 +353,7 @@
       });
     })();
   </script>
-@endif
+
 
 {{-- ===== Kompetenciák szerinti eredmény (Bar Chart) ===== --}}
   <div class="tile tile-info" style="padding:16px; margin-top: 1rem;">
@@ -453,7 +459,7 @@
       });
     })();
   </script>
-
+@endif
 {{-- ===== USER AS RATER - AI TELEMETRY (ADMIN ONLY) ===== --}}
 @if(auth()->user()->isCurrentAdmin() && isset($raterTelemetry) && count($raterTelemetry) > 0)
   <div class="telemetry-section">

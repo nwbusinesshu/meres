@@ -1,6 +1,8 @@
 <?php
 return [
-  "no-results" => "Még nincsenek megjeleníthető eredmények!",
+  "no-results-yet" => "Még nincsenek megjeleníthető eredmények!",
+  "no-results-info" => "Nincs még lezárt értékelési időszak, ezért megjeleníthető eredmények sincsenek.",
+  "no-results-tasks" => "Indítsd el (ha még nem tetted meg), majd ha minden kitöltés beérkezett, zárd le a értékelést. <br> Térj vissza ide és nézd meg az eredményeket!",
   "result" => "Eredmény",
   "colleagues" => "Kollégák értékelése",
   "self" => "Önértékelés",

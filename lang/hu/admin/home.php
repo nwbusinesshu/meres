@@ -1,7 +1,11 @@
 <?php
   return [
     'no-assessment-running' => 'Jelenleg nincs futó értékelési időszak!',
-    
+
+    'no-assessment-running-info' => 'Indíts egyet, ha végeztél a konfigurációval!',
+
+    'no-assessment-running-tasks' => 'Dolgozók hozzáadva?<br>Viszonyok beállítva?<br>Kompetenciák hozzárendelve?',
+
     'assessment-running' => "Jelenleg fut értékelési időszak!",
     
     "create-assessment" => "Értékelési időszak indítása",

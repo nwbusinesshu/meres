@@ -220,7 +220,7 @@ class RegistrationController extends Controller
                 // Store rates as 0..1 float (displayed as %)
                 'target_promo_rate_max'          => '0.30',  // 30%
                 'target_demotion_rate_max'       => '0.30',  // 30%
-                'never_below_abs_min_for_promo'  => null,    // empty = no absolute min
+                'never_below_abs_min_for_promo'  => '60',    // empty = no absolute min
                 'use_telemetry_trust'            => '1',
                 'no_forced_demotion_if_high_cohesion' => '1',
 

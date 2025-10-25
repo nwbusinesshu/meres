@@ -15,9 +15,8 @@
 <h3>{{ __('payment.sections.open') }}</h3>
 
 {{-- Nyitott tartozások --}}
+@if($open->count() > 0)
 <div class="tile">
-  
-  
   {{-- Desktop Table --}}
   <table class="table table-hover payment-table">
     <thead>
@@ -30,7 +29,7 @@
       </tr>
     </thead>
     <tbody>
-      @forelse ($open as $row)
+      @foreach ($open as $row)
         <tr data-id="{{ $row->id }}">
           {{-- Létrehozás dátuma: év.hó.nap --}}
           <td>
@@ -85,15 +84,13 @@
             @endif
           </td>
         </tr>
-      @empty
-        <tr><td colspan="5" class="text-muted">{{ __('payment.empty.open') }}</td></tr>
-      @endforelse
+      @endforeach
     </tbody>
   </table>
 
   {{-- Mobile Cards --}}
   <div class="payment-mobile-cards">
-    @forelse ($open as $row)
+    @foreach ($open as $row)
       <div class="payment-card">
         <div class="payment-card-header">
           <div class="payment-card-amount">
@@ -152,19 +149,23 @@
           @endif
         </div>
       </div>
-    @empty
-      <div class="payment-empty-mobile">
-        {{ __('payment.empty.open') }}
-      </div>
-    @endforelse
+    @endforeach
   </div>
 </div>
+@else
+<div class="tile tile-empty-info-slim">
+  <img src="{{ asset('assets/img/monster-info-tile-4.svg') }}" alt="No payments" class="empty-tile-monster-slim">
+  <div class="empty-tile-text">
+    <p class="empty-tile-title">{{ __('payment.empty.open') }}</p>
+    <p class="empty-tile-subtitle">{{ __('payment.empty.open-info') }}</p>
+  </div>
+</div>
+@endif
 
 {{-- Korábban rendezettek --}}
 <h3>{{ __('payment.sections.settled') }}</h3>
+@if($settled->count() > 0)
 <div class="tile">
-  
-  
   {{-- Desktop Table --}}
   <table class="table table-hover payment-table">
     <thead>
@@ -177,7 +178,7 @@
       </tr>
     </thead>
     <tbody>
-      @forelse ($settled as $row)
+      @foreach ($settled as $row)
         <tr>
           {{-- Kiállítás dátuma (payments.billingo_issue_date) --}}
           <td>
@@ -218,15 +219,13 @@
             @endif
           </td>
         </tr>
-      @empty
-        <tr><td colspan="5" class="text-muted">{{ __('payment.empty.settled') }}</td></tr>
-      @endforelse
+      @endforeach
     </tbody>
   </table>
 
   {{-- Mobile Cards --}}
   <div class="payment-mobile-cards">
-    @forelse ($settled as $row)
+    @foreach ($settled as $row)
       <div class="payment-card">
         <div class="payment-card-header">
           <div class="payment-card-amount">
@@ -279,13 +278,18 @@
           @endif
         </div>
       </div>
-    @empty
-      <div class="payment-empty-mobile">
-        {{ __('payment.empty.settled') }}
-      </div>
-    @endforelse
+    @endforeach
   </div>
 </div>
+@else
+<div class="tile tile-empty-info-slim">
+  <img src="{{ asset('assets/img/monster-info-tile-4.svg') }}" alt="No invoices" class="empty-tile-monster-slim">
+  <div class="empty-tile-text">
+    <p class="empty-tile-title">{{ __('payment.empty.settled') }}</p>
+    <p class="empty-tile-subtitle">{{ __('payment.empty.info-settled') }}</p>
+  </div>
+</div>
+@endif
 @endsection
 
 @section('scripts')

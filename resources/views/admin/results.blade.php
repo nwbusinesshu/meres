@@ -69,12 +69,19 @@
   @endif
 @endif
 
-<div class="employee-list">
+
   @if (is_null($assessment))
-    <div class="tile tile-warning">
-      <p>{{ $_('no-results') }}</p>
-    </div>
+    <div class="tile tile-empty-info">
+  <img src="{{ asset('assets/img/monster-info-tile-3.svg') }}" alt="No assessment" class="empty-tile-monster">
+  <div class="empty-tile-text">
+    <p class="empty-tile-title">{{ $_('no-results-yet') }}</p>
+    <p class="empty-tile-subtitle">{{ $_('no-results-info') }}</p>
+    <p class="empty-tile-tasks">{!! $_('no-results-tasks') !!}
+</p>
+  </div>
+</div>
   @else
+  <div class="employee-list">
     @foreach ($users as $user)
       <a class="user-tile-link"
          href="{{ route('results.index', ['assessmentId' => optional($assessment)->id, 'as' => $user->id]) }}"

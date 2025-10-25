@@ -29,6 +29,10 @@
   </div>
 </div>
 
+<div class="tile tile-info">
+  <span>{{ $_('ranking-infos') }}</span>
+</div>
+
 @foreach ($ceoranks as $rank)
 <div class="tile tile-info rank" data-id="{{ $rank->id }}">
   <div>

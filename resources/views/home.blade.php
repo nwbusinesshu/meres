@@ -22,9 +22,15 @@
 <h2>{{ $welcomeMessage }}</h2>
 
 @if (is_null($assessment))
-  <div class="tile tile-info">
-    <p>{{ $_('no-assessment-running') }}</p>
-  </div>  
+<div class="tile tile-empty-info">
+  <img src="{{ asset('assets/img/monster-info-tile.svg') }}" alt="No assessment" class="empty-tile-monster">
+  <div class="empty-tile-text">
+    <p class="empty-tile-title">{{ $_('no-assessment-running') }}</p>
+    <p class="empty-tile-subtitle">{{ $_('no-assessment-running-info') }}</p>
+    <p class="empty-tile-tasks">{!! $_('no-assessment-running-tasks') !!}
+</p>
+  </div>
+</div>
 @else
   <div class="assessment-running">
     <div class="tile tile-info">

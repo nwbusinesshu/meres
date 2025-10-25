@@ -2,6 +2,9 @@
 return [
   "no-results" => "Még nincsenek megjeleníthető eredmények!",
   "result" => "Eredmény",
+  "no-results-yet" => "Még nincsenek eredményeid!",
+  "no-results-info" => "Nincs még olyan lezárt értékelési időszak, amelyben részt vettél volna.",
+  "no-results-tasks" => "Ha a következőn részt veszel, térj vissza és itt megtekintheted a részletes eredményeidet.",
   "colleagues" => "Kollégák értékelése",
   "self" => "Önértékelés",
   "total" => "Összpont",

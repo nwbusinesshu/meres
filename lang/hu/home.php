@@ -2,6 +2,10 @@
 return [
   "assessment-running" => "Jelenleg értékelési időszak fut!",
 
+  "no-assessment-running-info" => "Egyelőre nincs teendőd!",
+
+  "no-assessment-running-tasks" => "Ha a szervezetben elindítanak egy értékelési időszakot, arról e-mailben értesítünk! <br>Itt fogod tudni kitölteni majd az értékeléseket.",
+
   "due" => "Határidő",
   
   "to-fill-out" => "Kitöltendő kérdőívek",
