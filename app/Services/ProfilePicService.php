@@ -88,6 +88,8 @@ class ProfilePicService
      * Download and save profile pic from OAuth provider
      * This is called during OAuth login (Google/Microsoft)
      * 
+     * ✅ FIXED: Use cURL instead of file_get_contents (allow_url_fopen might be disabled)
+     * 
      * @param User $user
      * @param string|null $avatarUrl URL from OAuth provider
      * @return bool Success status (false means keep existing pic)
@@ -103,13 +105,25 @@ class ProfilePicService
         }
         
         try {
-            // Download the image
-            $imageContent = @file_get_contents($avatarUrl);
+            // ✅ FIX: Download the image using cURL instead of file_get_contents
+            $ch = curl_init($avatarUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Quarma360/1.0');
             
-            if ($imageContent === false) {
+            $imageContent = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+            
+            if ($imageContent === false || $httpCode !== 200) {
                 Log::warning('profile_pic.oauth_download_failed', [
                     'user_id' => $user->id,
-                    'url' => $avatarUrl
+                    'url' => $avatarUrl,
+                    'http_code' => $httpCode,
+                    'curl_error' => $curlError
                 ]);
                 return false;
             }
