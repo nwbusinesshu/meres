@@ -35,6 +35,7 @@ return [
   "save-competency-success" => "A kompetencia sikeresen mentésre került!",
 
   "no-competency" => "Nincsenek megjeleníthető kompetenciák!",
+  "no-competency-info" => "Hozz létre egyedi kompetenciát bármikor!",
 
   "question" => "Kérdés",
 
@@ -143,6 +144,7 @@ return [
   'competencies-in-group' => 'A csoportban lévő kompetenciák',
   'no-competencies-in-group' => 'Nincs kompetencia ebben a csoportban.',
   'no-groups' => 'Még nincs kompetencia csoport létrehozva.',
+  'no-groups-info' => "Hozz létre egyet, és rendelj hozzá alkalmazottakat! Gyorsítsd a munkát!",
   'group-not-found' => 'Kompetencia csoport nem található.',
   'invalid-competencies' => 'Néhány kiválasztott kompetencia érvénytelen.',
   'remove-competency' => 'Kompetencia eltávolítása a csoportból',

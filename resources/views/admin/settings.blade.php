@@ -69,9 +69,7 @@
 {{-- ===== BÓNUSZOK / FIZETÉSEK ===== --}}
 <div class="settings-grid">
   {{-- Bónuszok megjelenítése alkalmazottaknak --}}
-  
-
-  {{-- ✅ NEW: Enable bonus calculation by net wage --}}
+    {{-- ✅ NEW: Enable bonus calculation by net wage --}}
   <div class="tile tile-info">
     <div class="text">
       <div class="title"><h3>{{ __('admin/bonuses.enable-bonus-calculation') }}</h3></div>
@@ -105,7 +103,6 @@
     </label>
   </div>
 </div>
-
 {{-- Easy Relation Setup --}}
 <div class="settings-grid">
   <div class="tile tile-info">
@@ -118,9 +115,6 @@
       <span class="slider"></span>
     </label>
   </div>
-
-
-
   {{-- ===== SECURITY SETTINGS ===== --}}
   {{-- Force 2FA for OAuth Users --}}
   <div class="tile tile-info">
@@ -134,7 +128,6 @@
     </label>
   </div>
 </div>
-
 {{-- ===== PONTOZÁSI MÓDSZER ===== --}}
 <h3 class="settings-subtitle" style="margin-top:1.2rem;">{{ $_('settings.scoring_subtitle') }}</h3>
 @php
@@ -148,7 +141,6 @@
   if (!$hasClosedAssessment)  $suggestedErrors[] = 'Nem választható, mert nincs még lezárt mérés.';
   if (!$aiTelemetry)          $suggestedErrors[] = 'Nem választható, mert az AI telemetria le van tiltva.';
 @endphp
-
 <form method="POST" action="{{ route('admin.settings.save') }}" id="scoring-form">
   @csrf
   <input type="hidden" name="threshold_mode" id="config-mode" value="{{ $activeMode }}">
@@ -185,7 +177,6 @@
       </label>
     </div>
   </div>
-
   {{-- Módszerenkénti panelek --}}
   <div class="modes-container">
     {{-- FIXED --}}
@@ -216,7 +207,6 @@
               </ul>
             </div>
           </div>
-
           <div class="footnote">
             <strong>Ajánlott használat:</strong>
             {{ $_('settings.fixed.when') }}
@@ -239,17 +229,14 @@
         <button class="btn btn-primary" type="submit">{{ $_('settings.buttons.save_settings') }}</button>
       </div>
     </div>
-
     {{-- HYBRID --}}
     <div class="tile tile-info tile-full mode-pane mode-hybrid {{ $activeMode==='hybrid' ? 'active' : '' }}">
       <div class="text">
         <div class="title"><h3>{{ $_('settings.hybrid.title') }}</h3></div>
         <div class="meta">{{ $_('settings.hybrid.meta') }}</div>
-
         {{-- Leírás-doboz --}}
         <div class="mode-explainer">
           <div class="chunk">{!! $_('settings.hybrid.description_html') !!}</div>
-
           <div class="columns">
             <div class="col">
               <div class="label">Pro</div>

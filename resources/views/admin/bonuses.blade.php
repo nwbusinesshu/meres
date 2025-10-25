@@ -109,11 +109,15 @@
     @endif
 @else
     {{-- No closed assessments --}}
-    <div class="tile tile-info">
-        <i class="fa fa-exclamation-triangle"></i>
-        <strong>{{ __('admin/bonuses.no-closed-assessments') }}</strong>
-        <p>{{ __('admin/bonuses.close-assessment-first') }}</p>
-    </div>
+<div class="tile tile-empty-info">
+  <img src="{{ asset('assets/img/monster-info-tile-5.svg') }}" alt="No assessment" class="empty-tile-monster">
+  <div class="empty-tile-text">
+    <p class="empty-tile-title">{{ $_('no-assessment-yet') }}</p>
+    <p class="empty-tile-subtitle">{{ $_('no-assessment-bonuses-info') }}</p>
+    <p class="empty-tile-tasks">{!! $_('bonuses-tasks') !!}
+</p>
+  </div>
+</div>
 @endif
 @endsection
 

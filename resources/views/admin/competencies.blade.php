@@ -294,7 +294,13 @@
       </div>
     </div>
   @empty
-    <div class="no-competency tile tile-info"><p>{{ $_('no-competency') }}</p></div>
+    <div class="tile tile-empty-info-slim">
+  <img src="{{ asset('assets/img/monster-info-tile-2.svg') }}" alt="No payments" class="empty-tile-monster-slim">
+  <div class="empty-tile-text">
+    <p class="empty-tile-title">{{ $_('no-competency') }}</p>
+    <p class="empty-tile-subtitle">{{ $_('no-competency-info') }}</p>
+  </div>
+</div>
   @endforelse
 
 {{-- UPDATED: Competency Groups Section - WITH BADGES --}}
@@ -360,7 +366,13 @@
       </div>
     </div>
   @empty
-    <div class="no-competency tile tile-info"><p>{{ __('admin/competencies.no-groups') }}</p></div>
+    <div class="tile tile-empty-info-slim">
+  <img src="{{ asset('assets/img/monster-info-tile-3.svg') }}" alt="No payments" class="empty-tile-monster-slim">
+  <div class="empty-tile-text">
+    <p class="empty-tile-title">{{ __('admin/competencies.no-groups') }}</p>
+    <p class="empty-tile-subtitle">{{ $_('no-groups-info') }}</p>
+  </div>
+</div>
   @endforelse
 </div>
 

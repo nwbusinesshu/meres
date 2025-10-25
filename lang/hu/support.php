@@ -36,6 +36,11 @@ return [
     'closed-at' => 'Lezárva',
     'last-message' => 'Utolsó üzenet',
     'messages-count' => 'üzenet',
+    'just-now' => "Éppen most",
+    'minutes-ago' => "perccel ezelőtt",
+    'yesterday' => "tegnap",
+    'days-ago' => "nappal ezelőtt",
+    'hours-ago' => "órával ezelőtt",
     
     // Actions
     'create-ticket' => 'Jegy létrehozása',

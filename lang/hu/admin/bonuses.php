@@ -11,6 +11,9 @@ return [
     'no-closed-assessments' => 'Nincsenek lezárt értékelések',
     'closed-at' => 'Lezárva',
     'assessment-period' => 'Értékelési időszak',
+    'no-assessment-yet' => "Nincs még lezárt értékelési időszak!",
+    'no-assessment-bonuses-info' => "Emiatt még nem történt bónusz kalkuláció sem.",
+    "bonuses-tasks" => "Ha végeztel a konfigurációval, a főoldalon indíts el egy értékelést! <br> Figyelj arra, hogy akinek bónuszt szeretnél fizetni, mindenképpen adj meg nettó bért!",
     
     // Table headers
     'employee' => 'Alkalmazott',

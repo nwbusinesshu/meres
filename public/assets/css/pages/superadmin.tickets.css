@@ -1,0 +1,440 @@
+/* =========================================================================
+   SUPERADMIN TICKETS PAGE STYLES
+   ========================================================================= */
+
+/* Filters Row */
+.tickets-filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.filter-tile {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-tile span {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.filter-tile select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  background-color: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.filter-tile select:focus {
+  outline: none;
+  border-color: var(--info);
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+}
+
+/* =========================================================================
+   TICKETS TABLE
+   ========================================================================= */
+
+.tickets-table-container {
+  padding: 0;
+  overflow-x: auto;
+}
+
+.tickets-table {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+}
+
+.tickets-table thead {
+  background-color: var(--bg-secondary);
+  border-bottom: 2px solid var(--border-color);
+}
+
+.tickets-table thead th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.tickets-table tbody tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.2s;
+}
+
+.tickets-table tbody tr:hover {
+  background-color: var(--bg-hover);
+}
+
+.tickets-table tbody td {
+  padding: 1rem;
+  vertical-align: middle;
+  font-size: 0.875rem;
+}
+
+.tickets-table tbody td:first-child {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* Empty state */
+.no-tickets {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-muted);
+}
+
+.no-tickets i {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.3;
+  display: block;
+}
+
+.no-tickets p {
+  font-size: 1.125rem;
+  margin: 0;
+}
+
+/* =========================================================================
+   STATUS AND PRIORITY BADGES
+   ========================================================================= */
+
+.ticket-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 0.375rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+/* Status badges */
+.status-open {
+  background-color: #d1f4e0;
+  color: #0d6832;
+  border: 1px solid #0d6832;
+}
+
+.status-in-progress,
+.status-in_progress {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #856404;
+}
+
+.status-closed {
+  background-color: #e2e3e5;
+  color: #6c757d;
+  border: 1px solid #6c757d;
+}
+
+/* Priority badges */
+.priority-low {
+  background-color: #e2e3e5;
+  color: #6c757d;
+  border: 1px solid #6c757d;
+}
+
+.priority-medium {
+  background-color: #cfe2ff;
+  color: #084298;
+  border: 1px solid #084298;
+}
+
+.priority-high {
+  background-color: #ffe5d0;
+  color: #cc5200;
+  border: 1px solid #cc5200;
+}
+
+.priority-urgent {
+  background-color: #f8d7da;
+  color: #842029;
+  border: 1px solid #842029;
+}
+
+/* =========================================================================
+   TICKET DETAIL MODAL
+   ========================================================================= */
+
+#ticket-detail-modal .modal-dialog {
+  max-width: 900px;
+}
+
+#ticket-detail-modal .modal-body {
+  padding: 1.5rem;
+}
+
+/* Ticket Header Info */
+.ticket-detail-header {
+  background-color: var(--bg-secondary);
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.ticket-info-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.ticket-info-row:last-child {
+  margin-bottom: 0;
+}
+
+.ticket-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ticket-info-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+.ticket-info-item span:not(.ticket-info-label) {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.ticket-closed-info {
+  border-top: 1px solid var(--border-color);
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+/* Messages Container */
+.ticket-messages-container {
+  margin-bottom: 1.5rem;
+}
+
+.ticket-messages-container h6 {
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.ticket-messages {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background-color: var(--bg-tertiary);
+}
+
+/* Individual Message */
+.ticket-message {
+  background-color: white;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.ticket-message:last-child {
+  margin-bottom: 0;
+}
+
+.ticket-message.staff-message {
+  border-left: 4px solid var(--info);
+  background-color: #f0f8ff;
+}
+
+.ticket-message.user-message {
+  border-left: 4px solid var(--success);
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.message-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.message-label.staff-label {
+  color: var(--info);
+}
+
+.message-label.user-label {
+  color: var(--success);
+}
+
+.message-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.message-body {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Reply Form */
+.ticket-reply-form {
+  border-top: 2px solid var(--border-color);
+  padding-top: 1.5rem;
+}
+
+.ticket-reply-form .reply-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 1rem;
+  transition: border-color 0.2s;
+}
+
+.ticket-reply-form .reply-textarea:focus {
+  outline: none;
+  border-color: var(--info);
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+}
+
+.ticket-reply-form .reply-textarea:disabled {
+  background-color: var(--bg-secondary);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.reply-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.reply-actions .btn {
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* =========================================================================
+   RESPONSIVE DESIGN
+   ========================================================================= */
+
+@media (max-width: 768px) {
+  .tickets-filters {
+    flex-direction: column;
+  }
+
+  .filter-tile {
+    min-width: 100%;
+  }
+
+  .tickets-table {
+    font-size: 0.75rem;
+  }
+
+  .tickets-table thead {
+    display: none;
+  }
+
+  .tickets-table tbody tr {
+    display: block;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+  }
+
+  .tickets-table tbody td {
+    display: block;
+    text-align: right;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .tickets-table tbody td:last-child {
+    border-bottom: none;
+  }
+
+  .tickets-table tbody td::before {
+    content: attr(data-label);
+    float: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .ticket-info-row {
+    grid-template-columns: 1fr;
+  }
+
+  .reply-actions {
+    flex-direction: column;
+  }
+
+  .reply-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* =========================================================================
+   LOADING AND UTILITY CLASSES
+   ========================================================================= */
+
+.hidden {
+  display: none !important;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-muted {
+  color: var(--text-muted) !important;
+}
+
+.text-danger {
+  color: var(--danger) !important;
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.fa-spinner.fa-spin {
+  animation: spin 1s linear infinite;
+}

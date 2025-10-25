@@ -17,7 +17,7 @@ class SuperadminTicketController extends Controller
      */
     public function index()
     {
-        return view('superadmin.tickets.index');
+        return view('superadmin.tickets');
     }
 
     /**

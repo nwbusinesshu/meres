@@ -74,6 +74,11 @@
         <i class="fa fa-medal"></i>
         <span>{{ __('titles.superadmin.global-competencies') }}</span>
       </a>
+      <a class="menuitem {{ request()->routeIs('superadmin.tickets.index') ? 'active' : '' }}" 
+         href="{{ route('superadmin.tickets.index') }}" data-route="superadmin.tickets.index">
+        <i class="fa fa-ticket"></i>
+        <span>{{ __('support.all-tickets') }}</span>
+      </a>
       <a class="menuitem" href="{{ route('org.select') }}" data-route="org.select">
         <i class="fa-solid fa-right-to-bracket"></i>
         <span>{{ __('global.login-to-org') }}</span>
