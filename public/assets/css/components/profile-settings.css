@@ -1,0 +1,198 @@
+/* Profile Settings Modal Styles */
+.profile-settings-content {
+  background-color: var(--alabaster);
+  color: var(--outer_space);
+  border-radius: 8px;
+  max-width: 600px;
+}
+
+.profile-info-section {
+  text-align: center;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--light_border);
+  margin-bottom: 1.5rem;
+}
+
+.profile-info-section h6 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--outer_space);
+}
+
+.profile-info-section p {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.9rem;
+}
+
+.profile-pic-section {
+  padding: 1rem 0;
+}
+
+.section-title {
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: var(--outer_space);
+}
+
+/* Large Preview Circle */
+.profile-preview-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.profile-preview-circle {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4px solid var(--pelorous);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.profile-preview-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Carousel Container */
+.profile-carousel-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem 0;
+}
+
+.profile-carousel-wrapper {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  max-width: 400px;
+}
+
+.profile-carousel-track {
+  display: flex;
+  gap: 1rem;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0.5rem 0;
+}
+
+.carousel-item {
+  flex-shrink: 0;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  opacity: 0.5;
+  transform: scale(0.85);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.carousel-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.carousel-item:hover {
+  opacity: 0.8;
+  transform: scale(0.9);
+}
+
+.carousel-item.active {
+  border-color: var(--pelorous);
+  opacity: 1;
+  transform: scale(1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Navigation Buttons */
+.carousel-nav {
+  background-color: var(--alabaster);
+  border: 2px solid var(--light_border);
+  color: var(--outer_space);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.carousel-nav:hover:not(:disabled) {
+  background-color: var(--pelorous);
+  border-color: var(--pelorous);
+  color: white;
+  transform: scale(1.1);
+}
+
+.carousel-nav:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.carousel-nav i {
+  font-size: 1rem;
+}
+
+/* Modal Footer */
+.profile-settings-content .modal-footer {
+  border-top: 1px solid var(--light_border);
+  padding: 1rem 1.5rem;
+}
+
+/* Dark Mode Support */
+body.dark-mode .profile-settings-content {
+  background-color: var(--dim);
+  color: var(--alabaster);
+}
+
+body.dark-mode .profile-info-section {
+  border-bottom-color: var(--outer_space);
+}
+
+body.dark-mode .carousel-nav {
+  background-color: var(--outer_space);
+  border-color: var(--silver_chalice);
+  color: var(--alabaster);
+}
+
+body.dark-mode .carousel-nav:hover:not(:disabled) {
+  background-color: var(--pelorous);
+  border-color: var(--pelorous);
+}
+
+/* Responsive Design */
+@media (max-width: 576px) {
+  .profile-preview-circle {
+    width: 120px;
+    height: 120px;
+  }
+  
+  .carousel-item {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .profile-carousel-wrapper {
+    max-width: 250px;
+  }
+  
+  .carousel-nav {
+    width: 35px;
+    height: 35px;
+  }
+}

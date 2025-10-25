@@ -55,6 +55,7 @@
 	<link rel="stylesheet" href="{{ asset('assets/css/global.css') }}">
 	<link rel="stylesheet" href="{{ asset('assets/css/global_media.css') }}">
 	<link rel="stylesheet" href="{{ asset('assets/css/pages/help-modal.css') }}">
+	<link rel="stylesheet" href="{{ asset('assets/css/components/profile-settings.css') }}">
 
 
 	<!-- Custom css per page -->

@@ -154,14 +154,13 @@
     @endphp
 
     @if ($avatar)
-      <img class="avatar" src="{{ $avatar }}" alt="avatar">
-    @else
-      <i class="fa fa-user-circle fallback-avatar"></i>
-    @endif
+  <img class="avatar" src="{{ $avatar }}" alt="avatar" style="cursor: pointer;">
+@else
+  <i class="fa fa-user-circle fallback-avatar" style="cursor: pointer;"></i>
+@endif
 
-    <div class="userinfo-text">
-      <div class="userinfo-name">{{ $uname }}</div>
-      <div class="userinfo-email">{{ $uemail }}</div>
+<div class="userinfo-text">
+  <div class="userinfo-name" style="cursor: pointer;">{{ $uname }}</div>
 
       @if ($currentOrg)
         @if ($organizations->count() > 1 && !$isSuperadmin)

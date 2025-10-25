@@ -32,6 +32,7 @@ use App\Http\Controllers\AdminBonusesController;
 use App\Http\Controllers\AdminEmployeeImportController;
 use App\Http\Controllers\SupportTicketController;
 use App\Http\Controllers\SuperadminTicketController;
+use App\Http\Controllers\ProfileSettingsController;
 
 
 //locale
@@ -71,6 +72,15 @@ Route::controller(SupportTicketController::class)
         Route::get('/{ticketId}', 'loadTicket')->name('tickets.load');
         Route::post('/create', 'createTicket')->name('tickets.create');
         Route::post('/{ticketId}/reply', 'replyToTicket')->name('tickets.reply');
+    });
+
+Route::controller(ProfileSettingsController::class)
+    ->prefix('/profile-settings')
+    ->middleware(['auth:' . \App\Models\Enums\UserType::NORMAL])
+    ->name('profile.')
+    ->group(function(){
+        Route::get('/data', 'getProfileData')->name('settings.data');
+        Route::post('/update-picture', 'updateProfilePic')->name('settings.update-picture');
     });
 
 // login routes

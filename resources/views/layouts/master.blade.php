@@ -47,6 +47,7 @@
   {{-- Help Modal JavaScript --}}
   @include('components.help-modal')
   @include('js.help-modal')
+  @include('components.profile-settings-modal')
 @endif
     </body>
 </html>

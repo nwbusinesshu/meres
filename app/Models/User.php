@@ -35,6 +35,7 @@ class User extends Authenticatable
         'password',  // Note: setPasswordAttribute handles hashing
         'locale',
         'profile_pic',
+        'oauth_profile_pic',
     ];
     
     protected $hidden = [
@@ -273,5 +274,20 @@ public function hasProfilePic(): bool
     return !empty($this->profile_pic) && 
            file_exists(public_path('uploads/profile_pics/' . $this->profile_pic));
 }
+
+ public function getOAuthProfilePicUrlAttribute(): ?string
+    {
+        if (empty($this->oauth_profile_pic)) {
+            return null;
+        }
+        
+        return asset('uploads/profile_pics/' . $this->oauth_profile_pic);
+    }
+    
+    public function hasOAuthProfilePic(): bool
+    {
+        return !empty($this->oauth_profile_pic) && 
+               file_exists(public_path('uploads/profile_pics/' . $this->oauth_profile_pic));
+    }
 
 }

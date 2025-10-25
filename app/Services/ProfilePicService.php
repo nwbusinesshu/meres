@@ -18,7 +18,7 @@ class ProfilePicService
         'purple',
         'red',
         'rose',
-        'turquoise',
+        'turqoise',
         'yellow',
     ];
 
@@ -85,14 +85,16 @@ class ProfilePicService
     }
 
     /**
-     * Download and save profile pic from OAuth provider
-     * This is called during OAuth login (Google/Microsoft)
+     * Download and save OAuth profile pic SEPARATELY from user's chosen pic
      * 
-     * ✅ FIXED: Use cURL instead of file_get_contents (allow_url_fopen might be disabled)
+     * NEW LOGIC:
+     * - Downloads OAuth avatar to separate file: {user_id}_oauth.{extension}
+     * - Stores in oauth_profile_pic column (not profile_pic)
+     * - Only updates profile_pic if user has no pic yet (first login)
      * 
      * @param User $user
      * @param string|null $avatarUrl URL from OAuth provider
-     * @return bool Success status (false means keep existing pic)
+     * @return bool Success status
      */
     public static function downloadOAuthPicture(User $user, ?string $avatarUrl): bool
     {
@@ -105,7 +107,7 @@ class ProfilePicService
         }
         
         try {
-            // ✅ FIX: Download the image using cURL instead of file_get_contents
+            // Download the image using cURL
             $ch = curl_init($avatarUrl);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
@@ -150,34 +152,42 @@ class ProfilePicService
                 mkdir($targetDir, 0755, true);
             }
             
-            // Delete old profile pic if it exists
-            if ($user->profile_pic) {
-                $oldPath = $targetDir . '/' . $user->profile_pic;
-                if (file_exists($oldPath)) {
-                    @unlink($oldPath);
+            // Delete old OAuth pic if it exists
+            if ($user->oauth_profile_pic) {
+                $oldOAuthPath = $targetDir . '/' . $user->oauth_profile_pic;
+                if (file_exists($oldOAuthPath)) {
+                    @unlink($oldOAuthPath);
                 }
             }
             
-            // Save new image
-            $filename = "{$user->id}.{$extension}";
-            $targetPath = $targetDir . '/' . $filename;
+            // Save OAuth image with separate filename
+            $oauthFilename = "{$user->id}_oauth.{$extension}";
+            $oauthTargetPath = $targetDir . '/' . $oauthFilename;
             
-            if (file_put_contents($targetPath, $imageContent) === false) {
+            if (file_put_contents($oauthTargetPath, $imageContent) === false) {
                 Log::error('profile_pic.oauth_save_failed', [
                     'user_id' => $user->id,
-                    'path' => $targetPath
+                    'path' => $oauthTargetPath
                 ]);
                 return false;
             }
             
-            // Update user record
-            $user->profile_pic = $filename;
+            // Update oauth_profile_pic column
+            $user->oauth_profile_pic = $oauthFilename;
+            
+            // Only update active profile_pic if user has none (first OAuth login)
+            if (empty($user->profile_pic)) {
+                $user->profile_pic = $oauthFilename;
+            }
+            
             $user->save();
             
             Log::info('profile_pic.oauth_downloaded', [
                 'user_id' => $user->id,
-                'filename' => $filename,
-                'mime_type' => $mimeType
+                'oauth_filename' => $oauthFilename,
+                'active_filename' => $user->profile_pic,
+                'mime_type' => $mimeType,
+                'is_first_login' => empty($user->profile_pic)
             ]);
             
             return true;
@@ -208,6 +218,21 @@ class ProfilePicService
     }
 
     /**
+     * Get the full URL of a user's OAuth profile picture
+     * 
+     * @param User|null $user
+     * @return string|null Full URL or null if no OAuth pic
+     */
+    public static function getOAuthProfilePicUrl(?User $user): ?string
+    {
+        if (!$user || !$user->oauth_profile_pic) {
+            return null;
+        }
+        
+        return asset('uploads/profile_pics/' . $user->oauth_profile_pic);
+    }
+
+    /**
      * Check if user has a profile picture
      * 
      * @param User $user
@@ -217,5 +242,156 @@ class ProfilePicService
     {
         return !empty($user->profile_pic) && 
                file_exists(public_path('uploads/profile_pics/' . $user->profile_pic));
+    }
+
+    /**
+     * Check if user has an OAuth profile picture
+     * 
+     * @param User $user
+     * @return bool
+     */
+    public static function hasOAuthProfilePic(User $user): bool
+    {
+        return !empty($user->oauth_profile_pic) && 
+               file_exists(public_path('uploads/profile_pics/' . $user->oauth_profile_pic));
+    }
+
+    /**
+     * Get all available profile pic options for a user
+     * Returns array with monster colors and oauth pic if exists
+     * 
+     * @param User $user
+     * @return array
+     */
+    public static function getAvailableProfilePics(User $user): array
+    {
+        $options = [];
+        
+        // Add all monster colors
+        foreach (self::MONSTER_COLORS as $color) {
+            $options[] = [
+                'type' => 'monster',
+                'color' => $color,
+                'filename' => "monster-profile-pic-{$color}.svg",
+                'url' => asset("assets/img/monster_profiles/monster-profile-pic-{$color}.svg"),
+            ];
+        }
+        
+        // Add OAuth pic if exists
+        if (self::hasOAuthProfilePic($user)) {
+            $options[] = [
+                'type' => 'oauth',
+                'color' => null,
+                'filename' => $user->oauth_profile_pic,
+                'url' => self::getOAuthProfilePicUrl($user),
+            ];
+        }
+        
+        return $options;
+    }
+
+    /**
+     * Update user's active profile pic
+     * Can choose from monster colors or OAuth pic
+     * 
+     * @param User $user
+     * @param string $type 'monster' or 'oauth'
+     * @param string|null $color Monster color (if type is 'monster')
+     * @return bool Success status
+     */
+    public static function updateProfilePic(User $user, string $type, ?string $color = null): bool
+    {
+        try {
+            $targetDir = public_path('uploads/profile_pics');
+            
+            if ($type === 'monster') {
+                // Validate color
+                if (!in_array($color, self::MONSTER_COLORS)) {
+                    Log::error('profile_pic.invalid_color', [
+                        'user_id' => $user->id,
+                        'color' => $color
+                    ]);
+                    return false;
+                }
+                
+                // Copy monster pic to user's active profile pic
+                $sourcePath = public_path("assets/img/monster_profiles/monster-profile-pic-{$color}.svg");
+                $targetPath = $targetDir . "/{$user->id}.svg";
+                
+                if (!file_exists($sourcePath)) {
+                    Log::error('profile_pic.monster_not_found', [
+                        'user_id' => $user->id,
+                        'color' => $color
+                    ]);
+                    return false;
+                }
+                
+                // Delete old active pic if it exists and it's not the OAuth pic
+                if ($user->profile_pic && $user->profile_pic !== $user->oauth_profile_pic) {
+                    $oldPath = $targetDir . '/' . $user->profile_pic;
+                    if (file_exists($oldPath)) {
+                        @unlink($oldPath);
+                    }
+                }
+                
+                if (!copy($sourcePath, $targetPath)) {
+                    Log::error('profile_pic.copy_failed', [
+                        'user_id' => $user->id,
+                        'source' => $sourcePath,
+                        'target' => $targetPath
+                    ]);
+                    return false;
+                }
+                
+                $user->profile_pic = "{$user->id}.svg";
+                
+            } elseif ($type === 'oauth') {
+                // Switch to OAuth pic
+                if (!self::hasOAuthProfilePic($user)) {
+                    Log::error('profile_pic.no_oauth_pic', [
+                        'user_id' => $user->id
+                    ]);
+                    return false;
+                }
+                
+                // Delete old active pic if it exists and it's not the OAuth pic
+                if ($user->profile_pic && $user->profile_pic !== $user->oauth_profile_pic) {
+                    $oldPath = $targetDir . '/' . $user->profile_pic;
+                    if (file_exists($oldPath)) {
+                        @unlink($oldPath);
+                    }
+                }
+                
+                // Point to OAuth pic
+                $user->profile_pic = $user->oauth_profile_pic;
+                
+            } else {
+                Log::error('profile_pic.invalid_type', [
+                    'user_id' => $user->id,
+                    'type' => $type
+                ]);
+                return false;
+            }
+            
+            $user->save();
+            
+            Log::info('profile_pic.updated', [
+                'user_id' => $user->id,
+                'type' => $type,
+                'color' => $color,
+                'filename' => $user->profile_pic
+            ]);
+            
+            return true;
+            
+        } catch (\Exception $e) {
+            Log::error('profile_pic.update_error', [
+                'user_id' => $user->id,
+                'type' => $type,
+                'color' => $color,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
     }
 }
