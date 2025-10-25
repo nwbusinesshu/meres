@@ -10,14 +10,14 @@
       </a>
     </div>
 
-    {{-- THEME TOGGLE BUTTON --}}
-    <button id="theme-toggle-btn" class="footer-theme-toggle" title="{{ __('global.theme-toggle-title') }}" aria-label="{{ __('global.theme-toggle-aria') }}">
+    {{-- THEME TOGGLE BUTTON - NEEDS REFINEMENT  --}}
+    {{-- <button id="theme-toggle-btn" class="footer-theme-toggle" title="{{ __('global.theme-toggle-title') }}" aria-label="{{ __('global.theme-toggle-aria') }}">
       <i class="fa fa-sun theme-icon-light"></i>
       <i class="fa fa-moon theme-icon-dark"></i>
-    </button>
+    </button> --}}
 
-    {{-- NYELVVÁLASZTÓ --}}
-    <form method="POST" action="{{ route('locale.set') }}" id="footer-locale-form" class="footer-lang">
+    {{-- NYELVVÁLASZTÓ - REMOVED FOR TEST RUN --}}
+    {{--<form method="POST" action="{{ route('locale.set') }}" id="footer-locale-form" class="footer-lang">
         @csrf
         <input type="hidden" name="redirect" value="{{ url()->current() }}">
         <select name="locale" id="footer-locale" class="footer-lang__select">
@@ -27,7 +27,7 @@
                 </option>
             @endforeach
         </select>
-    </form>
+    </form> --}}
   </div>
 
   {{-- LANGUAGE SELECTOR JS --}}
@@ -43,7 +43,7 @@
   </script>
 
   {{-- THEME TOGGLE JS --}}
-  <script>
+  {{--<script>
     (function() {
       const themeToggleBtn = document.getElementById('theme-toggle-btn');
       const htmlElement = document.documentElement;
@@ -77,5 +77,5 @@
         });
       }
     })();
-  </script>
+  </script>--}}
 </footer>

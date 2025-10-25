@@ -21,6 +21,16 @@ class Kernel extends ConsoleKernel
             UserService::handleNewMonthLevels();
         })->monthly();
         
+        // Clean up old user login records daily at 2 AM
+        $schedule->command('user-logins:cleanup --days=30')
+            ->dailyAt('02:00')
+            ->onSuccess(function () {
+                \Log::info('user_logins.cleanup.scheduled.success');
+            })
+            ->onFailure(function () {
+                \Log::error('user_logins.cleanup.scheduled.failed');
+            });
+        
         // Clean up old webhook events daily at 3 AM
         $schedule->command('webhook:cleanup --days=30')
             ->dailyAt('03:00')

@@ -6,6 +6,8 @@ use App\Models\HelpChatSession;
 use App\Models\HelpChatMessage;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+
 
 class HelpChatService
 {
@@ -677,6 +679,9 @@ class HelpChatService
         // ✅ Add assessment status context
         $prompt .= $this->getAssessmentStatus();
         $prompt .= "\n";
+
+        $prompt .= $this->getPaymentStatus();
+        $prompt .= "\n";
         
         // Load global index (always)
         $globalIndex = $this->loadGlobalIndex($locale);
@@ -739,4 +744,88 @@ class HelpChatService
 
         return $messages;
     }
+
+    /**
+ * Get payment status information for AI context
+ * 
+ * @return string
+ */
+private function getPaymentStatus(): string
+{
+    try {
+        $orgId = session('org_id');
+        
+        if (!$orgId) {
+            return "=== PAYMENT STATUS ===\nPayment information not available (no organization context).\n\n";
+        }
+        
+        // Get open payments
+        $openPayments = DB::table('payments')
+            ->where('organization_id', $orgId)
+            ->whereIn('status', ['initial', 'pending'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        $summary = "=== PAYMENT STATUS ===\n\n";
+        
+        if ($openPayments->isEmpty()) {
+            $summary .= "**Status:** ALL PAYMENTS SETTLED ✅\n\n";
+            $summary .= "  - No outstanding payments\n";
+            $summary .= "  - Organization has full system access\n";
+            $summary .= "  - Can start and close assessments\n";
+        } else {
+            $summary .= "**Status:** {$openPayments->count()} OPEN PAYMENT(S) ⚠️\n\n";
+            
+            $totalAmount = 0;
+            $hasInitial = false;
+            $hasAssessment = false;
+            
+            foreach ($openPayments as $index => $payment) {
+                $num = $index + 1;
+                $totalAmount += $payment->amount_huf;
+                
+                // Determine payment type
+                $isInitial = ($payment->status === 'initial' || $payment->assessment_id === null);
+                
+                if ($isInitial) {
+                    $hasInitial = true;
+                    $summary .= "{$num}. **Initial Setup Payment**\n";
+                    $summary .= "   - Amount: " . number_format($payment->amount_huf, 0, ',', ' ') . " HUF\n";
+                    $summary .= "   - Status: INITIAL (first login payment required)\n";
+                    $summary .= "   - Created: " . \Carbon\Carbon::parse($payment->created_at)->format('Y-m-d') . "\n";
+                    $summary .= "   - **Impact:** System access may be limited until paid\n\n";
+                } else {
+                    $hasAssessment = true;
+                    $summary .= "{$num}. **Assessment Payment**\n";
+                    $summary .= "   - Amount: " . number_format($payment->amount_huf, 0, ',', ' ') . " HUF\n";
+                    $summary .= "   - Status: PENDING\n";
+                    $summary .= "   - Related to: Assessment #{$payment->assessment_id}\n";
+                    $summary .= "   - Created: " . \Carbon\Carbon::parse($payment->created_at)->format('Y-m-d') . "\n";
+                    $summary .= "   - **Impact:** Assessment cannot start until paid\n\n";
+                }
+            }
+            
+            $summary .= "**Total Outstanding:** " . number_format($totalAmount, 0, ',', ' ') . " HUF\n\n";
+            
+            $summary .= "**Important Notes:**\n";
+            if ($hasInitial) {
+                $summary .= "  - Initial payment must be completed to unlock full system features\n";
+            }
+            if ($hasAssessment) {
+                $summary .= "  - Assessment payments are required to be paid before closing assessment periods.\n";
+            }
+            $summary .= "  - Payments can be made from the Admin → Payments page\n";
+        }
+        
+        $summary .= "\n---\n";
+        
+        return $summary;
+        
+    } catch (\Exception $e) {
+        Log::error('Failed to load payment status for help chat', [
+            'error' => $e->getMessage()
+        ]);
+        return "=== PAYMENT STATUS ===\nPayment information could not be loaded.\n\n";
+    }
+}
 }

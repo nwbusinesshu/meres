@@ -187,6 +187,10 @@ button.swal2-styled{
   align-items: center;
 }
 
+.swal2-container:has(.swal2-loader-popup) {
+  z-index: 990 !important;
+}
+
 /* ========== SWAL2 CUSTOM STYLING ========== */
 /* Remove border radius from popup */
 .swal2-popup {

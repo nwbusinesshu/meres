@@ -18,7 +18,7 @@ $(document).ready(function() {
   let currentUserRole = '';
   let currentLocale = '';
   let currentPageTitle = '';
-  let currentActiveTab = 'about-page';
+  let currentActiveTab = 'ai-support';
   let currentSessionId = null;
   let isSendingMessage = false;
   let conversationListOpen = false;

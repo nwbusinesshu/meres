@@ -355,7 +355,6 @@
 
 /* Ensure pie chart container is clean */
 .pie {
-  font-family: 'Kanit', sans-serif;
   position: relative;
   display: flex;
   align-items: center;

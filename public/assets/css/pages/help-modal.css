@@ -1007,10 +1007,6 @@ body.help-no-transition .page-container,
     font-size: 1.25rem;
   }
 
-  .help-tab-content {
-    padding: 1rem;
-  }
-
   .help-bubble-content {
     max-width: 90%;
   }

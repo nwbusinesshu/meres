@@ -2,7 +2,6 @@
 @extends('layouts.master')
 
 @section('head-extra')
-  <link rel="stylesheet" href="{{ asset('css/admin.results.css') }}">
 @endsection
 
 @section('content')

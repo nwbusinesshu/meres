@@ -87,6 +87,8 @@ class ContentSecurityPolicy
                 "https://www.google.com",              // reCAPTCHA
                 "https://www.gstatic.com",             // reCAPTCHA
                 "https://www.recaptcha.net",           // reCAPTCHA alternative domain
+                "https://www.clarity.ms",               //Clarity
+                "https://scripts.clarity.ms",
             ]),
             
             // Styles: self + inline styles (needed for Blade and CSS-in-JS)
@@ -130,6 +132,8 @@ class ContentSecurityPolicy
                 "https://cdnjs.cloudflare.com",        // CDN resources
                 "https://cdn.jsdelivr.net",            // jsDelivr CDN
                 "https://ka-f.fontawesome.com",        // Font Awesome analytics
+                "https://c.clarity.ms",                // MS Clarity
+                "https://l.clarity.ms/collect",
             ]),
             
             // Frames: self only + reCAPTCHA

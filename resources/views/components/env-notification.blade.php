@@ -19,7 +19,7 @@
     left: 0;
     right: 0;
     height: 25px;
-    z-index: 2;
+    z-index: 1000;
     display: flex;
     align-items: center;
     justify-content: center;

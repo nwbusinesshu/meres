@@ -37,13 +37,16 @@
       {{-- Cookie Consent Banner (shows when needed) --}}
       @include('components.cookie-banner')
 
-      <a href="#" class="floating-help-btn" title="{{ __('login.help') }}">
+      {{-- Help System (only for logged-in users) --}}
+@if(MyAuth::isAuthorized(UserType::NORMAL) && !isset($exception))
+  <a href="#" class="floating-help-btn" title="{{ __('login.help') }}">
     <span class="icon">?</span>
     <span class="help-label">{{ __('login.help_center') }}</span>
-</a>
+  </a>
 
-      {{-- Help Modal JavaScript (NEW) --}}
-      @include('components.help-modal')
-      @include('js.help-modal')
+  {{-- Help Modal JavaScript --}}
+  @include('components.help-modal')
+  @include('js.help-modal')
+@endif
     </body>
 </html>
