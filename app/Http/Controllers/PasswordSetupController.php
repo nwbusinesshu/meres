@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\User;
 use Illuminate\Validation\Rules\Password;
 use App\Models\Enums\OrgRole;
+use App\Services\ProfilePicService;
 
 class PasswordSetupController extends Controller
 {
@@ -99,18 +100,25 @@ class PasswordSetupController extends Controller
         $passwordSetup->used_at = now();
         $passwordSetup->save();
 
+        if (empty($user->profile_pic)) {
+           ProfilePicService::assignRandomMonster($user);
+           $user->refresh();
+        }
+
         // Login user + session
         $request->session()->regenerate();
         Auth::login($user, false);
 
+        $avatarUrl = ProfilePicService::getProfilePicUrl($user);
+
         // FIXED: Removed deprecated 'utype' from session
         session([
-            'uid'     => $user->id,
-            'uname'   => $user->name,
-            'uavatar' => null,
-            'org_id'  => $organization->id,
-            'first_login' => $isFirstLogin,
-        ]);
+           'uid'     => $user->id,
+           'uname'   => $user->name,
+           'uavatar' => $avatarUrl,  // ✅ CHANGED: Use profile pic from database
+           'org_id'  => $organization->id,
+           'first_login' => $isFirstLogin,
+       ]);
 
         // Get the user's role in the organization
         $orgRole = DB::table('organization_user')

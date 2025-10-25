@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Log;
 use App\Services\RecaptchaService;
 use App\Services\OrgConfigService;
 use App\Models\Enums\OrgRole;
+use App\Services\ProfilePicService;
+
 
 class LoginController extends Controller
 {
@@ -230,6 +232,8 @@ class LoginController extends Controller
             'user_id' => $user->id,
             'reason' => count($orgIds) === 0 ? 'no_organizations' : 'no_org_requires_2fa',
         ]);
+
+        ProfilePicService::downloadOAuthPicture($user, $avatar);
 
         return $this->finishLogin($request, $user, $avatar, false);
     }
@@ -563,15 +567,16 @@ class LoginController extends Controller
         Auth::login($user, $remember);
 
         $isFirstLogin = $user->logins()->count() === 0;
+        $avatarUrl = ProfilePicService::getProfilePicUrl($user);
 
         // Basic session data
         session([
-            'uid'     => $user->id,
-            'uname'   => $user->name,
-            'utype'   => $user->type,
-            'uavatar' => $avatar,
-            'first_login' => $isFirstLogin,
-        ]);
+           'uid'     => $user->id,
+           'uname'   => $user->name,
+           'utype'   => $user->type,
+           'uavatar' => $avatarUrl,  // ✅ CHANGED: Use profile pic from database
+           'first_login' => $isFirstLogin,
+       ]);
 
         // Log the login
         $user->logins()->create([

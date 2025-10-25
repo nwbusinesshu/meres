@@ -62,6 +62,8 @@ class EmployeeCreationService
             'user_type' => 'normal',
             'org_role' => $role
         ]);
+
+        ProfilePicService::assignRandomMonster($user);
         
         // 2) Attach to organization (use syncWithoutDetaching for idempotency)
         $user->organizations()->syncWithoutDetaching([$orgId]);
