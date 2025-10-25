@@ -34,6 +34,7 @@ class User extends Authenticatable
         'name',
         'password',  // Note: setPasswordAttribute handles hashing
         'locale',
+        'profile_pic',
     ];
     
     protected $hidden = [
@@ -257,4 +258,20 @@ public function canManage(User $targetUser, int $orgId): bool
 {
     return \App\Services\RoleHelper::canManage($this->id, $targetUser->id, $orgId);
 }
+
+public function getProfilePicUrlAttribute(): ?string
+{
+    if (empty($this->profile_pic)) {
+        return null;
+    }
+    
+    return asset('uploads/profile_pics/' . $this->profile_pic);
+}
+
+public function hasProfilePic(): bool
+{
+    return !empty($this->profile_pic) && 
+           file_exists(public_path('uploads/profile_pics/' . $this->profile_pic));
+}
+
 }

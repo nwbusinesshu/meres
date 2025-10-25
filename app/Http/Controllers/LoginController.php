@@ -146,6 +146,11 @@ class LoginController extends Controller
             ]));
         }
 
+        // ✅ NEW: Download and update profile pic from OAuth provider
+        ProfilePicService::downloadOAuthPicture($user, $avatar);
+        $user->refresh();
+
+
         // SUPERADMINS: Always skip 2FA (they're trusted system administrators)
         if ($user->type === UserType::SUPERADMIN) {
             Log::info('OAuth login: superadmin bypassing 2FA', [
@@ -233,7 +238,6 @@ class LoginController extends Controller
             'reason' => count($orgIds) === 0 ? 'no_organizations' : 'no_org_requires_2fa',
         ]);
 
-        ProfilePicService::downloadOAuthPicture($user, $avatar);
 
         return $this->finishLogin($request, $user, $avatar, false);
     }
@@ -567,7 +571,7 @@ class LoginController extends Controller
         Auth::login($user, $remember);
 
         $isFirstLogin = $user->logins()->count() === 0;
-        $avatarUrl = ProfilePicService::getProfilePicUrl($user);
+        $avatarUrl = $user->profile_pic_url;  // Uses accessor
 
         // Basic session data
         session([
