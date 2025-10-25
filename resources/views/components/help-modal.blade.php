@@ -24,6 +24,11 @@
           <i class="fa fa-comments"></i>
           <span>{{ __('help.tab-ai-support') }}</span>
         </button>
+        {{-- ✅ NEW: Support Tickets Tab --}}
+        <button class="help-tab" data-tab="support-tickets">
+          <i class="fa fa-ticket-alt"></i>
+          <span>{{ __('support.tab-title') }}</span>
+        </button>
       </div>
 
       {{-- Modal Body --}}
@@ -90,6 +95,88 @@
             </div>
 
           </div>
+        </div>
+
+        {{-- ✅ NEW: Support Tickets Tab Content --}}
+        <div class="help-tab-content" id="help-tab-support-tickets">
+          
+          {{-- Tickets Toolbar --}}
+          <div class="help-tickets-toolbar">
+            <button class="help-new-ticket-btn" title="{{ __('support.new-ticket') }}">
+              <i class="fa fa-plus"></i>
+              <span>{{ __('support.create-ticket') }}</span>
+            </button>
+          </div>
+
+          {{-- Tickets List View --}}
+          <div class="help-tickets-list-view">
+            <div class="help-tickets-list">
+              <div class="help-loading">
+                <i class="fa fa-spinner fa-spin"></i>
+                <p>{{ __('support.loading-tickets') }}</p>
+              </div>
+            </div>
+          </div>
+
+          {{-- Ticket Detail View (hidden by default) --}}
+          <div class="help-ticket-detail-view" style="display: none;">
+            <div class="help-ticket-detail-header">
+              <button class="help-back-to-tickets-btn">
+                <i class="fa fa-arrow-left"></i>
+                <span>{{ __('support.back-to-list') }}</span>
+              </button>
+            </div>
+            <div class="help-ticket-detail-content">
+              {{-- Ticket messages will be loaded here --}}
+            </div>
+            <div class="help-ticket-reply-container">
+              <div class="help-ticket-reply-wrapper">
+                <textarea 
+                  class="help-ticket-reply-input" 
+                  placeholder="{{ __('support.reply-placeholder') }}" 
+                  rows="1"
+                ></textarea>
+                <button class="help-ticket-reply-send">
+                  <i class="fa fa-paper-plane"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {{-- New Ticket Form (hidden by default) --}}
+          <div class="help-new-ticket-form" style="display: none;">
+            <div class="help-new-ticket-header">
+              <button class="help-cancel-ticket-btn">
+                <i class="fa fa-arrow-left"></i>
+                <span>{{ __('support.back-to-list') }}</span>
+              </button>
+              <h4>{{ __('support.new-ticket') }}</h4>
+            </div>
+            <div class="help-new-ticket-body">
+              <div class="form-group">
+                <label>{{ __('support.title') }}</label>
+                <input type="text" class="form-control ticket-title-input" placeholder="{{ __('support.title-placeholder') }}">
+              </div>
+              <div class="form-group">
+                <label>{{ __('support.priority') }}</label>
+                <select class="form-control ticket-priority-select">
+                  <option value="low">{{ __('support.priority-low') }}</option>
+                  <option value="medium" selected>{{ __('support.priority-medium') }}</option>
+                  <option value="high">{{ __('support.priority-high') }}</option>
+                  <option value="urgent">{{ __('support.priority-urgent') }}</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>{{ __('support.message') }}</label>
+                <textarea class="form-control ticket-message-input" rows="5" placeholder="{{ __('support.message-placeholder') }}"></textarea>
+              </div>
+              <button class="btn btn-primary help-submit-ticket-btn">
+                <i class="fa fa-paper-plane"></i>
+                {{ __('support.create-ticket') }}
+              </button>
+            </div>
+          </div>
+
         </div>
 
       </div>

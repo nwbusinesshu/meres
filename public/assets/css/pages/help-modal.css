@@ -1165,3 +1165,451 @@ body.help-no-transition .page-container,
 .fa-pulse {
   animation: fa-pulse 2s ease-in-out infinite;
 }
+
+/* =======================================================================
+   SUPPORT TICKETS TAB
+   ======================================================================= */
+
+/* Tickets Toolbar */
+.help-tickets-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--light_border);
+  background-color: var(--dim);
+  transition: all 0.3s ease;
+}
+
+.help-new-ticket-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--light_border);
+  background-color: var(--info);
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-left: auto;
+}
+
+.help-new-ticket-btn:hover {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+
+.help-new-ticket-btn i {
+  font-size: 1rem;
+}
+
+/* Tickets List View */
+.help-tickets-list-view {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.help-tickets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.help-ticket-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--light_border);
+  background-color: var(--alabaster);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.help-ticket-item:hover {
+  background-color: var(--dim);
+  border-color: var(--info);
+}
+
+.help-ticket-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.help-ticket-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--outer_space);
+  margin: 0;
+  flex: 1;
+}
+
+.help-ticket-badges {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.help-ticket-badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.help-ticket-badge.status-open {
+  background-color: #28a745;
+  color: white;
+}
+
+.help-ticket-badge.status-in_progress {
+  background-color: #ffc107;
+  color: #000;
+}
+
+.help-ticket-badge.status-closed {
+  background-color: #6c757d;
+  color: white;
+}
+
+.help-ticket-badge.priority-low {
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+.help-ticket-badge.priority-medium {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.help-ticket-badge.priority-high {
+  background-color: #ff9800;
+  color: white;
+}
+
+.help-ticket-badge.priority-urgent {
+  background-color: #dc3545;
+  color: white;
+}
+
+.help-ticket-preview {
+  font-size: 0.85rem;
+  color: var(--silver_chalice);
+  margin: 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.help-ticket-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--silver_chalice);
+}
+
+.help-ticket-date {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.help-ticket-messages-count {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Ticket Detail View */
+.help-ticket-detail-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.help-ticket-detail-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--light_border);
+  background-color: var(--dim);
+}
+
+.help-back-to-tickets-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--light_border);
+  background-color: var(--alabaster);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--outer_space);
+}
+
+.help-back-to-tickets-btn:hover {
+  background-color: var(--dim);
+  border-color: var(--silver_chalice);
+}
+
+.help-ticket-detail-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.help-ticket-message {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.help-ticket-message.staff-reply {
+  flex-direction: row-reverse;
+}
+
+.help-ticket-message-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  background-color: var(--success);
+  color: white;
+}
+
+.help-ticket-message.staff-reply .help-ticket-message-icon {
+  background-color: var(--info);
+}
+
+.help-ticket-message-content {
+  flex: 1;
+  background-color: var(--dim);
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  max-width: 85%;
+}
+
+.help-ticket-message-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.help-ticket-message-user {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--outer_space);
+}
+
+.help-ticket-message-time {
+  font-size: 0.75rem;
+  color: var(--silver_chalice);
+}
+
+.help-ticket-message-text {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--outer_space);
+  white-space: pre-wrap;
+}
+
+/* Ticket Reply Container */
+.help-ticket-reply-container {
+  border-top: 1px solid var(--light_border);
+  padding: 1rem;
+  flex-shrink: 0;
+}
+
+.help-ticket-reply-wrapper {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
+.help-ticket-reply-input {
+  flex: 1;
+  border: 2px solid var(--light_border);
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  resize: none;
+  max-height: 120px;
+  transition: border-color 0.2s;
+  font-family: inherit;
+  background-color: var(--alabaster);
+  color: var(--outer_space);
+}
+
+.help-ticket-reply-input:focus {
+  outline: none;
+  border-color: var(--info);
+}
+
+.help-ticket-reply-input:disabled {
+  background-color: var(--dim);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.help-ticket-reply-send {
+  background-color: var(--info);
+  color: white;
+  border: none;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.help-ticket-reply-send:hover:not(:disabled) {
+  background-color: var(--primary);
+  transform: scale(1.05);
+}
+
+.help-ticket-reply-send:disabled {
+  background-color: var(--silver_chalice);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.help-ticket-reply-send i {
+  font-size: 1rem;
+}
+
+/* New Ticket Form */
+.help-new-ticket-form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.help-new-ticket-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--light_border);
+  background-color: var(--dim);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.help-new-ticket-header h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--outer_space);
+}
+
+.help-cancel-ticket-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--light_border);
+  background-color: var(--alabaster);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--outer_space);
+}
+
+.help-cancel-ticket-btn:hover {
+  background-color: var(--dim);
+  border-color: var(--silver_chalice);
+}
+
+.help-new-ticket-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.help-new-ticket-body .form-group {
+  margin-bottom: 1rem;
+}
+
+.help-new-ticket-body label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--outer_space);
+}
+
+.help-new-ticket-body .form-control {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--light_border);
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  background-color: var(--alabaster);
+  color: var(--outer_space);
+  transition: border-color 0.2s;
+}
+
+.help-new-ticket-body .form-control:focus {
+  outline: none;
+  border-color: var(--info);
+}
+
+.help-new-ticket-body textarea.form-control {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.help-submit-ticket-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  margin-top: 1rem;
+}
+
+.help-submit-ticket-btn i {
+  font-size: 1rem;
+}
+
+/* Empty states */
+.help-tickets-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--silver_chalice);
+}
+
+.help-tickets-empty i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: var(--silver_chalice);
+  opacity: 0.3;
+}
+
+.help-tickets-empty p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.help-tickets-empty p:first-of-type {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}

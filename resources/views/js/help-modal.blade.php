@@ -264,6 +264,412 @@ function checkFirstLogin() {
     }
   }
 
+
+  /* =======================================================================
+     SUPPORT TICKETS FUNCTIONALITY 
+     ======================================================================= */
+  
+  let currentTicketId = null;
+  let isSendingTicketReply = false;
+
+  /* Load Support Tickets Tab Content */
+  function loadSupportTicketsContent() {
+    showTicketsListView();
+    loadUserTickets();
+  }
+
+  /* Show tickets list view */
+  function showTicketsListView() {
+    $('.help-tickets-list-view').show();
+    $('.help-ticket-detail-view').hide();
+    $('.help-new-ticket-form').hide();
+    currentTicketId = null;
+  }
+
+  /* Load user's tickets */
+  function loadUserTickets() {
+    const $list = $('.help-tickets-list');
+    
+    $list.html(`
+      <div class="help-loading">
+        <i class="fa fa-spinner fa-spin"></i>
+        <p>{{ __('support.loading-tickets') }}</p>
+      </div>
+    `);
+    
+    $.ajax({
+      url: '{{ route("support.tickets.list") }}',
+      method: 'GET',
+      success: function(response) {
+        if (response.success && response.tickets) {
+          if (response.tickets.length === 0) {
+            $list.html(`
+              <div class="help-tickets-empty">
+                <i class="fa fa-inbox"></i>
+                <p><strong>{{ __('support.no-tickets') }}</strong></p>
+                <p>{{ __('support.no-tickets-desc') }}</p>
+              </div>
+            `);
+          } else {
+            renderTicketsList(response.tickets);
+          }
+        }
+      },
+      error: function(xhr) {
+        $list.html(`
+          <div class="help-error-state">
+            <i class="fa fa-exclamation-triangle"></i>
+            <p>{{ __('support.error-loading-tickets') }}</p>
+          </div>
+        `);
+        
+        if (isDebugMode) {
+          console.error('[Support Tickets] Load error:', xhr);
+        }
+      }
+    });
+  }
+
+  /* Render tickets list */
+  function renderTicketsList(tickets) {
+    const $list = $('.help-tickets-list');
+    $list.empty();
+    
+    tickets.forEach(function(ticket) {
+      const statusClass = `status-${ticket.status}`;
+      const priorityClass = `priority-${ticket.priority}`;
+      const statusText = getStatusText(ticket.status);
+      const priorityText = getPriorityText(ticket.priority);
+      const date = formatTicketDate(ticket.created_at);
+      
+      const $item = $(`
+        <div class="help-ticket-item" data-ticket-id="${ticket.id}">
+          <div class="help-ticket-header">
+            <h4 class="help-ticket-title">${escapeHtml(ticket.title)}</h4>
+            <div class="help-ticket-badges">
+              <span class="help-ticket-badge ${statusClass}">${statusText}</span>
+              <span class="help-ticket-badge ${priorityClass}">${priorityText}</span>
+            </div>
+          </div>
+          ${ticket.last_message ? `<p class="help-ticket-preview">${escapeHtml(ticket.last_message)}</p>` : ''}
+          <div class="help-ticket-footer">
+            <span class="help-ticket-date">
+              <i class="fa fa-clock"></i> ${date}
+            </span>
+            <span class="help-ticket-messages-count">
+              <i class="fa fa-comments"></i> ${ticket.message_count} {{ __('support.messages-count') }}
+            </span>
+          </div>
+        </div>
+      `);
+      
+      $list.append($item);
+    });
+  }
+
+  /* Load ticket details */
+  function loadTicketDetails(ticketId) {
+    currentTicketId = ticketId;
+    
+    const $content = $('.help-ticket-detail-content');
+    $content.html(`
+      <div class="help-loading">
+        <i class="fa fa-spinner fa-spin"></i>
+        <p>{{ __('help.loading') }}</p>
+      </div>
+    `);
+    
+    $('.help-tickets-list-view').hide();
+    $('.help-ticket-detail-view').show();
+    
+    $.ajax({
+      url: `/support-tickets/${ticketId}`,
+      method: 'GET',
+      success: function(response) {
+        if (response.success && response.ticket) {
+          renderTicketDetails(response.ticket);
+        }
+      },
+      error: function(xhr) {
+        $content.html(`
+          <div class="help-error-state">
+            <i class="fa fa-exclamation-triangle"></i>
+            <p>{{ __('support.error-load') }}</p>
+          </div>
+        `);
+        
+        if (isDebugMode) {
+          console.error('[Support Tickets] Load ticket error:', xhr);
+        }
+      }
+    });
+  }
+
+  /* Render ticket details */
+  function renderTicketDetails(ticket) {
+    const $content = $('.help-ticket-detail-content');
+    $content.empty();
+    
+    ticket.messages.forEach(function(msg) {
+      const isStaff = msg.is_staff_reply;
+      const messageClass = isStaff ? 'staff-reply' : '';
+      const icon = isStaff ? 'fa-user-shield' : 'fa-user';
+      
+      const $message = $(`
+        <div class="help-ticket-message ${messageClass}">
+          <div class="help-ticket-message-icon">
+            <i class="fa ${icon}"></i>
+          </div>
+          <div class="help-ticket-message-content">
+            <div class="help-ticket-message-header">
+              <span class="help-ticket-message-user">${escapeHtml(msg.user_name)}</span>
+              <span class="help-ticket-message-time">${formatTicketDate(msg.created_at)}</span>
+            </div>
+            <p class="help-ticket-message-text">${escapeHtml(msg.message)}</p>
+          </div>
+        </div>
+      `);
+      
+      $content.append($message);
+    });
+    
+    // Scroll to bottom
+    $content.scrollTop($content[0].scrollHeight);
+    
+    // Disable reply if ticket is closed
+    if (ticket.status === 'closed') {
+      $('.help-ticket-reply-input').prop('disabled', true);
+      $('.help-ticket-reply-send').prop('disabled', true);
+    } else {
+      $('.help-ticket-reply-input').prop('disabled', false);
+      $('.help-ticket-reply-send').prop('disabled', false);
+    }
+  }
+
+  /* Send ticket reply */
+  function sendTicketReply() {
+    if (isSendingTicketReply || !currentTicketId) return;
+    
+    const $input = $('.help-ticket-reply-input');
+    const message = $input.val().trim();
+    
+    if (!message) return;
+    
+    isSendingTicketReply = true;
+    $input.prop('disabled', true);
+    $('.help-ticket-reply-send').prop('disabled', true);
+    
+    $.ajax({
+      url: `/support-tickets/${currentTicketId}/reply`,
+      method: 'POST',
+      data: {
+        message: message,
+        _token: '{{ csrf_token() }}'
+      },
+      success: function(response) {
+        if (response.success && response.message) {
+          // Add new message to view
+          const msg = response.message;
+          const $content = $('.help-ticket-detail-content');
+          
+          const $newMessage = $(`
+            <div class="help-ticket-message">
+              <div class="help-ticket-message-icon">
+                <i class="fa fa-user"></i>
+              </div>
+              <div class="help-ticket-message-content">
+                <div class="help-ticket-message-header">
+                  <span class="help-ticket-message-user">${escapeHtml(msg.user_name)}</span>
+                  <span class="help-ticket-message-time">{{ __('support.just-now') }}</span>
+                </div>
+                <p class="help-ticket-message-text">${escapeHtml(msg.message)}</p>
+              </div>
+            </div>
+          `);
+          
+          $content.append($newMessage);
+          $content.scrollTop($content[0].scrollHeight);
+          
+          // Clear input
+          $input.val('');
+          $input.css('height', 'auto');
+        }
+      },
+      error: function(xhr) {
+        let errorMessage = '{{ __("support.error-reply") }}';
+        if (xhr.responseJSON && xhr.responseJSON.error) {
+          errorMessage = xhr.responseJSON.error;
+        }
+        
+        Swal.fire({
+          icon: 'error',
+          title: '{{ __("global.error") }}',
+          text: errorMessage
+        });
+        
+        if (isDebugMode) {
+          console.error('[Support Tickets] Reply error:', xhr);
+        }
+      },
+      complete: function() {
+        isSendingTicketReply = false;
+        $input.prop('disabled', false);
+        $('.help-ticket-reply-send').prop('disabled', false);
+        $input.focus();
+      }
+    });
+  }
+
+  /* Show new ticket form */
+  function showNewTicketForm() {
+    $('.help-tickets-list-view').hide();
+    $('.help-ticket-detail-view').hide();
+    $('.help-new-ticket-form').show();
+    
+    // Clear form
+    $('.ticket-title-input').val('');
+    $('.ticket-priority-select').val('medium');
+    $('.ticket-message-input').val('');
+  }
+
+  /* Create new ticket */
+  function createNewTicket() {
+    const title = $('.ticket-title-input').val().trim();
+    const priority = $('.ticket-priority-select').val();
+    const message = $('.ticket-message-input').val().trim();
+    
+    if (!title) {
+      Swal.fire({
+        icon: 'warning',
+        title: '{{ __("global.warning") }}',
+        text: '{{ __("support.title") }} {{ __("global.required") }}'
+      });
+      return;
+    }
+    
+    if (!message) {
+      Swal.fire({
+        icon: 'warning',
+        title: '{{ __("global.warning") }}',
+        text: '{{ __("support.message") }} {{ __("global.required") }}'
+      });
+      return;
+    }
+    
+    swal_loader.fire();
+    
+    $.ajax({
+      url: '{{ route("support.tickets.create") }}',
+      method: 'POST',
+      data: {
+        title: title,
+        priority: priority,
+        message: message,
+        _token: '{{ csrf_token() }}'
+      },
+      success: function(response) {
+        if (response.success && response.ticket) {
+          Swal.fire({
+            icon: 'success',
+            title: '{{ __("global.success") }}',
+            text: '{{ __("support.ticket-created") }}',
+            timer: 2000
+          });
+          
+          showTicketsListView();
+          loadUserTickets();
+        }
+      },
+      error: function(xhr) {
+        let errorMessage = '{{ __("support.error-create") }}';
+        if (xhr.responseJSON && xhr.responseJSON.error) {
+          errorMessage = xhr.responseJSON.error;
+        }
+        
+        Swal.fire({
+          icon: 'error',
+          title: '{{ __("global.error") }}',
+          text: errorMessage
+        });
+        
+        if (isDebugMode) {
+          console.error('[Support Tickets] Create error:', xhr);
+        }
+      }
+    });
+  }
+
+  /* Utility functions for tickets */
+  function getStatusText(status) {
+    const statuses = {
+      'open': '{{ __("support.status-open") }}',
+      'in_progress': '{{ __("support.status-in_progress") }}',
+      'closed': '{{ __("support.status-closed") }}'
+    };
+    return statuses[status] || status;
+  }
+
+  function getPriorityText(priority) {
+    const priorities = {
+      'low': '{{ __("support.priority-low") }}',
+      'medium': '{{ __("support.priority-medium") }}',
+      'high': '{{ __("support.priority-high") }}',
+      'urgent': '{{ __("support.priority-urgent") }}'
+    };
+    return priorities[priority] || priority;
+  }
+
+  function formatTicketDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return '{{ __("support.just-now") }}';
+    if (diffMins < 60) return `${diffMins} {{ __("support.minutes-ago") }}`;
+    if (diffHours < 24) return `${diffHours} {{ __("support.hours-ago") }}`;
+    if (diffDays === 1) return '{{ __("support.yesterday") }}';
+    if (diffDays < 7) return `${diffDays} {{ __("support.days-ago") }}`;
+    
+    return date.toLocaleDateString();
+  }
+
+  /* Support Tickets Event Handlers */
+  $(document).on('click', '.help-new-ticket-btn', function() {
+    showNewTicketForm();
+  });
+
+  $(document).on('click', '.help-back-to-tickets-btn, .help-cancel-ticket-btn', function() {
+    showTicketsListView();
+    loadUserTickets();
+  });
+
+  $(document).on('click', '.help-ticket-item', function() {
+    const ticketId = $(this).data('ticket-id');
+    loadTicketDetails(ticketId);
+  });
+
+  $(document).on('click', '.help-ticket-reply-send', function() {
+    sendTicketReply();
+  });
+
+  $(document).on('keydown', '.help-ticket-reply-input', function(e) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      sendTicketReply();
+    }
+  });
+
+  $(document).on('input', '.help-ticket-reply-input', function() {
+    autoResizeTextarea(this);
+  });
+
+  $(document).on('click', '.help-submit-ticket-btn', function() {
+    createNewTicket();
+  });
+
   /* =======================================================================
      CONTENT LOADING
      ======================================================================= */
@@ -275,6 +681,8 @@ function checkFirstLogin() {
       loadAboutPageContent();
     } else if (activeTab === 'ai-support') {
       loadAiSupportContent();
+    } else if (activeTab === 'support-tickets') {
+      loadSupportTicketsContent();
     }
   }
 

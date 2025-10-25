@@ -30,6 +30,8 @@ use App\Http\Controllers\CookieConsentController;
 use App\Http\Controllers\HelpChatController;
 use App\Http\Controllers\AdminBonusesController;
 use App\Http\Controllers\AdminEmployeeImportController;
+use App\Http\Controllers\SupportTicketController;
+use App\Http\Controllers\SuperadminTicketController;
 
 
 //locale
@@ -57,6 +59,18 @@ Route::controller(HelpChatController::class)
         Route::get('/chat/session/{sessionId}', 'loadSession')->name('chat.session');
         Route::post('/chat/session/new', 'createSession')->name('chat.session.new');
         Route::delete('/chat/session/{sessionId}', 'deleteSession')->name('chat.session.delete');
+    });
+
+// SUPPORT TICKET ROUTES - USER SIDE
+Route::controller(SupportTicketController::class)
+    ->prefix('/support-tickets')
+    ->middleware(['auth:'.UserType::NORMAL])
+    ->name('support.')
+    ->group(function(){
+        Route::get('/list', 'getUserTickets')->name('tickets.list');
+        Route::get('/{ticketId}', 'loadTicket')->name('tickets.load');
+        Route::post('/create', 'createTicket')->name('tickets.create');
+        Route::post('/{ticketId}/reply', 'replyToTicket')->name('tickets.reply');
     });
 
 // login routes
@@ -340,6 +354,21 @@ Route::prefix('superadmin/competency')
     });
     
 Route::get('/superadmin/global-competencies', [GlobalCompetencyController::class, 'index'])->name('superadmin.global-competencies');
+
+// SUPPORT TICKET ROUTES - SUPERADMIN SIDE
+Route::controller(SuperadminTicketController::class)
+    ->prefix('/superadmin/tickets')
+    ->middleware(['auth:' . UserType::SUPERADMIN])
+    ->name('superadmin.tickets.')
+    ->group(function(){
+        Route::get('/index', 'index')->name('index');
+        Route::get('/all', 'getAllTickets')->name('all');
+        Route::get('/{ticketId}', 'getTicketDetails')->name('details');
+        Route::post('/{ticketId}/reply', 'replyToTicket')->name('reply');
+        Route::post('/{ticketId}/close', 'closeTicket')->name('close');
+        Route::post('/{ticketId}/reopen', 'reopenTicket')->name('reopen');
+        Route::get('/organizations/list', 'getOrganizations')->name('organizations');
+    });
 
 // Flash message route
 Route::post('/flash-success', function (\Illuminate\Http\Request $request) {
