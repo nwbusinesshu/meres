@@ -133,20 +133,26 @@
     {{-- Elválasztó --}}
     <div class="text-center my-3" style="opacity:.7;">{{ $_('or') }}</div>
 
-    {{-- Google belépés (változatlanul) --}}
-    <a href="{{ route('trigger-login') }}" role="button" class="google-login btn btn-outline-secondary btn-block trigger-login" style="max-width:420px;margin:0 auto;">
-      {{ $_('login') }} <i class="fa fa-google"></i>
-    </a>
-    <a href="{{ route('trigger-microsoft-login') }}" role="button" class="microsoft-login btn btn-outline-secondary btn-block trigger-microsoft-login" style="max-width:420px;margin:0 auto;">
-      {{ $_('login_microsoft') }}    <span class="ms-logo">
-       <span style="background:#f25022"></span>
-       <span style="background:#7fba00"></span>
-       <span style="background:#00a4ef"></span>
-       <span style="background:#ffb900"></span>
-     </span> </a>
-     <div><p>{{ $_('privacy_policy_acceptance') }}</p></div>
+    {{-- OAuth Login Buttons - Side by Side --}}
+    <div class="oauth-buttons-container">
+      <a href="{{ route('trigger-login') }}" role="button" class="google-login btn btn-outline-secondary trigger-login">
+        {{ $_('login') }} <i class="fa fa-google"></i>
+      </a>
+      <a href="{{ route('trigger-microsoft-login') }}" role="button" class="microsoft-login btn btn-outline-secondary trigger-microsoft-login">
+        {{ $_('login_microsoft') }} <span class="ms-logo">
+          <span style="background:#f25022"></span>
+          <span style="background:#7fba00"></span>
+          <span style="background:#00a4ef"></span>
+          <span style="background:#ffb900"></span>
+        </span>
+      </a>
+    </div>
 
-    <img class="nwb-logo" src="{{ asset('assets/logo/nwb_logo.svg') }}" alt="">
+    <div><p>{{ $_('privacy_policy_acceptance') }}</p></div>
+
+    <a href="https://nwbusiness.hu" target="_blank" rel="noopener noreferrer" class="nwb-logo-link">
+      <img class="nwb-logo" src="{{ asset('assets/logo/nwb_logo.svg') }}" alt="NW Business">
+    </a>
 
     <div class="footnote">
       {{ $_('no_account_yet') }} <a href="{{ route('register.show') }}">{{ $_('register_link') }}</a>

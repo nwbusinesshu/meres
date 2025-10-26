@@ -121,6 +121,7 @@ return [
   'no-languages-to-translate' => 'Nincsenek nyelvek a fordításhoz.',
   'incomplete-translations' => 'Hiányos fordítások találhatók.',
   'create-group' => 'Csoport létrehozása',
+  'create-group-confirm' => 'Csoport létrehozása?',
   'competency-groups' => 'Kompetencia csoportok',
   'group-name' => 'Csoport neve',
   'enter-group-name' => 'Adja meg a csoport nevét...',

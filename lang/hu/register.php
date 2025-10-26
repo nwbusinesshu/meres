@@ -3,8 +3,8 @@
 return [
 
     // Flow titles
-    'flow_title' => 'Regisztráljon egy admin felhasználót!',
-    'flow_subtitle' => 'Az admin hozzáfér mindhez: munkavállalók, értékelések, beállítások. Adja meg az admin nevét és e-mail címét.',
+    'flow_title' => 'Üdvözöljük! Regisztráljon egy admin felhasználót!',
+    'flow_subtitle' => 'Az admin hozzáfér mindhez: munkavállalók, értékelések, beállítások. Adja meg az admin nevét és e-mail címét. Később Google vagy Microsoft fiókjával is be tud majd jelentkezni.',
 
     // Step titles
     'step1_title' => 'Admin felhasználó',
@@ -136,25 +136,14 @@ return [
     'success_message' => 'Sikeres regisztráció. Be tudsz lépni OAuth-tal, vagy állítsd be a jelszavad a kiküldött emailből.',
 
     'steps' => [
-        'step1_title' => 'Regisztráljon egy admin felhasználót!',
-        'step1_subtitle' => 'Az admin mindent kezel: felhasználók, értékelések, beállítások. Adja meg az admin nevét és e-mail címét.',
-        'step2_title' => 'Adja meg a céges és számlázási adatokat',
+        'step1_title' => 'Üdv! Első lépésként regisztrálj egy admin felhasználót!',
+        'step1_subtitle' => 'Az admin hozzáfér mindenhez: munkavállalók, értékelések, beállítások. Adja meg az admin nevét és e-mail címét. Később Google vagy Microsoft fiókjával is be tudsz majd jelentkezni. Add meg, hány munkavállalót foglalkoztatsz!',
+        'step2_title' => 'Most pedig add meg a céges és számlázási adatokat!',
         'step2_subtitle' => 'A számlázáshoz kérjük a címadatokat és adóazonosítót. EU-s ország esetén EU ÁFA-szám szükséges.',
         'step3_title' => 'Alapbeállítások',
-        'step3_subtitle' => 'Határozza meg a rendszer működését: AI telemetria, multi-level értékelés, bónusz/málusz.',
-        'step4_title' => 'Ellenőrizze az adatokat',
-        'step4_subtitle' => 'Véglegesítés előtt győződjön meg, hogy minden adat helyes.',
+        'step3_subtitle' => 'Ezek a beállítások határozzák meg a rendszer működését: pl. AI telemetria, multi-level értékelés, bónusz/málusz.',
+        'step4_title' => 'Mindjárt kész: ellenőrizd a megadott adatokat',
+        'step4_subtitle' => 'Véglegesítés előtt győződj meg arról, hogy minden adat helyes.',
     ],
-    // JavaScript step flow texts
-    'flow' => [
-        'step0_title' => 'Regisztráljon egy admin felhasználót!',
-        'step0_subtitle' => 'Az admin mindent kezel: felhasználók, értékelések, beállítások. Adja meg az admin nevét és e-mail címét.',
-        'step1_title' => 'Adja meg a céges és számlázási adatokat',
-        'step1_subtitle' => 'A számlázáshoz kérjük a címadatokat és adóazonosítót. EU-s ország esetén EU ÁFA-szám szükséges.',
-        'step2_title' => 'Válassza ki az alapbeállításokat',
-        'step2_subtitle' => 'AI telemetria, multi-level részlegkezelés és Bonus/Malus megjelenítés. Ezek később módosíthatók (a multi-level nem).',
-        'step3_title' => 'Ellenőrizze és véglegesítse',
-        'step3_subtitle' => 'Nézze át az összegzést. A befejezés után e-mailben kap linket a jelszó beállításához.',
-    ],
-
+    
 ];

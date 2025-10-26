@@ -5,20 +5,6 @@
 
 @section('content')
 
-@php
-  use App\Models\Enums\OrgRole;  // ✅ ADDED: Import OrgRole
-  use App\Models\Enums\UserType;
-  
-  // ✅ ADDED: Get org role from session for role checks
-  $orgRole = session('org_role');
-  $isCeo = $orgRole === OrgRole::CEO;
-  $isManager = $orgRole === OrgRole::MANAGER;
-  $isAdmin = $orgRole === OrgRole::ADMIN;
-  
-  // ✅ CEO rank access: CEO, Manager, or Admin can access
-  $canAccessCeoRank = $isAdmin || $isCeo || $isManager;
-@endphp
-
 <h2>{{ $welcomeMessage }}</h2>
 
 @if (is_null($assessment))
@@ -27,8 +13,7 @@
   <div class="empty-tile-text">
     <p class="empty-tile-title">{{ $_('no-assessment-running') }}</p>
     <p class="empty-tile-subtitle">{{ $_('no-assessment-running-info') }}</p>
-    <p class="empty-tile-tasks">{!! $_('no-assessment-running-tasks') !!}
-</p>
+    <p class="empty-tile-tasks">{!! $_('no-assessment-running-tasks') !!}</p>
   </div>
 </div>
 @else
@@ -41,7 +26,7 @@
     </div>
   </div>
 
-  {{-- ✅ CHANGED: Use $canAccessCeoRank instead of MyAuth --}}
+  {{-- ✅ FIXED: Only show CEO rank section if user can access it (has employees to rank) --}}
   @if($canAccessCeoRank)
     <h2>{{ $_('ceo-rank') }}</h2>
     @if (!$madeCeoRank)

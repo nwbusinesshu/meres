@@ -217,31 +217,46 @@ $(document).ready(function(){
         openEmployeeModal();
     });
 
+     function getUserNameFromAny(element) {
+    const $el = $(element);
+    const $userRow = $el.closest('.user-row, tr.user-row');
+    if ($userRow.length) {
+        const $nameCell = $userRow.find('td[data-col="' + '{{ __("global.name") }}' + '"] strong');
+        if ($nameCell.length) {
+            return $nameCell.text().trim();
+        }
+    }
+    return null;
+}
+
     // Competencies
     $(document).on('click', '.competencies', function(e){
         e.preventDefault();
         e.stopPropagation();
         const userId = getUserIdFromAny(this);
+        const userName = getUserNameFromAny(this);  // ✅ ADDED: Get user name
         if (!userId) return;
-        initCompetenciesModal(userId);
+        initCompetenciesModal(userId, userName);  // ✅ ADDED: Pass userName as second parameter
     });
 
     // Relations
     $(document).on('click', '.relations', function(e){
-        e.preventDefault();
-        e.stopPropagation();
-        const userId = getUserIdFromAny(this);
-        if (!userId) return;
-        initRelationsModal(userId);
-    });
+    e.preventDefault();
+    e.stopPropagation();
+    const userId = getUserIdFromAny(this);
+    const userName = getUserNameFromAny(this);  // ✅ ADDED: Get user name
+    if (!userId) return;
+    initRelationsModal(userId, userName);  // ✅ ADDED: Pass userName as second parameter
+});
 
     // Bonus/Malus
     $(document).on('click', '.bonusmalus', function(e){
         e.preventDefault();
         e.stopPropagation();
         const userId = getUserIdFromAny(this);
+        const userName = getUserNameFromAny(this);  // ✅ ADDED: Get user name
         if (!userId) return;
-        initBonusMalusModal(userId);
+        initBonusMalusModal(userId, userName);  // ✅ ADDED: Pass userName as second parameter
     });
 
     // Remove user

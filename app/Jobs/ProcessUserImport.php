@@ -29,7 +29,7 @@ class ProcessUserImport implements ShouldQueue
     // Set to 0 for production, or a number (in seconds) for testing
     // Example: 2 = 2 seconds delay per row
     // With 10 rows: 2 seconds × 10 = 20 seconds total
-    private const TESTING_DELAY_SECONDS = 30; // ← CHANGE THIS VALUE
+    private const TESTING_DELAY_SECONDS = 0; // ← CHANGE THIS VALUE
 
     public function __construct(int $jobId, int $orgId, int $createdBy)
     {

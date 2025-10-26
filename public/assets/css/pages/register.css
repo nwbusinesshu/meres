@@ -1,8 +1,8 @@
 /* =========================
-   Register – Setup Guide UI
+   Register – Setup Guide UI (Optimized)
    ========================= */
 
-/* Háttér + alap elrendezés (ha kell a register oldalon) */
+/* Háttér + alap elrendezés */
 .page-container {
   background:
     radial-gradient(circle at 20% 30%, #f5d6d6 0%, transparent 40%),
@@ -48,37 +48,72 @@
 .tile.register-tile {
   position: relative;
   width: 100%;
-  max-width: 900px;        /* szélesebb a setup élményhez */
+  max-width: 900px;
+  /* szélesebb a setup élményhez */
   border-left: 4px solid var(--pelorous);
-  padding: 24px 28px;
+  padding: 20px 24px; /* csökkentve: 24px 28px → 20px 24px */
   will-change: transform, filter; /* animációkhoz */
   box-shadow: 0px 5px 10px #bbb;
 }
 
-/* Brand/logók */
-.quarma-360 { max-width: 250px; margin: 0 0 1rem 0; padding-top: 2rem; }
-.nwb-logo   { margin-top: 2rem; max-height: 2em; margin-bottom: 1rem; }
+/* Brand/logók - optimalizált méret */
+.quarma-360 { 
+  max-width: 200px; /* csökkentve: 250px → 200px */
+  margin: 0 0 0.75rem 0; /* csökkentve: 1rem → 0.75rem */
+  padding-top: 1rem; /* csökkentve: 2rem → 1rem */
+}
+.nwb-logo { 
+  margin-top: 1rem; /* csökkentve: 2rem → 1rem */
+  max-height: 1.5em; /* csökkentve: 2em → 1.5em */
+  margin-bottom: 0.75rem; /* csökkentve: 1rem → 0.75rem */
+}
 
-/* Setup guide: két oszlop */
+/* Setup guide: két oszlop - keskenyített bal oldal */
 .setup-grid {
   display: grid;
-  grid-template-columns: 500px 1.2fr; /* bal: brand + leírás; jobb: űrlap */
-  gap: 24px;
+  grid-template-columns: 360px 1.2fr; /* csökkentve: 500px → 360px */
+  gap: 20px; /* csökkentve: 24px → 20px */
   align-items: start;
-  margin-top: 2rem;
+  margin-top: 1rem; /* csökkentve: 2rem → 1rem */
 }
 .setup-aside .brand {
   display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
 }
-.setup-aside .brand img.quarma-360 { max-width: 180px; padding: 0; margin: 0; }
-.setup-aside .flow-title    { font-size: 1.15rem; font-weight: 600; margin: 8px 0 4px; }
-.setup-aside .flow-subtitle { color: #555; line-height: 1.4; font-size: .95rem; }
+.setup-aside .brand img.quarma-360 { 
+  max-width: 160px; /* csökkentve: 180px → 160px */
+  padding: 0; 
+  margin: 0; 
+}
+.setup-aside .flow-title { 
+  font-size: 1.1rem; /* csökkentve: 1.15rem → 1.1rem */
+  font-weight: 600; 
+  margin: 6px 0 4px; /* csökkentve: 8px → 6px */
+}
+.setup-aside .flow-subtitle { 
+  color: #555; 
+  line-height: 1.4; 
+  font-size: .9rem; /* csökkentve: .95rem → .9rem */
+}
 
-.setup-form h3 { margin-top: 0; }
+.setup-form h3 { 
+  margin-top: 0; 
+  margin-bottom: 0.75rem; /* hozzáadva az optimalizáláshoz */
+  font-size: 1.3rem; /* hozzáadva az optimalizáláshoz */
+}
+
+/* Form group spacing optimization */
+.setup-form .form-group {
+  margin-bottom: 0.75rem; /* Bootstrap default 1rem → 0.75rem */
+}
 
 /* Mezők rácsa + akciók */
 .form-row.two { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
-.step-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
+.step-actions { 
+  display: flex; 
+  gap: .5rem; 
+  justify-content: flex-end; 
+  margin-top: 0.75rem; /* csökkentve: 1rem → 0.75rem */
+}
 
 /* Hibajelzés */
 .is-invalid { border-color: #dc3545 !important; }
@@ -89,14 +124,15 @@
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* Összegzés tipográfia */
-.summary dt { font-weight: 600; }
+.summary { margin: 1rem 0; }
+.summary dt { font-weight: 600; margin-top: 0.5rem; }
 .summary dd { margin: 0 0 .5rem 0; }
 
 /* ---- Finomított slide animáció a TELJES .tile mozgatásával ---- */
 @keyframes slideForwardSoft {
   0%   { transform: translateX(0)   scale(1);    filter: blur(0);   opacity: 1; }
   40%  { transform: translateX(-6%) scale(.995); filter: blur(1px); opacity: .95; }
-  800%  { transform: translateX(8%)  scale(.997); filter: blur(1.2px); opacity: .95; } /* átlendül */
+  80%  { transform: translateX(8%)  scale(.997); filter: blur(1.2px); opacity: .95; } /* átlendül */
   100% { transform: translateX(0)   scale(1);    filter: blur(0);   opacity: 1; }
 }
 @keyframes slideBackSoft {
@@ -110,12 +146,134 @@
 .tile.register-tile.anim-next,
 .tile.register-tile.anim-prev { animation-fill-mode: both; } /* félidős állapot megtartása */
 
-/* Responsív töréspontok */
+/* Height-based responsive adjustments for shorter screens */
+@media (max-height: 900px) {
+  .main-content {
+    margin-top: calc(3em + 1rem);
+  }
+  
+  .setup-grid {
+    margin-top: 0.5rem;
+  }
+}
+
+@media (max-height: 768px) {
+  .main-content {
+    margin-top: 2rem;
+  }
+  
+  .tile.register-tile {
+    padding: 16px 20px;
+  }
+  
+  .quarma-360 {
+    max-width: 180px;
+    padding-top: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .setup-aside .brand img.quarma-360 {
+    max-width: 140px;
+  }
+  
+  .nwb-logo {
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .setup-grid {
+    gap: 16px;
+    margin-top: 0.25rem;
+  }
+  
+  .setup-form h3 {
+    margin-bottom: 0.5rem;
+    font-size: 1.2rem;
+  }
+  
+  .setup-form .form-group {
+    margin-bottom: 0.5rem;
+  }
+  
+  .step-actions {
+    margin-top: 0.5rem;
+  }
+}
+
+@media (max-height: 650px) {
+  .main-content {
+    margin-top: 1rem;
+  }
+  
+  .tile.register-tile {
+    padding: 12px 16px;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+  
+  .quarma-360 {
+    max-width: 160px;
+    padding-top: 0.25rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .setup-aside .brand img.quarma-360 {
+    max-width: 120px;
+  }
+  
+  .setup-grid {
+    gap: 12px;
+    margin-top: 0;
+  }
+  
+  .setup-aside .flow-title {
+    font-size: 1rem;
+    margin: 4px 0 2px;
+  }
+  
+  .setup-aside .flow-subtitle {
+    font-size: 0.85rem;
+  }
+  
+  .setup-form h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.4rem;
+  }
+}
+
+/* Width-based responsív töréspontok */
 @media (max-width: 900px){
-  .setup-grid { grid-template-columns: 1fr; }
+  .setup-grid { 
+    grid-template-columns: 1fr; 
+    gap: 16px;
+  }
   .setup-aside .brand { justify-content: left; }
   .setup-aside .flow-title, .setup-aside .flow-subtitle { text-align: left; }
+  
+  /* Asidenál lévő logo optimalizálás mobilon */
+  .setup-aside .brand img.quarma-360 {
+    max-width: 140px;
+  }
 }
+
 @media (max-width: 768px){
   .form-row.two { grid-template-columns: 1fr; }
+  
+  .tile.register-tile {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tile.register-tile {
+    padding: 12px;
+  }
+  
+  .setup-aside .brand img.quarma-360 {
+    max-width: 120px;
+  }
+  
+  .setup-form h3 {
+    font-size: 1.1rem;
+  }
 }

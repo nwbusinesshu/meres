@@ -3,7 +3,10 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title"></h5>
+        <div>
+          <h5 class="modal-title"></h5>
+          <small class="modal-subtitle text-muted" style="display: none;"></small>
+        </div>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -164,6 +167,7 @@
       // ========== NEW EMPLOYEE ==========
       $('#employee-modal').attr('data-id', 0);
       $('#employee-modal .modal-title').html('{{ __('admin/employees.new-employee') }}');
+      $('#employee-modal .modal-subtitle').hide(); // ✅ HIDE subtitle when creating new
       $('#employee-modal .trigger-submit').html('{{ __('admin/employees.new-employee') }}');
 
       $('#employee-modal .name').val('');
@@ -196,6 +200,9 @@
       .done(function(response){
         $('#employee-modal .name').val(response.name);
         $('#employee-modal .email').val(response.email).prop('readonly', true);
+        
+        // ✅ ADDED: Show subtitle with user's name when editing
+        $('#employee-modal .modal-subtitle').text(response.name).show();
         
         // ✅ FIXED: response.type now returns OrgRole values ('employee', 'admin', 'manager', 'ceo')
         $('#employee-modal .type').val(response.type);
@@ -352,4 +359,5 @@ $(document).on('click', '.trigger-mass-import', function(){
     $('#employee-modal').modal('hide');
     $('#employee-import-modal').modal('show');
 });
+
 </script>

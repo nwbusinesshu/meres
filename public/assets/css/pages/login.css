@@ -14,6 +14,7 @@
 .tile{
   width: 100%;
   max-width: 500px;
+  padding: 1.5rem;
   border-left: 4px solid var(--pelorous);
   animation: slideInFromRight 0.5s ease-in-out forwards;
   animation-delay: 500ms;
@@ -45,21 +46,23 @@
 }
 
 .quarma-360{
-  max-width: 250px;
+  max-width: 200px;
   min-width: 150px;
-  margin-bottom: 1rem;
-  padding-top: 2rem;
+  margin-bottom: 0.75rem;
+  padding-top: 1rem;
   align-self: flex-start;
 }
 
-.nwb-logo{
-  margin-top: 2rem;
-  max-height: 2em;
-  margin-bottom: 1rem;
+.nwb-logo {
+  margin-top: 1rem;
+  margin-bottom: 0.75rem;
+  display: block;  /* IMPORTANT: This prevents the collapse */
+  transition: opacity 0.3s ease;
+  width: 5rem;
 }
 
 h1{
-  margin-top: 2rem;
+  margin-top: 1.5rem;
   font-size: min(11vw, 2.5em);
   color: var(--outer_space);
   transition: color 0.3s ease;
@@ -87,37 +90,60 @@ h1{
   border-color: var(--pelorous);
 }
 
-.google-login {
+/* Form spacing optimization */
+.tile .form-group {
+  margin-bottom: 0.75rem;
+}
+
+/* Separator optimization */
+.tile .text-center.my-3 {
+  margin-top: 0.75rem !important;
+  margin-bottom: 0.75rem !important;
+}
+
+/* OAuth buttons container - side by side */
+.oauth-buttons-container {
+  display: flex;
+  gap: 0.75rem;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.google-login,
+.microsoft-login {
+  flex: 1;
   background: var(--alabaster);
   color: var(--outer_space);
   border: 1px solid var(--light_border);
   font-weight: 500;
   transition: all 0.3s ease;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  white-space: nowrap;
 }
 
 .google-login i {
   color: #4285F4; /* Google brand color - keep as is */
-}
-
-.microsoft-login {
-  background: var(--alabaster);
-  color: var(--outer_space);
-  border: 1px solid var(--light_border);
-  font-weight: 500;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: all 0.3s ease;
+  margin-left: 6px;
 }
 
 .google-login:hover,
 .microsoft-login:hover {
   background: var(--dim);
   border-color: var(--outer_space);
+  color: #000;
 }
 
-.google-login i {
-  margin-left: 8px;
+.nwb-logo-link {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.nwb-logo-link:hover .nwb-logo {
+  opacity: 0.7;
 }
 
 .ms-logo {
@@ -126,17 +152,20 @@ h1{
   gap: 2px;
   width: 14px;
   height: 14px;
-  margin-left: 10px;
+  margin-left: 8px;
 }
 
 .ms-logo span {
   display: block;
 }
 
-/* Alert messages */
+/* Alert messages - more compact */
 .tile .alert {
   color: var(--outer_space);
   transition: all 0.3s ease;
+  padding: 0.5rem 0.75rem;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
 .tile .alert-danger {
@@ -151,12 +180,107 @@ h1{
   color: var(--success);
 }
 
+/* Privacy policy text - smaller */
+.tile > div:has(p) {
+  font-size: 0.85rem;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Footnote optimization */
+.tile .footnote {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+}
+
+/* Height-based responsive adjustments for shorter screens */
+@media (max-height: 900px) {
+  .main-content {
+    margin-top: calc(3em + 1rem);
+  }
+}
+
+@media (max-height: 768px) {
+  .main-content {
+    margin-top: 2rem;
+  }
+  
+  .quarma-360 {
+    max-width: 180px;
+    padding-top: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .nwb-logo {
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .tile {
+    padding: 1.25rem;
+  }
+  
+  .tile .form-group {
+    margin-bottom: 0.5rem;
+  }
+  
+  .tile .text-center.my-3 {
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .tile .alert {
+    padding: 0.4rem 0.6rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+}
+
+@media (max-height: 650px) {
+  .main-content {
+    margin-top: 1rem;
+  }
+  
+  .tile {
+    padding: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+  
+  .quarma-360 {
+    max-width: 160px;
+    padding-top: 0.25rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  h1 {
+    margin-top: 1rem;
+    font-size: 1.8em;
+  }
+}
+
+/* Width-based responsive (mobile) */
 @media (max-width: 768px){
   .main-content {
     margin-top: 20px!important;
   }
+  
   .tile {
     padding: 1rem!important;
     gap: 0.5em!important;
+  }
+}
+
+/* Keep OAuth buttons side-by-side on all screens, just adjust font size on very small screens */
+@media (max-width: 480px) {
+  .google-login,
+  .microsoft-login {
+    font-size: 0.85rem;
+    padding: 0.5rem 0.5rem;
+  }
+  
+  .google-login i,
+  .ms-logo {
+    margin-left: 4px;
   }
 }

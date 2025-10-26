@@ -98,14 +98,181 @@ h2{
   display: none;
 }
 
-@media all and (max-width: 960px){
-  .main-content > div:nth-child(1){
-    display: none;
+/* Mobile dropdown select - hidden by default on desktop */
+.mobile-employee-select {
+  display: none !important;
+}
+
+/* ===================================
+   MOBILE STYLES - Below 768px
+   =================================== */
+@media all and (max-width: 767px) {
+  .main-content {
+    flex-direction: column;
   }
-  .main-content > div:nth-child(2){
-    display: none;
+  
+  /* Hide the desktop employee list section entirely on mobile */
+  .desktop-only-section {
+    display: none !important;
   }
-  .no-mobile{
+  
+  .main-content > div:nth-child(1) {
+    flex: 1;
+  }
+  
+  /* Mobile tap instruction inside empty categories */
+  .mobile-tap-instruction {
     display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--secondary);
+    font-style: italic;
+    font-size: 0.9em;
+    text-align: center;
+    padding: 1em;
+    width: 100%;
+    min-height: 3em;
+  }
+  
+  /* Hide tap instruction when category has employees */
+  .employees:has(.employee) .mobile-tap-instruction {
+    display: none;
+  }
+  
+  /* Make rank categories clickable on mobile */
+  .rank {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+  }
+  
+  .rank:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  
+  .rank.mobile-active {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    border-color: var(--primary);
+    background-color: rgba(43, 122, 120, 0.05);
+  }
+  
+  /* Style employees in categories differently on mobile */
+  .employees .employee {
+    position: relative;
+    padding-right: 2em;
+    cursor: default;
+    display: inline-flex;
+    align-items: center;
+  }
+  
+  /* Add remove button for each employee in category on mobile */
+  .employees .employee .mobile-remove {
+    position: absolute;
+    right: 0.5em;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--alabaster);
+    cursor: pointer;
+    font-size: 1.2em;
+  }
+  
+  .employees .employee .mobile-remove:hover {
+    color: var(--danger);
+  }
+  
+  /* Disable drag on mobile */
+  .employee[draggable="true"] {
+    cursor: pointer !important;
+    -webkit-user-drag: none;
+    user-drag: none;
+  }
+  
+  /* Mobile select dropdown styling */
+  .mobile-employee-select {
+    width: 100%;
+    margin-top: 0.5em;
+    padding: 0.5em;
+    background: var(--alabaster);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    max-height: 250px;
+    overflow-y: auto;
+  }
+  
+  .mobile-employee-select.show {
+    display: block !important;
+  }
+  
+  .mobile-employee-select select {
+    width: 100%;
+    min-height: 150px;
+    max-height: 200px;
+    border: 2px solid var(--primary);
+    border-radius: 4px;
+    background: white;
+    font-size: 1em;
+    cursor: pointer;
+  }
+  
+  .mobile-employee-select select option {
+    padding: 0.75em;
+    font-size: 1em;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .mobile-employee-select select option:hover {
+    background: var(--primary) !important;
+    color: white !important;
+  }
+  
+  /* Hide save button on mobile until all employees are ranked */
+  .save-ranks {
+    padding-top: 2rem;
+    z-index: 100;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+  }
+  
+  /* Hide the no-mobile warning since we have mobile UI now */
+  .no-mobile {
+    display: none !important;
+  }
+  
+  /* Adjust info section for better mobile display */
+  .rank .info {
+    flex-wrap: wrap;
+  }
+  
+  .rank .info > div:last-child {
+    width: 100%;
+    margin-top: 0.5em;
+  }
+}
+
+/* ===================================
+   KEEP DESKTOP UI - 768px and above
+   =================================== */
+@media all and (min-width: 768px) {
+  /* Ensure mobile elements stay hidden on desktop */
+  .mobile-employee-select {
+    display: none !important;
+  }
+  
+  .mobile-remove {
+    display: none !important;
+  }
+  
+  .mobile-tap-instruction {
+    display: none !important;
+  }
+  
+  /* Keep original desktop behavior */
+  .rank {
+    cursor: default;
+  }
+  
+  /* Show desktop employee section */
+  .desktop-only-section {
+    display: block !important;
   }
 }

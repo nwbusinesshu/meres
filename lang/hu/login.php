@@ -31,7 +31,7 @@ return [
     // Footer texts  
     'privacy_policy_acceptance' => 'A bejelentkezéssel elfogadod az Adatvédelmi Irányelveinket.',
     'no_account_yet' => 'Nincs még fiókja?',
-    'register_link' => 'Regisztráció',
+    'register_link' => 'Regisztráljon egy céget!',
     
     // Help center
     'help_center' => 'Súgóközpont',

@@ -280,6 +280,8 @@
 @endif
 @endsection
 
+
+
 @section('scripts')
     @include('admin.modals.employee')
     @include('admin.modals.relations')
@@ -288,6 +290,6 @@
     @include('admin.modals.bonusmalus')
     @include('admin.modals.network')
     @include('admin.modals.employee-import')
-    @includeWhen(!empty($enableMultiLevel), 'admin.modals.department')
-    @includeWhen(!empty($enableMultiLevel), 'admin.modals.departmentuser')
+    @include('admin.modals.department')
+    @include('admin.modals.departmentuser')
 @endsection

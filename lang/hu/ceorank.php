@@ -13,5 +13,8 @@ return [
   "save-ranks" => "Rangsorolás véglegesítése",
   "save-ranks-confirm" => "Biztosan véglegesíted a rangsorolást?",
   "save-ranks-success" => "A rangsorolás sikeresen véglegesítésre került!",
-
+  
+  // New mobile-specific translations
+  "tap-to-add" => "Kattints ide alkalmazottak hozzáadásához",
+  "no-employees-left" => "Minden alkalmazott be van sorolva",
 ];

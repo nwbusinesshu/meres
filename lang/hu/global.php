@@ -31,6 +31,7 @@ return [
   "swal-error" => "Hiba!",
 
   "swal-success" => "Siker!",
+  "success" => "Siker",
 
   "swal-warning" => "Figyelmeztetés!",
 

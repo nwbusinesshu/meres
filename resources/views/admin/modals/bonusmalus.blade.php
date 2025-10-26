@@ -2,7 +2,10 @@
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">{{ __('admin/employees.change-bonusmalus') }}</h5>
+        <div>
+          <h5 class="modal-title">{{ __('admin/employees.change-bonusmalus') }}</h5>
+          <small class="modal-subtitle text-muted" style="display: none;"></small>
+        </div>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -100,9 +103,16 @@
   var bonusMalus = @json(__('global.bonus-malus'));
   var selectedLevel = null;
   
-  function initBonusMalusModal(uid){
+  function initBonusMalusModal(uid, userName){
     swal_loader.fire();
     $('#bonusmalus-modal').attr('data-id', uid);
+    
+    // ✅ ADDED: Show user name in subtitle if provided
+    if (userName) {
+      $('#bonusmalus-modal .modal-subtitle').text(userName).show();
+    } else {
+      $('#bonusmalus-modal .modal-subtitle').hide();
+    }
     
     $.ajax({
       url: "{{ route('admin.employee.bonusmalus.get') }}",

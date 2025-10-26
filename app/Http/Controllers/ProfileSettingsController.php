@@ -26,19 +26,28 @@ class ProfileSettingsController extends Controller
         // Get all available options (monsters + OAuth if exists)
         $availableOptions = ProfilePicService::getAvailableProfilePics($user);
         
-        // Find which option is currently active
+        // FIXED: Add the user's current profile pic as the first option
+        // This ensures it's always selected on modal open, even if it's a monster that creates a duplicate
         $currentIndex = 0;
-        foreach ($availableOptions as $index => $option) {
-            if ($option['filename'] === $user->profile_pic) {
-                $currentIndex = $index;
-                break;
-            }
+        
+        if ($user->profile_pic) {
+            // Determine the type of the current profile pic
+            $isOAuthPic = ($user->profile_pic === $user->oauth_profile_pic);
+            
+            // Prepend current pic to options
+            array_unshift($availableOptions, [
+                'type' => $isOAuthPic ? 'oauth' : 'monster',
+                'color' => null, // We don't need to track color for the current pic
+                'filename' => $user->profile_pic,
+                'url' => $currentPic,
+                'is_current' => true // Mark as current for potential UI indication
+            ]);
         }
         
         return response()->json([
             'success' => true,
             'current_pic' => $currentPic,
-            'current_index' => $currentIndex,
+            'current_index' => $currentIndex, // Always 0 since current pic is first
             'available_options' => $availableOptions,
             'user' => [
                 'name' => $user->name,

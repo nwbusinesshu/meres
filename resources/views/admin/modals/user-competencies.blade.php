@@ -3,7 +3,10 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">{{ __('admin/employees.competencies') }}</h5>
+        <div>
+          <h5 class="modal-title">{{ __('admin/employees.competencies') }}</h5>
+          <small class="modal-subtitle text-muted" style="display: none;"></small>
+        </div>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -203,8 +206,16 @@ function addCompetencyItem(uid, name, isFromGroup, isManual, groupNames) {
   `);
 }
 
-function initCompetenciesModal(uid){
+function initCompetenciesModal(uid, userName){
   $('#user-competencies-modal').attr('data-id', uid);
+  
+  // ✅ ADDED: Show user name in subtitle if provided
+  if (userName) {
+    $('#user-competencies-modal .modal-subtitle').text(userName).show();
+  } else {
+    $('#user-competencies-modal .modal-subtitle').hide();
+  }
+  
   swal_loader.fire();
   $.ajax({
     url: "{{ route('admin.employee.competencies') }}",

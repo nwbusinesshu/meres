@@ -8,7 +8,7 @@ return [
 
   "warning" => "Figyelem!",
 
-  "warning-1" => "Kilépés vagy az oldal elhagyása esetén a kérdések nem kerülnek mentésre!",
+  "warning-1" => "Kilépés vagy az oldal elhagyása esetén a válaszok nem kerülnek mentésre!",
 
   "warning-2" => "Minden kérdésre kötelező értéket megadni!",
 

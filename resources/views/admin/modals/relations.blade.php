@@ -3,7 +3,10 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">{{ __('admin/employees.relations') }}</h5>
+        <div>
+          <h5 class="modal-title">{{ __('admin/employees.relations') }}</h5>
+          <small class="modal-subtitle text-muted" style="display: none;"></small>
+        </div>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -268,7 +271,7 @@ function addNewRelationItem(uid, name, type = 'colleague', restrictedType = null
 /**
  * Load relations modal for a user
  */
-function initRelationsModal(uid) {
+function initRelationsModal(uid, userName) {
   $.ajaxSetup({
     headers: {
       'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -276,6 +279,14 @@ function initRelationsModal(uid) {
   });
   
   $('#relations-modal').attr('data-id', uid);
+  
+  // Set the subtitle with user name
+  if (userName) {
+    $('#relations-modal .modal-subtitle').text(userName).show();
+  } else {
+    $('#relations-modal .modal-subtitle').hide();
+  }
+  
   swal_loader.fire();
   
   $.ajax({
