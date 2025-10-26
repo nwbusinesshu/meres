@@ -6,6 +6,7 @@
 /storage/logs/
 .env
 /public/storage
+/public/uploads/profile_pics/
 /node_modules/
 /.idea/
 /.vscode/
