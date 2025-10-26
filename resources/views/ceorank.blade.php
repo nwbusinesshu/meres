@@ -7,8 +7,8 @@
   .no-mobile {
     display: none !important;
   }
-  /* Hide the entire employees section on mobile */
-  .main-content > div:nth-child(2) {
+  /* Hide the desktop employees section on mobile */
+  .desktop-only-section {
     display: none !important;
   }
 }
@@ -53,21 +53,25 @@
 </div>
 @endforeach
 </div>
-<div class="tile tile-button save-ranks hidden">
-  <span>{{ $_('save-ranks') }}</span>
+{{-- Save button moved outside ranks container for better mobile positioning --}}
+<div class="mobile-save-container">
+  <div class="tile tile-button save-ranks hidden">
+    <span>{{ $_('save-ranks') }}</span>
+  </div>
 </div>
 </div>
 <div class="desktop-only-section">
 <h2>{{ $_('employees') }}</h2>
 <div class="employee-list">
-<div class="tile tile-button save-ranks hidden">
-  <span>{{ $_('save-ranks') }}</span>
-</div>
 @foreach ($employees as $employee)
 <div class="tile tile-info employee" data-id="{{ $employee->id }}" data-name="{{ $employee->name }}" draggable="true">
   <p>{{ $employee->name }}</p>
 </div>
 @endforeach
+</div>
+{{-- Desktop save button --}}
+<div class="tile tile-button save-ranks hidden">
+  <span>{{ $_('save-ranks') }}</span>
 </div>
 </div>
 <div class="tile tile-warning no-mobile">

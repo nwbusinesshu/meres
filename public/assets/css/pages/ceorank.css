@@ -58,8 +58,8 @@ h2{
   flex-direction: column;
   gap: 1em;
   width: 100%;
-  min-height: 100%;
 }
+
 .employee-list .employee{
   width: 100%;
 }
@@ -228,9 +228,8 @@ h2{
   
   /* Hide save button on mobile until all employees are ranked */
   .save-ranks {
-    padding-top: 2rem;
+    margin-top: 2rem;
     z-index: 100;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
   }
   
   /* Hide the no-mobile warning since we have mobile UI now */
@@ -274,5 +273,9 @@ h2{
   /* Show desktop employee section */
   .desktop-only-section {
     display: block !important;
+  }
+
+  .mobile-save-container {
+    display: none;
   }
 }
