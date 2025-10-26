@@ -1,6 +1,6 @@
 {{-- Profile Settings Modal --}}
-<div id="profile-settings-modal" class="modal fade modal-drawer" tabindex="-1" role="dialog" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
+<div id="profile-settings-modal" class="modal fade modal-drawer" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
     <div class="modal-content profile-settings-content">
       <div class="modal-header">
         <h5 class="modal-title">Profil Beállítások</h5>
@@ -16,39 +16,49 @@
           <p id="profile-user-email" class="text-muted"></p>
         </div>
 
-        {{-- Profile Picture Carousel Section --}}
+        {{-- Profile Picture Modern Carousel --}}
         <div class="profile-pic-section">
           <h6 class="section-title">Profilkép</h6>
           
-          {{-- Large Preview Circle --}}
-          <div class="profile-preview-container">
-            <div class="profile-preview-circle">
-              <img id="profile-preview-img" src="" alt="Profile Picture">
-            </div>
-          </div>
-
-          {{-- Carousel Container --}}
-          <div class="profile-carousel-container">
-            <button class="carousel-nav carousel-nav-left" id="carousel-prev">
+          {{-- Modern 3D Carousel Container --}}
+          <div class="modern-carousel-container">
+            
+            {{-- Navigation Buttons --}}
+            <button class="carousel-nav carousel-nav-left" id="carousel-prev" aria-label="Previous">
               <i class="fa fa-chevron-left"></i>
             </button>
             
-            <div class="profile-carousel-wrapper">
-              <div class="profile-carousel-track" id="carousel-track">
+            {{-- Carousel Viewport with 3D perspective --}}
+            <div class="carousel-3d-viewport" id="carousel-viewport">
+              <div class="carousel-3d-track" id="carousel-track">
                 {{-- Dynamically populated by JS --}}
+              </div>
+              
+              {{-- Touch Indicator (mobile only) --}}
+              <div class="swipe-indicator">
+                <i class="fa fa-hand-pointer"></i>
+                <span>Húzd balra vagy jobbra</span>
               </div>
             </div>
             
-            <button class="carousel-nav carousel-nav-right" id="carousel-next">
+            <button class="carousel-nav carousel-nav-right" id="carousel-next" aria-label="Next">
               <i class="fa fa-chevron-right"></i>
             </button>
+            
+          </div>
+          
+          {{-- Dot Indicators --}}
+          <div class="carousel-dots-container" id="carousel-dots-container">
+            {{-- Dynamically populated by JS --}}
           </div>
         </div>
 
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Mégse</button>
-        <button type="button" class="btn btn-primary" id="save-profile-pic">Mentés</button>
+        <button type="button" class="btn btn-primary" id="save-profile-pic">
+          <i class="fa fa-save"></i> Mentés
+        </button>
       </div>
     </div>
   </div>
@@ -57,7 +67,7 @@
 <script>
 /**
  * Profile Settings Modal JavaScript
- * Handles carousel navigation and profile picture selection
+ * Modern 3D carousel with touch support for profile picture selection
  */
 
 (function() {
@@ -65,6 +75,13 @@
 
     let availableOptions = [];
     let currentIndex = 0;
+    let isTransitioning = false;
+    let touchStartX = 0;
+    let touchEndX = 0;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragCurrentX = 0;
+    let currentTranslateX = 0;
 
     // Initialize when DOM is ready
     $(document).ready(function() {
@@ -73,18 +90,31 @@
 
     function initProfileSettingsModal() {
         // Make avatar and username clickable in navbar
-        $('.navbar .userinfo img.avatar, .navbar .userinfo .userinfo-name').on('click', function(e) {
+        $('.navbar .userinfo img.avatar, .navbar .userinfo i.fallback-avatar, .navbar .userinfo .userinfo-name').on('click', function(e) {
             e.preventDefault();
             openProfileSettingsModal();
         });
 
         // Carousel navigation
         $('#carousel-prev').on('click', function() {
-            navigateCarousel('prev');
+            if (!isTransitioning) {
+                navigateCarousel('prev');
+            }
         });
 
         $('#carousel-next').on('click', function() {
-            navigateCarousel('next');
+            if (!isTransitioning) {
+                navigateCarousel('next');
+            }
+        });
+
+        // Keyboard navigation
+        $('#profile-settings-modal').on('keydown', function(e) {
+            if (e.key === 'ArrowLeft') {
+                navigateCarousel('prev');
+            } else if (e.key === 'ArrowRight') {
+                navigateCarousel('next');
+            }
         });
 
         // Save button
@@ -93,28 +123,75 @@
         });
 
         // Handle carousel item clicks (event delegation)
-        $('#carousel-track').on('click', '.carousel-item', function() {
-            const index = $(this).data('index');
-            selectCarouselItem(index);
+        $('#carousel-track').on('click', '.carousel-3d-item', function(e) {
+            if (!isDragging && !isTransitioning) {
+                const index = $(this).data('index');
+                if (index !== currentIndex) {
+                    animateToIndex(index);
+                }
+            }
+        });
+
+        // Handle dot indicator clicks
+        $('#carousel-dots-container').on('click', '.indicator-dot', function() {
+            if (!isTransitioning) {
+                const index = $(this).data('index');
+                animateToIndex(index);
+            }
+        });
+
+        // Touch events for mobile
+        let viewport = document.getElementById('carousel-viewport');
+        if (viewport) {
+            // Touch events
+            viewport.addEventListener('touchstart', handleTouchStart, { passive: true });
+            viewport.addEventListener('touchmove', handleTouchMove, { passive: false });
+            viewport.addEventListener('touchend', handleTouchEnd);
+            
+            // Mouse events for desktop drag
+            viewport.addEventListener('mousedown', handleMouseDown);
+            viewport.addEventListener('mousemove', handleMouseMove);
+            viewport.addEventListener('mouseup', handleMouseUp);
+            viewport.addEventListener('mouseleave', handleMouseUp);
+        }
+
+        // Handle modal cleanup
+        $('#profile-settings-modal').on('hidden.bs.modal', function() {
+            // Reset carousel state
+            isTransitioning = false;
+            isDragging = false;
+            
+            // Reset body styles if no other modals are open
+            setTimeout(function() {
+                if ($('.modal.show').length === 0) {
+                    $('body').css({
+                        'padding-right': '',
+                        'overflow': ''
+                    });
+                }
+            }, 50);
+        });
+
+        // Show modal event - hide swipe indicator after delay
+        $('#profile-settings-modal').on('shown.bs.modal', function() {
+            if (isTouchDevice()) {
+                setTimeout(function() {
+                    $('.swipe-indicator').fadeOut(500);
+                }, 3000);
+            }
         });
     }
 
     function openProfileSettingsModal() {
         // Show loading state
-        Swal.fire({
-            title: 'Betöltés...',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
+        swal_loader.fire();
+        
         // Load profile data
         $.ajax({
             url: '/profile-settings/data',
             method: 'GET',
             success: function(response) {
-                Swal.close();
+                swal_loader.close();
                 
                 if (response.success) {
                     availableOptions = response.available_options;
@@ -123,24 +200,24 @@
                     // Populate modal
                     $('#profile-user-name').text(response.user.name);
                     $('#profile-user-email').text(response.user.email);
-                    $('#profile-preview-img').attr('src', response.current_pic);
                     
                     // Build carousel
                     buildCarousel();
                     
                     // Update carousel position
-                    updateCarouselPosition();
+                    updateCarouselPosition(false);
                     
                     // Show modal
                     $('#profile-settings-modal').modal('show');
                 }
             },
             error: function(xhr) {
-                Swal.close();
+                swal_loader.close();
                 Swal.fire({
                     icon: 'error',
                     title: 'Hiba',
-                    text: 'Nem sikerült betölteni a profil adatokat.'
+                    text: 'Nem sikerült betölteni a profil adatokat',
+                    confirmButtonText: 'Rendben'
                 });
             }
         });
@@ -148,67 +225,114 @@
 
     function buildCarousel() {
         const $track = $('#carousel-track');
+        const $indicators = $('#carousel-dots-container');
         $track.empty();
+        $indicators.empty();
 
         availableOptions.forEach((option, index) => {
+            // Create carousel item
             const $item = $('<div>')
-                .addClass('carousel-item')
+                .addClass('carousel-3d-item')
                 .attr('data-index', index)
                 .attr('data-type', option.type)
-                .attr('data-color', option.color || '')
-                .html(`<img src="${option.url}" alt="Profile Picture Option">`);
+                .attr('data-color', option.color || '');
+            
+            const $imgContainer = $('<div>').addClass('carousel-item-content');
+            $imgContainer.html(`<img src="${option.url}" alt="Profile Picture Option" draggable="false">`);
+            $item.append($imgContainer);
 
             if (index === currentIndex) {
                 $item.addClass('active');
             }
 
             $track.append($item);
+
+            // Create dot indicator
+            const $dot = $('<span>')
+                .addClass('indicator-dot')
+                .attr('data-index', index);
+            
+            if (index === currentIndex) {
+                $dot.addClass('active');
+            }
+
+            $indicators.append($dot);
         });
 
         updateNavigationButtons();
     }
 
     function navigateCarousel(direction) {
-        if (direction === 'prev' && currentIndex > 0) {
-            currentIndex--;
-        } else if (direction === 'next' && currentIndex < availableOptions.length - 1) {
-            currentIndex++;
-        }
+        if (isTransitioning) return;
 
-        selectCarouselItem(currentIndex);
+        if (direction === 'prev' && currentIndex > 0) {
+            animateToIndex(currentIndex - 1);
+        } else if (direction === 'next' && currentIndex < availableOptions.length - 1) {
+            animateToIndex(currentIndex + 1);
+        }
     }
 
-    function selectCarouselItem(index) {
-        currentIndex = index;
+    function animateToIndex(targetIndex) {
+        if (targetIndex < 0 || targetIndex >= availableOptions.length || targetIndex === currentIndex) {
+            return;
+        }
+
+        isTransitioning = true;
+        currentIndex = targetIndex;
         
-        // Update preview image
-        const selectedOption = availableOptions[currentIndex];
-        $('#profile-preview-img').attr('src', selectedOption.url);
+        // Update active classes
+        $('.carousel-3d-item').removeClass('active');
+        $(`.carousel-3d-item[data-index="${currentIndex}"]`).addClass('active');
         
-        // Update active state
-        $('.carousel-item').removeClass('active');
-        $(`.carousel-item[data-index="${currentIndex}"]`).addClass('active');
+        // Update dot indicators
+        $('.indicator-dot').removeClass('active');
+        $(`.indicator-dot[data-index="${currentIndex}"]`).addClass('active');
         
         // Update carousel position
-        updateCarouselPosition();
+        updateCarouselPosition(true);
         
         // Update navigation buttons
         updateNavigationButtons();
+        
+        // Allow next transition after animation completes
+        setTimeout(function() {
+            isTransitioning = false;
+        }, 500);
     }
 
-    function updateCarouselPosition() {
-        const $track = $('#carousel-track');
-        const $wrapper = $('.profile-carousel-wrapper');
-        const itemWidth = 70; // carousel-item width
-        const gap = 16; // gap between items (1rem = 16px)
-        const totalItemWidth = itemWidth + gap;
+    function updateCarouselPosition(animate) {
+        const $items = $('.carousel-3d-item');
+        const totalItemWidth = 110; // Width + spacing
         
-        // Calculate the offset to center the selected item
-        const wrapperWidth = $wrapper.width();
-        const centerOffset = (wrapperWidth / 2) - (itemWidth / 2);
-        const translateX = centerOffset - (currentIndex * totalItemWidth);
-        
-        $track.css('transform', `translateX(${translateX}px)`);
+        $items.each(function() {
+            const $item = $(this);
+            const itemIndex = parseInt($item.data('index'));
+            const offset = itemIndex - currentIndex;
+            const absOffset = Math.abs(offset);
+            
+            // Calculate position
+            const translateX = offset * totalItemWidth;
+            const translateZ = -absOffset * 60;  // Reduced depth for compact design
+            const rotateY = offset * -12;  // Slightly reduced rotation
+            const scale = 1 - (absOffset * 0.2);
+            const opacity = 1 - (absOffset * 0.3);
+
+            // Apply transforms
+            if (animate) {
+                $item.css({
+                    'transform': `translateX(${translateX}px) translateZ(${translateZ}px) rotateY(${rotateY}deg) scale(${scale})`,
+                    'opacity': Math.max(opacity, 0.3),
+                    'transition': 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                    'z-index': 100 - absOffset
+                });
+            } else {
+                $item.css({
+                    'transform': `translateX(${translateX}px) translateZ(${translateZ}px) rotateY(${rotateY}deg) scale(${scale})`,
+                    'opacity': Math.max(opacity, 0.3),
+                    'z-index': 100 - absOffset
+                });
+            }
+        });
     }
 
     function updateNavigationButtons() {
@@ -216,11 +340,130 @@
         $('#carousel-next').prop('disabled', currentIndex === availableOptions.length - 1);
     }
 
+    // Touch handling functions
+    function handleTouchStart(e) {
+        touchStartX = e.touches[0].clientX;
+        dragStartX = touchStartX;
+        isDragging = true;
+    }
+
+    function handleTouchMove(e) {
+        if (!isDragging) return;
+        
+        e.preventDefault();
+        touchEndX = e.touches[0].clientX;
+        dragCurrentX = touchEndX;
+        
+        const diffX = dragCurrentX - dragStartX;
+        const threshold = 50;
+        
+        // Add visual feedback during drag
+        if (Math.abs(diffX) > 10) {
+            const $track = $('#carousel-track');
+            const dragScale = Math.min(Math.abs(diffX) / threshold, 1);
+            const resistance = 0.3;
+            $track.css({
+                'transform': `translateX(${diffX * resistance}px)`,
+                'transition': 'none'
+            });
+        }
+    }
+
+    function handleTouchEnd(e) {
+        if (!isDragging) return;
+        
+        const swipeThreshold = 50;
+        const diff = touchEndX - touchStartX;
+        
+        // Reset visual feedback
+        $('#carousel-track').css({
+            'transform': '',
+            'transition': ''
+        });
+
+        if (Math.abs(diff) > swipeThreshold) {
+            if (diff > 0 && currentIndex > 0) {
+                navigateCarousel('prev');
+            } else if (diff < 0 && currentIndex < availableOptions.length - 1) {
+                navigateCarousel('next');
+            }
+        }
+        
+        isDragging = false;
+        touchStartX = 0;
+        touchEndX = 0;
+    }
+
+    // Mouse handling functions for desktop drag
+    function handleMouseDown(e) {
+        dragStartX = e.clientX;
+        isDragging = true;
+        e.preventDefault();
+        
+        // Change cursor
+        $(this).css('cursor', 'grabbing');
+    }
+
+    function handleMouseMove(e) {
+        if (!isDragging) return;
+        
+        e.preventDefault();
+        dragCurrentX = e.clientX;
+        
+        const diffX = dragCurrentX - dragStartX;
+        const threshold = 50;
+        
+        // Add visual feedback during drag
+        if (Math.abs(diffX) > 10) {
+            const $track = $('#carousel-track');
+            const dragScale = Math.min(Math.abs(diffX) / threshold, 1);
+            const resistance = 0.3;
+            $track.css({
+                'transform': `translateX(${diffX * resistance}px)`,
+                'transition': 'none'
+            });
+        }
+    }
+
+    function handleMouseUp(e) {
+        if (!isDragging) return;
+        
+        const swipeThreshold = 50;
+        const diff = dragCurrentX - dragStartX;
+        
+        // Reset visual feedback
+        $('#carousel-track').css({
+            'transform': '',
+            'transition': ''
+        });
+        
+        // Change cursor back
+        $('#carousel-viewport').css('cursor', 'grab');
+
+        if (Math.abs(diff) > swipeThreshold) {
+            if (diff > 0 && currentIndex > 0) {
+                navigateCarousel('prev');
+            } else if (diff < 0 && currentIndex < availableOptions.length - 1) {
+                navigateCarousel('next');
+            }
+        }
+        
+        isDragging = false;
+        dragStartX = 0;
+        dragCurrentX = 0;
+    }
+
+    function isTouchDevice() {
+        return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    }
+
     function saveProfilePicture() {
         const selectedOption = availableOptions[currentIndex];
         
         // Show loading
-        $('#save-profile-pic').prop('disabled', true).text('Mentés...');
+        const $saveBtn = $('#save-profile-pic');
+        const originalHtml = $saveBtn.html();
+        $saveBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Mentés...');
         
         $.ajax({
             url: '/profile-settings/update-picture',
@@ -231,38 +474,60 @@
                 color: selectedOption.color
             },
             success: function(response) {
-                $('#save-profile-pic').prop('disabled', false).text('Mentés');
+                $saveBtn.prop('disabled', false).html(originalHtml);
                 
                 if (response.success) {
-                    // Update navbar avatar
-                    $('.navbar .userinfo img.avatar').attr('src', response.new_avatar_url);
+                    // Update navbar avatar with cache-busting
+                    const newAvatarUrl = response.new_avatar_url + '?t=' + Date.now();
+                    const $navbar = $('.navbar .userinfo');
+                    
+                    // Remove fallback icon if exists and replace with img
+                    $navbar.find('i.fallback-avatar').remove();
+                    
+                    if ($navbar.find('img.avatar').length > 0) {
+                        // Update existing img
+                        $navbar.find('img.avatar').attr('src', newAvatarUrl);
+                    } else {
+                        // Create new img element
+                        const $newImg = $('<img>')
+                            .addClass('avatar')
+                            .attr('src', newAvatarUrl)
+                            .attr('alt', 'avatar')
+                            .css('cursor', 'pointer');
+                        $navbar.prepend($newImg);
+                    }
                     
                     // Close modal
                     $('#profile-settings-modal').modal('hide');
                     
-                    // Show success message
+                    // Show success toast at bottom-center
                     Swal.fire({
+                        toast: true,
+                        position: 'bottom',
                         icon: 'success',
-                        title: 'Siker!',
-                        text: response.message,
-                        timer: 2000,
-                        showConfirmButton: false
+                        title: 'Profilkép sikeresen frissítve!',
+                        showConfirmButton: false,
+                        timer: 3000,
+                        timerProgressBar: true
                     });
+                    
                 } else {
                     Swal.fire({
                         icon: 'error',
                         title: 'Hiba',
-                        text: response.error || 'Nem sikerült frissíteni a profilképet.'
+                        text: response.error || 'Nem sikerült frissíteni a profilképet',
+                        confirmButtonText: 'Rendben'
                     });
                 }
             },
             error: function(xhr) {
-                $('#save-profile-pic').prop('disabled', false).text('Mentés');
+                $saveBtn.prop('disabled', false).html(originalHtml);
                 
                 Swal.fire({
                     icon: 'error',
                     title: 'Hiba',
-                    text: 'Nem sikerült frissíteni a profilképet.'
+                    text: 'Nem sikerült frissíteni a profilképet',
+                    confirmButtonText: 'Rendben'
                 });
             }
         });
@@ -271,10 +536,13 @@
     // Handle window resize
     $(window).on('resize', function() {
         if ($('#profile-settings-modal').hasClass('show')) {
-            updateCarouselPosition();
+            updateCarouselPosition(false);
         }
     });
 
 })();
-
 </script>
+
+
+
+

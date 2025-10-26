@@ -1,16 +1,18 @@
-/* Profile Settings Modal Styles */
+/* Profile Settings Modal Styles - Modern 3D Carousel */
 .profile-settings-content {
   background-color: var(--alabaster);
   color: var(--outer_space);
-  border-radius: 8px;
-  max-width: 600px;
+  border-radius: 12px;
+  max-width: 700px;
+  overflow: hidden;
 }
 
 .profile-info-section {
   text-align: center;
   padding: 1rem 0;
   border-bottom: 1px solid var(--light_border);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, rgba(94, 158, 197, 0.05) 0%, rgba(94, 158, 197, 0.02) 100%);
 }
 
 .profile-info-section h6 {
@@ -18,140 +20,278 @@
   font-size: 1.2rem;
   font-weight: 600;
   color: var(--outer_space);
+  letter-spacing: -0.5px;
 }
 
 .profile-info-section p {
-  margin: 0.25rem 0 0 0;
-  font-size: 0.9rem;
+  margin: 0.3rem 0 0 0;
+  font-size: 0.85rem;
+  opacity: 0.8;
 }
 
 .profile-pic-section {
-  padding: 1rem 0;
+  padding: 0.5rem 0 0.5rem;
+  overflow-x: hidden;
 }
 
 .section-title {
   text-align: center;
   font-size: 1rem;
   font-weight: 600;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   color: var(--outer_space);
+  letter-spacing: -0.3px;
 }
 
-/* Large Preview Circle */
-.profile-preview-container {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 2rem;
-}
-
-.profile-preview-circle {
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 4px solid var(--pelorous);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease;
-}
-
-.profile-preview-circle img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* Carousel Container */
-.profile-carousel-container {
+/* Modern 3D Carousel Container */
+.modern-carousel-container {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  padding: 1rem 0;
-}
-
-.profile-carousel-wrapper {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-  max-width: 400px;
-}
-
-.profile-carousel-track {
-  display: flex;
-  gap: 1rem;
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   padding: 0.5rem 0;
+  min-height: 120px;
+  overflow: visible;
 }
 
-.carousel-item {
-  flex-shrink: 0;
-  width: 70px;
-  height: 70px;
+/* 3D Viewport with Perspective */
+.carousel-3d-viewport {
+  flex: 1;
+  position: relative;
+  max-width: 500px;
+  height: 100px;
+  perspective: 1200px;
+  overflow: visible;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.carousel-3d-viewport:active {
+  cursor: grabbing;
+}
+
+/* 3D Track Container */
+.carousel-3d-track {
+  position: relative;
+  transform-style: preserve-3d;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.3s ease;
+}
+
+/* 3D Carousel Items */
+.carousel-3d-item {
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  left: 50%;
+  top: 50%;
+  margin-left: -45px;
+  margin-top: -45px;
+  transform-style: preserve-3d;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  opacity: 0.5;
+  filter: blur(0.5px);
+}
+
+.carousel-3d-item.active {
+  opacity: 1;
+  filter: none;
+  cursor: default;
+}
+
+/* Item Content Container */
+.carousel-item-content {
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   overflow: hidden;
-  border: 3px solid transparent;
-  cursor: pointer;
+  border: 4px solid var(--light_border);
+  background-color: white;
   transition: all 0.3s ease;
-  opacity: 0.5;
-  transform: scale(0.85);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  position: relative;
 }
 
-.carousel-item img {
+.carousel-3d-item.active .carousel-item-content {
+  border-color: var(--pelorous);
+  transform: scale(1.05);
+}
+
+/* Glow effect for active item */
+.carousel-3d-item.active .carousel-item-content::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(94, 158, 197, 0.4) 0%, transparent 70%);
+  z-index: -1;
+  animation: glow 2s ease-in-out infinite;
+}
+
+@keyframes glow {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.carousel-item-content img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
-.carousel-item:hover {
-  opacity: 0.8;
-  transform: scale(0.9);
-}
-
-.carousel-item.active {
+/* Hover effect for non-active items */
+.carousel-3d-item:not(.active):hover .carousel-item-content {
   border-color: var(--pelorous);
-  opacity: 1;
-  transform: scale(1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: scale(1.08);
 }
 
 /* Navigation Buttons */
 .carousel-nav {
-  background-color: var(--alabaster);
+  background: linear-gradient(135deg, var(--alabaster) 0%, rgba(255, 255, 255, 0.9) 100%);
   border: 2px solid var(--light_border);
   color: var(--outer_space);
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
+  z-index: 20;
 }
 
 .carousel-nav:hover:not(:disabled) {
-  background-color: var(--pelorous);
+  background: linear-gradient(135deg, var(--pelorous) 0%, rgba(94, 158, 197, 0.9) 100%);
   border-color: var(--pelorous);
   color: white;
-  transform: scale(1.1);
+  transform: scale(1.1) translateY(-2px);
+}
+
+.carousel-nav:active:not(:disabled) {
+  transform: scale(1.05) translateY(0);
 }
 
 .carousel-nav:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+  background: var(--light_border);
 }
 
 .carousel-nav i {
   font-size: 1rem;
 }
 
+/* Carousel Dots Container (renamed from carousel-indicators) */
+.carousel-dots-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0.25rem;
+  padding: 0.25rem;
+}
+
+.indicator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--light_border);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.indicator-dot:hover {
+  background-color: var(--pelorous);
+  transform: scale(1.2);
+}
+
+.indicator-dot.active {
+  width: 20px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--pelorous) 0%, rgba(94, 158, 197, 0.8) 100%);
+  cursor: default;
+}
+
+/* Swipe Indicator for Mobile */
+.swipe-indicator {
+  position: absolute;
+  bottom: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.swipe-indicator i {
+  font-size: 1rem;
+  animation: swipeHint 1.5s ease-in-out infinite;
+}
+
+@keyframes swipeHint {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+/* Show swipe indicator on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .swipe-indicator {
+    display: flex;
+  }
+}
+
 /* Modal Footer */
 .profile-settings-content .modal-footer {
   border-top: 1px solid var(--light_border);
   padding: 1rem 1.5rem;
+  background: linear-gradient(180deg, transparent 0%, rgba(94, 158, 197, 0.02) 100%);
+}
+
+.profile-settings-content .modal-footer .btn-primary {
+  background: linear-gradient(135deg, var(--pelorous) 0%, rgba(94, 158, 197, 0.9) 100%);
+  border-color: var(--pelorous);
+  transition: all 0.3s ease;
+}
+
+.profile-settings-content .modal-footer .btn-primary:hover {
+  transform: translateY(-2px);
+}
+
+.profile-settings-content .modal-footer .btn-primary:active {
+  transform: translateY(0);
 }
 
 /* Dark Mode Support */
@@ -162,37 +302,168 @@ body.dark-mode .profile-settings-content {
 
 body.dark-mode .profile-info-section {
   border-bottom-color: var(--outer_space);
+  background: linear-gradient(135deg, rgba(94, 158, 197, 0.08) 0%, transparent 100%);
+}
+
+body.dark-mode .profile-info-section h6,
+body.dark-mode .section-title {
+  color: var(--alabaster);
+}
+
+body.dark-mode .carousel-item-content {
+  background-color: var(--outer_space);
+  border-color: var(--silver_chalice);
+}
+
+body.dark-mode .carousel-3d-item.active .carousel-item-content {
+  border-color: var(--pelorous);
 }
 
 body.dark-mode .carousel-nav {
-  background-color: var(--outer_space);
+  background: linear-gradient(135deg, var(--outer_space) 0%, rgba(51, 51, 51, 0.9) 100%);
   border-color: var(--silver_chalice);
   color: var(--alabaster);
 }
 
 body.dark-mode .carousel-nav:hover:not(:disabled) {
-  background-color: var(--pelorous);
+  background: linear-gradient(135deg, var(--pelorous) 0%, rgba(94, 158, 197, 0.9) 100%);
   border-color: var(--pelorous);
 }
 
+body.dark-mode .carousel-nav:disabled {
+  background: var(--outer_space);
+  opacity: 0.3;
+}
+
+body.dark-mode .indicator-dot {
+  background-color: var(--silver_chalice);
+}
+
+body.dark-mode .indicator-dot.active {
+  background: linear-gradient(90deg, var(--pelorous) 0%, rgba(94, 158, 197, 0.6) 100%);
+}
+
+body.dark-mode .profile-settings-content .modal-footer {
+  border-top-color: var(--outer_space);
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.2) 100%);
+}
+
 /* Responsive Design */
-@media (max-width: 576px) {
-  .profile-preview-circle {
-    width: 120px;
-    height: 120px;
+@media (max-width: 768px) {
+  .modern-carousel-container {
+    padding: 0.5rem 0;
+    min-height: 100px;
   }
   
-  .carousel-item {
-    width: 60px;
-    height: 60px;
+  .carousel-3d-viewport {
+    max-width: 400px;
+    height: 90px;
   }
   
-  .profile-carousel-wrapper {
-    max-width: 250px;
+  .carousel-3d-item {
+    width: 80px;
+    height: 80px;
+    margin-left: -40px;
+    margin-top: -40px;
   }
   
   .carousel-nav {
     width: 35px;
     height: 35px;
+  }
+  
+  .carousel-nav i {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .profile-settings-content {
+    max-width: 100%;
+    border-radius: 0;
+  }
+  
+  .profile-info-section {
+    padding: 0.75rem 0;
+    margin-bottom: 0.75rem;
+  }
+  
+  .profile-info-section h6 {
+    font-size: 1.1rem;
+  }
+  
+  .section-title {
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .modern-carousel-container {
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    min-height: 85px;
+  }
+  
+  .carousel-3d-viewport {
+    max-width: 320px;
+    height: 80px;
+    perspective: 1000px;
+  }
+  
+  .carousel-3d-item {
+    width: 70px;
+    height: 70px;
+    margin-left: -35px;
+    margin-top: -35px;
+  }
+  
+  .carousel-item-content {
+    border-width: 3px;
+  }
+  
+  .carousel-nav {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .carousel-nav i {
+    font-size: 0.85rem;
+  }
+  
+  .carousel-dots-container {
+    margin-top: 0.5rem;
+    gap: 5px;
+  }
+  
+  .indicator-dot {
+    width: 5px;
+    height: 5px;
+  }
+  
+  .indicator-dot.active {
+    width: 16px;
+  }
+}
+
+/* Animation Performance Optimization */
+@media (prefers-reduced-motion: reduce) {
+  .carousel-3d-item,
+  .carousel-item-content,
+  .carousel-nav,
+  .indicator-dot,
+  .carousel-3d-track {
+    transition-duration: 0.01ms !important;
+  }
+  
+  .carousel-3d-item.active .carousel-item-content::before,
+  .swipe-indicator i {
+    animation: none !important;
+  }
+}
+
+/* High DPI Display Support */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .carousel-item-content {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
   }
 }
