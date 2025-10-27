@@ -129,6 +129,11 @@
     /* Hide scrollbar but keep functionality */
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none; /* Firefox */
+    /* iOS Safari fix - hardware acceleration */
+    transform: translateZ(0);
+    -webkit-transform: translate3d(0, 0, 0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
   }
 
   #config-dropdown::-webkit-scrollbar {
@@ -188,6 +193,7 @@
     justify-content: space-around;
     align-items: center;
     padding: 0 5px;
+    padding-bottom: env(safe-area-inset-bottom, 0); /* iOS safe area */
     box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
     z-index: 1000;
     border-top: 1px solid var(--silver_chalice);
@@ -196,6 +202,15 @@
     /* Hide scrollbar but keep functionality */
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none; /* Firefox */
+    /* iOS Safari fix - hardware acceleration and prevent jumping */
+    transform: translateZ(0);
+    -webkit-transform: translate3d(0, 0, 0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    will-change: transform;
+    /* Prevent iOS address bar from affecting position */
+    position: -webkit-sticky;
+    position: fixed;
   }
 
   .mobile-bottom-nav::-webkit-scrollbar {

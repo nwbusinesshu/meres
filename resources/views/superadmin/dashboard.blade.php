@@ -1,6 +1,7 @@
 @extends('layouts.master')
 
 @section('head-extra')
+<link rel="stylesheet" href="{{ asset('assets/css/pages/superadmin.dashboard.css') }}">
 @endsection
 
 @section('content')
@@ -116,9 +117,10 @@
   </table>
 </div>
 
-@include('superadmin.modals.org-create')
-
 @endsection
+
+@section('modals')
+@include('superadmin.modals.org-create')
 
 @foreach ($organizations as $org)
   @php
@@ -129,3 +131,7 @@
   @endphp
   @include('superadmin.modals.org-edit', compact('org', 'admin'))
 @endforeach
+@endsection
+
+@section('scripts')
+@endsection

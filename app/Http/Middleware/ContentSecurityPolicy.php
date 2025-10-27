@@ -56,8 +56,9 @@ class ContentSecurityPolicy
         // Add X-Content-Type-Options to prevent MIME sniffing
         $response->headers->set('X-Content-Type-Options', 'nosniff');
 
-        // Add X-Frame-Options for older browsers
-        $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
+    // Allow Capacitor app to embed in iframe, but still protect against clickjacking for web browsers
+    // CSP frame-ancestors directive is more flexible and modern
+    // $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
 
         return $response;
     }
@@ -153,7 +154,7 @@ class ContentSecurityPolicy
             "form-action" => "'self'",
             
             // Frame ancestors: self only (prevents clickjacking)
-            "frame-ancestors" => "'self'",
+            "frame-ancestors" => "'self' capacitor://localhost http://localhost https://localhost",
         ];
 
         // Only add upgrade-insecure-requests in production (not in report-only mode)

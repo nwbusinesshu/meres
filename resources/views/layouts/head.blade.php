@@ -438,6 +438,8 @@ $.ajaxSetup({
     }
 });
 
+		
+
   </script>
 
 	@yield('head-extra')
