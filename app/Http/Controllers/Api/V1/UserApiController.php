@@ -18,15 +18,15 @@ class UserApiController extends BaseApiController
             ->join('organization_user', 'user.id', '=', 'organization_user.user_id')
             ->leftJoin('organization_departments', 'organization_user.department_id', '=', 'organization_departments.id')
             ->where('organization_user.organization_id', $orgId)
-            ->where('user.is_active', 1)
+            ->whereNull('user.removed_at') // FIXED: Use removed_at instead of is_active
             ->select(
                 'user.id',
                 'user.name',
                 'user.email',
-                'user.phone',
+                // REMOVED: user.phone - doesn't exist
                 'organization_user.role',
                 'organization_user.position',
-                'organization_departments.name as department_name',
+                'organization_departments.department_name', // FIXED: department_name not name
                 'organization_departments.id as department_id',
                 'user.created_at',
                 'user.updated_at'
@@ -45,17 +45,16 @@ class UserApiController extends BaseApiController
             $search = '%' . $request->search . '%';
             $query->where(function($q) use ($search) {
                 $q->where('user.name', 'like', $search)
-                  ->orWhere('user.email', 'like', $search)
-                  ->orWhere('organization_user.position', 'like', $search);
+                  ->orWhere('user.email', 'like', $search);
             });
         }
 
         // Sorting
-        $sortBy = $request->get('sort_by', 'user.name');
+        $sortBy = $request->get('sort_by', 'name');
         $sortOrder = $request->get('sort_order', 'asc');
         
-        if (in_array($sortBy, ['user.name', 'user.email', 'organization_departments.name', 'organization_user.position'])) {
-            $query->orderBy($sortBy, $sortOrder);
+        if (in_array($sortBy, ['name', 'email', 'created_at', 'role'])) {
+            $query->orderBy('user.' . $sortBy, $sortOrder);
         }
 
         return $this->paginatedResponse($query, $request->get('per_page', 50));
@@ -68,23 +67,23 @@ class UserApiController extends BaseApiController
     {
         $orgId = $this->getOrganizationId($request);
         
+        // Get user with org details
         $user = DB::table('user')
             ->join('organization_user', 'user.id', '=', 'organization_user.user_id')
             ->leftJoin('organization_departments', 'organization_user.department_id', '=', 'organization_departments.id')
             ->where('organization_user.organization_id', $orgId)
             ->where('user.id', $id)
+            ->whereNull('user.removed_at')
             ->select(
                 'user.id',
                 'user.name',
                 'user.email',
-                'user.phone',
-                'user.profile_image',
+                'user.locale',
+                'user.created_at',
                 'organization_user.role',
                 'organization_user.position',
-                'organization_departments.name as department_name',
-                'organization_departments.id as department_id',
-                'user.created_at',
-                'user.updated_at'
+                'organization_departments.department_name',
+                'organization_departments.id as department_id'
             )
             ->first();
 
@@ -92,7 +91,7 @@ class UserApiController extends BaseApiController
             return $this->errorResponse('User not found', 404);
         }
 
-        // Get manager if user is in a department
+        // Get manager if user has a department
         if ($user->department_id) {
             $manager = DB::table('organization_department_managers')
                 ->join('user', 'organization_department_managers.manager_id', '=', 'user.id')
@@ -108,7 +107,6 @@ class UserApiController extends BaseApiController
 
         // Get subordinates if user is a manager
         if ($user->role === 'manager' || $user->role === 'ceo') {
-            // Get users in departments this person manages
             $subordinates = DB::table('organization_department_managers')
                 ->join('organization_user', function($join) {
                     $join->on('organization_department_managers.organization_id', '=', 'organization_user.organization_id')
@@ -117,7 +115,8 @@ class UserApiController extends BaseApiController
                 ->join('user', 'organization_user.user_id', '=', 'user.id')
                 ->where('organization_department_managers.manager_id', $id)
                 ->where('organization_department_managers.organization_id', $orgId)
-                ->where('user.id', '!=', $id) // Exclude the manager themselves
+                ->where('user.id', '!=', $id)
+                ->whereNull('user.removed_at')
                 ->select('user.id', 'user.name', 'user.email', 'organization_user.position')
                 ->get();
             
@@ -126,22 +125,24 @@ class UserApiController extends BaseApiController
             $user->subordinates = [];
         }
 
-        // Get recent assessment participation
-        $recentAssessments = DB::table('assessment_user')
-            ->join('assessment', 'assessment_user.assessment_id', '=', 'assessment.id')
-            ->where('assessment_user.user_id', $id)
-            ->where('assessment.organization_id', $orgId)
-            ->orderBy('assessment.created_at', 'desc')
+        // Get recent assessment participation - FIXED: Use subquery to avoid cartesian product
+        $recentAssessments = DB::table('assessment')
+            ->whereIn('id', function($query) use ($id) {
+                $query->select('assessment_id')
+                    ->from('competency_submit')
+                    ->where('target_id', $id)
+                    ->distinct();
+            })
+            ->where('organization_id', $orgId)
+            ->whereNotNull('closed_at') // Only closed assessments
+            ->orderByDesc('closed_at')
             ->limit(5)
             ->select(
-                'assessment.id',
-                'assessment.name',
-                'assessment.status',
-                'assessment.period_start',
-                'assessment.period_end',
-                'assessment_user.final_score',
-                'assessment_user.manager_score',
-                'assessment_user.ceo_ranking'
+                'id',
+                'started_at',
+                'due_at',
+                'closed_at',
+                'threshold_method'
             )
             ->get();
 
@@ -168,76 +169,89 @@ class UserApiController extends BaseApiController
             return $this->errorResponse('User not found', 404);
         }
 
+        // Get user's assigned competencies
         $competencies = DB::table('user_competency')
-            ->join('organization_competency', 'user_competency.competency_id', '=', 'organization_competency.id')
-            ->leftJoin('competency', 'organization_competency.global_competency_id', '=', 'competency.id')
+            ->join('competency', 'user_competency.competency_id', '=', 'competency.id')
             ->where('user_competency.user_id', $id)
-            ->where('organization_competency.organization_id', $orgId)
-            ->where('organization_competency.is_active', 1)
+            ->where('user_competency.organization_id', $orgId)
+            ->whereNull('competency.removed_at')
             ->select(
-                'organization_competency.id',
-                'organization_competency.name',
-                'organization_competency.description',
-                'competency.category',
-                'user_competency.level',
-                'user_competency.target_level',
-                'user_competency.updated_at'
+                'competency.id',
+                'competency.name',
+                'competency.description',
+                'competency.organization_id'
             )
             ->get();
 
-        return $this->successResponse($competencies);
+        return $this->successResponse([
+            'user_id' => $id,
+            'competencies' => $competencies
+        ]);
     }
 
     /**
-     * Get user's managers hierarchy
+     * Get user hierarchy (manager and colleagues)
      */
     public function hierarchy(Request $request, $id)
     {
         $orgId = $this->getOrganizationId($request);
         
-        // Verify user belongs to organization and get their department
-        $userData = DB::table('organization_user')
-            ->where('organization_id', $orgId)
-            ->where('user_id', $id)
+        // Verify user exists
+        $user = DB::table('organization_user')
+            ->join('user', 'organization_user.user_id', '=', 'user.id')
+            ->where('organization_user.organization_id', $orgId)
+            ->where('organization_user.user_id', $id)
+            ->whereNull('user.removed_at')
+            ->select('user.id', 'user.name', 'organization_user.department_id')
             ->first();
 
-        if (!$userData) {
+        if (!$user) {
             return $this->errorResponse('User not found', 404);
         }
 
-        $hierarchy = [];
-        
-        if ($userData->department_id) {
-            // Get department managers
-            $managers = DB::table('organization_department_managers')
-                ->join('user', 'organization_department_managers.manager_id', '=', 'user.id')
-                ->join('organization_user', function($join) use ($orgId) {
-                    $join->on('user.id', '=', 'organization_user.user_id')
-                         ->where('organization_user.organization_id', '=', $orgId);
-                })
-                ->where('organization_department_managers.organization_id', $orgId)
-                ->where('organization_department_managers.department_id', $userData->department_id)
-                ->select(
-                    'user.id',
-                    'user.name',
-                    'user.email',
-                    'organization_user.position',
-                    'organization_user.role'
-                )
-                ->get();
-            
-            foreach ($managers as $index => $manager) {
-                $hierarchy[] = [
-                    'level' => $index + 1,
-                    'user' => $manager
-                ];
-            }
-        }
-
-        return $this->successResponse([
+        $hierarchy = [
             'user_id' => $id,
-            'department_id' => $userData->department_id,
-            'hierarchy' => $hierarchy
-        ]);
+            'manager' => null,
+            'colleagues' => [],
+            'subordinates' => []
+        ];
+
+        // Get manager from user_relation table
+        $manager = DB::table('user_relation')
+            ->join('user', 'user_relation.target_id', '=', 'user.id')
+            ->where('user_relation.user_id', $id)
+            ->where('user_relation.organization_id', $orgId)
+            ->where('user_relation.type', 'manager')
+            ->whereNull('user.removed_at')
+            ->select('user.id', 'user.name', 'user.email')
+            ->first();
+        
+        $hierarchy['manager'] = $manager;
+
+        // Get colleagues from user_relation table
+        $colleagues = DB::table('user_relation')
+            ->join('user', 'user_relation.target_id', '=', 'user.id')
+            ->where('user_relation.user_id', $id)
+            ->where('user_relation.organization_id', $orgId)
+            ->where('user_relation.type', 'colleague')
+            ->whereNull('user.removed_at')
+            ->select('user.id', 'user.name', 'user.email')
+            ->get();
+        
+        $hierarchy['colleagues'] = $colleagues;
+
+        // Get subordinates (people who have this user as manager)
+        $subordinates = DB::table('user_relation')
+            ->join('user', 'user_relation.user_id', '=', 'user.id')
+            ->where('user_relation.target_id', $id)
+            ->where('user_relation.organization_id', $orgId)
+            ->where('user_relation.type', 'manager')
+            ->whereNull('user.removed_at')
+            ->select('user.id', 'user.name', 'user.email')
+            ->get();
+        
+        $hierarchy['subordinates'] = $subordinates;
+
+        return $this->successResponse($hierarchy);
     }
 }

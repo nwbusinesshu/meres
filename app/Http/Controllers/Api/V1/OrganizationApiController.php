@@ -19,14 +19,27 @@ class OrganizationApiController extends BaseApiController
             return $this->errorResponse('Organization ID not found in request', 500);
         }
 
+        // Get organization basic info + profile details
         $organization = DB::table('organization')
-            ->where('id', $orgId)
-            ->whereNull('removed_at')
+            ->leftJoin('organization_profiles', 'organization.id', '=', 'organization_profiles.organization_id')
+            ->where('organization.id', $orgId)
+            ->whereNull('organization.removed_at')
             ->select(
-                'id',
-                'name',
-                'slug',
-                'created_at'
+                'organization.id',
+                'organization.name',
+                'organization.slug',
+                'organization.created_at',
+                'organization_profiles.tax_number',
+                'organization_profiles.eu_vat_number',
+                'organization_profiles.country_code',
+                'organization_profiles.postal_code',
+                'organization_profiles.region',
+                'organization_profiles.city',
+                'organization_profiles.street',
+                'organization_profiles.house_number',
+                'organization_profiles.phone',
+                'organization_profiles.employee_limit',
+                'organization_profiles.subscription_type'
             )
             ->first();
 
@@ -68,29 +81,29 @@ class OrganizationApiController extends BaseApiController
     }
 
     /**
-     * Get organization statistics - USING CORRECT TABLE NAMES
+     * Get organization statistics - CORRECTED
      */
     private function getOrganizationStats($organizationId)
     {
         $stats = [];
 
-        // Total employees - using organization_user table
+        // Total employees - FIXED: Check removed_at instead of is_active
         $stats['total_employees'] = DB::table('user')
             ->join('organization_user', 'user.id', '=', 'organization_user.user_id')
             ->where('organization_user.organization_id', $organizationId)
-            ->where('user.is_active', 1)
+            ->whereNull('user.removed_at')
             ->count();
 
-        // Active assessments
+        // Active assessments (not closed)
         $stats['active_assessments'] = DB::table('assessment')
             ->where('organization_id', $organizationId)
-            ->where('status', 'open')
+            ->whereNull('closed_at')
             ->count();
 
         // Completed assessments
         $stats['completed_assessments'] = DB::table('assessment')
             ->where('organization_id', $organizationId)
-            ->where('status', 'closed')
+            ->whereNotNull('closed_at')
             ->count();
 
         // Total assessments
@@ -98,15 +111,19 @@ class OrganizationApiController extends BaseApiController
             ->where('organization_id', $organizationId)
             ->count();
 
-        // Active competencies
-        $stats['active_competencies'] = DB::table('organization_competency')
-            ->where('organization_id', $organizationId)
-            ->where('is_active', 1)
+        // Active competencies - FIXED: competency table, check removed_at
+        $stats['active_competencies'] = DB::table('competency')
+            ->where(function($q) use ($organizationId) {
+                $q->where('organization_id', $organizationId)
+                  ->orWhereNull('organization_id'); // Include global competencies
+            })
+            ->whereNull('removed_at')
             ->count();
 
-        // Departments - using organization_departments table
+        // Departments - FIXED: Check removed_at
         $stats['total_departments'] = DB::table('organization_departments')
             ->where('organization_id', $organizationId)
+            ->whereNull('removed_at')
             ->count();
 
         // Managers and CEOs

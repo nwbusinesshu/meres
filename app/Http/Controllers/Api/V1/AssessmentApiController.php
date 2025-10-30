@@ -18,45 +18,41 @@ class AssessmentApiController extends BaseApiController
             ->where('organization_id', $orgId)
             ->select(
                 'id',
-                'name',
-                'description',
-                'status',
-                'period_start',
-                'period_end',
-                'assessment_type',
+                'started_at',
+                'due_at',
+                'closed_at',
                 'threshold_method',
-                'threshold_value',
-                'created_at',
-                'updated_at',
-                'closed_at'
+                'normal_level_up',
+                'normal_level_down',
+                'monthly_level_down'
             );
 
         // Filters
         if ($request->has('status')) {
-            $query->where('status', $request->status);
-        }
-
-        if ($request->has('assessment_type')) {
-            $query->where('assessment_type', $request->assessment_type);
+            if ($request->status === 'open') {
+                $query->whereNull('closed_at');
+            } elseif ($request->status === 'closed') {
+                $query->whereNotNull('closed_at');
+            }
         }
 
         if ($request->has('year')) {
-            $query->whereYear('period_start', $request->year);
+            $query->whereYear('started_at', $request->year);
         }
 
         if ($request->has('from_date')) {
-            $query->where('period_start', '>=', $request->from_date);
+            $query->where('started_at', '>=', $request->from_date);
         }
 
         if ($request->has('to_date')) {
-            $query->where('period_end', '<=', $request->to_date);
+            $query->where('due_at', '<=', $request->to_date);
         }
 
         // Sorting
-        $sortBy = $request->get('sort_by', 'created_at');
+        $sortBy = $request->get('sort_by', 'started_at');
         $sortOrder = $request->get('sort_order', 'desc');
         
-        if (in_array($sortBy, ['name', 'period_start', 'period_end', 'created_at', 'status'])) {
+        if (in_array($sortBy, ['started_at', 'due_at', 'closed_at'])) {
             $query->orderBy($sortBy, $sortOrder);
         }
 
@@ -82,31 +78,22 @@ class AssessmentApiController extends BaseApiController
         // Get participation statistics
         $stats = $this->getAssessmentStats($id);
 
-        // Get weight configuration
-        $weights = json_decode($assessment->weight_config, true);
-
-        // Get participants count
-        $participants = DB::table('assessment_user')
-            ->where('assessment_id', $id)
-            ->count();
-
         // Get competencies used in this assessment
-        $competencies = DB::table('assessment_competency')
-            ->join('organization_competency', 'assessment_competency.competency_id', '=', 'organization_competency.id')
-            ->where('assessment_competency.assessment_id', $id)
+        $competencies = DB::table('competency_submit')
+            ->join('competency', 'competency_submit.competency_id', '=', 'competency.id')
+            ->where('competency_submit.assessment_id', $id)
+            ->groupBy('competency.id', 'competency.name', 'competency.description')
             ->select(
-                'organization_competency.id',
-                'organization_competency.name',
-                'organization_competency.description',
-                'assessment_competency.weight'
+                'competency.id',
+                'competency.name',
+                'competency.description',
+                DB::raw('COUNT(DISTINCT competency_submit.target_id) as participants_count')
             )
             ->get();
 
         return $this->successResponse([
             'assessment' => $assessment,
             'statistics' => $stats,
-            'weights' => $weights,
-            'participants_count' => $participants,
             'competencies' => $competencies
         ]);
     }
@@ -118,7 +105,7 @@ class AssessmentApiController extends BaseApiController
     {
         $orgId = $this->getOrganizationId($request);
         
-        // Verify assessment belongs to organization
+        // Verify assessment exists
         $assessmentExists = DB::table('assessment')
             ->where('organization_id', $orgId)
             ->where('id', $id)
@@ -128,137 +115,114 @@ class AssessmentApiController extends BaseApiController
             return $this->errorResponse('Assessment not found', 404);
         }
 
-        $query = DB::table('assessment_user')
-            ->join('user', 'assessment_user.user_id', '=', 'user.id')
-            ->join('organization_user', function($join) use ($orgId) {
-                $join->on('user.id', '=', 'organization_user.user_id')
-                     ->where('organization_user.organization_id', '=', $orgId);
-            })
+        // Get unique participants (target_id from competency_submit)
+        $participants = DB::table('competency_submit')
+            ->join('user', 'competency_submit.target_id', '=', 'user.id')
+            ->join('organization_user', 'user.id', '=', 'organization_user.user_id')
             ->leftJoin('organization_departments', 'organization_user.department_id', '=', 'organization_departments.id')
-            ->where('assessment_user.assessment_id', $id)
+            ->where('competency_submit.assessment_id', $id)
+            ->where('organization_user.organization_id', $orgId)
+            ->whereNull('user.removed_at')
+            ->groupBy('user.id', 'user.name', 'user.email', 'organization_user.role', 'organization_user.position', 'organization_departments.department_name')
             ->select(
-                'assessment_user.user_id',
+                'user.id',
                 'user.name',
                 'user.email',
+                'organization_user.role',
                 'organization_user.position',
-                'organization_departments.name as department_name',
-                'assessment_user.self_evaluation_complete',
-                'assessment_user.peer_evaluation_complete',
-                'assessment_user.manager_evaluation_complete',
-                'assessment_user.final_score',
-                'assessment_user.manager_score',
-                'assessment_user.ceo_ranking',
-                'assessment_user.status'
-            );
+                'organization_departments.department_name',
+                DB::raw('COUNT(DISTINCT competency_submit.competency_id) as competencies_evaluated'),
+                DB::raw('AVG(competency_submit.value) as average_score')
+            )
+            ->get();
 
-        // Filters
-        if ($request->has('department_id')) {
-            $query->where('organization_user.department_id', $request->department_id);
-        }
-
-        if ($request->has('status')) {
-            $query->where('assessment_user.status', $request->status);
-        }
-
-        if ($request->has('complete_only') && $request->boolean('complete_only')) {
-            $query->where('assessment_user.self_evaluation_complete', 1)
-                  ->where('assessment_user.peer_evaluation_complete', 1);
-        }
-
-        // Sorting
-        $sortBy = $request->get('sort_by', 'user.name');
-        $sortOrder = $request->get('sort_order', 'asc');
-        
-        if (in_array($sortBy, ['user.name', 'organization_departments.name', 'assessment_user.final_score', 'assessment_user.ceo_ranking'])) {
-            $query->orderBy($sortBy, $sortOrder);
-        }
-
-        return $this->paginatedResponse($query, $request->get('per_page', 50));
+        return $this->successResponse([
+            'assessment_id' => $id,
+            'total_participants' => $participants->count(),
+            'participants' => $participants
+        ]);
     }
 
     /**
-     * Get assessment results summary
+     * Get assessment results
      */
     public function results(Request $request, $id)
     {
         $orgId = $this->getOrganizationId($request);
         
-        // Verify assessment belongs to organization and is closed
+        // Verify assessment exists and is closed
         $assessment = DB::table('assessment')
             ->where('organization_id', $orgId)
             ->where('id', $id)
-            ->where('status', 'closed')
             ->first();
 
         if (!$assessment) {
-            return $this->errorResponse('Assessment not found or not yet closed', 404);
+            return $this->errorResponse('Assessment not found', 404);
         }
 
-        // Get overall statistics
-        $stats = DB::table('assessment_user')
-            ->where('assessment_id', $id)
-            ->selectRaw('
-                AVG(final_score) as average_score,
-                MIN(final_score) as min_score,
-                MAX(final_score) as max_score,
-                COUNT(*) as total_participants,
-                SUM(CASE WHEN final_score >= ? THEN 1 ELSE 0 END) as above_threshold
-            ', [$assessment->threshold_value])
-            ->first();
+        if (!$assessment->closed_at) {
+            return $this->errorResponse('Assessment is still open. Results are only available for closed assessments.', 400);
+        }
 
-        // Get department breakdown
-        $departmentStats = DB::table('assessment_user')
-            ->join('organization_user', 'assessment_user.user_id', '=', 'organization_user.user_id')
-            ->join('organization_departments', 'organization_user.department_id', '=', 'organization_departments.id')
-            ->where('assessment_user.assessment_id', $id)
+        // Get results from competency_submit with aggregations
+        $query = DB::table('competency_submit')
+            ->join('user', 'competency_submit.target_id', '=', 'user.id')
+            ->join('organization_user', 'user.id', '=', 'organization_user.user_id')
+            ->leftJoin('organization_departments', 'organization_user.department_id', '=', 'organization_departments.id')
+            ->where('competency_submit.assessment_id', $id)
             ->where('organization_user.organization_id', $orgId)
-            ->groupBy('organization_departments.id', 'organization_departments.name')
-            ->selectRaw('
-                organization_departments.id,
-                organization_departments.name,
-                AVG(assessment_user.final_score) as avg_score,
-                COUNT(*) as participant_count
-            ')
-            ->orderBy('avg_score', 'desc')
-            ->get();
-
-        // Get top performers
-        $topPerformers = DB::table('assessment_user')
-            ->join('user', 'assessment_user.user_id', '=', 'user.id')
-            ->where('assessment_user.assessment_id', $id)
-            ->orderBy('final_score', 'desc')
-            ->limit(10)
+            ->whereNull('user.removed_at')
+            ->groupBy('user.id', 'user.name', 'user.email', 'organization_user.position', 'organization_departments.department_name')
             ->select(
                 'user.id',
                 'user.name',
-                'assessment_user.final_score',
-                'assessment_user.ceo_ranking'
-            )
-            ->get();
+                'user.email',
+                'organization_user.position',
+                'organization_departments.department_name',
+                DB::raw('AVG(CASE WHEN competency_submit.type = "self" THEN competency_submit.value END) as self_score'),
+                DB::raw('AVG(CASE WHEN competency_submit.type = "colleague" THEN competency_submit.value END) as colleague_score'),
+                DB::raw('AVG(CASE WHEN competency_submit.type = "subordinate" THEN competency_submit.value END) as subordinate_score'),
+                DB::raw('AVG(CASE WHEN competency_submit.type = "manager" THEN competency_submit.value END) as manager_score'),
+                DB::raw('AVG(competency_submit.value) as overall_average')
+            );
 
-        // Get score distribution
-        $distribution = DB::table('assessment_user')
-            ->where('assessment_id', $id)
-            ->selectRaw('
-                CASE 
-                    WHEN final_score < 20 THEN "0-20"
-                    WHEN final_score < 40 THEN "20-40"
-                    WHEN final_score < 60 THEN "40-60"
-                    WHEN final_score < 80 THEN "60-80"
-                    ELSE "80-100"
-                END as score_range,
-                COUNT(*) as count
-            ')
-            ->groupBy('score_range')
-            ->get();
+        // Add CEO rankings from user_ceo_rank
+        $results = $query->get()->map(function($user) use ($id) {
+            // Get CEO rank if exists
+            $ceoRank = DB::table('user_ceo_rank')
+                ->where('assessment_id', $id)
+                ->where('user_id', $user->id)
+                ->value('value');
+            
+            $user->ceo_rank = $ceoRank;
+            
+            // Get bonus/malus level from assessment_bonuses if exists
+            $bonus = DB::table('assessment_bonuses')
+                ->where('assessment_id', $id)
+                ->where('user_id', $user->id)
+                ->first();
+            
+            if ($bonus) {
+                $user->bonus_malus_level = $bonus->bonus_malus_level;
+                $user->bonus_amount = $bonus->bonus_amount;
+                $user->is_paid = $bonus->is_paid;
+            }
+            
+            return $user;
+        });
+
+        // Filters
+        if ($request->has('department_id')) {
+            $results = $results->filter(function($user) use ($request) {
+                return $user->department_id == $request->department_id;
+            });
+        }
 
         return $this->successResponse([
             'assessment_id' => $id,
-            'overall_statistics' => $stats,
-            'department_breakdown' => $departmentStats,
-            'top_performers' => $topPerformers,
-            'score_distribution' => $distribution,
-            'threshold' => $assessment->threshold_value
+            'closed_at' => $assessment->closed_at,
+            'total_results' => $results->count(),
+            'results' => $results->values()
         ]);
     }
 
@@ -267,29 +231,51 @@ class AssessmentApiController extends BaseApiController
      */
     private function getAssessmentStats($assessmentId)
     {
-        $stats = DB::table('assessment_user')
-            ->where('assessment_id', $assessmentId)
-            ->selectRaw('
-                COUNT(*) as total_participants,
-                SUM(self_evaluation_complete) as self_evaluations_complete,
-                SUM(peer_evaluation_complete) as peer_evaluations_complete,
-                SUM(manager_evaluation_complete) as manager_evaluations_complete,
-                AVG(CASE WHEN final_score > 0 THEN final_score END) as average_score
-            ')
-            ->first();
+        $stats = [];
 
-        return [
-            'total_participants' => $stats->total_participants ?? 0,
-            'self_completion_rate' => $stats->total_participants > 0 
-                ? round(($stats->self_evaluations_complete / $stats->total_participants) * 100, 1)
-                : 0,
-            'peer_completion_rate' => $stats->total_participants > 0
-                ? round(($stats->peer_evaluations_complete / $stats->total_participants) * 100, 1)
-                : 0,
-            'manager_completion_rate' => $stats->total_participants > 0
-                ? round(($stats->manager_evaluations_complete / $stats->total_participants) * 100, 1)
-                : 0,
-            'average_score' => round($stats->average_score ?? 0, 2)
+        // Total participants
+        $stats['total_participants'] = DB::table('competency_submit')
+            ->where('assessment_id', $assessmentId)
+            ->distinct('target_id')
+            ->count('target_id');
+
+        // Total evaluators (unique user_id who submitted)
+        $stats['total_evaluators'] = DB::table('competency_submit')
+            ->where('assessment_id', $assessmentId)
+            ->whereNotNull('user_id')
+            ->distinct('user_id')
+            ->count('user_id');
+
+        // Submissions by type
+        $submissionsByType = DB::table('competency_submit')
+            ->where('assessment_id', $assessmentId)
+            ->groupBy('type')
+            ->select('type', DB::raw('COUNT(*) as count'))
+            ->pluck('count', 'type');
+
+        $stats['submissions_by_type'] = [
+            'self' => $submissionsByType['self'] ?? 0,
+            'colleague' => $submissionsByType['colleague'] ?? 0,
+            'subordinate' => $submissionsByType['subordinate'] ?? 0,
+            'manager' => $submissionsByType['manager'] ?? 0,
         ];
+
+        // Total submissions
+        $stats['total_submissions'] = DB::table('competency_submit')
+            ->where('assessment_id', $assessmentId)
+            ->count();
+
+        // Completion rate (users who submitted their self-evaluation)
+        $completedUsers = DB::table('user_competency_submit')
+            ->where('assessment_id', $assessmentId)
+            ->whereNotNull('submitted_at')
+            ->distinct('user_id')
+            ->count('user_id');
+
+        $stats['completion_rate'] = $stats['total_participants'] > 0 
+            ? round(($completedUsers / $stats['total_participants']) * 100, 2)
+            : 0;
+
+        return $stats;
     }
 }

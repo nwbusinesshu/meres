@@ -53,7 +53,7 @@ class RouteServiceProvider extends ServiceProvider
         // Webhook-specific rate limiter
         // Protects against webhook flooding/DDoS even from whitelisted IPs
         RateLimiter::for('webhook', function (Request $request) {
-            $limit = (int) env('WEBHOOK_RATE_LIMIT', 100);
+            $limit = (int) config('security.webhook.rate_limit', 100);
             
             return Limit::perMinute($limit)
                 ->by($request->ip())

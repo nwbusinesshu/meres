@@ -30,7 +30,7 @@ class CleanupTestData extends Command
         // ========================================
         // CRITICAL SAFETY CHECK - PREVENT PRODUCTION USE
         // ========================================
-        $saasEnv = env('SAAS_ENV');
+         $saasEnv = config('saas.env');
         
         if ($saasEnv !== 'test') {
             $this->error('╔═══════════════════════════════════════════════════════════╗');

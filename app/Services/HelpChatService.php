@@ -17,9 +17,9 @@ class HelpChatService
 
     public function __construct()
     {
-        $this->apiKey = env('OPENAI_API_KEY');
-        $this->model = env('OPENAI_MODEL_CHAT', 'gpt-5-nano');
-        $this->timeout = (int) env('OPENAI_TIMEOUT', 30);
+        $this->apiKey = config('services.openai.key');
+        $this->model = config('services.openai.model_chat', 'gpt-4o-mini');
+        $this->timeout = (int) config('services.openai.timeout', 30);
     }
 
     /**

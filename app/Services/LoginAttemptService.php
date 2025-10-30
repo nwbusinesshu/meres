@@ -69,9 +69,10 @@ class LoginAttemptService
      */
     public static function recordFailedAttempt(string $email, string $ipAddress): array
     {
-        $maxAttempts = (int) env('LOGIN_MAX_ATTEMPTS', 5);
-        $lockoutMinutes = (int) env('LOGIN_LOCKOUT_MINUTES', 30);
-        $decayMinutes = (int) env('LOGIN_DECAY_MINUTES', 60);
+        $maxAttempts = (int) config('security.login.max_attempts', 5);
+        $lockoutMinutes = (int) config('security.login.lockout_minutes', 30);
+        $decayMinutes = (int) config('security.login.decay_minutes', 60);
+
         
         $attempt = self::getAttempt($email);
         

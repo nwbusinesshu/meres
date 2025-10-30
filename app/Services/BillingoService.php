@@ -18,13 +18,13 @@ class BillingoService
     public function __construct()
     {
         $this->base          = rtrim(env('BILLINGO_API_URL', 'https://api.billingo.hu/v3'), '/');
-        $this->apiKey        = (string) env('BILLINGO_API_KEY');
-        $this->blockId       = (int) env('BILLINGO_BLOCK_ID');
-        $this->bankAccountId = (int) env('BILLINGO_BANK_ACCOUNT_ID');
-        $this->productId     = (int) env('BILLINGO_PRODUCT_ID');
-        $this->vatRate       = (int) env('BILLINGO_VAT_RATE', 27);
+        $this->apiKey        = (string) config('services.billingo.api_key');
+        $this->blockId       = (int) config('services.billingo.block_id');
+        $this->bankAccountId = (int) config('services.billingo.bank_account_id');
+        $this->productId     = (int) config('services.billingo.product_id');
+        $this->vatRate       = (int) config('services.billingo.vat_rate', 27);
         $this->headers = [
-            'X-API-KEY'    => env('BILLINGO_API_KEY', ''),
+            'X-API-KEY'    => config('services.billingo.api_key', ''),
             'Content-Type' => 'application/json',
         ];
     }

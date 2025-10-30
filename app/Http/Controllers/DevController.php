@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
 class DevController extends Controller
 {   
     public function __construct(){
-        if(env('APP_ENV') == "production"){
+        if(config('app.env') == "production"){
             return abort(403);
         }
     }

@@ -38,7 +38,7 @@ class ContentSecurityPolicy
         }
 
         // Check if CSP is enabled
-        if (!env('CSP_ENABLED', true)) {
+        if (!config('security.csp.enabled', true)) {
             return $response;
         }
 
@@ -46,7 +46,7 @@ class ContentSecurityPolicy
         $policy = $this->buildPolicy();
 
         // Choose header based on report-only mode
-        $headerName = env('CSP_REPORT_ONLY', false) 
+        $headerName = config('security.csp.report_only', false) 
             ? 'Content-Security-Policy-Report-Only' 
             : 'Content-Security-Policy';
 
@@ -158,12 +158,12 @@ class ContentSecurityPolicy
         ];
 
         // Only add upgrade-insecure-requests in production (not in report-only mode)
-        if (!env('CSP_REPORT_ONLY', false) && app()->environment('production')) {
+        if (!config('security.csp.report_only', false) && app()->environment('production')) {
             $directives['upgrade-insecure-requests'] = "";
         }
 
         // Add report URI if configured
-        if ($reportUri = env('CSP_REPORT_URI')) {
+        if ($reportUri = config('security.csp.report_uri')) {
             $directives['report-uri'] = $reportUri;
         }
 

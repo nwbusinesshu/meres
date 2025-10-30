@@ -17,6 +17,12 @@
   flex-wrap: wrap;
   gap: 1em;
 }
+
+.rank-users {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
 .person{
   width: calc(50% - .5em);
   gap: 0;

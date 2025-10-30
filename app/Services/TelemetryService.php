@@ -1165,9 +1165,9 @@ PROMPT;
      */
    protected static function callOpenAI(string $prompt, array $jsonSchema, array $meta): ?array
 {
-    $apiKey  = (string) config('services.openai.key', env('OPENAI_API_KEY'));
-    $model   = (string) env('OPENAI_MODEL', 'gpt-4.1-mini');
-    $timeout = (int) env('OPENAI_TIMEOUT', 12);
+    $apiKey  = (string) config('services.openai.key');
+    $model   = (string) config('services.openai.model', 'gpt-4o-mini');
+    $timeout = (int) config('services.openai.timeout', 12);
 
     if (!$apiKey) {
         Log::warning('[AI] callOpenAI: missing API key');

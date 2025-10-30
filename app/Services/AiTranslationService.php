@@ -11,11 +11,11 @@ class AiTranslationService
     private string $model;
     private int $timeout;
 
-    public function __construct()
+      public function __construct()
     {
-        $this->apiKey = env('OPENAI_API_KEY');
-        $this->model = env('OPENAI_MODEL', 'gpt-4o-mini');
-        $this->timeout = (int) env('OPENAI_TIMEOUT', 30);
+        $this->apiKey = config('services.openai.key');
+        $this->model = config('services.openai.model', 'gpt-4o-mini');
+        $this->timeout = (int) config('services.openai.timeout', 30);
     }
 
     /**

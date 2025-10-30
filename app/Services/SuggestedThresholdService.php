@@ -92,9 +92,9 @@ class SuggestedThresholdService
      */
     public function callAiForSuggested(array $payload): ?array
     {
-        $apiKey  = env('OPENAI_API_KEY');
-        $model   = env('OPENAI_MODEL', 'gpt-4o-mini');
-        $timeout = (int) env('OPENAI_TIMEOUT', 30);
+        $apiKey  = config('services.openai.key');
+        $model   = config('services.openai.model', 'gpt-4o-mini');
+        $timeout = (int) config('services.openai.timeout', 30);
 
         // ✅ NEW: Better validation
         if (!$apiKey) {

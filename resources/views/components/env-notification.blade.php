@@ -1,6 +1,6 @@
 {{-- resources/views/components/env-notification.blade.php --}}
 @php
-    $saasEnv = env('SAAS_ENV');
+    $saasEnv = config('saas.env');
     $shouldShow = in_array($saasEnv, ['test', 'staging']);
 @endphp
 

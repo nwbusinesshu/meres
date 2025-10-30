@@ -38,16 +38,36 @@ return [
     ],
 
     'microsoft' => [
-    'client_id'     => env('MICROSOFT_CLIENT_ID'),
-    'client_secret' => env('MICROSOFT_CLIENT_SECRET'),
-    'redirect'      => env('MICROSOFT_REDIRECT_URI', 'https://staging.nwbusiness.hu/auth/microsoft/callback'),
-    'tenant'        => env('MICROSOFT_TENANT', 'common'),
+        'client_id'     => env('MICROSOFT_CLIENT_ID'),
+        'client_secret' => env('MICROSOFT_CLIENT_SECRET'),
+        'redirect'      => env('MICROSOFT_REDIRECT_URI', 'https://staging.nwbusiness.hu/auth/microsoft/callback'),
+        'tenant'        => env('MICROSOFT_TENANT', 'common'),
     ],
 
-    
     'recaptcha' => [
         'key' => env('RECAPTCHA_SITE_KEY'),
         'secret' => env('RECAPTCHA_SECRET_KEY'),
     ],
-];
 
+    'openai' => [
+        'key' => env('OPENAI_API_KEY'),
+        'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+        'model_chat' => env('OPENAI_MODEL_CHAT', 'gpt-4o-mini'),
+        'timeout' => (int) env('OPENAI_TIMEOUT', 30),
+    ],
+
+    'barion' => [
+        'poskey' => env('BARION_POSKEY'),
+        'payee_email' => env('BARION_PAYEE_EMAIL'),
+        'redirect_url' => env('BARION_REDIRECT_URL'),
+        'callback_url' => env('BARION_CALLBACK_URL'),
+    ],
+
+    'billingo' => [
+        'api_key' => env('BILLINGO_API_KEY'),
+        'block_id' => (int) env('BILLINGO_BLOCK_ID'),
+        'bank_account_id' => (int) env('BILLINGO_BANK_ACCOUNT_ID'),
+        'product_id' => (int) env('BILLINGO_PRODUCT_ID'),
+        'vat_rate' => (int) env('BILLINGO_VAT_RATE', 27),
+    ],
+];

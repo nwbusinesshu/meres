@@ -24,7 +24,7 @@ class BarionWebhookIpWhitelist
         $clientIp = $request->ip();
         
         // Check if IP verification is enabled
-        $ipCheckEnabled = env('BARION_WEBHOOK_IP_CHECK_ENABLED', true);
+        $ipCheckEnabled = config('security.barion_webhook.ip_check_enabled', true);
         
         if (!$ipCheckEnabled) {
             Log::warning('barion.webhook.ip_check_disabled', [
@@ -38,7 +38,7 @@ class BarionWebhookIpWhitelist
         $allowedIps = $this->getAllowedIps();
         
         // Allow local development IPs if configured
-        if ($this->isLocalDevelopment() && env('BARION_WEBHOOK_ALLOW_LOCAL', false)) {
+        if ($this->isLocalDevelopment() && config('security.barion_webhook.allow_local', false)) {
             $allowedIps = array_merge($allowedIps, ['127.0.0.1', '::1', 'localhost']);
         }
         
@@ -72,8 +72,8 @@ class BarionWebhookIpWhitelist
      */
     private function getAllowedIps(): array
     {
-        $productionIps = env('BARION_WEBHOOK_IPS_PRODUCTION', '');
-        $sandboxIps = env('BARION_WEBHOOK_IPS_SANDBOX', '');
+        $productionIps = config('security.barion_webhook.ips_production', '');
+        $sandboxIps = config('security.barion_webhook.ips_sandbox', '');
         
         // Combine both production and sandbox IPs
         $allIps = trim($productionIps . ',' . $sandboxIps, ',');
@@ -105,7 +105,7 @@ class BarionWebhookIpWhitelist
     private function isLocalDevelopment(): bool
     {
         return app()->environment('local') || 
-               env('APP_ENV') === 'local' || 
-               env('APP_DEBUG', false);
+            config('app.env') === 'local' ||
+            config('app.debug', false);
     }
 }

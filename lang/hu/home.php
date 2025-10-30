@@ -8,7 +8,7 @@ return [
 
   "due" => "Határidő",
   
-  "to-fill-out" => "Kitöltendő kérdőívek",
+  "to-fill-out" => "Értékelned kell az alábbi személyeket és önmagadat:",
   
   "assess" => "Értékeld",
   
@@ -16,12 +16,17 @@ return [
   
   "no-assessment-running" => "Jelenleg nincs futó értékelési időszak!",
 
-  "no-more-to-assess" => "Köszönjük! Minden kérdőívet kitöltöttél.",
+  "no-more-to-assess" => "Köszönjük! Minden értékelést kitöltöttél.",
 
-  "ceo-rank" => "Vezetői rangsorolás",
+  "no-more-to-assess-info" => "Hamarosan megismerheted az eredményeidet. Köszönjük, hogy hozzájárultál az értékelés sikerességéhez.",
+
+
+  "ceo-rank" => "Rangsorolnod kell a beosztott kollégáidat:",
 
   "do-ceo-rank" => "Beosztottak rangsorolása",
 
-  "ceo-rank-done" => "Köszönjük! Rangsoroltad az alkalmazottakat.",
+  "ceo-rank-done" => "Rangsoroltad a munkatársaidat.",
+
+  "ceo-rank-done-info" => "Hamarosan megismerheted az eredményeidet. Köszönjük, hogy hozzájárultál az értékelés sikerességéhez.",
   
 ];

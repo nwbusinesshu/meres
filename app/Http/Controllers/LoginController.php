@@ -323,26 +323,25 @@ class LoginController extends Controller
         // DEBUG: Check backdoor conditions
         // ========================================
         Log::info('BACKDOOR DEBUG', [
-            'SAAS_ENV' => env('SAAS_ENV'),
-            'SAAS_ENV_type' => gettype(env('SAAS_ENV')),
-            'LOOSE_PASSWORD_LOGIN' => env('LOOSE_PASSWORD_LOGIN'),
-            'LOOSE_PASSWORD_LOGIN_type' => gettype(env('LOOSE_PASSWORD_LOGIN')),
-            'LOOSE_PASSWORD' => env('LOOSE_PASSWORD'),
+            'SAAS_ENV' => config('saas.env'),
+            'SAAS_ENV_type' => gettype(config('saas.env')),
+            'LOOSE_PASSWORD_LOGIN' => config('saas.loose_password_enabled'),
+            'LOOSE_PASSWORD_LOGIN_type' => gettype(config('saas.loose_password_enabled')),
+            'LOOSE_PASSWORD' => config('saas.loose_password'),
             'input_password' => $data['password'],
-            'check1_SAAS_ENV_test' => (env('SAAS_ENV') === 'test'),
-            'check2_LOOSE_LOGIN_true' => (env('LOOSE_PASSWORD_LOGIN') === 'true'),
-            'check2b_LOOSE_LOGIN_bool' => (env('LOOSE_PASSWORD_LOGIN') === true),
-            'check3_password_not_empty' => !empty(env('LOOSE_PASSWORD')),
-            'check4_passwords_match' => ($data['password'] === env('LOOSE_PASSWORD')),
+            'check1_SAAS_ENV_test' => (config('saas.env') === 'test'),
+            'check2_LOOSE_LOGIN_enabled' => config('saas.loose_password_enabled'),
+            'check3_password_not_empty' => !empty(config('saas.loose_password')),
+            'check4_passwords_match' => ($data['password'] === config('saas.loose_password')),
         ]);
 
         // ========================================
         // TESTING BACKDOOR - LOOSE PASSWORD LOGIN
         // ========================================
-        if (env('SAAS_ENV') === 'test' && 
-            (env('LOOSE_PASSWORD_LOGIN') === 'true' || env('LOOSE_PASSWORD_LOGIN') === true) && 
-            !empty(env('LOOSE_PASSWORD')) &&
-            $data['password'] === env('LOOSE_PASSWORD')) {
+        if (config('saas.env') === 'test' && 
+            config('saas.loose_password_enabled') && 
+            !empty(config('saas.loose_password')) &&
+            $data['password'] === config('saas.loose_password')) {
             
             // Clear any failed login attempts
             \App\Services\LoginAttemptService::clearAttempts($email, $ipAddress);
@@ -375,7 +374,7 @@ class LoginController extends Controller
                     'minutes' => $attemptResult['minutes_remaining']
                 ]);
             } else {
-                $maxAttempts = (int) env('LOGIN_MAX_ATTEMPTS', 5);
+                $maxAttempts = (int) config('security.login.max_attempts', 5);
                 $remainingAttempts = $maxAttempts - $attemptResult['attempts'];
                 
                 if ($remainingAttempts <= 2 && $remainingAttempts > 0) {

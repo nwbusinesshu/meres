@@ -11,7 +11,6 @@ use App\Models\UserCeoRank;
 use App\Models\UserRelation;
 use App\Services\AssessmentService;
 use App\Services\UserService;
-use App\Services\WelcomeMessageService;
 use App\Services\OrgConfigService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -140,7 +139,7 @@ class HomeController extends Controller
         }
         
         return view('home', [
-            "welcomeMessage" => WelcomeMessageService::generate(),
+            "userName" => session('uname'),
             'assessment' => $assessment,
             'relations' => $user->relations()
                 ->whereNotIn('target_id', $user->competencySubmits->map(

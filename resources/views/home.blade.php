@@ -5,7 +5,7 @@
 
 @section('content')
 
-<h2>{{ $welcomeMessage }}</h2>
+<h2>{{ $userName }}</h2>
 
 @if (is_null($assessment))
 <div class="tile tile-empty-info">
@@ -28,19 +28,23 @@
 
   {{-- ✅ FIXED: Only show CEO rank section if user can access it (has employees to rank) --}}
   @if($canAccessCeoRank)
-    <h2>{{ $_('ceo-rank') }}</h2>
+    <h3>{{ $_('ceo-rank') }}</h3>
     @if (!$madeCeoRank)
       <div class="tile tile-button rank-users">
         <span>{{ $_('do-ceo-rank') }}</span>
       </div>
     @else
-      <div class="tile tile-success rank-done">
-        <p>{{ $_('ceo-rank-done') }}</p>
-      </div>
+      <div class="tile tile-empty-info-slim">
+  <img src="{{ asset('assets/img/monster-info-tile-5.svg') }}" alt="No payments" class="empty-tile-monster-slim">
+  <div class="empty-tile-text">
+    <p class="empty-tile-title">{{ $_('ceo-rank-done') }}</p>
+    <p class="empty-tile-subtitle">{{ $_('ceo-rank-done-info') }}</p>
+  </div>
+</div>
     @endif
   @endif
 
-  <h2>{{ $_('to-fill-out') }}</h2>
+  <h3>{{ $_('to-fill-out') }}</h3>
   <div class="person-list">
     @if (!$selfAssessed)
       <div class="tile person" data-id="{{ session('uid') }}">
@@ -57,13 +61,16 @@
         <p>{{ $_('click-to-fill') }}</p>
       </div>
     @endforeach
-    
+    </div>
     @if($selfAssessed && $relations->count() == 0)
-      <div class="tile tile-success no-more">
-        <p>{{ $_('no-more-to-assess') }}</p>
-      </div>
-    @endif
+      <div class="tile tile-empty-info-slim">
+  <img src="{{ asset('assets/img/monster-info-tile-3.svg') }}" alt="No payments" class="empty-tile-monster-slim">
+  <div class="empty-tile-text">
+    <p class="empty-tile-title">{{ $_('no-more-to-assess') }}</p>
+    <p class="empty-tile-subtitle">{{ $_('no-more-to-assess-info') }}</p>
   </div>
+</div>
+    @endif
 @endif
 
 @endsection

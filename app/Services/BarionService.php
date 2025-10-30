@@ -16,10 +16,10 @@ class BarionService
     public function __construct()
     {
         $this->base        = rtrim(env('BARION_API_URL', 'https://api.test.barion.com'), '/');
-        $this->posKey      = (string) env('BARION_POSKEY');
-        $this->payeeEmail  = (string) env('BARION_PAYEE_EMAIL');
-        $this->redirectUrl = (string) env('BARION_REDIRECT_URL');
-        $this->callbackUrl = (string) env('BARION_CALLBACK_URL');
+        $this->posKey      = (string) config('services.barion.poskey');
+        $this->payeeEmail  = (string) config('services.barion.payee_email');
+        $this->redirectUrl = (string) config('services.barion.redirect_url');
+        $this->callbackUrl = (string) config('services.barion.callback_url');
     }
 
     /**
