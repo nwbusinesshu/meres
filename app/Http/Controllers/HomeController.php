@@ -72,14 +72,39 @@ class HomeController extends Controller
             ->whereNull('billingo_document_id')
             ->exists();
 
+        // ✅ NEW: Calculate progress percentages for stats tiles
+        $assessed = $assessment?->userCompetencySubmits()->count() ?? 0;
+        $neededAssessment = UserRelation::where('organization_id', $orgId)->count();
+        $ceoRanks = $assessment?->ceoRanks()->distinct('ceo_id')->count() ?? 0;
+        
+        $assessmentPercent = $neededAssessment > 0 
+            ? round(($assessed / $neededAssessment) * 100, 1) 
+            : 0;
+        
+        $ceoRankPercent = $neededCeoRanks > 0 
+            ? round(($ceoRanks / $neededCeoRanks) * 100, 1) 
+            : 0;
+
+        // ✅ NEW: Calculate employee progress percentages
+        $employees = $employees->map(function ($employee) {
+            $totalNeeded = $employee->relations_count + 1; // +1 for self-assessment
+            $totalDone = $employee->competency_submits_count + ($employee->self_competency_submit_count ? 1 : 0);
+            $employee['progressPercent'] = $totalNeeded > 0 
+                ? round(($totalDone / $totalNeeded) * 100, 1) 
+                : 0;
+            return $employee;
+        });
+
         return view('admin.home', [
-            'assessment'       => $assessment,
-            'employees'        => $employees,
-            'neededCeoRanks'   => $neededCeoRanks,  // ✅ FIXED: Proper calculation
-            'ceoRanks'         => $assessment?->ceoRanks()->distinct('ceo_id')->count() ?? 0,
-            'neededAssessment' => UserRelation::where('organization_id', $orgId)->count(),
-            'assessed'         => $assessment?->userCompetencySubmits()->count() ?? 0,
-            'hasOpenPayments'  => $hasOpenPayments,
+            'assessment'          => $assessment,
+            'employees'           => $employees,
+            'neededCeoRanks'      => $neededCeoRanks,
+            'ceoRanks'            => $ceoRanks,
+            'neededAssessment'    => $neededAssessment,
+            'assessed'            => $assessed,
+            'hasOpenPayments'     => $hasOpenPayments,
+            'assessmentPercent'   => $assessmentPercent,    // ✅ NEW
+            'ceoRankPercent'      => $ceoRankPercent,       // ✅ NEW
         ]);
     }
 

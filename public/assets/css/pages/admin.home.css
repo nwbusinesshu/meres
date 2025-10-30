@@ -110,8 +110,102 @@
   color: var(--success);
 }
 
+/* ========================================
+   ✅ NEW: PROGRESS BAR STYLES
+   ======================================== */
+
+/* Add bottom padding to tiles with progress bars */
+.tile-with-progress {
+  padding-bottom: 0 !important;
+  position: relative;
+  overflow: visible;
+}
+
+/* Progress bar wrapper positioned at bottom of tile */
+.tile-progress-wrapper {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: rgba(0, 0, 0, 0.1);
+  overflow: visible;
+}
+
+/* Progress bar fill with animation */
+.tile-progress-bar {
+  height: 100%;
+  width: 0;
+  transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+/* Animate progress bar on page load */
+.tile-with-progress .tile-progress-bar {
+  animation: fillProgress 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation-delay: 0.3s;
+}
+
+@keyframes fillProgress {
+  from {
+    width: 0;
+  }
+  to {
+    width: var(--progress);
+  }
+}
+
+/* Progress bar color variants */
+.tile-progress-bar.progress-success {
+  background-color: var(--success);
+}
+
+.tile-progress-bar.progress-info {
+  background-color: var(--info);
+}
+
+.tile-progress-bar.progress-danger {
+  background-color: var(--danger);
+}
+
+/* Percentage label above progress bar */
+.tile-progress-percent {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
+  font-size: 0.75em;
+  font-weight: 600;
+  color: var(--silver_chalice);
+  opacity: 0;
+  animation: fadeInPercent 0.5s ease-in forwards;
+  animation-delay: 1.8s;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+
+@keyframes fadeInPercent {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive adjustments */
 @media all and (max-width: 760px) {
   .person-stat{
     width: 100%;
+  }
+  
+  .tile-progress-percent {
+    font-size: 0.7em;
+    bottom: 5px;
+    right: 6px;
+    padding: 1px 3px;
   }
 }

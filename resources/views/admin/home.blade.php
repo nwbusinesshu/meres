@@ -32,36 +32,53 @@
   </div>
   @endif
 </div>
+
 @if (is_null($assessment))
 <div class="tile tile-empty-info">
   <img src="{{ asset('assets/img/monster-info-tile.svg') }}" alt="No assessment" class="empty-tile-monster">
   <div class="empty-tile-text">
     <p class="empty-tile-title">{{ $_('no-assessment-running') }}</p>
     <p class="empty-tile-subtitle">{{ $_('no-assessment-running-info') }}</p>
-    <p class="empty-tile-tasks">{!! $_('no-assessment-running-tasks') !!}
-</p>
+    <p class="empty-tile-tasks">{!! $_('no-assessment-running-tasks') !!}</p>
   </div>
 </div>
 @endif
+
 @if (!is_null($assessment))
 <div class="double-tiles stats">
-  <div class="tile {{ $assessed == $neededAssessment ? "tile-success" : "tile-info" }}">
+  {{-- Assessment stat tile with progress bar --}}
+  <div class="tile {{ $assessed == $neededAssessment ? "tile-success" : "tile-info" }} tile-with-progress">
     <p>{{ $_('assessment-stat') }}</p>
     <p>
       <span>{{ $assessed }}</span>/<span>{{ $neededAssessment }}</span>
     </p>
+    {{-- ✅ FIXED: Progress bar with percentage positioned correctly --}}
+    <div class="tile-progress-wrapper">
+      <div class="tile-progress-bar {{ $assessed == $neededAssessment ? "progress-success" : "progress-info" }}" 
+           style="--progress: {{ $assessmentPercent }}%"></div>
+      <span class="tile-progress-percent">{{ $assessmentPercent }}%</span>
+    </div>
   </div>
-  <div class="tile {{ $ceoRanks == $neededCeoRanks ? "tile-success" : "tile-info" }}">
+
+  {{-- CEO rank stat tile with progress bar --}}
+  <div class="tile {{ $ceoRanks == $neededCeoRanks ? "tile-success" : "tile-info" }} tile-with-progress">
     <p>{{ $_('ceo-stat') }}</p>
     <p>
       <span>{{ $ceoRanks }}</span>/<span>{{ $neededCeoRanks }}</span>
     </p>
+    {{-- ✅ FIXED: Progress bar with percentage positioned correctly --}}
+    <div class="tile-progress-wrapper">
+      <div class="tile-progress-bar {{ $ceoRanks == $neededCeoRanks ? "progress-success" : "progress-info" }}" 
+           style="--progress: {{ $ceoRankPercent }}%"></div>
+      <span class="tile-progress-percent">{{ $ceoRankPercent }}%</span>
+    </div>
   </div>
 </div>
+
 <h2>{{ $_('employees-detailed') }}</h2>
 <div class="person-stats">
   @foreach ($employees as $employee)
-    <div class="tile person-stat
+    <div class="tile person-stat tile-with-progress
     @if($employee->self_competency_submit_count && $employee->relations_count == $employee->competency_submits_count) 
       tile-success
     @else
@@ -85,6 +102,17 @@
           <span><i class="fa fa-square-xmark"></i></span>
           @endif
         </div>
+      </div>
+      {{-- ✅ FIXED: Progress bar with percentage positioned at the bar's end --}}
+      <div class="tile-progress-wrapper">
+        <div class="tile-progress-bar 
+          @if($employee->self_competency_submit_count && $employee->relations_count == $employee->competency_submits_count)
+            progress-success
+          @else
+            progress-danger
+          @endif" 
+          style="--progress: {{ $employee->progressPercent }}%"></div>
+        <span class="tile-progress-percent" style="--progress: {{ $employee->progressPercent }}%">{{ $employee->progressPercent }}%</span>
       </div>
     </div>
   @endforeach
