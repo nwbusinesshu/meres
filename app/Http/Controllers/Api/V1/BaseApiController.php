@@ -11,10 +11,17 @@ class BaseApiController extends Controller
     protected $organizationId;
     protected $apiKey;
 
-    public function __construct(Request $request)
+    /**
+     * Get organization ID from request
+     * This must be called in controller methods, not in constructor
+     */
+    protected function getOrganizationId(Request $request)
     {
-        $this->organizationId = $request->attributes->get('organization_id');
-        $this->apiKey = $request->attributes->get('api_key');
+        if (!$this->organizationId) {
+            $this->organizationId = $request->attributes->get('organization_id');
+            $this->apiKey = $request->attributes->get('api_key');
+        }
+        return $this->organizationId;
     }
 
     protected function successResponse($data, $message = null, $code = 200)

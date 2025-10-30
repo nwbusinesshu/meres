@@ -74,5 +74,7 @@ class Kernel extends HttpKernel
         
         // NEW: Barion webhook security
         'barion.webhook.ip' => \App\Http\Middleware\BarionWebhookIpWhitelist::class,
+        // API authentication
+        'api.auth' => \App\Http\Middleware\ApiAuthentication::class,
     ];
 }
