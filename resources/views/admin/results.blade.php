@@ -69,67 +69,75 @@
     @endif
   @endif
 
-  {{-- Search and Filter Bar --}}
-  <div class="tile tile-info search-tile">
+  {{-- Search and Filter Bar (INTEGRATED) --}}
+  <div class="tile tile-info search-filter-tile">
     <p>{{ __('admin/results.search') }}</p>
-    <div>
+    <div class="search-input-wrapper">
       <input type="text" 
              class="form-control search-input" 
              placeholder="{{ __('admin/results.search-employees') }}"
              id="results-search-input">
       <i class="fa fa-ban clear-search" id="clear-search-btn" data-tippy-content="{{ __('admin/results.clear-search') }}"></i>
     </div>
-  </div>
 
-  {{-- Filters Section --}}
-  <div class="filters-container tile">
-    {{-- Threshold filters --}}
-    <div class="filter-group">
-      <div class="filter-group-label">{{ __('admin/results.filter-by-threshold') }}</div>
-      <div class="filter-chips">
-        <div class="filter-chip" data-filter="threshold" data-value="above">
-          <i class="fa fa-arrow-up"></i>
-          <span>{{ __('admin/results.above-upper-threshold') }}</span>
-        </div>
-        <div class="filter-chip" data-filter="threshold" data-value="between">
-          <i class="fa fa-arrows-h"></i>
-          <span>{{ __('admin/results.between-thresholds') }}</span>
-        </div>
-        <div class="filter-chip" data-filter="threshold" data-value="below">
-          <i class="fa fa-arrow-down"></i>
-          <span>{{ __('admin/results.below-lower-threshold') }}</span>
-        </div>
-      </div>
+    {{-- Filter Toggle Button --}}
+    <div class="filter-toggle" id="filter-toggle">
+      <span>{{ __('admin/results.filters') }}</span>
+      <i class="fa fa-chevron-down toggle-icon"></i>
     </div>
 
-    {{-- Trend filters --}}
-    <div class="filter-group">
-      <div class="filter-group-label">{{ __('admin/results.filter-by-trend') }}</div>
-      <div class="filter-chips">
-        <div class="filter-chip" data-filter="trend" data-value="up">
-          <i class="fa fa-arrow-up"></i>
-          <span>{{ __('admin/results.trend-up') }}</span>
+    {{-- Collapsible Filters Section --}}
+    <div class="filters-dropdown" id="filters-dropdown">
+      <div class="filters-grid">
+        {{-- Threshold filters --}}
+        <div class="filter-group">
+          <div class="filter-group-label">{{ __('admin/results.filter-by-threshold') }}</div>
+          <div class="filter-chips">
+            <div class="filter-chip" data-filter="threshold" data-value="above">
+              <i class="fa fa-arrow-up"></i>
+              <span>{{ __('admin/results.above-upper-threshold') }}</span>
+            </div>
+            <div class="filter-chip" data-filter="threshold" data-value="between">
+              <i class="fa fa-arrows-h"></i>
+              <span>{{ __('admin/results.between-thresholds') }}</span>
+            </div>
+            <div class="filter-chip" data-filter="threshold" data-value="below">
+              <i class="fa fa-arrow-down"></i>
+              <span>{{ __('admin/results.below-lower-threshold') }}</span>
+            </div>
+          </div>
         </div>
-        <div class="filter-chip" data-filter="trend" data-value="stable">
-          <i class="fa fa-minus"></i>
-          <span>{{ __('admin/results.trend-stable') }}</span>
+
+        {{-- Trend filters --}}
+        <div class="filter-group">
+          <div class="filter-group-label">{{ __('admin/results.filter-by-trend') }}</div>
+          <div class="filter-chips">
+            <div class="filter-chip" data-filter="trend" data-value="up">
+              <i class="fa fa-arrow-up"></i>
+              <span>{{ __('admin/results.trend-up') }}</span>
+            </div>
+            <div class="filter-chip" data-filter="trend" data-value="stable">
+              <i class="fa fa-minus"></i>
+              <span>{{ __('admin/results.trend-stable') }}</span>
+            </div>
+            <div class="filter-chip" data-filter="trend" data-value="down">
+              <i class="fa fa-arrow-down"></i>
+              <span>{{ __('admin/results.trend-down') }}</span>
+            </div>
+          </div>
         </div>
-        <div class="filter-chip" data-filter="trend" data-value="down">
-          <i class="fa fa-arrow-down"></i>
-          <span>{{ __('admin/results.trend-down') }}</span>
-        </div>
+
+        {{-- Bonus/Malus filters --}}
+        @if(!empty($showBonusMalus))
+          <div class="filter-group">
+            <div class="filter-group-label">{{ __('admin/results.filter-by-bonusmalus') }}</div>
+            <div class="filter-chips" id="bonusmalus-filters">
+              {{-- Will be populated dynamically --}}
+            </div>
+          </div>
+        @endif
       </div>
     </div>
-
-    {{-- Bonus/Malus filters --}}
-    @if(!empty($showBonusMalus))
-      <div class="filter-group">
-        <div class="filter-group-label">{{ __('admin/results.filter-by-bonusmalus') }}</div>
-        <div class="filter-chips" id="bonusmalus-filters">
-          {{-- Will be populated dynamically --}}
-        </div>
-      </div>
-    @endif
   </div>
 
   {{-- Results Container --}}
@@ -190,12 +198,5 @@
 
 @endsection
 
-@section('scripts')
-  <script>
-  $(document).ready(function(){
-    new CircularProgressBar('pie').initial();
-  });
-  </script>
-  
-  @include('js.admin.results')
+@section('scripts')  
 @endsection

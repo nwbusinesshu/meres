@@ -7,7 +7,7 @@ $(document).ready(function(){
 (function() {
     'use strict';
 
-    // Get thresholds from blade template (passed via data attributes or inline variables)
+    // Get thresholds from blade template
     const upperThreshold = {{ $assessment->normal_level_up ?? 0 }};
     const lowerThreshold = {{ $assessment->normal_level_down ?? 0 }};
     const showBonusMalus = {{ !empty($showBonusMalus) ? 'true' : 'false' }};
@@ -20,16 +20,64 @@ $(document).ready(function(){
         bonusmalus: null
     };
 
-    // Search input
+    // DOM elements
     const $searchInput = $('#results-search-input');
     const $clearBtn = $('#clear-search-btn');
+    const $filterToggle = $('#filter-toggle');
+    const $filtersDropdown = $('#filters-dropdown');
 
     // Initialize bonus/malus filters if enabled
     if (showBonusMalus) {
         initializeBonusMalusFilters();
     }
 
-    // Search input handlers
+    // ========================================
+    // INITIALIZE - SET DEFAULT STATE
+    // ========================================
+    function initializeFilterVisibility() {
+        const isMobile = window.innerWidth < 960;
+        
+        if (isMobile) {
+            // Mobile: filters hidden by default
+            $filterToggle.removeClass('active');
+            $filtersDropdown.removeClass('open');
+        } else {
+            // Desktop: filters always visible (toggle hidden via CSS)
+            $filterToggle.addClass('active');
+            $filtersDropdown.addClass('open');
+        }
+    }
+
+    // ========================================
+    // FILTER TOGGLE (MOBILE ONLY)
+    // ========================================
+    $filterToggle.on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const $toggle = $(this);
+        const $dropdown = $filtersDropdown;
+        
+        $toggle.toggleClass('active');
+        $dropdown.toggleClass('open');
+        
+        console.log('🔽 Filter toggle clicked - Open:', $dropdown.hasClass('open'));
+    });
+
+    // ========================================
+    // WINDOW RESIZE - HANDLE RESPONSIVE BEHAVIOR
+    // ========================================
+    let resizeTimer;
+    $(window).on('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+            initializeFilterVisibility();
+        }, 250);
+    });
+
+    // ========================================
+    // SEARCH INPUT HANDLERS
+    // ========================================
     $searchInput.on('input', function() {
         const value = $(this).val().trim();
         
@@ -49,8 +97,10 @@ $(document).ready(function(){
         $searchInput.focus();
     });
 
-    // Filter chip click handlers
-    $('.filter-chip').on('click', function() {
+    // ========================================
+    // FILTER CHIP CLICK HANDLERS
+    // ========================================
+    $(document).on('click', '.filter-chip', function() {
         const $chip = $(this);
         const filterType = $chip.data('filter');
         const filterValue = $chip.data('value');
@@ -60,7 +110,7 @@ $(document).ready(function(){
             $chip.removeClass('active');
             activeFilters[filterType] = null;
         } else {
-            // Remove active from siblings
+            // Remove active from siblings of same filter type
             $chip.siblings(`[data-filter="${filterType}"]`).removeClass('active');
             $chip.addClass('active');
             activeFilters[filterType] = filterValue;
@@ -69,48 +119,43 @@ $(document).ready(function(){
         applyFilters();
     });
 
-    /**
-     * Initialize bonus/malus filter chips dynamically
-     */
+    // ========================================
+    // INITIALIZE BONUS/MALUS FILTERS
+    // ========================================
     function initializeBonusMalusFilters() {
         const bonusMalusLevels = new Set();
         
-        // Collect all unique bonus/malus levels from tiles
+        // Collect all unique bonus/malus levels from tiles (using Set to avoid duplicates)
         $('.user-tile-link').each(function() {
             const level = $(this).data('bonusmalus');
-            if (level) {
-                bonusMalusLevels.add(level);
+            if (level && level !== '') {
+                bonusMalusLevels.add(String(level).trim());
             }
         });
 
+        // Convert Set to sorted array
+        const sortedLevels = Array.from(bonusMalusLevels).sort();
+
         // Create filter chips
         const $container = $('#bonusmalus-filters');
-        bonusMalusLevels.forEach(function(level) {
+        $container.empty(); // Clear any existing chips
+
+        sortedLevels.forEach(function(level) {
             const $chip = $('<div>')
                 .addClass('filter-chip')
                 .attr('data-filter', 'bonusmalus')
                 .attr('data-value', level)
-                .html(`<span>${level}</span>`)
-                .on('click', function() {
-                    const $this = $(this);
-                    if ($this.hasClass('active')) {
-                        $this.removeClass('active');
-                        activeFilters.bonusmalus = null;
-                    } else {
-                        $this.siblings().removeClass('active');
-                        $this.addClass('active');
-                        activeFilters.bonusmalus = level;
-                    }
-                    applyFilters();
-                });
+                .html(`<span>${level}</span>`);
             
             $container.append($chip);
         });
+
+        console.log('✅ Bonus/Malus filters initialized:', sortedLevels);
     }
 
-    /**
-     * Apply all active filters
-     */
+    // ========================================
+    // APPLY ALL ACTIVE FILTERS
+    // ========================================
     function applyFilters() {
         const search = $searchInput.val().toLowerCase().trim();
         let visibleCount = 0;
@@ -124,7 +169,7 @@ $(document).ready(function(){
 
                 let deptVisibleCount = 0;
 
-                // Filter users in this department (includes both managers and regular members)
+                // Filter users in this department
                 $deptBlock.find('.user-tile-link').each(function() {
                     const $tile = $(this);
                     
@@ -142,7 +187,7 @@ $(document).ready(function(){
                 if (deptVisibleCount > 0 || (search !== '' && deptNameMatches)) {
                     $deptBlock.show();
                     
-                    // Update badge count - ONLY the department header badge, not user badges (CEO, MANAGER, bonus/malus)
+                    // Update badge count
                     $deptBlock.find('.dept-header .badge').first().text(deptVisibleCount);
                     
                     // Auto-expand if search found matches
@@ -176,17 +221,19 @@ $(document).ready(function(){
             $('#no-results-message').addClass('hidden');
             $('.results-container').removeClass('hidden');
         }
+
+        console.log('🔍 Filters applied - Visible:', visibleCount, 'Search:', search, 'Filters:', activeFilters);
     }
 
-    /**
-     * Check if a tile matches all active filters
-     */
+    // ========================================
+    // CHECK IF TILE MATCHES ALL ACTIVE FILTERS
+    // ========================================
     function matchesFilters($tile, search, deptMatches) {
         // Search filter
         if (search !== '') {
-            const userName = $tile.find('.user-tile-name').text().toLowerCase();
-            const userEmail = $tile.find('.user-tile-email').text().toLowerCase();
-            const userPosition = $tile.find('.user-tile-position').text().toLowerCase();
+            const userName = ($tile.find('.user-tile-name').text() || '').toLowerCase();
+            const userEmail = ($tile.find('.user-tile-email').text() || '').toLowerCase();
+            const userPosition = ($tile.find('.user-tile-position').text() || '').toLowerCase();
             
             const textMatches = userName.includes(search) || 
                               userEmail.includes(search) || 
@@ -199,31 +246,54 @@ $(document).ready(function(){
 
         // Threshold filter
         if (activeFilters.threshold) {
-            const score = parseFloat($tile.data('score') || 0);
+            const scoreAttr = $tile.attr('data-score') || $tile.data('score');
+            const score = parseFloat(scoreAttr);
             
-            if (activeFilters.threshold === 'above' && score <= upperThreshold) return false;
-            if (activeFilters.threshold === 'between' && (score > upperThreshold || score < lowerThreshold)) return false;
-            if (activeFilters.threshold === 'below' && score >= lowerThreshold) return false;
+            if (isNaN(score)) {
+                console.warn('Invalid score for tile:', $tile, 'score:', scoreAttr);
+                return false;
+            }
+            
+            // 'above' = score > upperThreshold
+            // 'between' = lowerThreshold <= score <= upperThreshold  
+            // 'below' = score < lowerThreshold
+            if (activeFilters.threshold === 'above' && score <= upperThreshold) {
+                return false;
+            }
+            if (activeFilters.threshold === 'between' && (score < lowerThreshold || score > upperThreshold)) {
+                return false;
+            }
+            if (activeFilters.threshold === 'below' && score >= lowerThreshold) {
+                return false;
+            }
         }
 
         // Trend filter
         if (activeFilters.trend) {
-            const trend = $tile.data('trend');
-            if (trend !== activeFilters.trend) return false;
+            const trendAttr = $tile.attr('data-trend') || $tile.data('trend');
+            const trend = String(trendAttr || '').trim();
+            
+            if (trend !== activeFilters.trend) {
+                return false;
+            }
         }
 
         // Bonus/Malus filter
         if (activeFilters.bonusmalus) {
-            const bonusMalus = $tile.data('bonusmalus');
-            if (bonusMalus !== activeFilters.bonusmalus) return false;
+            const bonusMalusAttr = $tile.attr('data-bonusmalus') || $tile.data('bonusmalus');
+            const bonusMalus = String(bonusMalusAttr || '').trim();
+            
+            if (bonusMalus !== activeFilters.bonusmalus) {
+                return false;
+            }
         }
 
         return true;
     }
 
-    /**
-     * Department toggle
-     */
+    // ========================================
+    // DEPARTMENT TOGGLE
+    // ========================================
     window.toggleDepartment = function(header) {
         const $header = $(header);
         const $body = $header.next('.dept-body');
@@ -232,9 +302,18 @@ $(document).ready(function(){
         $body.toggleClass('collapsed');
     };
 
-    // Initialize
+    // ========================================
+    // INITIALIZE ON DOCUMENT READY
+    // ========================================
     $(document).ready(function() {
+        // Set initial filter visibility based on screen size
+        initializeFilterVisibility();
+        
         console.log('🔍 Results search and filter system initialized');
+        console.log('📊 Thresholds - Upper:', upperThreshold, 'Lower:', lowerThreshold);
+        console.log('💰 Show Bonus/Malus:', showBonusMalus);
+        console.log('🏢 Multi-level:', enableMultiLevel);
+        console.log('📱 Screen width:', window.innerWidth, 'Mobile:', window.innerWidth < 960);
     });
 })();
 </script>

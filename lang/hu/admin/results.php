@@ -45,6 +45,7 @@ return [
   'search-employees' => 'Keresés név, email vagy pozíció alapján...',
   'search' => 'Keresés',
   'clear-search' => 'Keresés törlése',
+  'filters' => 'Szűrők',
   'filter-by-threshold' => 'Szűrés küszöb szerint',
   'above-upper-threshold' => 'Felső küszöb felett',
   'between-thresholds' => 'Küszöbök között',
