@@ -7,26 +7,33 @@ $(document).ready(function(){
 (function() {
     'use strict';
 
-    const enableMultiLevel = @json($enableMultiLevel);
-    const upperThreshold = {{ (int) $assessment->normal_level_up ?? 0 }};
-    const lowerThreshold = {{ (int) $assessment->normal_level_down ?? 0 }};
-    
-    let activeFilters = {
-        search: '',
+    // Get thresholds from blade template (passed via data attributes or inline variables)
+    const upperThreshold = {{ $assessment->normal_level_up ?? 0 }};
+    const lowerThreshold = {{ $assessment->normal_level_down ?? 0 }};
+    const showBonusMalus = {{ !empty($showBonusMalus) ? 'true' : 'false' }};
+    const enableMultiLevel = {{ $enableMultiLevel ? 'true' : 'false' }};
+
+    // Active filters state
+    const activeFilters = {
         threshold: null,
         trend: null,
         bonusmalus: null
     };
 
-    // Search functionality
+    // Search input
     const $searchInput = $('#results-search-input');
     const $clearBtn = $('#clear-search-btn');
 
+    // Initialize bonus/malus filters if enabled
+    if (showBonusMalus) {
+        initializeBonusMalusFilters();
+    }
+
+    // Search input handlers
     $searchInput.on('input', function() {
         const value = $(this).val().trim();
-        activeFilters.search = value.toLowerCase();
         
-        if (value) {
+        if (value.length > 0) {
             $clearBtn.addClass('visible');
         } else {
             $clearBtn.removeClass('visible');
@@ -37,12 +44,12 @@ $(document).ready(function(){
 
     $clearBtn.on('click', function() {
         $searchInput.val('');
-        activeFilters.search = '';
         $clearBtn.removeClass('visible');
         applyFilters();
+        $searchInput.focus();
     });
 
-    // Filter chips
+    // Filter chip click handlers
     $('.filter-chip').on('click', function() {
         const $chip = $(this);
         const filterType = $chip.data('filter');
@@ -53,7 +60,7 @@ $(document).ready(function(){
             $chip.removeClass('active');
             activeFilters[filterType] = null;
         } else {
-            // Deactivate siblings
+            // Remove active from siblings
             $chip.siblings(`[data-filter="${filterType}"]`).removeClass('active');
             $chip.addClass('active');
             activeFilters[filterType] = filterValue;
@@ -62,69 +69,81 @@ $(document).ready(function(){
         applyFilters();
     });
 
-    // Populate bonus/malus filters dynamically
-    @if(!empty($showBonusMalus))
-        const bonusMalusLevels = @json(collect($users->merge($departments->flatMap->users ?? collect()))->pluck('bonusMalus')->unique()->filter()->sort()->values());
-        const $bonusMalusContainer = $('#bonusmalus-filters');
+    /**
+     * Initialize bonus/malus filter chips dynamically
+     */
+    function initializeBonusMalusFilters() {
+        const bonusMalusLevels = new Set();
         
-        bonusMalusLevels.forEach(function(level) {
-            const levelText = @json(__("global.bonus-malus.*"))[level] || level;
-            $bonusMalusContainer.append(`
-                <div class="filter-chip" data-filter="bonusmalus" data-value="${level}">
-                    ${levelText}
-                </div>
-            `);
-        });
-
-        // Attach event handlers to dynamically created chips
-        $bonusMalusContainer.find('.filter-chip').on('click', function() {
-            const $chip = $(this);
-            const filterValue = $chip.data('value');
-
-            if ($chip.hasClass('active')) {
-                $chip.removeClass('active');
-                activeFilters.bonusmalus = null;
-            } else {
-                $chip.siblings().removeClass('active');
-                $chip.addClass('active');
-                activeFilters.bonusmalus = filterValue;
+        // Collect all unique bonus/malus levels from tiles
+        $('.user-tile-link').each(function() {
+            const level = $(this).data('bonusmalus');
+            if (level) {
+                bonusMalusLevels.add(level);
             }
-
-            applyFilters();
         });
-    @endif
 
+        // Create filter chips
+        const $container = $('#bonusmalus-filters');
+        bonusMalusLevels.forEach(function(level) {
+            const $chip = $('<div>')
+                .addClass('filter-chip')
+                .attr('data-filter', 'bonusmalus')
+                .attr('data-value', level)
+                .html(`<span>${level}</span>`)
+                .on('click', function() {
+                    const $this = $(this);
+                    if ($this.hasClass('active')) {
+                        $this.removeClass('active');
+                        activeFilters.bonusmalus = null;
+                    } else {
+                        $this.siblings().removeClass('active');
+                        $this.addClass('active');
+                        activeFilters.bonusmalus = level;
+                    }
+                    applyFilters();
+                });
+            
+            $container.append($chip);
+        });
+    }
+
+    /**
+     * Apply all active filters
+     */
     function applyFilters() {
+        const search = $searchInput.val().toLowerCase().trim();
         let visibleCount = 0;
-        const search = activeFilters.search;
 
         if (enableMultiLevel) {
-            // Multi-level filtering
+            // Multi-level filtering with departments
             $('.dept-block').each(function() {
                 const $deptBlock = $(this);
                 const deptName = $deptBlock.data('dept-name') || '';
                 const deptNameMatches = search === '' || deptName.includes(search);
-                
+
                 let deptVisibleCount = 0;
 
+                // Filter users in this department (includes both managers and regular members)
                 $deptBlock.find('.user-tile-link').each(function() {
                     const $tile = $(this);
                     
                     if (matchesFilters($tile, search, deptNameMatches)) {
                         $tile.show();
                         deptVisibleCount++;
-                        visibleCount++;
                     } else {
                         $tile.hide();
                     }
                 });
 
+                visibleCount += deptVisibleCount;
+
                 // Show/hide department
                 if (deptVisibleCount > 0 || (search !== '' && deptNameMatches)) {
                     $deptBlock.show();
                     
-                    // Update badge count
-                    $deptBlock.find('.badge').text(deptVisibleCount);
+                    // Update badge count - ONLY the department header badge, not user badges (CEO, MANAGER, bonus/malus)
+                    $deptBlock.find('.dept-header .badge').first().text(deptVisibleCount);
                     
                     // Auto-expand if search found matches
                     if (search !== '' && deptVisibleCount > 0) {
@@ -159,6 +178,9 @@ $(document).ready(function(){
         }
     }
 
+    /**
+     * Check if a tile matches all active filters
+     */
     function matchesFilters($tile, search, deptMatches) {
         // Search filter
         if (search !== '') {
@@ -199,7 +221,9 @@ $(document).ready(function(){
         return true;
     }
 
-    // Department toggle
+    /**
+     * Department toggle
+     */
     window.toggleDepartment = function(header) {
         const $header = $(header);
         const $body = $header.next('.dept-body');

@@ -2,6 +2,7 @@
 @extends('layouts.master')
 
 @section('head-extra')
+  <link rel="stylesheet" href="{{ asset('assets/css/pages/admin.results.css') }}">
 @endsection
 
 @section('content')
@@ -69,66 +70,66 @@
   @endif
 
   {{-- Search and Filter Bar --}}
-  <div class="search-filter-container">
-    <div class="search-bar">
+  <div class="tile tile-info search-tile">
+    <p>{{ __('admin/results.search') }}</p>
+    <div>
       <input type="text" 
-             class="search-input" 
+             class="form-control search-input" 
              placeholder="{{ __('admin/results.search-employees') }}"
              id="results-search-input">
-      <button class="clear-search" id="clear-search-btn">
-        <i class="fa fa-times"></i>
-      </button>
+      <i class="fa fa-ban clear-search" id="clear-search-btn" data-tippy-content="{{ __('admin/results.clear-search') }}"></i>
     </div>
+  </div>
 
-    <div class="filters-container">
-      {{-- Threshold filters --}}
-      <div class="filter-group">
-        <div class="filter-group-label">{{ __('admin/results.filter-by-threshold') }}</div>
-        <div class="filter-chips">
-          <div class="filter-chip" data-filter="threshold" data-value="above">
-            <i class="fa fa-arrow-up"></i>
-            {{ __('admin/results.above-upper-threshold') }}
-          </div>
-          <div class="filter-chip" data-filter="threshold" data-value="between">
-            <i class="fa fa-arrows-h"></i>
-            {{ __('admin/results.between-thresholds') }}
-          </div>
-          <div class="filter-chip" data-filter="threshold" data-value="below">
-            <i class="fa fa-arrow-down"></i>
-            {{ __('admin/results.below-lower-threshold') }}
-          </div>
+  {{-- Filters Section --}}
+  <div class="filters-container tile">
+    {{-- Threshold filters --}}
+    <div class="filter-group">
+      <div class="filter-group-label">{{ __('admin/results.filter-by-threshold') }}</div>
+      <div class="filter-chips">
+        <div class="filter-chip" data-filter="threshold" data-value="above">
+          <i class="fa fa-arrow-up"></i>
+          <span>{{ __('admin/results.above-upper-threshold') }}</span>
+        </div>
+        <div class="filter-chip" data-filter="threshold" data-value="between">
+          <i class="fa fa-arrows-h"></i>
+          <span>{{ __('admin/results.between-thresholds') }}</span>
+        </div>
+        <div class="filter-chip" data-filter="threshold" data-value="below">
+          <i class="fa fa-arrow-down"></i>
+          <span>{{ __('admin/results.below-lower-threshold') }}</span>
         </div>
       </div>
+    </div>
 
-      {{-- Trend filters --}}
-      <div class="filter-group">
-        <div class="filter-group-label">{{ __('admin/results.filter-by-trend') }}</div>
-        <div class="filter-chips">
-          <div class="filter-chip" data-filter="trend" data-value="up">
-            <i class="fa fa-arrow-up"></i>
-            {{ __('admin/results.trend-up') }}
-          </div>
-          <div class="filter-chip" data-filter="trend" data-value="stable">
-            <i class="fa fa-minus"></i>
-            {{ __('admin/results.trend-stable') }}
-          </div>
-          <div class="filter-chip" data-filter="trend" data-value="down">
-            <i class="fa fa-arrow-down"></i>
-            {{ __('admin/results.trend-down') }}
-          </div>
+    {{-- Trend filters --}}
+    <div class="filter-group">
+      <div class="filter-group-label">{{ __('admin/results.filter-by-trend') }}</div>
+      <div class="filter-chips">
+        <div class="filter-chip" data-filter="trend" data-value="up">
+          <i class="fa fa-arrow-up"></i>
+          <span>{{ __('admin/results.trend-up') }}</span>
+        </div>
+        <div class="filter-chip" data-filter="trend" data-value="stable">
+          <i class="fa fa-minus"></i>
+          <span>{{ __('admin/results.trend-stable') }}</span>
+        </div>
+        <div class="filter-chip" data-filter="trend" data-value="down">
+          <i class="fa fa-arrow-down"></i>
+          <span>{{ __('admin/results.trend-down') }}</span>
         </div>
       </div>
-
-      {{-- Bonus/Malus filters --}}
-      @if(!empty($showBonusMalus))
-        <div class="filter-group">
-          <div class="filter-group-label">{{ __('admin/results.filter-by-bonusmalus') }}</div>
-          <div class="filter-chips" id="bonusmalus-filters">
-            {{-- Will be populated dynamically --}}
-          </div>
-        </div>
-      @endif
     </div>
+
+    {{-- Bonus/Malus filters --}}
+    @if(!empty($showBonusMalus))
+      <div class="filter-group">
+        <div class="filter-group-label">{{ __('admin/results.filter-by-bonusmalus') }}</div>
+        <div class="filter-chips" id="bonusmalus-filters">
+          {{-- Will be populated dynamically --}}
+        </div>
+      </div>
+    @endif
   </div>
 
   {{-- Results Container --}}
@@ -141,11 +142,17 @@
             <div class="left">
               <i class="fa fa-chevron-down caret"></i>
               <span class="dept-title">{{ $dept->department_name }}</span>
-              <span class="badge">{{ $dept->users->count() }}</span>
+              <span class="badge">{{ $dept->managers->count() + $dept->users->count() }}</span>
             </div>
           </div>
 
           <div class="dept-body">
+            {{-- Managers first (with badge) --}}
+            @foreach ($dept->managers as $manager)
+              @include('admin.partials.result-user-tile', ['user' => $manager, 'assessment' => $assessment, 'showBonusMalus' => $showBonusMalus])
+            @endforeach
+
+            {{-- Then regular members --}}
             @foreach ($dept->users as $user)
               @include('admin.partials.result-user-tile', ['user' => $user, 'assessment' => $assessment, 'showBonusMalus' => $showBonusMalus])
             @endforeach
@@ -184,5 +191,11 @@
 @endsection
 
 @section('scripts')
-
+  <script>
+  $(document).ready(function(){
+    new CircularProgressBar('pie').initial();
+  });
+  </script>
+  
+  @include('js.admin.results')
 @endsection

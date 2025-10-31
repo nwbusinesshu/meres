@@ -157,6 +157,8 @@ return [
 'no-members-in-dept' => 'Nincs tag a részlegben.',
 'raters' => 'Értékelők',
 'password-reset-tooltip' => 'Jelszó visszaállító levél küldése (jelszó törlése)',
+  "ceo-and-unassigned" => "Ügyvezetők és részleghez nem besoroltak",
+
 // JavaScript strings
 'confirm-delete-user' => 'Felhasználó törlése?',
 'action-irreversible' => 'Ez a művelet nem vonható vissza!',

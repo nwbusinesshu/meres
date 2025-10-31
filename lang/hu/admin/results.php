@@ -25,12 +25,14 @@ return [
   "ai-summary-not-available" => "AI összefoglaló nem érhető el",
   "summary-field-not-found" => "Összefoglaló mező nem található",
   "ceo-role" => "Ügyvezető",
+  "manager-role" => "Vezető",
   "missing" => "Hiányzó",
   "component_self" => "Önértékelés",
   "component_colleagues" => "Kollégák",
   "component_direct_reports" => "Beosztottak",
   "component_managers" => "Vezetők",
   "component_ceo_rank" => "Ügyvezetői rangsor",
+
   
   // Chart-related
   "time-series-performance" => "Idősoros teljesítmény",
@@ -40,20 +42,22 @@ return [
   "managers-rating" => "Vezetők",
 
   // Search and filters
-    'search-employees' => 'Keresés név, email vagy pozíció alapján...',
-    'filter-by-threshold' => 'Szűrés küszöb szerint',
-    'above-upper-threshold' => 'Felső küszöb felett',
-    'between-thresholds' => 'Küszöbök között',
-    'below-lower-threshold' => 'Alsó küszöb alatt',
-    'filter-by-trend' => 'Szűrés trend szerint',
-    'trend-up' => 'Emelkedő',
-    'trend-stable' => 'Stabil',
-    'trend-down' => 'Csökkenő',
-    'filter-by-bonusmalus' => 'Szűrés bónusz/málusz szerint',
-    'no-results-found' => 'Nincs találat',
-    'try-different-search' => 'Próbálj meg más keresési feltételt vagy szűrőt használni',
+  'search-employees' => 'Keresés név, email vagy pozíció alapján...',
+  'search' => 'Keresés',
+  'clear-search' => 'Keresés törlése',
+  'filter-by-threshold' => 'Szűrés küszöb szerint',
+  'above-upper-threshold' => 'Felső küszöb felett',
+  'between-thresholds' => 'Küszöbök között',
+  'below-lower-threshold' => 'Alsó küszöb alatt',
+  'filter-by-trend' => 'Szűrés trend szerint',
+  'trend-up' => 'Emelkedő',
+  'trend-stable' => 'Stabil',
+  'trend-down' => 'Csökkenő',
+  'filter-by-bonusmalus' => 'Szűrés bónusz/málusz szerint',
+  'no-results-found' => 'Nincs találat',
+  'try-different-search' => 'Próbálj meg más keresési feltételt vagy szűrőt használni',
 
-        // Other
-    'ceo-role' => 'Ügyvezető',
-    'open-user-results' => ':name eredményeinek megnyitása',
+  // Department sections
+  'managers-section' => 'Vezetők',
+  'members-section' => 'Tagok',
 ];

@@ -540,203 +540,139 @@
     display: none !important;
 }
 
+.badge-manager {
+  display: inline-block;
+  background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+  color: white;
+  font-size: 0.65em!important;
+  padding: 0.2em 0.5em;
+  font-weight: 600;
+  margin-left: 0.5em;
+  vertical-align: middle;
+  letter-spacing: 0.05em;
+  border-radius: 4px;
+}
+
 /* ========================================
-   SEARCH AND FILTER STYLES
-   Add this to public/assets/css/pages/admin.results.css
+   SEARCH TILE (MATCHING EMPLOYEES PAGE)
    ======================================== */
-
-/* Search and filter container */
-.search-filter-container {
-    margin-bottom: 1.5rem;
+.search-tile {
+  gap: .5em;
 }
 
-/* Search bar */
-.search-bar {
-    position: relative;
-    margin-bottom: 1rem;
+.search-tile p {
+  font-size: 1.2em;
+  font-weight: 600;
 }
 
-.search-input {
-    width: 100%;
-    padding: 0.75rem 2.5rem 0.75rem 1rem;
-    font-size: 1rem;
-    border: 1px solid var(--border-color, #dee2e6);
-    border-radius: var(--border-radius, 4px);
-    background-color: var(--bg-color, var(--alabaster));
-    color: var(--text-color, var(--outer_space));
-    transition: all 0.2s ease;
+.search-tile div {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
 }
 
-.search-input:focus {
-    outline: none;
-    border-color: var(--primary-color, var(--pelorous));
-    box-shadow: 0 0 0 3px rgba(43, 122, 120, 0.1);
+.search-tile input {
+  flex: 1;
+  text-align: center;
 }
 
-.search-input::placeholder {
-    color: var(--silver_chalice);
-    opacity: 0.7;
+.search-tile i {
+  color: var(--silver_chalice);
+  font-size: 1.3em;
+  margin-left: .5em;
+  margin-right: .2em;
+  cursor: pointer;
+  transition: color 0.2s ease;
 }
 
-/* Clear search button */
-.clear-search {
-    position: absolute;
-    right: 0.75rem;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: var(--text-color-muted, var(--silver_chalice));
-    cursor: pointer;
-    font-size: 1.2rem;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s, color 0.2s;
-    padding: 0.25rem;
+.search-tile i:hover {
+  color: var(--outer_space);
 }
 
-.clear-search.visible {
-    opacity: 1;
-    pointer-events: all;
+.search-tile i.visible {
+  opacity: 1;
 }
 
-.clear-search:hover {
-    color: var(--text-color, var(--outer_space));
-}
-
-/* Filter groups */
+/* ========================================
+   FILTERS CONTAINER
+   ======================================== */
 .filters-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
 }
 
-.filter-group {
-    margin-bottom: 0.75rem;
+.filters-container .filter-group {
+  margin-bottom: 1rem;
 }
 
-.filter-group:last-child {
-    margin-bottom: 0;
+.filters-container .filter-group:last-child {
+  margin-bottom: 0;
 }
 
 .filter-group-label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-color-muted, var(--silver_chalice));
-    margin-bottom: 0.5rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-color-muted, var(--silver_chalice));
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: block;
 }
 
-/* Filter chips */
 .filter-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .filter-chip {
-    position: relative;
-    padding: 0.5rem 1rem;
-    background-color: var(--tile-bg, var(--alabaster));
-    border: 2px solid var(--border-color, #dee2e6);
-    border-radius: 2rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--text-color, var(--outer_space));
-    user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background-color: var(--tile-bg, var(--alabaster));
+  border: 2px solid var(--border-color, #e5e7eb);
+  border-radius: 20px;
+  font-size: 0.9rem;
+  color: var(--text-color, var(--outer_space));
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
 }
 
 .filter-chip:hover {
-    border-color: var(--primary-color, var(--pelorous));
-    background-color: rgba(43, 122, 120, 0.05);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.filter-chip:active {
-    transform: translateY(0);
+  border-color: var(--primary-color, var(--pelorous));
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .filter-chip.active {
-    background-color: var(--primary-color, var(--pelorous));
-    border-color: var(--primary-color, var(--pelorous));
-    color: white;
-    box-shadow: 0 2px 6px rgba(43, 122, 120, 0.3);
+  background-color: var(--primary-color, var(--pelorous));
+  border-color: var(--primary-color, var(--pelorous));
+  color: white;
 }
 
 .filter-chip i {
-    margin-right: 0.35rem;
-    font-size: 0.9em;
+  font-size: 0.9rem;
 }
 
-/* Responsive adjustments for filters */
-@media (max-width: 768px) {
-    .filter-chips {
-        flex-direction: column;
-    }
-    
-    .filter-chip {
-        width: 100%;
-        text-align: center;
-        justify-content: center;
-    }
-    
-    .search-input {
-        font-size: 16px; /* Prevents zoom on iOS */
-    }
-}
+/* Responsive: Stack filters on mobile */
+@media (max-width: 960px) {
+  .search-filter-wrapper {
+    gap: 1rem;
+  }
 
-/* Dark mode support for search/filters */
-@media (prefers-color-scheme: dark) {
-    .search-input {
-        background-color: #1f1f1f;
-        border-color: #3a3a3a;
-        color: #eaeaea;
-    }
-    
-    .search-input:focus {
-        border-color: var(--pelorous);
-        box-shadow: 0 0 0 3px rgba(68, 163, 188, 0.2);
-    }
-    
-    .filter-chip {
-        background-color: #242424;
-        border-color: #3a3a3a;
-        color: #eaeaea;
-    }
-    
-    .filter-chip:hover {
-        background-color: #2a2a2a;
-        border-color: #4a4a4a;
-    }
-    
-    .filter-chip.active {
-        background-color: var(--pelorous);
-        border-color: var(--pelorous);
-    }
-}
+  .search-input {
+    padding: 0.75rem 3rem;
+  }
 
-/* Loading state for search */
-.search-input:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* Filter count badge (optional enhancement) */
-.filter-chip .count-badge {
-    display: inline-block;
-    margin-left: 0.5rem;
-    padding: 0.1rem 0.4rem;
-    background-color: rgba(255, 255, 255, 0.3);
-    border-radius: 1rem;
-    font-size: 0.75em;
-    font-weight: 600;
-}
-
-.filter-chip.active .count-badge {
-    background-color: rgba(255, 255, 255, 0.25);
+  .filter-chips {
+    flex-direction: column;
+  }
+  
+  .filter-chip {
+    width: 100%;
+    justify-content: center;
+  }
 }

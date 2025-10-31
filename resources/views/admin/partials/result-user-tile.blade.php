@@ -17,6 +17,10 @@
           @if($user->isCeo ?? false)
             <span class="badge badge-ceo" title="{{ __('admin/results.ceo-role') }}">CEO</span>
           @endif
+          {{-- Manager Badge --}}
+          @if(($user->isManager ?? false) && !($user->isCeo ?? false))
+            <span class="badge badge-manager" title="{{ __('admin/results.manager-role') }}">MANAGER</span>
+          @endif
         </span>
       </div>
 
