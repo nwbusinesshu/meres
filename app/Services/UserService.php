@@ -184,7 +184,6 @@ class UserService
             $ceoRankAvg = DB::table('user_ceo_rank as r')
                 ->where('r.assessment_id', $assessmentId)
                 ->where('r.user_id', $userId)
-                ->whereIn('r.ceo_id', $snapCeoIds)
                 ->avg('r.value');
             
             if ($ceoRankAvg !== null) {

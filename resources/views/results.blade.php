@@ -461,7 +461,7 @@
   </script>
 @endif
 {{-- ===== USER AS RATER - AI TELEMETRY (ADMIN ONLY) ===== --}}
-@if(auth()->user()->isCurrentAdmin() && isset($raterTelemetry) && count($raterTelemetry) > 0)
+@if((auth()->user()->isCurrentAdmin() || auth()->user()->type === \App\Models\Enums\UserType::SUPERADMIN) && isset($raterTelemetry))
   <div class="telemetry-section">
     <div>
       <h3 class="mb-2">{{ __('results.user-as-rater-title') }}</h3>      
@@ -526,7 +526,7 @@
 @endif
 
 {{-- Back to admin results button (for admins viewing user results) --}}
-@if(auth()->user()->isCurrentAdmin())
+@if(auth()->user()->isCurrentAdmin() || auth()->user()->type === \App\Models\Enums\UserType::SUPERADMIN)
   <div class="mb-4">
     <a href="{{ route('admin.results.index', $assessment->id) }}" class="btn btn-primary">
       <i class="fa fa-arrow-left"></i>

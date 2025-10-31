@@ -1223,7 +1223,13 @@ PROMPT;
         }
 
         if (!$structured && isset($data['output']) && is_array($data['output'])) {
-            $first = $data['output'][0]['content'][0] ?? null;
+            $first = null;
+            foreach ($data['output'] as $item) {
+                if (isset($item['type']) && $item['type'] === 'message') {
+                    $first = $item['content'][0] ?? null;
+                    break;
+                }
+            }
             if ($first) {
                 if (isset($first['text']) && is_string($first['text'])) {
                     $maybe = json_decode($first['text'], true);

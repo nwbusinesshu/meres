@@ -193,7 +193,10 @@ class ResultsController extends Controller
             $competencyScores = $this->calculateCompetencyScores($assessment->id, $user->id);
         }
 
-        if (AuthMiddleware::isAuthorized(UserType::ADMIN)) {
+        $raterTelemetry = [];
+
+
+        if (AuthMiddleware::isAuthorized(UserType::ADMIN) || session('utype') === UserType::SUPERADMIN) {
             $raterTelemetry = \DB::table('user_competency_submit')
                 ->where('assessment_id', $assessment->id)
                 ->where('user_id', $effectiveUid)
