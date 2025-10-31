@@ -6,9 +6,10 @@ use App\Models\Assessment;
 use App\Models\Enums\UserType;
 use App\Models\User;
 use App\Services\UserService;
+use App\Services\OrgConfigService;
 use Illuminate\Http\Request;
 use App\Models\Enums\OrgRole;
-
+use Illuminate\Support\Facades\DB;
 
 class AdminResultsController extends Controller
 {
@@ -16,23 +17,27 @@ class AdminResultsController extends Controller
     {
         $orgId = (int) session('org_id');
 
-        // Aktuális lezárt mérés (adott ID vagy legutóbbi a szervezetben)
+        // Get current closed assessment (specific ID or latest in organization)
         $assessment = $assessmentId
             ? Assessment::where('organization_id', $orgId)->whereNotNull('closed_at')->find($assessmentId)
             : Assessment::where('organization_id', $orgId)->whereNotNull('closed_at')->orderByDesc('closed_at')->first();
 
         if (!$assessment) {
             return view('admin.results', [
-                'assessment'     => null,
-                'users'          => collect(),
-                'prevAssessment' => null,
-                'nextAssessment' => null,
+                'assessment'        => null,
+                'users'             => collect(),
+                'departments'       => collect(),
+                'prevAssessment'    => null,
+                'nextAssessment'    => null,
+                'enableMultiLevel'  => false,
+                'showBonusMalus'    => false,
             ]);
         }
 
-        $showBonusMalus = \App\Services\OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
+        $enableMultiLevel = OrgConfigService::getBool($orgId, 'enable_multi_level', false);
+        $showBonusMalus = OrgConfigService::getBool($orgId, 'show_bonus_malus', true);
 
-        // Előző/következő lezárt mérés
+        // Previous/next closed assessment
         $prevAssessment = Assessment::where('organization_id', $orgId)
             ->whereNotNull('closed_at')
             ->where('closed_at', '<', $assessment->closed_at)
@@ -45,16 +50,16 @@ class AdminResultsController extends Controller
             ->orderBy('closed_at')
             ->first();
 
-        // Résztvevő userek (admin/szuperadmin out), aztán szűrés arra, hogy VAN statjuk ebben a mérésben
+        // Participant users (admin/superadmin out), then filter for those who have stats in this assessment
         $users = User::whereNull('removed_at')
-            ->where('type', '!=', UserType::SUPERADMIN)  // ✅ Exclude system superadmins
+            ->where('type', '!=', UserType::SUPERADMIN)
             ->whereHas('organizations', function ($q) use ($orgId) {
                 $q->where('organization_id', $orgId)
-                  ->where('organization_user.role', '!=', OrgRole::ADMIN);  // ✅ Exclude org admins
+                  ->where('organization_user.role', '!=', OrgRole::ADMIN);
             })
             ->orderBy('name')
             ->get()
-            ->map(function ($user) use ($assessment) {
+            ->map(function ($user) use ($assessment, $orgId) {
                 // Get cached results from snapshot
                 $cached = UserService::getUserResultsFromSnapshot($assessment->id, $user->id);
                 
@@ -63,66 +68,92 @@ class AdminResultsController extends Controller
                     $user['stats'] = UserService::snapshotResultToStdClass($cached);
                     $user['bonusMalus'] = $cached['bonus_malus_level'];
                     $user['change'] = $cached['change'];
-                    // ✅ NEW: Pass metadata for displaying component status
                     $user['componentsAvailable'] = $cached['components_available'] ?? 0;
                     $user['missingComponents'] = $cached['missing_components'] ?? [];
                     $user['isCeo'] = $cached['is_ceo'] ?? false;
-                    $user['complete'] = $cached['complete'] ?? true;
                 } else {
-                    // No cached data - user has no results
                     $user['stats'] = null;
                     $user['bonusMalus'] = null;
-                    $user['change'] = 'none';
+                    $user['change'] = 'stable';
                     $user['componentsAvailable'] = 0;
                     $user['missingComponents'] = [];
                     $user['isCeo'] = false;
-                    $user['complete'] = false;
                 }
+
+                // Get position and email from organization_user
+                $orgUser = DB::table('organization_user')
+                    ->where('organization_id', $orgId)
+                    ->where('user_id', $user->id)
+                    ->first(['position', 'department_id', 'role']);
+
+                $user['position'] = $orgUser->position ?? null;
+                $user['department_id'] = $orgUser->department_id ?? null;
+                $user['role'] = $orgUser->role ?? null;
 
                 return $user;
             })
-            ->filter(function ($user) {
-                return !is_null($user->stats);
-            })
-            ->values();
+            ->filter(fn ($u) => $u['stats'] !== null);
 
+        // Get departments if multi-level is enabled
+        $departments = collect();
+        
+        if ($enableMultiLevel) {
+            $deptList = DB::table('organization_departments')
+                ->where('organization_id', $orgId)
+                ->whereNull('removed_at')
+                ->orderBy('department_name')
+                ->get(['id', 'department_name']);
 
+            $departments = $deptList->map(function ($dept) use ($users) {
+                $deptUsers = $users->filter(fn($u) => $u['department_id'] == $dept->id);
+                
+                return (object) [
+                    'id' => $dept->id,
+                    'department_name' => $dept->department_name,
+                    'users' => $deptUsers,
+                ];
+            });
+
+            // Add CEO and unassigned users at the top
+            $ceosAndUnassigned = $users->filter(function($u) {
+                return $u['role'] === OrgRole::CEO || is_null($u['department_id']);
+            });
+
+            if ($ceosAndUnassigned->isNotEmpty()) {
+                $departments->prepend((object) [
+                    'id' => null,
+                    'department_name' => __('admin/employees.ceo-and-unassigned'),
+                    'users' => $ceosAndUnassigned,
+                ]);
+            }
+
+            // Remove these users from the main users list (they're now in departments)
+            $users = collect();
+        }
+
+        // Get AI summary if threshold method is 'suggested'
         $summaryHu = null;
         $summaryDbg = null;
-
+        
         if (strtolower((string)($assessment->threshold_method ?? '')) === 'suggested') {
-            // Parse JSON - suggested_decision is an array with decision objects
-            $logs = is_string($assessment->suggested_decision)
-                ? json_decode($assessment->suggested_decision, true)
-                : $assessment->suggested_decision;
-            
-            if (is_array($logs) && count($logs) > 0) {
-                // Get the first (or last) decision object
-                // Based on the SQL dump, the structure is: [{"thresholds":{...}, "decisions":[...], "rates":{...}, "summary_hu":"..."}]
-                $decision = end($logs); // Get last decision (most recent)
-                
-                // Extract summary_hu directly from the decision object
-                if (isset($decision['summary_hu'])) {
-                    $summaryHu = $decision['summary_hu'];
-                }
-                
-                // For debugging, store the entire decision object
-                if (!empty($decision)) {
-                    $summaryDbg = json_encode($decision, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-                }
+            $decision = $assessment->suggested_decision;
+            if ($decision && isset($decision['summary_hu'])) {
+                $summaryHu = $decision['summary_hu'];
+            } else {
+                $summaryDbg = 'AI summary not available';
             }
         }
 
-
-
         return view('admin.results', [
-    'assessment'     => $assessment,
-    'users'          => $users,
-    'prevAssessment' => $prevAssessment,
-    'nextAssessment' => $nextAssessment,
-    'summaryHu'      => $summaryHu,
-    'summaryDbg'     => $summaryDbg,
-    'showBonusMalus' => $showBonusMalus,
-]);
+            'assessment'        => $assessment,
+            'users'             => $users,
+            'departments'       => $departments,
+            'prevAssessment'    => $prevAssessment,
+            'nextAssessment'    => $nextAssessment,
+            'summaryHu'         => $summaryHu,
+            'summaryDbg'        => $summaryDbg,
+            'showBonusMalus'    => $showBonusMalus,
+            'enableMultiLevel'  => $enableMultiLevel,
+        ]);
     }
 }

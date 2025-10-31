@@ -461,7 +461,7 @@
   </script>
 @endif
 {{-- ===== USER AS RATER - AI TELEMETRY (ADMIN ONLY) ===== --}}
-@if((auth()->user()->isCurrentAdmin() || auth()->user()->type === \App\Models\Enums\UserType::SUPERADMIN) && isset($raterTelemetry))
+@if((auth()->user()->isCurrentAdmin() || auth()->user()->type === \App\Models\Enums\UserType::SUPERADMIN) && isset($raterTelemetry) && count($raterTelemetry) > 0)
   <div class="telemetry-section">
     <div>
       <h3 class="mb-2">{{ __('results.user-as-rater-title') }}</h3>      

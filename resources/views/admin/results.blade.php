@@ -27,7 +27,7 @@
     </a>
   </div>
 
-  {{-- Küszöbök – mindig --}}
+  {{-- Thresholds strip --}}
   <div class="thresholds-strip">
     <div class="threshold-chip up" title="{{ __('admin/results.promotion-threshold') }}">
       <i class="fa fa-level-up" aria-hidden="true"></i>
@@ -43,7 +43,7 @@
     </div>
   </div>
 
-  {{-- Suggested összefoglaló / diagnosztika --}}
+  {{-- AI Summary for suggested mode --}}
   @if (strtolower((string)($assessment->threshold_method ?? '')) === 'suggested')
     @if (!empty($summaryHu))
       <div class="tile tile-summary">
@@ -67,118 +67,120 @@
       </div>
     @endif
   @endif
-@endif
 
+  {{-- Search and Filter Bar --}}
+  <div class="search-filter-container">
+    <div class="search-bar">
+      <input type="text" 
+             class="search-input" 
+             placeholder="{{ __('admin/results.search-employees') }}"
+             id="results-search-input">
+      <button class="clear-search" id="clear-search-btn">
+        <i class="fa fa-times"></i>
+      </button>
+    </div>
 
-  @if (is_null($assessment))
-    <div class="tile tile-empty-info">
-  <img src="{{ asset('assets/img/monster-info-tile-3.svg') }}" alt="No assessment" class="empty-tile-monster">
-  <div class="empty-tile-text">
-    <p class="empty-tile-title">{{ $_('no-results-yet') }}</p>
-    <p class="empty-tile-subtitle">{{ $_('no-results-info') }}</p>
-    <p class="empty-tile-tasks">{!! $_('no-results-tasks') !!}
-</p>
-  </div>
-</div>
-  @else
-  <div class="employee-list">
-    @foreach ($users as $user)
-      <a class="user-tile-link"
-         href="{{ route('results.index', ['assessmentId' => optional($assessment)->id, 'as' => $user->id]) }}"
-         title="{{ __('admin/results.open-user-results', ['name' => $user->name]) }}"
-         target="_blank" rel="noopener">
-        <div class="tile tile-info employee">
-          <div>
-            <div class="name">
-              <span>
-                {{ $user->name }}
-                {{-- ✅ CEO Badge --}}
-                @if($user->isCeo ?? false)
-                  <span class="badge badge-ceo" title="{{ __('admin/results.ceo-role') }}">CEO</span>
-                @endif
-              </span>
-            </div>
-
-            @if (is_null($user->stats))
-              {{-- ✅ No stats available --}}
-              <div class="stats">
-                <div><span>{{ $_('self') }}</span><span>?</span></div>
-                <div><span>{{ $_('colleagues') }}</span><span>?</span></div>
-                <div><span>{{ $_('direct_reports') }}</span><span>?</span></div>
-                <div><span>{{ $_('managers') }}</span><span>?</span></div>
-                <div><span>{{ $_('ceos') }}</span><span>?</span></div>
-              </div>
-            @else
-              {{-- ✅ Display only available components (hide missing ones) --}}
-              @php
-                $missingList = $user->missingComponents ?? [];
-              @endphp
-              <div class="stats">
-                {{-- Self --}}
-                @if(!in_array('self', $missingList))
-                  <div><span>{{ $_('self') }}</span><span>{{ $user->stats->selfTotal }}</span></div>
-                @endif
-                
-                {{-- Colleagues --}}
-                @if(!in_array('colleagues', $missingList))
-                  <div><span>{{ $_('colleagues') }}</span><span>{{ $user->stats->colleagueTotal }}</span></div>
-                @endif
-                
-                {{-- Direct Reports --}}
-                @if(!in_array('direct_reports', $missingList))
-                  <div><span>{{ $_('direct_reports') }}</span><span>{{ $user->stats->directReportsTotal ?? 0 }}</span></div>
-                @endif
-                
-                {{-- Managers --}}
-                @if(!in_array('managers', $missingList))
-                  <div><span>{{ $_('managers') }}</span><span>{{ round($user->stats->managersTotal) }}</span></div>
-                @endif
-                
-                {{-- CEOs --}}
-                @if(!in_array('ceo_rank', $missingList))
-                  <div><span>{{ $_('ceos') }}</span><span>{{ $user->stats->ceoTotal }}</span></div>
-                @endif
-              </div>
-
-              {{-- ✅ Missing Components Badges --}}
-              @if(!empty($missingList) && count($missingList) > 0)
-                <div class="missing-components">
-                  <span class="missing-label">{{ __('admin/results.missing') }}:</span>
-                  @foreach($missingList as $component)
-                    <span class="badge badge-missing">{{ __('admin/results.component_' . $component) }}</span>
-                  @endforeach
-                </div>
-              @endif
-            @endif
+    <div class="filters-container">
+      {{-- Threshold filters --}}
+      <div class="filter-group">
+        <div class="filter-group-label">{{ __('admin/results.filter-by-threshold') }}</div>
+        <div class="filter-chips">
+          <div class="filter-chip" data-filter="threshold" data-value="above">
+            <i class="fa fa-arrow-up"></i>
+            {{ __('admin/results.above-upper-threshold') }}
           </div>
-
-          <div class="result">
-            {{-- ✅ Bonus/Malus Badge - Top Right Corner --}}
-            @if(!empty($showBonusMalus) && isset($user->bonusMalus))
-              <span class="badge badge-bonusmalus" title="{{ __('global.bonusmalus') }}">
-                {{ __("global.bonus-malus.$user->bonusMalus") }}
-              </span>
-            @endif
-            
-            <div class="pie"
-                 data-pie='{
-                   "percent": {{ $user->stats?->total ?? 0 }},
-                   "unit": "",
-                   "colorSlice": @switch($user->change)
-                      @case("up") "#6AB06E" @break
-                      @case("down") "#D9253D" @break
-                      @default "#44A3BC"
-                   @endswitch,
-                   "colorCircle": "#00000010",
-                   "size": 80,
-                   "fontSize": "3em"
-                 }'></div>
+          <div class="filter-chip" data-filter="threshold" data-value="between">
+            <i class="fa fa-arrows-h"></i>
+            {{ __('admin/results.between-thresholds') }}
+          </div>
+          <div class="filter-chip" data-filter="threshold" data-value="below">
+            <i class="fa fa-arrow-down"></i>
+            {{ __('admin/results.below-lower-threshold') }}
           </div>
         </div>
-      </a>
-    @endforeach
+      </div>
+
+      {{-- Trend filters --}}
+      <div class="filter-group">
+        <div class="filter-group-label">{{ __('admin/results.filter-by-trend') }}</div>
+        <div class="filter-chips">
+          <div class="filter-chip" data-filter="trend" data-value="up">
+            <i class="fa fa-arrow-up"></i>
+            {{ __('admin/results.trend-up') }}
+          </div>
+          <div class="filter-chip" data-filter="trend" data-value="stable">
+            <i class="fa fa-minus"></i>
+            {{ __('admin/results.trend-stable') }}
+          </div>
+          <div class="filter-chip" data-filter="trend" data-value="down">
+            <i class="fa fa-arrow-down"></i>
+            {{ __('admin/results.trend-down') }}
+          </div>
+        </div>
+      </div>
+
+      {{-- Bonus/Malus filters --}}
+      @if(!empty($showBonusMalus))
+        <div class="filter-group">
+          <div class="filter-group-label">{{ __('admin/results.filter-by-bonusmalus') }}</div>
+          <div class="filter-chips" id="bonusmalus-filters">
+            {{-- Will be populated dynamically --}}
+          </div>
+        </div>
+      @endif
+    </div>
+  </div>
+
+  {{-- Results Container --}}
+  @if ($enableMultiLevel && $departments->isNotEmpty())
+    {{-- Multi-level view: Department groups --}}
+    <div class="results-container multi-level">
+      @foreach ($departments as $dept)
+        <div class="dept-block" data-dept-id="{{ $dept->id }}" data-dept-name="{{ strtolower($dept->department_name) }}">
+          <div class="dept-header" onclick="toggleDepartment(this)">
+            <div class="left">
+              <i class="fa fa-chevron-down caret"></i>
+              <span class="dept-title">{{ $dept->department_name }}</span>
+              <span class="badge">{{ $dept->users->count() }}</span>
+            </div>
+          </div>
+
+          <div class="dept-body">
+            @foreach ($dept->users as $user)
+              @include('admin.partials.result-user-tile', ['user' => $user, 'assessment' => $assessment, 'showBonusMalus' => $showBonusMalus])
+            @endforeach
+          </div>
+        </div>
+      @endforeach
+    </div>
+  @else
+    {{-- Legacy view: Flat list --}}
+    <div class="employee-list results-container">
+      @foreach ($users as $user)
+        @include('admin.partials.result-user-tile', ['user' => $user, 'assessment' => $assessment, 'showBonusMalus' => $showBonusMalus])
+      @endforeach
+    </div>
   @endif
-</div>
+
+  {{-- No results message (hidden by default) --}}
+  <div class="no-results-message hidden" id="no-results-message">
+    <i class="fa fa-search"></i>
+    <h3>{{ __('admin/results.no-results-found') }}</h3>
+    <p>{{ __('admin/results.try-different-search') }}</p>
+  </div>
+
+@else
+  {{-- No assessment state --}}
+  <div class="tile tile-empty-info">
+    <img src="{{ asset('assets/img/monster-info-tile-3.svg') }}" alt="No assessment" class="empty-tile-monster">
+    <div class="empty-tile-text">
+      <p class="empty-tile-title">{{ __('admin/results.no-results-yet') }}</p>
+      <p class="empty-tile-subtitle">{{ __('admin/results.no-results-info') }}</p>
+      <p class="empty-tile-tasks">{!! __('admin/results.no-results-tasks') !!}</p>
+    </div>
+  </div>
+@endif
+
 @endsection
 
 @section('scripts')

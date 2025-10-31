@@ -38,4 +38,22 @@ return [
   "self-assessment" => "Önértékelés",
   "colleagues-rating" => "Kollégák",
   "managers-rating" => "Vezetők",
+
+  // Search and filters
+    'search-employees' => 'Keresés név, email vagy pozíció alapján...',
+    'filter-by-threshold' => 'Szűrés küszöb szerint',
+    'above-upper-threshold' => 'Felső küszöb felett',
+    'between-thresholds' => 'Küszöbök között',
+    'below-lower-threshold' => 'Alsó küszöb alatt',
+    'filter-by-trend' => 'Szűrés trend szerint',
+    'trend-up' => 'Emelkedő',
+    'trend-stable' => 'Stabil',
+    'trend-down' => 'Csökkenő',
+    'filter-by-bonusmalus' => 'Szűrés bónusz/málusz szerint',
+    'no-results-found' => 'Nincs találat',
+    'try-different-search' => 'Próbálj meg más keresési feltételt vagy szűrőt használni',
+
+        // Other
+    'ceo-role' => 'Ügyvezető',
+    'open-user-results' => ':name eredményeinek megnyitása',
 ];
