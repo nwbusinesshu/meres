@@ -317,14 +317,14 @@
   white-space: nowrap;
 }
 
-/* Adjust stats grid for dynamic number of components */
+/* Adjust stats grid for dynamic number of components 
 .stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.3em;
   font-size: 0.9em;
   flex-grow: 1;
-}
+}*/
 
 .stats > div {
   display: flex;
@@ -334,7 +334,7 @@
 
 .stats > div > span:first-child {
   color: #666;
-  font-size: 0.85em;
+  font-size: 0.95em;
 }
 
 .stats > div > span:last-child {
