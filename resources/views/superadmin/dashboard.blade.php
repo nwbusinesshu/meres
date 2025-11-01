@@ -7,6 +7,50 @@
 @section('content')
 <h1>{{ __('titles.superadmin.dashboard') }}</h1>
 
+{{-- Global Pricing Settings --}}
+<div class="mb-4">
+  <div class="tile tile-info pricing-tile">
+    <div class="pricing-header">
+      <h5><i class="fa fa-coins"></i> Globális Ár Beállítások</h5>
+    </div>
+    <form id="pricing-form" class="pricing-form">
+      @csrf
+      <div class="row">
+        <div class="col-md-5">
+          <div class="form-group">
+            <label for="global_price_huf">Alap Ár (HUF)</label>
+            <div class="input-group">
+              <input type="number" step="0.01" class="form-control" id="global_price_huf" name="global_price_huf" required>
+              <div class="input-group-append">
+                <span class="input-group-text">HUF</span>
+              </div>
+            </div>
+            <small class="form-text text-muted">Magyarországi szervezetek számára</small>
+          </div>
+        </div>
+        <div class="col-md-5">
+          <div class="form-group">
+            <label for="global_price_eur">Alap Ár (EUR)</label>
+            <div class="input-group">
+              <input type="number" step="0.01" class="form-control" id="global_price_eur" name="global_price_eur" required>
+              <div class="input-group-append">
+                <span class="input-group-text">EUR</span>
+              </div>
+            </div>
+            <small class="form-text text-muted">Magyarországon kívüli szervezetek számára</small>
+          </div>
+        </div>
+        <div class="col-md-2 d-flex align-items-center">
+          <button type="submit" class="btn btn-primary btn-block" style="margin-top: 8px;">
+            <i class="fa fa-save"></i> Mentés
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+
 <div>
   <div class="tile tile-info search-tile org-search">
     <p>{{ __('global.search') }}</p>
@@ -134,4 +178,46 @@
 @endsection
 
 @section('scripts')
+{{-- Pricing Form Script --}}
+<script>
+// Load current pricing on page load
+$(document).ready(function() {
+  $.get('{{ route('superadmin.pricing.get') }}')
+    .done(function(response) {
+      if (response.success && response.data) {
+        $('#global_price_huf').val(response.data.global_price_huf);
+        $('#global_price_eur').val(response.data.global_price_eur);
+      }
+    })
+    .fail(function() {
+      console.error('Failed to load pricing data');
+    });
+});
+
+// Handle pricing form submission
+$('#pricing-form').on('submit', function(e) {
+  e.preventDefault();
+  
+  const data = {
+    _token: '{{ csrf_token() }}',
+    global_price_huf: $('#global_price_huf').val(),
+    global_price_eur: $('#global_price_eur').val()
+  };
+  
+  $.post('{{ route('superadmin.pricing.update') }}', data)
+    .done(function(response) {
+      if (response.success) {
+        alert(response.message || 'Árak sikeresen frissítve!');
+      }
+    })
+    .fail(function(xhr) {
+      const errors = (xhr.responseJSON && xhr.responseJSON.errors) ? xhr.responseJSON.errors : null;
+      let msg = '';
+      if (errors) {
+        for (let field in errors) { msg += errors[field][0] + '\n'; }
+      }
+      alert(msg || 'Hiba történt az árak mentése során.');
+    });
+});
+</script>
 @endsection

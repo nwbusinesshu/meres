@@ -331,6 +331,8 @@ Route::middleware(['auth:' . UserType::SUPERADMIN, 'org'])
         Route::post('/org/store', 'store')->name('org.store');
         Route::post('/org/update', 'update')->name('org.update');
         Route::post('/org/delete', 'delete')->name('org.delete');
+        Route::get('/pricing', 'getPricing')->name('pricing.get');
+        Route::post('/pricing/update', 'updatePricing')->name('pricing.update');
     });
 
 Route::prefix('/superadmin')->name('superadmin.')->middleware(['auth:' . UserType::SUPERADMIN])->group(function () {

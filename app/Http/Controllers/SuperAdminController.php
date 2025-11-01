@@ -6,6 +6,10 @@ use Illuminate\Http\Request;
 use App\Models\Organization;
 use App\Models\Assessment;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
+use App\Models\Enums\UserType;
+use App\Models\Enums\OrgRole;
+
 
 class SuperAdminController extends Controller
 {
@@ -33,7 +37,6 @@ public function dashboard()
 
 public function store(Request $request)
 {
-
     $country = strtoupper($request->input('country_code', 'HU'));
 
     $request->validate([
@@ -48,14 +51,12 @@ public function store(Request $request)
         'street'             => 'nullable|string|max:128',
         'house_number'       => 'nullable|string|max:32',
 
-        // HU esetén kötelező és mintás, más ország esetén nem kötelező
         'tax_number'         => [
             'nullable','string','max:50',
             Rule::requiredIf($country === 'HU'),
             'regex:/^\d{8}-\d-\d{2}$/'
         ],
 
-        // nem-HU esetén kötelező, HU esetén opcionális
         'eu_vat_number'      => [
             'nullable','string','max:32',
             Rule::requiredIf($country !== 'HU'),
@@ -65,53 +66,153 @@ public function store(Request $request)
         'subscription_type'  => 'nullable|in:free,pro',
     ]);
 
-    // 1) Szervezet
-    $org = \App\Models\Organization::create([
-        'name'       => $request->org_name,
-        'created_at' => now(),
-    ]);
-
-    // 2) Admin user
-    $user = \App\Models\User::firstOrCreate(
-    ['email' => $request->admin_email],
-    [
-        'name' => $request->admin_name,
-        'type' => UserType::NORMAL,  // ✅ CORRECT - System level type
-    ]
-);
-
-// Admin role is properly set via pivot table:
-$org->users()->attach($user->id, ['role' => OrgRole::ADMIN]);  // ✅ Org level role
-
-    // 4) Profil
-    \App\Models\OrganizationProfile::create([
-        'organization_id'   => $org->id,
-        'country_code'      => $country,
-        'postal_code'       => $request->postal_code,
-        'region'            => $request->region,
-        'city'              => $request->city,
-        'street'            => $request->street,
-        'house_number'      => $request->house_number,
-        'tax_number'        => $request->tax_number,
-        'eu_vat_number'     => strtoupper((string) $request->eu_vat_number),
-        'subscription_type' => $request->subscription_type,
-        'created_at'        => now(),
-    ]);
-
-    // 5) Alap CEO rangok
-    $defaultRanks = \App\Models\CeoRank::whereNull('organization_id')->get();
-    foreach ($defaultRanks as $rank) {
-        \App\Models\CeoRank::create([
-            'organization_id' => $org->id,
-            'name'            => $rank->name,
-            'value'           => $rank->value,
-            'min'             => $rank->min,
-            'max'             => $rank->max,
-            'removed_at'      => null,
+    return DB::transaction(function() use ($request, $country) {
+        // 1) Organization
+        $org = \App\Models\Organization::create([
+            'name'       => $request->org_name,
+            'created_at' => now(),
         ]);
-    }
 
-    return response()->json(['success' => true]);
+        // 2) Admin user - check for existing or create new
+        $user = \App\Models\User::firstOrCreate(
+            ['email' => $request->admin_email],
+            [
+                'name'       => $request->admin_name,
+                'type'       => UserType::NORMAL,
+                'created_at' => now(),
+            ]
+        );
+
+        // 3) Pivot table - Admin role
+        $org->users()->attach($user->id, ['role' => OrgRole::ADMIN]);
+
+        // 4) Organization Profile
+        \App\Models\OrganizationProfile::create([
+            'organization_id'   => $org->id,
+            'country_code'      => $country,
+            'postal_code'       => $request->postal_code,
+            'region'            => $request->region,
+            'city'              => $request->city,
+            'street'            => $request->street,
+            'house_number'      => $request->house_number,
+            'tax_number'        => $request->tax_number,
+            'eu_vat_number'     => strtoupper((string) $request->eu_vat_number),
+            'subscription_type' => $request->subscription_type ?? 'pro',
+            'employee_limit'    => 50, // Default for manually created orgs
+            'created_at'        => now(),
+        ]);
+
+        // 5) Copy default CEO ranks
+        $defaultRanks = \App\Models\CeoRank::whereNull('organization_id')->get();
+        foreach ($defaultRanks as $rank) {
+            \App\Models\CeoRank::create([
+                'organization_id' => $org->id,
+                'name'            => $rank->name,
+                'value'           => $rank->value,
+                'min'             => $rank->min,
+                'max'             => $rank->max,
+                'removed_at'      => null,
+            ]);
+        }
+
+        // 6) SET USER PRICE BASED ON COUNTRY
+        $hufPrice = DB::table('config')->where('name', 'global_price_huf')->value('value') ?? '950';
+        $eurPrice = DB::table('config')->where('name', 'global_price_eur')->value('value') ?? '2.5';
+        $userPrice = ($country === 'HU') ? $hufPrice : $eurPrice;
+
+        \Log::info('superadmin.org.user_price_set', [
+            'org_id' => $org->id,
+            'country' => $country,
+            'price' => $userPrice,
+            'currency' => ($country === 'HU') ? 'HUF' : 'EUR'
+        ]);
+
+        // 7) Complete organization config defaults
+        $defaults = [
+            // User price
+            'user_price'            => $userPrice,
+            
+            // Threshold mode + classic thresholds
+            'threshold_mode'        => 'fixed',
+            'normal_level_up'       => '85',
+            'normal_level_down'     => '70',
+            'monthly_level_down'    => '70',
+
+            // HYBRID / DYNAMIC base settings
+            'threshold_min_abs_up'  => '70',
+            'threshold_top_pct'     => '15',
+            'threshold_bottom_pct'  => '20',
+
+            // HYBRID fine-tuning
+            'threshold_grace_points'=> '0',
+            'threshold_gap_min'     => '5',
+
+            // AI/telemetry toggles
+            'strict_anonymous_mode' => '0',
+            'ai_telemetry_enabled'  => '1',
+
+            // SUGGESTED (AI) policy
+            'target_promo_rate_max'          => '0.30',
+            'target_demotion_rate_max'       => '0.30',
+            'never_below_abs_min_for_promo'  => '60',
+            'use_telemetry_trust'            => '1',
+            'no_forced_demotion_if_high_cohesion' => '1',
+
+            // Other UI/behavior settings
+            'enable_multi_level'    => '0',
+            'show_bonus_malus'      => '1',
+            'easy_relation_setup'   => '1',
+            'force_oauth_2fa'       => '0',
+            'employees_see_bonuses' => '0',
+            'enable_bonus_calculation' => '0',
+            'api_enabled' => '1',
+            'api_rate_limit' => '60',
+        ];
+
+        foreach ($defaults as $key => $val) {
+            DB::table('organization_config')->updateOrInsert(
+                ['organization_id' => $org->id, 'name' => $key],
+                ['value' => $val === null ? null : (string) $val]
+            );
+        }
+
+        // 8) Default Bonus/Malus multipliers
+        $defaultMultipliers = [
+            1 => 0.00, 2 => 0.40, 3 => 0.70, 4 => 0.90, 5 => 1.00,
+            6 => 1.50, 7 => 2.00, 8 => 2.75, 9 => 3.50, 10 => 4.25,
+            11 => 5.25, 12 => 6.25, 13 => 7.25, 14 => 8.25, 15 => 10.00
+        ];
+
+        $bonusConfigData = [];
+        foreach ($defaultMultipliers as $level => $multiplier) {
+            $bonusConfigData[] = [
+                'organization_id' => $org->id,
+                'level' => $level,
+                'multiplier' => $multiplier
+            ];
+        }
+        DB::table('bonus_malus_config')->insert($bonusConfigData);
+
+        // 9) Initial payment creation
+        $employeeLimit = 50; // Default for manually created orgs
+        $amountHuf = (int) ($employeeLimit * 950);
+
+        if ($amountHuf > 0) {
+            DB::table('payments')->insert([
+                'organization_id' => $org->id,
+                'assessment_id'   => null,
+                'amount_huf'      => $amountHuf,
+                'status'          => 'initial',
+                'created_at'      => now(),
+                'updated_at'      => now(),
+            ]);
+        }
+
+        // 10) Password-setup email
+        \App\Services\PasswordSetupService::createAndSend($org->id, $user->id, null);
+
+        return response()->json(['success' => true]);
+    });
 }
 
 
@@ -277,7 +378,71 @@ public function getOrgData($orgId)
         'admin_email'       => $admin?->email ?? '',
     ]);
 }
+/**
+ * Get global pricing configuration
+ */
+public function getPricing()
+{
+    $hufPrice = DB::table('config')->where('name', 'global_price_huf')->value('value') ?? '950';
+    $eurPrice = DB::table('config')->where('name', 'global_price_eur')->value('value') ?? '2.5';
+    
+    return response()->json([
+        'success' => true,
+        'data' => [
+            'global_price_huf' => $hufPrice,
+            'global_price_eur' => $eurPrice,
+        ]
+    ]);
+}
 
+/**
+ * Update global pricing configuration
+ */
+public function updatePricing(Request $request)
+{
+    $request->validate([
+        'global_price_huf' => 'required|numeric|min:0',
+        'global_price_eur' => 'required|numeric|min:0',
+    ]);
+    
+    try {
+        DB::beginTransaction();
+        
+        DB::table('config')->updateOrInsert(
+            ['name' => 'global_price_huf'],
+            ['value' => $request->global_price_huf]
+        );
+        
+        DB::table('config')->updateOrInsert(
+            ['name' => 'global_price_eur'],
+            ['value' => $request->global_price_eur]
+        );
+        
+        DB::commit();
+        
+        \Log::info('global_pricing.updated', [
+            'huf' => $request->global_price_huf,
+            'eur' => $request->global_price_eur,
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Árak sikeresen frissítve.'
+        ]);
+        
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        
+        \Log::error('global_pricing.update.error', [
+            'error' => $e->getMessage(),
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Hiba történt az árak frissítése során.'
+        ], 500);
+    }
+}
 
 
 }

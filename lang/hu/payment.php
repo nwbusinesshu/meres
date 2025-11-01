@@ -89,7 +89,7 @@ return [
 
         'trial' => [
         'active_title' => 'Próbaidőszak aktív',
-        'active_message' => 'Jelenleg a :days napos próbaidőszakban vagy. A rendszer teljes funkcionalitása elérhető, kivéve az értékelési időszak indítását.',
+        'active_message' => 'Jelenleg az :days napos próbaidőszakban vagy. A rendszer teljes funkcionalitása elérhető, kivéve az értékelési időszak indítását.',
         'days_remaining' => ':days nap van hátra',
         'hours_remaining' => ':hours óra van hátra',
         'expired_title' => 'Próbaidőszak lejárt',

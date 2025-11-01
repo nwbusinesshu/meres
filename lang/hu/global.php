@@ -17,6 +17,8 @@ return [
 
   "swal-confirm" => "Igen",
 
+  "save" => "Mentés",
+
   "swal-deny" => "Nem",
 
   "swal-cancel" => "Mégsem",

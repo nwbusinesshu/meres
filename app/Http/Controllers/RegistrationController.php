@@ -194,6 +194,10 @@ class RegistrationController extends Controller
             $aiTelemetry = $request->boolean('ai_telemetry_enabled');
             $multiLevel  = $request->boolean('enable_multi_level');
             $showBM      = $request->boolean('show_bonus_malus');
+            $hufPrice = DB::table('config')->where('name', 'global_price_huf')->value('value') ?? '950';
+            $eurPrice = DB::table('config')->where('name', 'global_price_eur')->value('value') ?? '2.5';
+
+            $userPrice = ($country === 'HU') ? $hufPrice : $eurPrice;
 
             // Complete organization config defaults - matching SuperadminOrganizationController
             $defaults = [
@@ -233,6 +237,7 @@ class RegistrationController extends Controller
                 'enable_bonus_calculation' => '0',
                 'api_enabled' => '1',
                 'api_rate_limit' => '60',
+                'user_price' => $userPrice,
             ];
 
             foreach ($defaults as $key => $val) {
