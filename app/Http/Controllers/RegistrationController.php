@@ -231,6 +231,8 @@ class RegistrationController extends Controller
                 'force_oauth_2fa'       => '0',
                 'employees_see_bonuses' => '0',
                 'enable_bonus_calculation' => '0',
+                'api_enabled' => '1',
+                'api_rate_limit' => '60',
             ];
 
             foreach ($defaults as $key => $val) {

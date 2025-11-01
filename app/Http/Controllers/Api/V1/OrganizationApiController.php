@@ -9,6 +9,7 @@ class OrganizationApiController extends BaseApiController
 {
     /**
      * Get organization details
+     * NOTE: Does NOT include org_snapshot or AI summaries
      */
     public function show(Request $request)
     {
@@ -20,6 +21,7 @@ class OrganizationApiController extends BaseApiController
         }
 
         // Get organization basic info + profile details
+        // ✅ FIXED: No org_snapshot or sensitive data
         $organization = DB::table('organization')
             ->leftJoin('organization_profiles', 'organization.id', '=', 'organization_profiles.organization_id')
             ->where('organization.id', $orgId)
@@ -78,6 +80,57 @@ class OrganizationApiController extends BaseApiController
         $orgId = $this->getOrganizationId($request);
         $config = $this->getOrganizationConfig($orgId);
         return $this->successResponse($config);
+    }
+
+    /**
+     * ✅ NEW: Get all competencies for the organization
+     */
+    public function competencies(Request $request)
+    {
+        $orgId = $this->getOrganizationId($request);
+        
+        // Get current locale from request or default to 'hu'
+        $locale = $request->get('locale', 'hu');
+        
+        // Get all competencies (org-specific + global)
+        $competencies = DB::table('competency')
+            ->where(function($q) use ($orgId) {
+                $q->where('organization_id', $orgId)
+                  ->orWhereNull('organization_id'); // Include global competencies
+            })
+            ->whereNull('removed_at')
+            ->select(
+                'id',
+                'organization_id',
+                'name_json',
+                'description_json'
+                // Note: competency table has NO created_at column
+            )
+            ->orderBy('organization_id', 'asc') // Global first, then org-specific
+            ->orderBy('id', 'asc')
+            ->get()
+            ->map(function($comp) use ($locale) {
+                // Parse JSON translations
+                $nameJson = json_decode($comp->name_json, true) ?? [];
+                $descJson = json_decode($comp->description_json, true) ?? [];
+                
+                return [
+                    'id' => $comp->id,
+                    'is_global' => is_null($comp->organization_id),
+                    'name' => $nameJson[$locale] ?? $nameJson['hu'] ?? $nameJson['en'] ?? 'N/A',
+                    'description' => $descJson[$locale] ?? $descJson['hu'] ?? $descJson['en'] ?? '',
+                    'translations' => [
+                        'name' => $nameJson,
+                        'description' => $descJson
+                    ]
+                ];
+            });
+
+        return $this->successResponse([
+            'competencies' => $competencies,
+            'total' => $competencies->count(),
+            'locale' => $locale
+        ]);
     }
 
     /**

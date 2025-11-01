@@ -414,6 +414,69 @@
     </div>
   </div>
 </form>
+
+{{-- ===== API CONNECTION ===== --}}
+<h3 class="settings-subtitle" style="margin-top:1.2rem;">{{ __('admin/settings.settings.api_subtitle') }}</h3>
+
+<div class="settings-grid">
+  <div class="tile tile-info tile-full" id="api-key-tile">
+    <div class="text">
+      <div class="title"><h3>{{ __('admin/settings.settings.api_title') }}</h3></div>
+      <div class="meta">
+        {{ __('admin/settings.settings.api_description') }}
+        <br><br>
+        <strong>{{ __('admin/settings.settings.api_important') }}:</strong> {{ __('admin/settings.settings.api_important_text') }}
+      </div>
+    </div>
+
+    <div class="api-key-content">
+      {{-- This will be populated by JavaScript --}}
+      <div id="api-key-status">
+        <div class="spinner-border text-primary" role="status">
+          <span class="sr-only">{{ __('admin/settings.settings.api_loading') }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{-- Modal for one-time API key display --}}
+<div class="modal fade modal-drawer" id="api-key-modal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ __('admin/settings.settings.api_modal_display_title') }}</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning">
+          <strong>{{ __('admin/settings.settings.api_modal_display_warning') }}</strong> {{ __('admin/settings.settings.api_modal_display_warning_text') }}
+        </div>
+        
+        <label style="font-weight: 600; margin-bottom: 0.5rem;">{{ __('admin/settings.settings.api_modal_display_key_label') }}</label>
+        <div class="input-group mb-3">
+          <input type="text" class="form-control" id="api-key-display" readonly style="font-family: monospace; background-color: #f8f9fa;">
+          <div class="input-group-append">
+            <button class="btn btn-outline-secondary" type="button" id="copy-api-key" title="{{ __('admin/settings.settings.api_btn_copy') }}">
+              <i class="fas fa-copy"></i> {{ __('admin/settings.settings.api_btn_copy') }}
+            </button>
+          </div>
+        </div>
+        
+        <small class="text-muted">
+          {{ __('admin/settings.settings.api_modal_display_usage_hint') }}<br>
+          <code>X-API-Key: [{{ __('admin/settings.settings.api_modal_display_key_label') }}]</code>
+        </small>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-dismiss="modal">{{ __('admin/settings.settings.api_modal_display_close') }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 @include('admin.modals.bonus-config')
 @endsection
 

@@ -22,10 +22,6 @@ class BonusMalusApiController extends BaseApiController
                      ->where('organization_user.organization_id', '=', $orgId);
             })
             ->leftJoin('organization_departments', 'organization_user.department_id', '=', 'organization_departments.id')
-            ->leftJoin('user_wages', function($join) use ($orgId) {
-                $join->on('user.id', '=', 'user_wages.user_id')
-                     ->where('user_wages.organization_id', '=', $orgId);
-            })
             ->where('user_bonus_malus.organization_id', $orgId)
             ->whereNull('user.removed_at')
             ->select(
@@ -35,9 +31,7 @@ class BonusMalusApiController extends BaseApiController
                 'organization_user.position',
                 'organization_departments.department_name',
                 'user_bonus_malus.level',
-                'user_bonus_malus.month',
-                'user_wages.net_wage',
-                'user_wages.currency'
+                'user_bonus_malus.month'
             );
 
         // Get only the latest month for each user
@@ -70,22 +64,18 @@ class BonusMalusApiController extends BaseApiController
         }
 
         // Sorting
-        $sortBy = $request->get('sort_by', 'level');
+        $sortBy = $request->get('sort_by', 'user.name');
         $sortOrder = $request->get('sort_order', 'asc');
         
-        if (in_array($sortBy, ['name', 'level', 'month'])) {
-            if ($sortBy === 'name') {
-                $query->orderBy('user.name', $sortOrder);
-            } else {
-                $query->orderBy('user_bonus_malus.' . $sortBy, $sortOrder);
-            }
+        if (in_array($sortBy, ['user.name', 'user.email', 'user_bonus_malus.level', 'user_bonus_malus.month'])) {
+            $query->orderBy($sortBy, $sortOrder);
         }
 
         return $this->paginatedResponse($query, $request->get('per_page', 50));
     }
 
     /**
-     * Get bonus/malus configuration
+     * Get bonus/malus configuration (multipliers)
      */
     public function configuration(Request $request)
     {
@@ -93,116 +83,141 @@ class BonusMalusApiController extends BaseApiController
         
         $config = DB::table('bonus_malus_config')
             ->where('organization_id', $orgId)
-            ->orderBy('level')
             ->select('level', 'multiplier')
+            ->orderBy('level', 'asc')
             ->get();
+
+        if ($config->isEmpty()) {
+            return $this->errorResponse('No bonus/malus configuration found for this organization', 404);
+        }
 
         return $this->successResponse([
             'organization_id' => $orgId,
-            'configuration' => $config
+            'levels' => $config
         ]);
     }
 
     /**
-     * Get assessment bonuses for specific assessment
+     * ✅ NEW: Get bonus/malus categories (all possible levels 1-15)
+     * Returns the category codes and their multipliers
+     */
+    public function categories(Request $request)
+    {
+        $orgId = $this->getOrganizationId($request);
+        
+        // Get configured multipliers for this organization
+        $config = DB::table('bonus_malus_config')
+            ->where('organization_id', $orgId)
+            ->select('level', 'multiplier')
+            ->orderBy('level', 'asc')
+            ->get()
+            ->keyBy('level');
+
+        // Define category codes (standard 1-15 levels)
+        $categories = [];
+        for ($level = 1; $level <= 15; $level++) {
+            // Format level as category code (e.g., B01, B02, ..., B15)
+            $code = 'B' . str_pad($level, 2, '0', STR_PAD_LEFT);
+            
+            $categories[] = [
+                'level' => $level,
+                'code' => $code,
+                'multiplier' => $config->has($level) ? (float)$config[$level]->multiplier : 0.0,
+                'configured' => $config->has($level)
+            ];
+        }
+
+        return $this->successResponse([
+            'organization_id' => $orgId,
+            'categories' => $categories,
+            'total_levels' => 15
+        ]);
+    }
+
+    /**
+     * Get bonuses for a specific assessment
      */
     public function show(Request $request, $id)
     {
         $orgId = $this->getOrganizationId($request);
         
-        // Verify assessment belongs to organization
+        // Verify assessment belongs to organization and is closed
         $assessment = DB::table('assessment')
             ->where('organization_id', $orgId)
             ->where('id', $id)
+            ->whereNotNull('closed_at')
+            ->select('id', 'closed_at')
             ->first();
 
         if (!$assessment) {
-            return $this->errorResponse('Assessment not found', 404);
+            return $this->errorResponse('Assessment not found or not closed', 404);
         }
 
-        // Get bonuses for this assessment
-        $bonuses = DB::table('assessment_bonuses')
-            ->join('user', 'assessment_bonuses.user_id', '=', 'user.id')
-            ->join('organization_user', function($join) use ($orgId) {
-                $join->on('user.id', '=', 'organization_user.user_id')
-                     ->where('organization_user.organization_id', '=', $orgId);
-            })
-            ->leftJoin('organization_departments', 'organization_user.department_id', '=', 'organization_departments.id')
-            ->where('assessment_bonuses.assessment_id', $id)
-            ->whereNull('user.removed_at')
+        // Get total statistics
+        $stats = DB::table('assessment_bonuses')
+            ->where('assessment_id', $id)
             ->select(
-                'assessment_bonuses.id',
-                'user.id as user_id',
-                'user.name',
-                'user.email',
-                'organization_user.position',
-                'organization_departments.department_name',
-                'assessment_bonuses.bonus_malus_level',
-                'assessment_bonuses.net_wage',
-                'assessment_bonuses.currency',
-                'assessment_bonuses.multiplier',
-                'assessment_bonuses.bonus_amount',
-                'assessment_bonuses.is_paid',
-                'assessment_bonuses.paid_at',
-                'assessment_bonuses.created_at'
+                DB::raw('COUNT(*) as total_employees'),
+                DB::raw('SUM(bonus_amount) as total_bonus_amount'),
+                DB::raw('AVG(bonus_amount) as average_bonus'),
+                DB::raw('SUM(CASE WHEN is_paid = 1 THEN 1 ELSE 0 END) as paid_count'),
+                DB::raw('SUM(CASE WHEN is_paid = 1 THEN bonus_amount ELSE 0 END) as paid_amount')
             )
-            ->orderBy('assessment_bonuses.bonus_malus_level')
+            ->first();
+
+        // Get distribution by level
+        $distribution = DB::table('assessment_bonuses')
+            ->where('assessment_id', $id)
+            ->select(
+                'bonus_malus_level',
+                DB::raw('COUNT(*) as employee_count'),
+                DB::raw('SUM(bonus_amount) as total_amount'),
+                DB::raw('AVG(bonus_amount) as average_amount')
+            )
+            ->groupBy('bonus_malus_level')
+            ->orderBy('bonus_malus_level', 'asc')
             ->get();
 
-        // Calculate statistics
-        $stats = [
-            'total_bonuses' => $bonuses->count(),
-            'total_amount' => $bonuses->sum('bonus_amount'),
-            'paid_count' => $bonuses->where('is_paid', 1)->count(),
-            'unpaid_count' => $bonuses->where('is_paid', 0)->count(),
-            'paid_amount' => $bonuses->where('is_paid', 1)->sum('bonus_amount'),
-            'unpaid_amount' => $bonuses->where('is_paid', 0)->sum('bonus_amount'),
-        ];
-
-        // Group by department
-        $departmentStats = DB::table('assessment_bonuses')
-            ->join('user', 'assessment_bonuses.user_id', '=', 'user.id')
-            ->join('organization_user', function($join) use ($orgId) {
-                $join->on('user.id', '=', 'organization_user.user_id')
-                     ->where('organization_user.organization_id', '=', $orgId);
-            })
+        // Get department breakdown
+        $byDepartment = DB::table('assessment_bonuses')
+            ->join('organization_user', 'assessment_bonuses.user_id', '=', 'organization_user.user_id')
             ->leftJoin('organization_departments', 'organization_user.department_id', '=', 'organization_departments.id')
             ->where('assessment_bonuses.assessment_id', $id)
-            ->whereNull('user.removed_at')
+            ->where('organization_user.organization_id', $orgId)
+            ->select(
+                'organization_departments.department_name',
+                DB::raw('COUNT(*) as employee_count'),
+                DB::raw('SUM(assessment_bonuses.bonus_amount) as total_amount'),
+                DB::raw('AVG(assessment_bonuses.bonus_amount) as average_amount')
+            )
             ->groupBy('organization_departments.id', 'organization_departments.department_name')
-            ->selectRaw('
-                organization_departments.id,
-                organization_departments.department_name,
-                COUNT(*) as employee_count,
-                SUM(assessment_bonuses.bonus_amount) as total_bonus,
-                AVG(assessment_bonuses.bonus_amount) as avg_bonus,
-                AVG(assessment_bonuses.bonus_malus_level) as avg_level
-            ')
             ->get();
 
         return $this->successResponse([
-            'assessment' => $assessment,
+            'assessment_id' => $id,
+            'assessment_date' => $assessment->closed_at,
             'statistics' => $stats,
-            'department_breakdown' => $departmentStats,
-            'bonuses' => $bonuses
+            'distribution_by_level' => $distribution,
+            'by_department' => $byDepartment
         ]);
     }
 
     /**
-     * Get individual results for an assessment (alias for show with filtering)
+     * Get bonus results for specific assessment
      */
     public function results(Request $request, $id)
     {
         $orgId = $this->getOrganizationId($request);
         
-        // Verify assessment exists
-        $assessmentExists = DB::table('assessment')
+        // Verify assessment belongs to organization and is closed
+        $assessment = DB::table('assessment')
             ->where('organization_id', $orgId)
             ->where('id', $id)
+            ->whereNotNull('closed_at')
             ->exists();
 
-        if (!$assessmentExists) {
-            return $this->errorResponse('Assessment not found', 404);
+        if (!$assessment) {
+            return $this->errorResponse('Assessment not found or not closed', 404);
         }
 
         $query = DB::table('assessment_bonuses')
@@ -213,9 +228,7 @@ class BonusMalusApiController extends BaseApiController
             })
             ->leftJoin('organization_departments', 'organization_user.department_id', '=', 'organization_departments.id')
             ->where('assessment_bonuses.assessment_id', $id)
-            ->whereNull('user.removed_at')
             ->select(
-                'assessment_bonuses.id',
                 'user.id as user_id',
                 'user.name',
                 'user.email',
@@ -235,32 +248,20 @@ class BonusMalusApiController extends BaseApiController
             $query->where('organization_user.department_id', $request->department_id);
         }
 
+        if ($request->has('is_paid')) {
+            $query->where('assessment_bonuses.is_paid', $request->is_paid);
+        }
+
         if ($request->has('level')) {
             $query->where('assessment_bonuses.bonus_malus_level', $request->level);
         }
 
-        if ($request->has('is_paid')) {
-            $query->where('assessment_bonuses.is_paid', $request->boolean('is_paid'));
-        }
-
-        if ($request->has('search')) {
-            $search = '%' . $request->search . '%';
-            $query->where(function($q) use ($search) {
-                $q->where('user.name', 'like', $search)
-                  ->orWhere('user.email', 'like', $search);
-            });
-        }
-
         // Sorting
-        $sortBy = $request->get('sort_by', 'bonus_malus_level');
+        $sortBy = $request->get('sort_by', 'user.name');
         $sortOrder = $request->get('sort_order', 'asc');
         
-        if (in_array($sortBy, ['name', 'bonus_malus_level', 'bonus_amount'])) {
-            if ($sortBy === 'name') {
-                $query->orderBy('user.name', $sortOrder);
-            } else {
-                $query->orderBy('assessment_bonuses.' . $sortBy, $sortOrder);
-            }
+        if (in_array($sortBy, ['user.name', 'assessment_bonuses.bonus_amount', 'assessment_bonuses.bonus_malus_level'])) {
+            $query->orderBy($sortBy, $sortOrder);
         }
 
         return $this->paginatedResponse($query, $request->get('per_page', 50));
@@ -268,6 +269,7 @@ class BonusMalusApiController extends BaseApiController
 
     /**
      * Get user's bonus/malus history
+     * ✅ FIXED: Route changed from /users/{userId} to /user/{userId}
      */
     public function userHistory(Request $request, $userId)
     {
@@ -283,7 +285,7 @@ class BonusMalusApiController extends BaseApiController
             return $this->errorResponse('User not found', 404);
         }
 
-        // Get bonus/malus history
+        // Get bonus/malus history (monthly levels)
         $history = DB::table('user_bonus_malus')
             ->where('user_id', $userId)
             ->where('organization_id', $orgId)

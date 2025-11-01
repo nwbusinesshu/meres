@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Services\OrgConfigService;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
+use App\Services\ApiKeyService;
 
 class AdminSettingsController extends Controller
 {
@@ -259,4 +260,133 @@ class AdminSettingsController extends Controller
 
         return redirect()->route('admin.settings.index')->with('success', 'Beállítások elmentve!');
     }
+
+    /**
+ * Get current API keys for the organization
+ */
+public function apiKeyIndex()
+{
+    $orgId = (int) session('org_id');
+    
+    $keys = ApiKeyService::getOrganizationApiKeys($orgId);
+    
+    return response()->json([
+        'success' => true,
+        'keys' => $keys
+    ]);
+}
+
+/**
+ * Generate a new API key
+ */
+public function apiKeyGenerate(Request $request)
+{
+    $orgId = (int) session('org_id');
+    $userId = (int) auth()->id();
+    
+    // Validate input
+    $this->validate($request, [
+        'name' => 'required|string|min:3|max:50'
+    ]);
+    
+    $name = $request->input('name');
+    
+    // Check if name is valid (alphanumeric, spaces, hyphens, underscores only)
+    if (!ApiKeyService::isValidKeyName($name)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Az API kulcs neve csak betűket, számokat, szóközöket, kötőjeleket és aláhúzásjeleket tartalmazhat.'
+        ], 400);
+    }
+    
+    // Check if organization already has an active API key
+    $existingKeys = DB::table('api_keys')
+        ->where('organization_id', $orgId)
+        ->whereNull('revoked_at')
+        ->where(function($query) {
+            $query->whereNull('expires_at')
+                  ->orWhere('expires_at', '>', now());
+        })
+        ->count();
+    
+    if ($existingKeys > 0) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Már létezik aktív API kulcs. Először vissza kell vonni a meglévőt.'
+        ], 400);
+    }
+    
+    // Generate the API key
+    try {
+        $keyData = ApiKeyService::generateApiKey($orgId, $name, $userId);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'API kulcs sikeresen létrehozva!',
+            'key' => $keyData
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Hiba történt az API kulcs létrehozása során: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
+/**
+ * Revoke an existing API key
+ */
+public function apiKeyRevoke(Request $request)
+{
+    $orgId = (int) session('org_id');
+    $userId = (int) auth()->id();
+    
+    $this->validate($request, [
+        'key_id' => 'required|integer'
+    ]);
+    
+    $keyId = (int) $request->input('key_id');
+    
+    // Verify the key belongs to this organization
+    $key = DB::table('api_keys')
+        ->where('id', $keyId)
+        ->where('organization_id', $orgId)
+        ->first();
+    
+    if (!$key) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Az API kulcs nem található.'
+        ], 404);
+    }
+    
+    if ($key->revoked_at) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Az API kulcs már vissza lett vonva.'
+        ], 400);
+    }
+    
+    try {
+        $result = ApiKeyService::revokeApiKey($keyId, $userId);
+        
+        if ($result) {
+            return response()->json([
+                'success' => true,
+                'message' => 'API kulcs sikeresen visszavonva!'
+            ]);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nem sikerült visszavonni az API kulcsot.'
+            ], 500);
+        }
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Hiba történt az API kulcs visszavonása során: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
 }

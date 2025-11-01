@@ -169,5 +169,79 @@ return [
         'warn_force_oauth_2fa_off' => 'Biztosan kikapcsolod a 2FA kényszerítést OAuth belépéseknél? A Google és Microsoft bejelentkezések 2FA nélkül történnek majd.',
         'saved' => 'Beállítások elmentve!',
         'error' => 'Hiba',
-    ],
+    
+
+'api_subtitle' => 'API kapcsolat',
+'api_title' => 'API kulcs',
+'api_description' => 'Az API kulcs segítségével harmadik féltől származó rendszerek (például ERP, HR szoftverek) kapcsolódhatnak a Quarma360 rendszerhez és exportálhatják a szervezet adatait.',
+'api_important' => 'Fontos',
+'api_important_text' => 'Az API kulcs csak egyszer jelenik meg teljes egészében. Utána csak az utolsó 8 karaktert láthatja.',
+
+// Status messages
+'api_loading' => 'Betöltés...',
+'api_no_key' => 'Még nincs létrehozott API kulcs.',
+'api_key_last_chars' => 'API kulcs (utolsó 8 karakter):',
+
+// Badges
+'api_badge_active' => 'Aktív',
+'api_badge_revoked' => 'Visszavonva',
+
+// Metadata labels
+'api_meta_name' => 'Név',
+'api_meta_created' => 'Létrehozva',
+'api_meta_created_by' => 'Létrehozta',
+'api_meta_last_used' => 'Utolsó használat',
+'api_meta_requests_24h' => 'Hívások (24h)',
+'api_meta_never_used' => 'Még nem használt',
+
+// Buttons
+'api_btn_generate' => 'Új API kulcs létrehozása',
+'api_btn_revoke' => 'Kulcs visszavonása',
+'api_btn_copy' => 'Másolás',
+'api_btn_copied' => 'Másolva!',
+
+// Modal - Generate
+'api_modal_generate_title' => 'Új API kulcs létrehozása',
+'api_modal_generate_name_label' => 'Kulcs neve:',
+'api_modal_generate_name_placeholder' => 'pl. ERP integráció',
+'api_modal_generate_name_help' => 'Adj egy beszédes nevet a kulcsnak, hogy könnyebben azonosíthasd.',
+'api_modal_generate_confirm' => 'Létrehozás',
+
+// Modal - Display Key (one-time)
+'api_modal_display_title' => '🔑 Új API kulcs létrehozva',
+'api_modal_display_warning' => '⚠️ Figyelem!',
+'api_modal_display_warning_text' => 'Ez az API kulcs csak most jelenik meg egyszer. Másold ki és tárold biztonságosan, mert később nem érhető el újra!',
+'api_modal_display_key_label' => 'API kulcs:',
+'api_modal_display_usage_hint' => 'A kulcs használatához minden API híváshoz add hozzá a következő headert:',
+'api_modal_display_close' => 'Rendben, elmentettem',
+
+// Modal - Revoke
+'api_modal_revoke_title' => 'API kulcs visszavonása',
+'api_modal_revoke_text' => 'Biztosan vissza akarod vonni ezt az API kulcsot? Ez a művelet nem visszavonható!',
+'api_modal_revoke_confirm' => 'Igen, visszavonás',
+
+// Validation messages
+'api_validation_name_required' => 'Add meg a kulcs nevét!',
+'api_validation_name_too_short' => 'A név legalább 3 karakter hosszú legyen!',
+'api_validation_name_invalid' => 'Az API kulcs neve csak betűket, számokat, szóközöket, kötőjeleket és aláhúzásjeleket tartalmazhat.',
+
+// Success messages
+'api_generate_success' => 'API kulcs sikeresen létrehozva!',
+'api_revoke_success' => 'API kulcs sikeresen visszavonva!',
+'api_copy_success' => 'API kulcs vágólapra másolva!',
+
+// Error messages
+'api_generate_error' => 'Hiba történt az API kulcs létrehozása során.',
+'api_revoke_error' => 'Hiba történt az API kulcs visszavonása során.',
+'api_load_error' => 'Hiba történt az API kulcsok betöltése során.',
+'api_already_exists' => 'Már létezik aktív API kulcs. Először vissza kell vonni a meglévőt.',
+'api_not_found' => 'Az API kulcs nem található.',
+'api_already_revoked' => 'Az API kulcs már vissza lett vonva.',
+'api_revoke_failed' => 'Nem sikerült visszavonni az API kulcsot.',
+
+// Loading states
+'api_generating' => 'API kulcs létrehozása...',
+'api_revoking' => 'API kulcs visszavonása...',
+],
+
 ];

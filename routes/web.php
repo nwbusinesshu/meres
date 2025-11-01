@@ -249,6 +249,9 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.OrgRole::ADMIN, 'or
                 Route::get('/index', 'index')->name('index');
                 Route::post('/toggle', 'toggle')->name('toggle');
                 Route::post('/thresholds', 'save')->name('save');
+                Route::get('/api-keys', 'apiKeyIndex')->name('api-keys.index');
+                Route::post('/api-keys/generate', 'apiKeyGenerate')->name('api-keys.generate');
+                Route::post('/api-keys/revoke', 'apiKeyRevoke')->name('api-keys.revoke');
             });
     });
     // ✅ END CONFIG ROUTES BLOCK

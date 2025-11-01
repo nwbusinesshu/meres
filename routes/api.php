@@ -31,6 +31,9 @@ Route::prefix('v1')->middleware('api.auth')->group(function () {
             ->name('api.v1.organization.configuration');
     });
 
+    Route::get('/competencies', [OrganizationApiController::class, 'competencies'])
+        ->name('api.v1.competencies');
+
     // Users endpoints
     Route::prefix('users')->group(function () {
         Route::get('/', [UserApiController::class, 'index'])
@@ -55,19 +58,28 @@ Route::prefix('v1')->middleware('api.auth')->group(function () {
             ->name('api.v1.assessments.results');
     });
 
+    // ✅ NEW: Results endpoint for individual user
+    Route::get('/results/user/{userId}', [AssessmentApiController::class, 'userResults'])
+        ->name('api.v1.results.user');
+
     // Bonus/Malus endpoints
     Route::prefix('bonus-malus')->group(function () {
         Route::get('/', [BonusMalusApiController::class, 'index'])
             ->name('api.v1.bonus-malus.index');
         Route::get('/configuration', [BonusMalusApiController::class, 'configuration'])
             ->name('api.v1.bonus-malus.configuration');
+        // ✅ NEW: Categories endpoint
+        Route::get('/categories', [BonusMalusApiController::class, 'categories'])
+            ->name('api.v1.bonus-malus.categories');
         Route::get('/{id}', [BonusMalusApiController::class, 'show'])
             ->name('api.v1.bonus-malus.show');
         Route::get('/{id}/results', [BonusMalusApiController::class, 'results'])
             ->name('api.v1.bonus-malus.results');
-        Route::get('/users/{userId}/history', [BonusMalusApiController::class, 'userHistory'])
+        // ✅ FIXED: Changed from /users/{userId} to /user/{userId} for consistency
+        Route::get('/user/{userId}', [BonusMalusApiController::class, 'userHistory'])
             ->name('api.v1.bonus-malus.user-history');
     });
+
 
     // Health check endpoint (useful for monitoring)
     Route::get('/health', function() {
