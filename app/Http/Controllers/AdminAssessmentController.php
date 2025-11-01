@@ -41,6 +41,28 @@ class AdminAssessmentController extends Controller
     {
         $orgId = (int) session('org_id');
 
+        // ========================================
+        // CHECK FOR UNPAID INITIAL PAYMENT (TRIAL BLOCKING)
+        // ========================================
+        if (is_null($assessment)) {
+            // Only check when creating NEW assessment (not editing existing)
+            $unpaidInitialPayment = DB::table('payments')
+                ->where('organization_id', $orgId)
+                ->whereNull('assessment_id')
+                ->where('status', '!=', 'paid')
+                ->first();
+
+            if ($unpaidInitialPayment) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'assessment' => ['Értékelési időszak nem indítható a belépési díj rendezése előtt. Kérjük, rendezze a fizetést a Számlázás menüpontban.']
+                ]);
+            }
+        }
+        // ========================================
+        // END TRIAL BLOCKING CHECK
+        // ========================================
+
+
         \Log::info('saveAssessment', [
             'orgId'   => $orgId,
             'request' => $request->all()

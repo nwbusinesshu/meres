@@ -82,8 +82,23 @@ return [
         'redirecting_title' => 'Átirányítás...',
         'redirecting_text' => 'Azonnal átirányítjuk a Barion fizetési oldalára.',
         // NEW: Initial payment blocking modal
-'initial_payment_required_title' => 'Belépési díj rendezése szükséges',
-'initial_payment_required_text' => 'A rendszer használatához először rendezze a belépési díjat. Kérjük, indítsa el a fizetést az alábbi gombbal.',
-'understand' => 'Értem',
+        'initial_payment_required_title' => 'Belépési díj rendezése szükséges',
+        'initial_payment_required_text' => 'A rendszer használatához először rendezze a belépési díjat. Kérjük, indítsa el a fizetést az alábbi gombbal.',
+        'understand' => 'Értem',
+            ],
+
+        'trial' => [
+        'active_title' => 'Próbaidőszak aktív',
+        'active_message' => 'Jelenleg a :days napos próbaidőszakban vagy. A rendszer teljes funkcionalitása elérhető, kivéve az értékelési időszak indítását.',
+        'days_remaining' => ':days nap van hátra',
+        'hours_remaining' => ':hours óra van hátra',
+        'expired_title' => 'Próbaidőszak lejárt',
+        'expired_message' => 'A próbaidőszak lejárt. A rendszer használatához kérjük, rendezze a belépési díjat.',
+        'pay_now' => 'Fizetés indítása most',
+        'assessment_blocked' => 'Értékelési időszak nem indítható a belépési díj rendezése előtt.',
     ],
+
+    // Update the initial payment blocking modal text
+    'initial_payment_required_text' => 'A rendszer használatához először rendezze a belépési díjat. 5 napos próbaidőszak alatt hozzáadhat alkalmazottakat és beállíthatja a rendszert, de értékelést nem indíthat.',
+
 ];

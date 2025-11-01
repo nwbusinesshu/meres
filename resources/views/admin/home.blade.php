@@ -4,6 +4,68 @@
 @endsection
 
 @section('content')
+{{-- 
+    ADD THIS CODE AT THE TOP OF resources/views/admin/home.blade.php 
+    Right after @extends and @section('content')
+--}}
+
+@php
+    // Check for unpaid initial payment
+    $unpaidInitialPayment = DB::table('payments')
+        ->where('organization_id', session('org_id'))
+        ->whereNull('assessment_id')
+        ->where('status', '!=', 'paid')
+        ->first();
+
+    $showTrialBanner = false;
+    $trialExpired = false;
+    $remainingTime = '';
+    $trialEndsAt = null;
+
+    if ($unpaidInitialPayment) {
+        $paymentCreatedAt = \Carbon\Carbon::parse($unpaidInitialPayment->created_at);
+        $trialEndsAt = $paymentCreatedAt->copy()->addDays(5);
+        $now = now();
+
+        if ($now->lessThan($trialEndsAt)) {
+            // Trial is active
+            $showTrialBanner = true;
+            $diff = $now->diff($trialEndsAt);
+            
+            if ($diff->days > 0) {
+                $remainingTime = __('payment.trial.days_remaining', ['days' => $diff->days]);
+            } else {
+                $remainingTime = __('payment.trial.hours_remaining', ['hours' => $diff->h]);
+            }
+        } else {
+            // Trial expired
+            $trialExpired = true;
+        }
+    }
+@endphp
+
+@if($showTrialBanner)
+<div class="alert alert-warning alert-dismissible fade show" role="alert" style="border-left: 4px solid #ffc107;">
+    <div class="d-flex align-items-center">
+        <i class="fas fa-clock fa-2x mr-3"></i>
+        <div class="flex-grow-1">
+            <h5 class="alert-heading mb-1">
+                <i class="fas fa-hourglass-half"></i> {{ __('payment.trial.active_title') }}
+            </h5>
+            <p class="mb-2">{{ __('payment.trial.active_message', ['days' => 5]) }}</p>
+            <p class="mb-0">
+                <strong>{{ $remainingTime }}</strong> | 
+                <a href="{{ route('admin.payments.index') }}" class="alert-link">
+                    {{ __('payment.trial.pay_now') }} <i class="fas fa-arrow-right"></i>
+                </a>
+            </p>
+        </div>
+    </div>
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+@endif
 <div class="double-tiles">
   @if (!is_null($assessment))
     <div class="tile tile-warning">
