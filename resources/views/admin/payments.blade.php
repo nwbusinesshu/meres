@@ -49,9 +49,17 @@
             @endif
           </td>
 
-          {{-- Összeg --}}
+          {{-- Összeg with Currency --}}
           <td class="text-right">
-            {{ number_format((int)$row->amount_huf, 0, ',', ' ') }} Ft
+            @php
+              $currency = $row->currency ?? 'HUF';
+              $amount = (float)($row->gross_amount ?? 0);
+              if ($currency === 'HUF') {
+                echo number_format($amount, 0, ',', ' ') . ' Ft';
+              } else {
+                echo number_format($amount, 2, '.', ',') . ' ' . $currency;
+              }
+            @endphp
           </td>
 
           {{-- Státusz (HU, színezve) --}}
@@ -94,7 +102,15 @@
       <div class="payment-card">
         <div class="payment-card-header">
           <div class="payment-card-amount">
-            {{ number_format((int)$row->amount_huf, 0, ',', ' ') }} Ft
+            @php
+              $currency = $row->currency ?? 'HUF';
+              $amount = (float)($row->gross_amount ?? 0);
+              if ($currency === 'HUF') {
+                echo number_format($amount, 0, ',', ' ') . ' Ft';
+              } else {
+                echo number_format($amount, 2, '.', ',') . ' ' . $currency;
+              }
+            @endphp
           </div>
           <div>
             @php
@@ -201,9 +217,17 @@
           {{-- Számlaszám --}}
           <td>{{ $row->billingo_invoice_number ?? '—' }}</td>
 
-          {{-- Összeg --}}
+          {{-- Összeg with Currency --}}
           <td class="text-right">
-            {{ number_format((int)$row->amount_huf, 0, ',', ' ') }} Ft
+            @php
+              $currency = $row->currency ?? 'HUF';
+              $amount = (float)($row->gross_amount ?? 0);
+              if ($currency === 'HUF') {
+                echo number_format($amount, 0, ',', ' ') . ' Ft';
+              } else {
+                echo number_format($amount, 2, '.', ',') . ' ' . $currency;
+              }
+            @endphp
           </td>
 
           {{-- Művelet: letöltés --}}
@@ -229,7 +253,15 @@
       <div class="payment-card">
         <div class="payment-card-header">
           <div class="payment-card-amount">
-            {{ number_format((int)$row->amount_huf, 0, ',', ' ') }} Ft
+            @php
+              $currency = $row->currency ?? 'HUF';
+              $amount = (float)($row->gross_amount ?? 0);
+              if ($currency === 'HUF') {
+                echo number_format($amount, 0, ',', ' ') . ' Ft';
+              } else {
+                echo number_format($amount, 2, '.', ',') . ' ' . $currency;
+              }
+            @endphp
           </div>
           <div>
             <span class="badge badge-success">{{ __('payment.status.paid') }}</span>

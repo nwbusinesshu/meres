@@ -93,109 +93,122 @@ class AdminPaymentController extends Controller
     }
 
     public function start(Request $request, \App\Services\BarionService $barion)
-    {
-        $request->validate([
-            'payment_id' => 'required|integer|exists:payments,id',
+{
+    $request->validate([
+        'payment_id' => 'required|integer|exists:payments,id',
+    ]);
+
+    try {
+        \DB::beginTransaction();
+
+        $payment = \DB::table('payments')->where('id', $request->payment_id)->lockForUpdate()->first();
+        if (!$payment) {
+            \DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Fizetési tétel nem található.'], 404);
+        }
+
+        if ($payment->status === 'paid') {
+            \DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Ez a tétel már rendezett.'], 422);
+        }
+
+        if (!empty($payment->barion_payment_id) && $payment->status === 'pending') {
+            \DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Ehhez a tételhez már folyamatban van egy fizetés. Kérlek, használd a visszatérési oldalt vagy frissítsd a státuszt.'
+            ], 409);
+        }
+
+        // Use new payment structure
+        $grossAmount = (float) ($payment->gross_amount ?? 0);
+        $netAmount = (float) ($payment->net_amount ?? 0);
+        $currency = $payment->currency ?? 'HUF';
+        
+        if ($grossAmount < 1) {
+            \DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Érvénytelen összeg.'], 422);
+        }
+
+        // Calculate quantity and unit price
+        $configName = ($currency === 'HUF') ? 'global_price_huf' : 'global_price_eur';
+        $unitPrice = (float) (\DB::table('config')->where('name', $configName)->value('value') ?? ($currency === 'HUF' ? 950 : 2.5));
+        $quantity = max(1, (int) ceil($netAmount / $unitPrice));
+        
+        $paymentRequestId = 'pay_' . $payment->id . '_' . time();
+        
+        $comment = '360° értékelés';
+        if (!empty($payment->assessment_id)) {
+            $comment .= ' – mérés #' . $payment->assessment_id;
+        }
+
+        $payerEmail = $request->session()->get('email', null);
+
+        \Log::info('barion.start.calling', [
+            'payment_id'         => $payment->id,
+            'payment_request_id' => $paymentRequestId,
+            'currency'           => $currency,
+            'gross_amount'       => $grossAmount,
+            'unit_price'         => $unitPrice,
+            'quantity'           => $quantity,
         ]);
 
-        try {
-            \DB::beginTransaction();
+        // Call updated Barion service
+        $started = $barion->startPayment(
+            $paymentRequestId,
+            $currency,
+            $grossAmount,
+            $unitPrice,
+            $quantity,
+            $comment,
+            $payerEmail
+        );
 
-            $payment = \DB::table('payments')->where('id', $request->payment_id)->lockForUpdate()->first();
-            if (!$payment) {
-                \DB::rollBack();
-                return response()->json(['success' => false, 'message' => 'Fizetési tétel nem található.'], 404);
-            }
+        \Log::info('barion.start.response', [
+            'payment_id' => $payment->id,
+            'response'   => $started,
+        ]);
 
-            if ($payment->status === 'paid') {
-                \DB::rollBack();
-                return response()->json(['success' => false, 'message' => 'Ez a tétel már rendezett.'], 422);
-            }
-
-            if (!empty($payment->barion_payment_id) && $payment->status === 'pending') {
-                \DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Ehhez a tételhez már folyamatban van egy fizetés. Kérlek, használd a visszatérési oldalt vagy frissítsd a státuszt.'
-                ], 409);
-            }
-
-            $totalHuf = (int) ($payment->amount_huf ?? 0);
-            if ($totalHuf < 1) {
-                \DB::rollBack();
-                return response()->json(['success' => false, 'message' => 'Érvénytelen összeg.'], 422);
-            }
-
-            $quantity = max(1, (int) ceil($totalHuf / 950));
-            $paymentRequestId = 'pay_' . $payment->id . '_' . time();
-            
-            $comment = '360° értékelés';
-            if (!empty($payment->assessment_id)) {
-                $comment .= ' – mérés #' . $payment->assessment_id;
-            }
-
-            $payerEmail = $request->session()->get('email', null);
-
-            \Log::info('barion.start.calling', [
-                'payment_id'         => $payment->id,
-                'payment_request_id' => $paymentRequestId,
-                'total_huf'          => $totalHuf,
-                'quantity'           => $quantity,
-            ]);
-
-            $started = $barion->startPayment(
-                $paymentRequestId,
-                $totalHuf,
-                $quantity,
-                $comment,
-                $payerEmail
-            );
-
-            \Log::info('barion.start.response', [
+        if (empty($started['paymentId'])) {
+            \DB::rollBack();
+            \Log::error('barion.start.missing_payment_id', [
                 'payment_id' => $payment->id,
                 'response'   => $started,
             ]);
-
-            if (empty($started['paymentId'])) {
-                \DB::rollBack();
-                \Log::error('barion.start.missing_payment_id', [
-                    'payment_id' => $payment->id,
-                    'response'   => $started,
-                ]);
-                return response()->json(['success' => false, 'message' => 'Barion fizetés sikertelen (hiányzó PaymentId).'], 500);
-            }
-
-            \DB::table('payments')->where('id', $payment->id)->update([
-                'barion_payment_id' => $started['paymentId'],
-                'status'            => 'pending',
-                'updated_at'        => now(),
-            ]);
-
-            \DB::commit();
-
-            return response()->json([
-                'success'      => true,
-                'redirect_url' => $started['gatewayUrl'] ?? url('/admin/payments/index'),
-            ]);
-        } catch (\Illuminate\Http\Client\RequestException $e) {
-            \DB::rollBack();
-            $body = $e->response ? ($e->response->json() ?? $e->response->body()) : 'N/A';
-            \Log::error('barion.start.request_exception', [
-                'payment_id' => $request->payment_id,
-                'status'     => $e->response ? $e->response->status() : null,
-                'body'       => $body,
-            ]);
-            return response()->json(['success' => false, 'message' => 'Hiba a Barion fizetés indításakor.'], 500);
-        } catch (\Throwable $e) {
-            \DB::rollBack();
-            \Log::error('barion.start.throwable', [
-                'payment_id' => $request->payment_id,
-                'msg'        => $e->getMessage(),
-                'trace'      => $e->getTraceAsString(),
-            ]);
-            return response()->json(['success' => false, 'message' => 'Váratlan hiba történt.'], 500);
+            return response()->json(['success' => false, 'message' => 'Barion fizetés sikertelen (hiányzó PaymentId).'], 500);
         }
+
+        \DB::table('payments')->where('id', $payment->id)->update([
+            'barion_payment_id' => $started['paymentId'],
+            'status'            => 'pending',
+            'updated_at'        => now(),
+        ]);
+
+        \DB::commit();
+
+        return response()->json([
+            'success'      => true,
+            'redirect_url' => $started['gatewayUrl'] ?? url('/admin/payments/index'),
+        ]);
+    } catch (\Illuminate\Http\Client\RequestException $e) {
+        \DB::rollBack();
+        $body = $e->response ? ($e->response->json() ?? $e->response->body()) : 'N/A';
+        \Log::error('barion.start.request_exception', [
+            'payment_id' => $request->payment_id,
+            'status'     => $e->response ? $e->response->status() : null,
+            'body'       => $body,
+        ]);
+        return response()->json(['success' => false, 'message' => 'Hiba a Barion fizetés indításakor.'], 500);
+    } catch (\Throwable $e) {
+        \DB::rollBack();
+        \Log::error('barion.start.throwable', [
+            'payment_id' => $request->payment_id,
+            'msg'        => $e->getMessage(),
+            'trace'      => $e->getTraceAsString(),
+        ]);
+        return response()->json(['success' => false, 'message' => 'Váratlan hiba történt.'], 500);
     }
+}
 
     public function refresh(Request $request, \App\Services\BarionService $barion, \App\Services\BillingoService $billingo)
     {
@@ -401,77 +414,93 @@ class AdminPaymentController extends Controller
     }
 
     private function issueBillingoInvoice(array $payment, \App\Services\BillingoService $billingo)
-    {
-        \Log::info('billingo.invoice.starting', ['payment_id' => $payment['id']]);
+{
+    \Log::info('billingo.invoice.starting', ['payment_id' => $payment['id']]);
 
-        $orgId = $payment['organization_id'] ?? null;
-        if (!$orgId) {
-            throw new \Exception('Hiányzó organization_id a payment táblában.');
-        }
-
-        $org = \DB::table('organization')->where('id', $orgId)->first();
-        if (!$org) {
-            throw new \Exception('Szervezet nem található: ' . $orgId);
-        }
-
-        $profile = \DB::table('organization_profiles')->where('organization_id', $org->id)->first();
-        if (!$profile) {
-            throw new \Exception('Organization profile missing for org: ' . $org->id);
-        }
-
-        $partnerId = $billingo->findOrCreatePartner([
-            'name'         => $org->name,
-            'country_code' => $profile->country_code ?? 'HU',
-            'postal_code'  => $profile->postal_code,
-            'city'         => $profile->city,
-            'address'      => trim(($profile->street ?? '') . ' ' . ($profile->house_number ?? '')),
-            'tax_number'   => $profile->tax_number,
-            'emails'       => [$this->getAdminEmail($org->id)],
-        ]);
-
-        \Log::info('billingo.partner.resolved', [
-            'payment_id' => $payment['id'],
-            'partner_id' => $partnerId,
-        ]);
-
-        $quantity = max(1, (int) ceil($payment['amount_huf'] / 950));
-        
-        $comment = '360° értékelés';
-        if (!empty($payment['assessment_id'])) {
-            $comment .= ' – mérés #' . $payment['assessment_id'];
-        }
-        $comment .= ' – ' . $org->name;
-        
-        $docId = $billingo->createInvoice($partnerId, $quantity, $comment, true);
-
-        \Log::info('billingo.invoice.created', [
-            'payment_id'  => $payment['id'],
-            'document_id' => $docId,
-        ]);
-
-        $invoiceData = $billingo->getInvoiceWithMetadata($docId);
-
-        \Log::info('billingo.invoice.metadata_fetched', [
-            'payment_id'     => $payment['id'],
-            'invoice_number' => $invoiceData['invoice_number'] ?? null,
-            'public_url'     => $invoiceData['public_url'] ?? null,
-        ]);
-
-        \DB::table('payments')->where('id', $payment['id'])->update([
-            'billingo_partner_id'    => $partnerId,
-            'billingo_document_id'   => $docId,
-            'billingo_invoice_number'=> $invoiceData['invoice_number'] ?? null,
-            'billingo_issue_date'    => $invoiceData['issue_date'] ?? $invoiceData['fulfillment_date'] ?? now()->toDateString(),
-            'invoice_pdf_url'        => $invoiceData['public_url'] ?? null,
-            'updated_at'             => now(),
-        ]);
-
-        \Log::info('billingo.invoice.complete', [
-            'payment_id'     => $payment['id'],
-            'document_id'    => $docId,
-            'invoice_number' => $invoiceData['invoice_number'] ?? null,
-        ]);
+    $orgId = $payment['organization_id'] ?? null;
+    if (!$orgId) {
+        throw new \Exception('Hiányzó organization_id a payment táblában.');
     }
+
+    $org = \DB::table('organization')->where('id', $orgId)->first();
+    if (!$org) {
+        throw new \Exception('Szervezet nem található: ' . $orgId);
+    }
+
+    $profile = \DB::table('organization_profiles')->where('organization_id', $org->id)->first();
+    if (!$profile) {
+        throw new \Exception('Organization profile missing for org: ' . $org->id);
+    }
+
+    $partnerId = $billingo->findOrCreatePartner([
+        'name'         => $org->name,
+        'country_code' => $profile->country_code ?? 'HU',
+        'postal_code'  => $profile->postal_code,
+        'city'         => $profile->city,
+        'address'      => trim(($profile->street ?? '') . ' ' . ($profile->house_number ?? '')),
+        'tax_number'   => $profile->tax_number,
+        'emails'       => [$this->getAdminEmail($org->id)],
+    ]);
+
+    \Log::info('billingo.partner.resolved', [
+        'payment_id' => $payment['id'],
+        'partner_id' => $partnerId,
+    ]);
+
+    // Get payment amounts
+    $currency = $payment['currency'] ?? 'HUF';
+    $netAmount = (float) ($payment['net_amount'] ?? 0);
+    $vatRate = (float) ($payment['vat_rate'] ?? 0);
+    $grossAmount = (float) ($payment['gross_amount'] ?? 0);
+    
+    // Calculate quantity
+    $configName = ($currency === 'HUF') ? 'global_price_huf' : 'global_price_eur';
+    $unitPrice = (float) (\DB::table('config')->where('name', $configName)->value('value') ?? ($currency === 'HUF' ? 950 : 2.5));
+    $quantity = max(1, (int) ceil($netAmount / $unitPrice));
+    
+    $comment = '360° értékelés';
+    if (!empty($payment['assessment_id'])) {
+        $comment .= ' – mérés #' . $payment['assessment_id'];
+    }
+    $comment .= ' – ' . $org->name;
+    
+    // Create invoice with VAT support
+    $docId = $billingo->createInvoiceWithVat(
+        partnerId: $partnerId,
+        organizationId: $orgId,
+        currency: $currency,
+        netAmount: $netAmount,
+        vatRate: $vatRate,
+        grossAmount: $grossAmount,
+        quantity: $quantity,
+        comment: $comment,
+        paid: true
+    );
+
+    \Log::info('billingo.invoice.created', [
+        'payment_id'  => $payment['id'],
+        'document_id' => $docId,
+    ]);
+
+    $invoiceData = $billingo->getInvoiceWithMetadata($docId);
+
+    \Log::info('billingo.invoice.metadata_fetched', [
+        'payment_id'     => $payment['id'],
+        'invoice_number' => $invoiceData['invoice_number'] ?? null,
+        'public_url'     => $invoiceData['public_url'] ?? null,
+    ]);
+
+    \DB::table('payments')->where('id', $payment['id'])->update([
+        'billingo_partner_id'    => $partnerId,
+        'billingo_document_id'   => $docId,
+        'billingo_invoice_number'=> $invoiceData['invoice_number'] ?? null,
+        'billingo_issue_date'    => $invoiceData['issue_date'] ?? $invoiceData['fulfillment_date'] ?? now()->toDateString(),
+        'invoice_pdf_url'        => $invoiceData['public_url'] ?? null,
+        'updated_at'             => now(),
+    ]);
+
+    \Log::info('billingo.invoice.complete', ['payment_id' => $payment['id']]);
+}
 
     private function getAdminEmail(int $orgId): string
     {

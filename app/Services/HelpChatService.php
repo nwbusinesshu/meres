@@ -777,27 +777,36 @@ private function getPaymentStatus(): string
             $summary .= "**Status:** {$openPayments->count()} OPEN PAYMENT(S) ⚠️\n\n";
             
             $totalAmount = 0;
+            $currency = 'HUF';
             $hasInitial = false;
             $hasAssessment = false;
             
             foreach ($openPayments as $index => $payment) {
                 $num = $index + 1;
-                $totalAmount += $payment->amount_huf;
+                
+                // Use new payment structure
+                $grossAmount = (float) ($payment->gross_amount ?? 0);
+                $paymentCurrency = $payment->currency ?? 'HUF';
+                $currency = $paymentCurrency; // Use last payment's currency for total
+                $totalAmount += $grossAmount;
                 
                 // Determine payment type
                 $isInitial = ($payment->status === 'initial' || $payment->assessment_id === null);
                 
+                // Format amount based on currency
+                $formattedAmount = \App\Services\PaymentHelper::formatAmount($grossAmount, $paymentCurrency);
+                
                 if ($isInitial) {
                     $hasInitial = true;
                     $summary .= "{$num}. **Initial Setup Payment**\n";
-                    $summary .= "   - Amount: " . number_format($payment->amount_huf, 0, ',', ' ') . " HUF\n";
+                    $summary .= "   - Amount: {$formattedAmount}\n";
                     $summary .= "   - Status: INITIAL (first login payment required)\n";
                     $summary .= "   - Created: " . \Carbon\Carbon::parse($payment->created_at)->format('Y-m-d') . "\n";
                     $summary .= "   - **Impact:** System access may be limited until paid\n\n";
                 } else {
                     $hasAssessment = true;
                     $summary .= "{$num}. **Assessment Payment**\n";
-                    $summary .= "   - Amount: " . number_format($payment->amount_huf, 0, ',', ' ') . " HUF\n";
+                    $summary .= "   - Amount: {$formattedAmount}\n";
                     $summary .= "   - Status: PENDING\n";
                     $summary .= "   - Related to: Assessment #{$payment->assessment_id}\n";
                     $summary .= "   - Created: " . \Carbon\Carbon::parse($payment->created_at)->format('Y-m-d') . "\n";
@@ -805,7 +814,9 @@ private function getPaymentStatus(): string
                 }
             }
             
-            $summary .= "**Total Outstanding:** " . number_format($totalAmount, 0, ',', ' ') . " HUF\n\n";
+            // Format total
+            $formattedTotal = \App\Services\PaymentHelper::formatAmount($totalAmount, $currency);
+            $summary .= "**Total Outstanding:** {$formattedTotal}\n\n";
             
             $summary .= "**Important Notes:**\n";
             if ($hasInitial) {

@@ -212,52 +212,78 @@ class AdminAssessmentController extends Controller
                         ]);
 
                         if ($employeeCount <= $employeeLimit) {
-                            \Log::info('assessment.billing.skip', [
-                                'reason' => 'Within employee limit',
+                        \Log::info('assessment.billing.skip', [
+                            'reason' => 'Within employee limit',
+                            'org_id' => $orgId,
+                        ]);
+                    } else {
+                        $excessEmployees = $employeeCount - $employeeLimit;
+                        
+                        \Log::info('assessment.billing.excess_only', [
+                            'org_id'           => $orgId,
+                            'employee_count'   => $employeeCount,
+                            'employee_limit'   => $employeeLimit,
+                            'excess_employees' => $excessEmployees,
+                        ]);
+                        
+                        if ($assessment && $excessEmployees > 0) {
+                            // Calculate payment amounts using PaymentHelper
+                            $paymentAmounts = \App\Services\PaymentHelper::calculatePaymentAmounts($orgId, $excessEmployees);
+                            
+                            DB::table('payments')->insert([
+                                'organization_id' => $orgId,
+                                'assessment_id'   => $assessment->id,
+                                'currency'        => $paymentAmounts['currency'],
+                                'net_amount'      => $paymentAmounts['net_amount'],
+                                'vat_rate'        => $paymentAmounts['vat_rate'],
+                                'vat_amount'      => $paymentAmounts['vat_amount'],
+                                'gross_amount'    => $paymentAmounts['gross_amount'],
+                                'status'          => 'pending',
+                                'created_at'      => now(),
+                                'updated_at'      => now(),
+                            ]);
+                            
+                            \Log::info('assessment.payment.created.excess', [
                                 'org_id' => $orgId,
-                            ]);
-                        } else {
-                            $excessEmployees = $employeeCount - $employeeLimit;
-                            $amountHuf = (int) ($excessEmployees * 950);
-                            
-                            \Log::info('assessment.billing.excess_only', [
-                                'org_id'           => $orgId,
-                                'employee_count'   => $employeeCount,
-                                'employee_limit'   => $employeeLimit,
+                                'assessment_id' => $assessment->id,
                                 'excess_employees' => $excessEmployees,
-                                'amount_huf'       => $amountHuf,
+                                'currency' => $paymentAmounts['currency'],
+                                'gross_amount' => $paymentAmounts['gross_amount'],
                             ]);
-                            
-                            if ($assessment && $amountHuf > 0) {
-                                DB::table('payments')->insert([
-                                    'organization_id' => $orgId,
-                                    'assessment_id'   => $assessment->id,
-                                    'amount_huf'      => $amountHuf,
-                                    'status'          => 'pending',
-                                    'created_at'      => now(),
-                                    'updated_at'      => now(),
-                                ]);
-                            }
                         }
                     }
+                }
                 } else {
                     // HAS CLOSED ASSESSMENTS - Use current logic (all employees)
-                    $amountHuf = (int) ($employeeCount * 950);
-                    
                     \Log::info('assessment.billing.normal', [
-                        'org_id'     => $orgId,
-                        'amount_huf' => $amountHuf,
-                        'reason'     => 'Has closed assessments',
+                        'org_id'           => $orgId,
+                        'employee_count'   => $employeeCount,
+                        'reason'           => 'Has closed assessments',
                     ]);
-                    
-                    if ($assessment && $amountHuf > 0) {
+
+                    if ($assessment && $employeeCount > 0) {
+                        // Calculate payment amounts using PaymentHelper
+                        $paymentAmounts = \App\Services\PaymentHelper::calculatePaymentAmounts($orgId, $employeeCount);
+                        
                         DB::table('payments')->insert([
                             'organization_id' => $orgId,
                             'assessment_id'   => $assessment->id,
-                            'amount_huf'      => $amountHuf,
+                            'currency'        => $paymentAmounts['currency'],
+                            'net_amount'      => $paymentAmounts['net_amount'],
+                            'vat_rate'        => $paymentAmounts['vat_rate'],
+                            'vat_amount'      => $paymentAmounts['vat_amount'],
+                            'gross_amount'    => $paymentAmounts['gross_amount'],
                             'status'          => 'pending',
                             'created_at'      => now(),
                             'updated_at'      => now(),
+                        ]);
+                        
+                        \Log::info('assessment.payment.created.normal', [
+                            'org_id' => $orgId,
+                            'assessment_id' => $assessment->id,
+                            'employee_count' => $employeeCount,
+                            'currency' => $paymentAmounts['currency'],
+                            'gross_amount' => $paymentAmounts['gross_amount'],
                         ]);
                     }
                 }

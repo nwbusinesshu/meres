@@ -193,20 +193,33 @@ public function store(Request $request)
         }
         DB::table('bonus_malus_config')->insert($bonusConfigData);
 
-        // 9) Initial payment creation
-        $employeeLimit = 50; // Default for manually created orgs
-        $amountHuf = (int) ($employeeLimit * 950);
+        // 9) INITIAL PAYMENT CREATION WITH VAT SUPPORT
+$employeeLimit = 50; // Default for manually created orgs
 
-        if ($amountHuf > 0) {
-            DB::table('payments')->insert([
-                'organization_id' => $org->id,
-                'assessment_id'   => null,
-                'amount_huf'      => $amountHuf,
-                'status'          => 'initial',
-                'created_at'      => now(),
-                'updated_at'      => now(),
-            ]);
-        }
+if ($employeeLimit > 0) {
+    // Calculate payment amounts using PaymentHelper
+    $paymentAmounts = \App\Services\PaymentHelper::calculatePaymentAmounts($org->id, $employeeLimit);
+    
+    DB::table('payments')->insert([
+        'organization_id' => $org->id,
+        'assessment_id'   => null,
+        'currency'        => $paymentAmounts['currency'],
+        'net_amount'      => $paymentAmounts['net_amount'],
+        'vat_rate'        => $paymentAmounts['vat_rate'],
+        'vat_amount'      => $paymentAmounts['vat_amount'],
+        'gross_amount'    => $paymentAmounts['gross_amount'],
+        'status'          => 'initial',
+        'created_at'      => now(),
+        'updated_at'      => now(),
+    ]);
+    
+    \Log::info('superadmin.payment.created', [
+        'org_id' => $org->id,
+        'employee_limit' => $employeeLimit,
+        'currency' => $paymentAmounts['currency'],
+        'gross_amount' => $paymentAmounts['gross_amount'],
+    ]);
+}
 
         // 10) Password-setup email
         \App\Services\PasswordSetupService::createAndSend($org->id, $user->id, null);

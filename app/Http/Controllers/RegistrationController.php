@@ -264,18 +264,33 @@ class RegistrationController extends Controller
             }
             DB::table('bonus_malus_config')->insert($bonusConfigData);
 
-            // 8) INITIAL PAYMENT CREATION
+            // 8) INITIAL PAYMENT CREATION WITH VAT SUPPORT
             $employeeLimit = (int) $request->input('employee_limit', 1);
-            $amountHuf = (int) ($employeeLimit * 950);
 
-            if ($amountHuf > 0) {
+            if ($employeeLimit > 0) {
+                // Calculate payment amounts using PaymentHelper
+                $paymentAmounts = \App\Services\PaymentHelper::calculatePaymentAmounts($org->id, $employeeLimit);
+                
                 DB::table('payments')->insert([
                     'organization_id' => $org->id,
                     'assessment_id'   => null,
-                    'amount_huf'      => $amountHuf,
+                    'currency'        => $paymentAmounts['currency'],
+                    'net_amount'      => $paymentAmounts['net_amount'],
+                    'vat_rate'        => $paymentAmounts['vat_rate'],
+                    'vat_amount'      => $paymentAmounts['vat_amount'],
+                    'gross_amount'    => $paymentAmounts['gross_amount'],
                     'status'          => 'initial',
                     'created_at'      => now(),
                     'updated_at'      => now(),
+                ]);
+                
+                Log::info('registration.payment.created', [
+                    'org_id' => $org->id,
+                    'employee_limit' => $employeeLimit,
+                    'currency' => $paymentAmounts['currency'],
+                    'net_amount' => $paymentAmounts['net_amount'],
+                    'vat_amount' => $paymentAmounts['vat_amount'],
+                    'gross_amount' => $paymentAmounts['gross_amount'],
                 ]);
             }
 

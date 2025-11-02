@@ -1,13 +1,12 @@
 <script>
-  $(document).ready(function(){
-    $(function() {
+$(document).ready(function(){
     // Check if there's an unpaid initial payment (trial period)
     var hasUnpaidInitialPayment = {{ DB::table('payments')
         ->where('organization_id', session('org_id'))
         ->whereNull('assessment_id')
         ->where('status', '!=', 'paid')
         ->exists() ? 'true' : 'false' }};
-
+    
     // Block assessment modal opening during trial
     if (hasUnpaidInitialPayment) {
         // Intercept the assessment modal trigger
@@ -33,11 +32,9 @@
     $('.create-assessment').click(function(){
       openAssessmentModal();
     });
-
     $('.modify-assessment').click(function(){
       openAssessmentModal($(this).attr('data-id'));
     });
-
     $('.close-assessment').click(function(){
       swal_confirm.fire({
         title: '{{ __('admin/home.close-assessment-confirm') }}'
@@ -54,5 +51,5 @@
         }
       });
     });
-  });
+});
 </script>
