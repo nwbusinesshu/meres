@@ -414,90 +414,84 @@ class AdminPaymentController extends Controller
     }
 
     private function issueBillingoInvoice(array $payment, \App\Services\BillingoService $billingo)
-{
-    \Log::info('billingo.invoice.starting', ['payment_id' => $payment['id']]);
+    {
+        \Log::info('billingo.invoice.starting', ['payment_id' => $payment['id']]);
 
-    $orgId = $payment['organization_id'] ?? null;
-    if (!$orgId) {
-        throw new \Exception('Hiányzó organization_id a payment táblában.');
+        $orgId = $payment['organization_id'] ?? null;
+        if (!$orgId) {
+            throw new \Exception('Hiányzó organization_id a payment táblában.');
+        }
+
+        $org = \DB::table('organization')->where('id', $orgId)->first();
+        if (!$org) {
+            throw new \Exception('Szervezet nem található: ' . $orgId);
+        }
+
+        $profile = \DB::table('organization_profiles')->where('organization_id', $org->id)->first();
+        if (!$profile) {
+            throw new \Exception('Organization profile missing for org: ' . $org->id);
+        }
+
+        // Sync partner (create or update) - this manages the Billingo partner
+        $partnerId = $billingo->syncPartner($org->id, [
+            'name'         => $org->name,
+            'country_code' => $profile->country_code ?? 'HU',
+            'postal_code'  => $profile->postal_code,
+            'city'         => $profile->city,
+            'address'      => trim(($profile->street ?? '') . ' ' . ($profile->house_number ?? '')),
+            'tax_number'   => $profile->tax_number,
+            'emails'       => [$this->getAdminEmail($org->id)],
+        ]);
+
+        \Log::info('billingo.partner.resolved', [
+            'payment_id' => $payment['id'],
+            'partner_id' => $partnerId,
+        ]);
+
+        // Get payment data - use gross amount as source of truth
+        $currency = $payment['currency'] ?? 'HUF';
+        $grossAmount = (float) ($payment['gross_amount'] ?? 0);
+        
+        $comment = '360° értékelés';
+        if (!empty($payment['assessment_id'])) {
+            $comment .= ' – mérés #' . $payment['assessment_id'];
+        }
+        $comment .= ' – ' . $org->name;
+        
+        // Create invoice with gross amount (BillingoService will back-calculate net)
+        $docId = $billingo->createInvoiceWithAutoVat(
+            partnerId: $partnerId,
+            organizationId: $org->id,
+            currency: $currency,
+            grossAmount: $grossAmount,
+            comment: $comment,
+            paid: true
+        );
+
+        \Log::info('billingo.invoice.created', [
+            'payment_id'  => $payment['id'],
+            'document_id' => $docId,
+        ]);
+
+        $invoiceData = $billingo->getInvoiceWithMetadata($docId);
+
+        \Log::info('billingo.invoice.metadata_fetched', [
+            'payment_id'     => $payment['id'],
+            'invoice_number' => $invoiceData['invoice_number'] ?? null,
+            'public_url'     => $invoiceData['public_url'] ?? null,
+        ]);
+
+        \DB::table('payments')->where('id', $payment['id'])->update([
+            'billingo_partner_id'    => $partnerId,
+            'billingo_document_id'   => $docId,
+            'billingo_invoice_number'=> $invoiceData['invoice_number'] ?? null,
+            'billingo_issue_date'    => $invoiceData['issue_date'] ?? $invoiceData['fulfillment_date'] ?? now()->toDateString(),
+            'invoice_pdf_url'        => $invoiceData['public_url'] ?? null,
+            'updated_at'             => now(),
+        ]);
+
+        \Log::info('billingo.invoice.complete', ['payment_id' => $payment['id']]);
     }
-
-    $org = \DB::table('organization')->where('id', $orgId)->first();
-    if (!$org) {
-        throw new \Exception('Szervezet nem található: ' . $orgId);
-    }
-
-    $profile = \DB::table('organization_profiles')->where('organization_id', $org->id)->first();
-    if (!$profile) {
-        throw new \Exception('Organization profile missing for org: ' . $org->id);
-    }
-
-    // Sync partner (create or update) - this manages the Billingo partner
-    $partnerId = $billingo->syncPartner($org->id, [
-        'name'         => $org->name,
-        'country_code' => $profile->country_code ?? 'HU',
-        'postal_code'  => $profile->postal_code,
-        'city'         => $profile->city,
-        'address'      => trim(($profile->street ?? '') . ' ' . ($profile->house_number ?? '')),
-        'tax_number'   => $profile->tax_number,
-        'emails'       => [$this->getAdminEmail($org->id)],
-    ]);
-
-    \Log::info('billingo.partner.resolved', [
-        'payment_id' => $payment['id'],
-        'partner_id' => $partnerId,
-    ]);
-
-    // Get payment data
-    $currency = $payment['currency'] ?? 'HUF';
-    $netAmount = (float) ($payment['net_amount'] ?? 0);
-    
-    // Calculate quantity
-    $configName = ($currency === 'HUF') ? 'global_price_huf' : 'global_price_eur';
-    $unitPrice = (float) (\DB::table('config')->where('name', $configName)->value('value') ?? ($currency === 'HUF' ? 950 : 2.5));
-    $quantity = max(1, (int) ceil($netAmount / $unitPrice));
-    
-    $comment = '360° értékelés';
-    if (!empty($payment['assessment_id'])) {
-        $comment .= ' – mérés #' . $payment['assessment_id'];
-    }
-    $comment .= ' – ' . $org->name;
-    
-    // Create invoice with automatic VAT calculation
-    $docId = $billingo->createInvoiceWithAutoVat(
-        partnerId: $partnerId,
-        organizationId: $org->id,
-        currency: $currency,
-        netAmount: $netAmount,
-        quantity: $quantity,
-        comment: $comment,
-        paid: true
-    );
-
-    \Log::info('billingo.invoice.created', [
-        'payment_id'  => $payment['id'],
-        'document_id' => $docId,
-    ]);
-
-    $invoiceData = $billingo->getInvoiceWithMetadata($docId);
-
-    \Log::info('billingo.invoice.metadata_fetched', [
-        'payment_id'     => $payment['id'],
-        'invoice_number' => $invoiceData['invoice_number'] ?? null,
-        'public_url'     => $invoiceData['public_url'] ?? null,
-    ]);
-
-    \DB::table('payments')->where('id', $payment['id'])->update([
-        'billingo_partner_id'    => $partnerId,
-        'billingo_document_id'   => $docId,
-        'billingo_invoice_number'=> $invoiceData['invoice_number'] ?? null,
-        'billingo_issue_date'    => $invoiceData['issue_date'] ?? $invoiceData['fulfillment_date'] ?? now()->toDateString(),
-        'invoice_pdf_url'        => $invoiceData['public_url'] ?? null,
-        'updated_at'             => now(),
-    ]);
-
-    \Log::info('billingo.invoice.complete', ['payment_id' => $payment['id']]);
-}
 
     private function getAdminEmail(int $orgId): string
     {

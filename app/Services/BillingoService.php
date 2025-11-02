@@ -190,12 +190,12 @@ class BillingoService
 
     /**
      * Create invoice with automatic VAT calculation
+     * Uses gross amount as source of truth and back-calculates net
      * 
      * @param int $partnerId Billingo partner ID
      * @param int $organizationId Our organization ID (to get country)
      * @param string $currency 'HUF' or 'EUR'
-     * @param float $netAmount Net amount (before VAT)
-     * @param int $quantity Number of items
+     * @param float $grossAmount Total amount PAID (including VAT) - source of truth
      * @param string $comment Invoice comment
      * @param bool $paid Whether invoice is already paid
      * @return int Document ID
@@ -204,8 +204,7 @@ class BillingoService
         int $partnerId,
         int $organizationId,
         string $currency,
-        float $netAmount,
-        int $quantity,
+        float $grossAmount,
         string $comment = '',
         bool $paid = true
     ): int {
@@ -218,24 +217,45 @@ class BillingoService
         
         $countryCode = $profile->country_code ?? 'HU';
         
-        // Calculate VAT automatically
+        // Set language: Hungarian for HU, English for all others
+        $language = ($countryCode === 'HU') ? 'hu' : 'en';
+        
+        // Calculate VAT rate
         $vat = $this->calculateVat($countryCode);
         $vatRate = $vat['rate'];
         $vatKey = $vat['key'];
         
-        // Calculate amounts
-        $grossAmount = $netAmount * (1 + $vatRate);
-        $unitPriceNet = $quantity > 0 ? round($netAmount / $quantity, 2) : 0;
+        // Back-calculate net from gross (source of truth)
+        // Formula: net = gross / (1 + vat_rate)
+        $netAmount = $grossAmount / (1 + $vatRate);
         
         // Format amounts based on currency
         if ($currency === 'HUF') {
-            $unitPriceNet = (int) round($unitPriceNet);
             $netAmount = (int) round($netAmount);
             $grossAmount = (int) round($grossAmount);
         } else {
-            $unitPriceNet = round($unitPriceNet, 2);
             $netAmount = round($netAmount, 2);
             $grossAmount = round($grossAmount, 2);
+        }
+        
+        // Quantity is always 1 (one assessment service)
+        $quantity = 1;
+        $unitPriceNet = $netAmount;
+        
+        // Verify that Billingo will calculate same gross
+        $billingoCalculatedGross = $currency === 'HUF' 
+            ? (int) round($netAmount * (1 + $vatRate))
+            : round($netAmount * (1 + $vatRate), 2);
+        
+        if ($billingoCalculatedGross !== $grossAmount) {
+            Log::warning('billingo.invoice.gross_mismatch', [
+                'partner_id' => $partnerId,
+                'organization_id' => $organizationId,
+                'payment_gross' => $grossAmount,
+                'billingo_calculated_gross' => $billingoCalculatedGross,
+                'difference' => abs($grossAmount - $billingoCalculatedGross),
+                'currency' => $currency,
+            ]);
         }
         
         Log::info('billingo.invoice.creating', [
@@ -243,10 +263,11 @@ class BillingoService
             'organization_id' => $organizationId,
             'currency' => $currency,
             'country_code' => $countryCode,
-            'net_amount' => $netAmount,
+            'language' => $language,
+            'gross_amount_paid' => $grossAmount,
+            'back_calculated_net' => $netAmount,
             'vat_rate' => $vatRate,
             'vat_key' => $vatKey,
-            'gross_amount' => $grossAmount,
             'quantity' => $quantity,
             'unit_price_net' => $unitPriceNet,
         ]);
@@ -259,7 +280,7 @@ class BillingoService
             'fulfillment_date' => $today,
             'due_date' => $today,
             'payment_method' => 'online_bankcard',
-            'language' => 'hu',
+            'language' => $language,
             'currency' => $currency,
             'paid' => $paid,
             'items' => [[
@@ -269,7 +290,7 @@ class BillingoService
                 'quantity' => $quantity,
                 'unit' => 'db',
                 'vat' => $vatKey,  // '27%', 'EU', or 'TAM'
-                'product_id' => $this->productId,
+                // NOTE: product_id removed - it overrides unit_price with stored product price
             ]],
         ];
 

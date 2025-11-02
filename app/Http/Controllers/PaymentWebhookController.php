@@ -426,94 +426,88 @@ class PaymentWebhookController extends Controller
     }
 
     private function issueBillingoInvoice(array $paymentArr, BillingoService $billingo): void
-{
-    $orgId = (int) $paymentArr['organization_id'];
-    $payId = (int) $paymentArr['id'];
+    {
+        $orgId = (int) $paymentArr['organization_id'];
+        $payId = (int) $paymentArr['id'];
 
-    $org     = DB::table('organization')->where('id', $orgId)->first();
-    $profile = DB::table('organization_profiles')->where('organization_id', $orgId)->first();
+        $org     = DB::table('organization')->where('id', $orgId)->first();
+        $profile = DB::table('organization_profiles')->where('organization_id', $orgId)->first();
 
-    if (!$org) {
-        throw new \Exception('Organization not found: ' . $orgId);
+        if (!$org) {
+            throw new \Exception('Organization not found: ' . $orgId);
+        }
+
+        $adminEmail = DB::table('user as u')
+            ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
+            ->where('ou.organization_id', $orgId)
+            ->where('ou.role', 'admin')
+            ->value('u.email');
+
+        Log::info('webhook.billingo.invoice.data', [
+            'org_name'    => $org->name ?? 'N/A',
+            'postal_code' => $profile->postal_code ?? 'missing',
+            'city'        => $profile->city ?? 'missing',
+            'admin_email' => $adminEmail ?? 'missing',
+        ]);
+
+        // Sync partner (create or update)
+        $partnerId = $billingo->syncPartner($orgId, [
+            'name'         => $org->name,
+            'country_code' => $profile->country_code ?? 'HU',
+            'postal_code'  => $profile->postal_code,
+            'city'         => $profile->city,
+            'address'      => trim(($profile->street ?? '') . ' ' . ($profile->house_number ?? '')),
+            'tax_number'   => $profile->tax_number,
+            'emails'       => array_filter([$adminEmail]),
+        ]);
+
+        Log::info('webhook.billingo.partner.resolved', [
+            'payment_id' => $payId,
+            'partner_id' => $partnerId,
+        ]);
+
+        // Get payment data - use gross amount as source of truth
+        $currency = $paymentArr['currency'] ?? 'HUF';
+        $grossAmount = (float) ($paymentArr['gross_amount'] ?? 0);
+        
+        $comment = '360° értékelés';
+        if (!empty($paymentArr['assessment_id'])) {
+            $comment .= ' – mérés #' . $paymentArr['assessment_id'];
+        }
+        $comment .= ' – ' . $org->name;
+
+        // Create invoice with gross amount (BillingoService will back-calculate net)
+        $docId = $billingo->createInvoiceWithAutoVat(
+            partnerId: $partnerId,
+            organizationId: $orgId,
+            currency: $currency,
+            grossAmount: $grossAmount,
+            comment: $comment,
+            paid: true
+        );
+
+        Log::info('webhook.billingo.invoice.created', [
+            'payment_id'  => $payId,
+            'document_id' => $docId,
+        ]);
+
+        $invoiceData = $billingo->getInvoiceWithMetadata($docId);
+
+        Log::info('webhook.billingo.invoice.metadata_fetched', [
+            'payment_id'     => $payId,
+            'invoice_number' => $invoiceData['invoice_number'] ?? null,
+            'public_url'     => $invoiceData['public_url'] ?? null,
+        ]);
+
+        DB::table('payments')->where('id', $payId)->update([
+            'billingo_partner_id'    => $partnerId,
+            'billingo_document_id'   => $docId,
+            'billingo_invoice_number'=> $invoiceData['invoice_number'] ?? null,
+            'billingo_issue_date'    => $invoiceData['issue_date'] ?? $invoiceData['fulfillment_date'] ?? now()->toDateString(),
+            'invoice_pdf_url'        => $invoiceData['public_url'] ?? null,
+            'updated_at'             => now(),
+        ]);
+
+        Log::info('webhook.billingo.invoice.complete', ['payment_id' => $payId]);
     }
-
-    $adminEmail = DB::table('user as u')
-        ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
-        ->where('ou.organization_id', $orgId)
-        ->where('ou.role', 'admin')
-        ->value('u.email');
-
-    Log::info('webhook.billingo.invoice.data', [
-        'org_name'    => $org->name ?? 'N/A',
-        'postal_code' => $profile->postal_code ?? 'missing',
-        'city'        => $profile->city ?? 'missing',
-        'admin_email' => $adminEmail ?? 'missing',
-    ]);
-
-    // Sync partner (create or update)
-    $partnerId = $billingo->syncPartner($orgId, [
-        'name'         => $org->name,
-        'country_code' => $profile->country_code ?? 'HU',
-        'postal_code'  => $profile->postal_code,
-        'city'         => $profile->city,
-        'address'      => trim(($profile->street ?? '') . ' ' . ($profile->house_number ?? '')),
-        'tax_number'   => $profile->tax_number,
-        'emails'       => array_filter([$adminEmail]),
-    ]);
-
-    Log::info('webhook.billingo.partner.resolved', [
-        'payment_id' => $payId,
-        'partner_id' => $partnerId,
-    ]);
-
-    // Get payment data
-    $currency = $paymentArr['currency'] ?? 'HUF';
-    $netAmount = (float) ($paymentArr['net_amount'] ?? 0);
-    
-    // Calculate quantity
-    $configName = ($currency === 'HUF') ? 'global_price_huf' : 'global_price_eur';
-    $unitPrice = (float) (DB::table('config')->where('name', $configName)->value('value') ?? ($currency === 'HUF' ? 950 : 2.5));
-    $qty = max(1, (int) ceil($netAmount / $unitPrice));
-    
-    $comment = '360° értékelés';
-    if (!empty($paymentArr['assessment_id'])) {
-        $comment .= ' – mérés #' . $paymentArr['assessment_id'];
-    }
-    $comment .= ' – ' . $org->name;
-
-    // Create invoice with automatic VAT calculation
-    $docId = $billingo->createInvoiceWithAutoVat(
-        partnerId: $partnerId,
-        organizationId: $orgId,
-        currency: $currency,
-        netAmount: $netAmount,
-        quantity: $qty,
-        comment: $comment,
-        paid: true
-    );
-
-    Log::info('webhook.billingo.invoice.created', [
-        'payment_id'  => $payId,
-        'document_id' => $docId,
-    ]);
-
-    $invoiceData = $billingo->getInvoiceWithMetadata($docId);
-
-    Log::info('webhook.billingo.invoice.metadata_fetched', [
-        'payment_id'     => $payId,
-        'invoice_number' => $invoiceData['invoice_number'] ?? null,
-        'public_url'     => $invoiceData['public_url'] ?? null,
-    ]);
-
-    DB::table('payments')->where('id', $payId)->update([
-        'billingo_partner_id'    => $partnerId,
-        'billingo_document_id'   => $docId,
-        'billingo_invoice_number'=> $invoiceData['invoice_number'] ?? null,
-        'billingo_issue_date'    => $invoiceData['issue_date'] ?? $invoiceData['fulfillment_date'] ?? now()->toDateString(),
-        'invoice_pdf_url'        => $invoiceData['public_url'] ?? null,
-        'updated_at'             => now(),
-    ]);
-
-    Log::info('webhook.billingo.invoice.complete', ['payment_id' => $payId]);
-}
 }
