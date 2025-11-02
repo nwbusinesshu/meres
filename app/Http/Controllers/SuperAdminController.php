@@ -38,6 +38,7 @@ public function dashboard()
 public function store(Request $request)
 {
     $country = strtoupper($request->input('country_code', 'HU'));
+    $subscriptionType = $request->input('subscription_type', 'pro');
 
     $request->validate([
         'org_name'           => 'required|string|max:255',
@@ -64,9 +65,15 @@ public function store(Request $request)
         ],
 
         'subscription_type'  => 'nullable|in:free,pro',
+        'employee_limit'     => [
+            'nullable',
+            'integer',
+            'min:1',
+            Rule::requiredIf($subscriptionType === 'pro'),
+        ],
     ]);
 
-    return DB::transaction(function() use ($request, $country) {
+    return DB::transaction(function() use ($request, $country, $subscriptionType) {
         // 1) Organization
         $org = \App\Models\Organization::create([
             'name'       => $request->org_name,
@@ -86,7 +93,14 @@ public function store(Request $request)
         // 3) Pivot table - Admin role
         $org->users()->attach($user->id, ['role' => OrgRole::ADMIN]);
 
-        // 4) Organization Profile
+        // 4) Organization Profile with employee_limit
+        // For FREE plan: no employee_limit (unlimited)
+        // For PRO plan: use the provided employee_limit
+        $employeeLimit = null;
+        if ($subscriptionType === 'pro') {
+            $employeeLimit = (int) $request->input('employee_limit', 50);
+        }
+
         \App\Models\OrganizationProfile::create([
             'organization_id'   => $org->id,
             'country_code'      => $country,
@@ -97,8 +111,8 @@ public function store(Request $request)
             'house_number'      => $request->house_number,
             'tax_number'        => $request->tax_number,
             'eu_vat_number'     => strtoupper((string) $request->eu_vat_number),
-            'subscription_type' => $request->subscription_type ?? 'pro',
-            'employee_limit'    => 50, // Default for manually created orgs
+            'subscription_type' => $subscriptionType,
+            'employee_limit'    => $employeeLimit, // null for free, integer for pro
             'created_at'        => now(),
         ]);
 
@@ -193,33 +207,39 @@ public function store(Request $request)
         }
         DB::table('bonus_malus_config')->insert($bonusConfigData);
 
-        // 9) INITIAL PAYMENT CREATION WITH VAT SUPPORT
-$employeeLimit = 50; // Default for manually created orgs
-
-if ($employeeLimit > 0) {
-    // Calculate payment amounts using PaymentHelper
-    $paymentAmounts = \App\Services\PaymentHelper::calculatePaymentAmounts($org->id, $employeeLimit);
-    
-    DB::table('payments')->insert([
-        'organization_id' => $org->id,
-        'assessment_id'   => null,
-        'currency'        => $paymentAmounts['currency'],
-        'net_amount'      => $paymentAmounts['net_amount'],
-        'vat_rate'        => $paymentAmounts['vat_rate'],
-        'vat_amount'      => $paymentAmounts['vat_amount'],
-        'gross_amount'    => $paymentAmounts['gross_amount'],
-        'status'          => 'initial',
-        'created_at'      => now(),
-        'updated_at'      => now(),
-    ]);
-    
-    \Log::info('superadmin.payment.created', [
-        'org_id' => $org->id,
-        'employee_limit' => $employeeLimit,
-        'currency' => $paymentAmounts['currency'],
-        'gross_amount' => $paymentAmounts['gross_amount'],
-    ]);
-}
+        // 9) INITIAL PAYMENT CREATION - Only for PRO plans with employee_limit > 0
+        if ($subscriptionType === 'pro' && $employeeLimit > 0) {
+            // Calculate payment amounts using PaymentHelper
+            $paymentAmounts = \App\Services\PaymentHelper::calculatePaymentAmounts($org->id, $employeeLimit);
+            
+            DB::table('payments')->insert([
+                'organization_id' => $org->id,
+                'assessment_id'   => null,
+                'currency'        => $paymentAmounts['currency'],
+                'net_amount'      => $paymentAmounts['net_amount'],
+                'vat_rate'        => $paymentAmounts['vat_rate'],
+                'vat_amount'      => $paymentAmounts['vat_amount'],
+                'gross_amount'    => $paymentAmounts['gross_amount'],
+                'status'          => 'initial',
+                'created_at'      => now(),
+                'updated_at'      => now(),
+            ]);
+            
+            \Log::info('superadmin.payment.created', [
+                'org_id' => $org->id,
+                'subscription_type' => $subscriptionType,
+                'employee_limit' => $employeeLimit,
+                'currency' => $paymentAmounts['currency'],
+                'gross_amount' => $paymentAmounts['gross_amount'],
+            ]);
+        } else {
+            \Log::info('superadmin.payment.skipped', [
+                'org_id' => $org->id,
+                'subscription_type' => $subscriptionType,
+                'employee_limit' => $employeeLimit,
+                'reason' => $subscriptionType === 'free' ? 'Free subscription - unlimited access' : 'No employee limit set'
+            ]);
+        }
 
         // 10) Password-setup email
         \App\Services\PasswordSetupService::createAndSend($org->id, $user->id, null);
@@ -232,97 +252,93 @@ if ($employeeLimit > 0) {
 public function update(Request $request)
 {
 
-    \Log::info('Update route hit with method: ' . $request->method());
+    \Log::info('Update route hit with method: ' . $request->method(), [
+        'all' => $request->all(),
+    ]);
 
     $country = strtoupper($request->input('country_code', 'HU'));
 
     $request->validate([
-        'org_id'            => 'required|exists:organization,id',
-        'org_name'          => 'required|string|max:255',
+        'org_id'             => 'required|integer|exists:organization,id',
+        'org_name'           => 'required|string|max:255',
+        'admin_name'         => 'nullable|string|max:255',
+        'admin_email'        => 'nullable|email|max:255',
 
-        'admin_name'        => 'nullable|string|max:255',
-        'admin_email'       => 'nullable|email|max:255',
-        'admin_remove'      => 'nullable|in:0,1',
+        'country_code'       => 'required|string|size:2',
+        'postal_code'        => 'nullable|string|max:16',
+        'region'             => 'nullable|string|max:64',
+        'city'               => 'nullable|string|max:64',
+        'street'             => 'nullable|string|max:128',
+        'house_number'       => 'nullable|string|max:32',
 
-        'country_code'      => 'required|string|size:2',
-        'postal_code'       => 'nullable|string|max:16',
-        'region'            => 'nullable|string|max:64',
-        'city'              => 'nullable|string|max:64',
-        'street'            => 'nullable|string|max:128',
-        'house_number'      => 'nullable|string|max:32',
-
-        'tax_number'        => [
+        'tax_number'         => [
             'nullable','string','max:50',
             Rule::requiredIf($country === 'HU'),
             'regex:/^\d{8}-\d-\d{2}$/'
         ],
-        'eu_vat_number'     => [
+
+        'eu_vat_number'      => [
             'nullable','string','max:32',
             Rule::requiredIf($country !== 'HU'),
             'regex:/^[A-Z]{2}[A-Za-z0-9]{2,12}$/'
         ],
 
-        'subscription_type' => 'nullable|in:free,pro',
+        'subscription_type'  => 'nullable|in:free,pro',
+        'admin_remove'       => 'required|boolean',
     ]);
 
-    $org   = \App\Models\Organization::findOrFail($request->org_id);
-    $admin = $org->users()->wherePivot('role', 'admin')->first();
+    return DB::transaction(function() use ($request, $country) {
+        $orgId = (int) $request->org_id;
 
-    // szervezet név
-    $org->name = $request->org_name;
-    $org->save();
+        // 1) Update organization name
+        DB::table('organization')->where('id', $orgId)->update(['name' => $request->org_name]);
 
-    // profil
-    $profile = \App\Models\OrganizationProfile::firstOrNew(['organization_id' => $org->id]);
-    $profile->country_code      = $country;
-    $profile->postal_code       = $request->postal_code;
-    $profile->region            = $request->region;
-    $profile->city              = $request->city;
-    $profile->street            = $request->street;
-    $profile->house_number      = $request->house_number;
-    $profile->tax_number        = $request->tax_number;
-    $profile->eu_vat_number     = strtoupper((string) $request->eu_vat_number);
-    $profile->subscription_type = $request->subscription_type;
-    $profile->updated_at        = now();
-    $profile->save();
-
-    // admin törlés
-    if ($request->admin_remove === '1') {
-        if ($admin) {
-            $org->users()->detach($admin->id);
-            if ($admin->organizations()->count() === 0) {
-                $admin->removed_at = now();
-                $admin->save();
-            }
-        }
-    }
-
-    // admin csere
-    if ($request->filled('admin_name') && $request->filled('admin_email')) {
-        $existing = \App\Models\User::where('email', $request->admin_email)
-            ->where('id', '!=', optional($admin)->id)
-            ->first();
-
-        if ($existing) {
-            return response()->json([
-                'success' => false,
-                'errors'  => [
-                    'admin_email' => ['Ez az e-mail cím már létezik egy másik felhasználónál. Csak új admin regisztrálható.']
-                ]
-            ], 422);
-        }
-
-        $newAdmin = \App\Models\User::create([
-            'name'       => $request->admin_name,
-            'email'      => $request->admin_email,
-            'type'       => UserType::NORMAL,  // ✅ CORRECT - System level type
-            'created_at' => now(),
+        // 2) Update profile
+        DB::table('organization_profiles')->where('organization_id', $orgId)->update([
+            'country_code'      => $country,
+            'postal_code'       => $request->postal_code,
+            'region'            => $request->region,
+            'city'              => $request->city,
+            'street'            => $request->street,
+            'house_number'      => $request->house_number,
+            'tax_number'        => $request->tax_number,
+            'eu_vat_number'     => strtoupper((string) $request->eu_vat_number),
+            'subscription_type' => $request->subscription_type ?? 'pro',
         ]);
 
-        $org->users()->attach($newAdmin->id, ['role' => OrgRole::ADMIN]);  // ✅ Org level role
-    }
+        // 3) Admin handling
+        $org = Organization::findOrFail($orgId);
 
-    return response()->json(['success' => true]);
+        if ($request->admin_remove == 1) {
+            // Remove current admin
+            $currentAdmin = $org->users()->wherePivot('role', 'admin')->first();
+            if ($currentAdmin) {
+                $org->users()->detach($currentAdmin->id);
+            }
+        }
+
+        // If new admin provided
+        if ($request->filled('admin_name') && $request->filled('admin_email')) {
+            $existingAdmin = $org->users()->wherePivot('role', 'admin')->first();
+            if ($existingAdmin) {
+                return response()->json([
+                    'success' => false,
+                    'errors'  => ['admin' => 'Már van admin, törölni kell először. Csak új admin regisztrálható.']
+                ], 422);
+            }
+
+            $newAdmin = \App\Models\User::create([
+                'name'       => $request->admin_name,
+                'email'      => $request->admin_email,
+                'type'       => UserType::NORMAL,  // ✅ CORRECT - System level type
+                'created_at' => now(),
+            ]);
+
+            $org->users()->attach($newAdmin->id, ['role' => OrgRole::ADMIN]);  // ✅ Org level role
+        }
+
+        return response()->json(['success' => true]);
+    });
 }
 
 
@@ -417,45 +433,25 @@ public function updatePricing(Request $request)
         'global_price_huf' => 'required|numeric|min:0',
         'global_price_eur' => 'required|numeric|min:0',
     ]);
-    
-    try {
-        DB::beginTransaction();
-        
-        DB::table('config')->updateOrInsert(
-            ['name' => 'global_price_huf'],
-            ['value' => $request->global_price_huf]
-        );
-        
-        DB::table('config')->updateOrInsert(
-            ['name' => 'global_price_eur'],
-            ['value' => $request->global_price_eur]
-        );
-        
-        DB::commit();
-        
-        \Log::info('global_pricing.updated', [
-            'huf' => $request->global_price_huf,
-            'eur' => $request->global_price_eur,
-        ]);
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Árak sikeresen frissítve.'
-        ]);
-        
-    } catch (\Throwable $e) {
-        DB::rollBack();
-        
-        \Log::error('global_pricing.update.error', [
-            'error' => $e->getMessage(),
-        ]);
-        
-        return response()->json([
-            'success' => false,
-            'message' => 'Hiba történt az árak frissítése során.'
-        ], 500);
-    }
+
+    DB::table('config')->updateOrInsert(
+        ['name' => 'global_price_huf'],
+        ['value' => $request->global_price_huf]
+    );
+
+    DB::table('config')->updateOrInsert(
+        ['name' => 'global_price_eur'],
+        ['value' => $request->global_price_eur]
+    );
+
+    \Log::info('superadmin.pricing.updated', [
+        'huf' => $request->global_price_huf,
+        'eur' => $request->global_price_eur,
+    ]);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Árak sikeresen frissítve!'
+    ]);
 }
-
-
 }

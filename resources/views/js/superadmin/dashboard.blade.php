@@ -114,6 +114,7 @@ $(document).on('submit', '#form-org-create', function(e) {
   const code = ($('#country-code').val() || '').toUpperCase();
   const tax  = ($('#tax-number').val() || '').trim();
   const eu   = ($('#eu-vat-number').val() || '').trim().toUpperCase();
+  const subscriptionType = $('#subscription-type').val();
 
   // Client-side validation
   if (code === 'HU') {
@@ -132,12 +133,21 @@ $(document).on('submit', '#form-org-create', function(e) {
     }
   }
 
+  // Validate employee_limit for PRO subscriptions
+  if (subscriptionType === 'pro') {
+    const employeeLimit = $('#employee-limit').val();
+    if (!employeeLimit || employeeLimit < 1) {
+      alert('{{ __("superadmin/dashboard.employee-limit-required") }}');
+      return;
+    }
+  }
+
   let $form = $(this);
   let data = {
     _token: '{{ csrf_token() }}',
 
     org_name: $form.find('[name="org_name"]').val(),
-    subscription_type: $form.find('[name="subscription_type"]').val(),
+    subscription_type: subscriptionType,
 
     country_code: code,
     postal_code: $form.find('[name="postal_code"]').val(),
@@ -152,6 +162,11 @@ $(document).on('submit', '#form-org-create', function(e) {
     admin_name: $form.find('[name="admin_name"]').val(),
     admin_email: $form.find('[name="admin_email"]').val()
   };
+
+  // Add employee_limit only for PRO subscriptions
+  if (subscriptionType === 'pro') {
+    data.employee_limit = $('#employee-limit').val();
+  }
 
   $.post('{{ route('superadmin.org.store') }}', data)
     .done(function(res) {
@@ -235,6 +250,7 @@ $(document).on('click', '.edit-org', function () {
   });
 });
 </script>
+
 
 <script>
 $(document).on('submit', '#form-org-edit', function(e) {
@@ -373,10 +389,31 @@ $(document).on('click', '.trigger-new', function() {
   }
   $('#country-code').val('HU');
 
+  // Reset employee limit field
+  $('#employee-limit').val(50);
+  $('#employee-limit-group').hide();
+
   // Update required/visibility
   updateCreateTaxVisibility();
   $('#country-code').off('change._country').on('change._country', updateCreateTaxVisibility);
 
   $('#modal-org-create').modal('show');
+});
+
+// Show/hide employee limit based on subscription type
+$(document).on('change', '#subscription-type', function() {
+  const subscriptionType = $(this).val();
+  
+  if (subscriptionType === 'pro') {
+    $('#employee-limit-group').show();
+    $('#employee-limit').prop('required', true);
+  } else if (subscriptionType === 'free') {
+    $('#employee-limit-group').hide();
+    $('#employee-limit').prop('required', false);
+    $('#employee-limit').val(''); // Clear value for free plans
+  } else {
+    $('#employee-limit-group').hide();
+    $('#employee-limit').prop('required', false);
+  }
 });
 </script>

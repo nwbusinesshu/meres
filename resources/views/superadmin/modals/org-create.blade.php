@@ -67,6 +67,13 @@
             </select>
           </div>
 
+          {{-- Employee Limit (only visible for PRO) --}}
+          <div class="form-group" id="employee-limit-group" style="display: none;">
+            <label for="employee-limit">{{ __('global.employee-limit') }}</label>
+            <input type="number" name="employee_limit" id="employee-limit" class="form-control" min="1" value="50">
+            <small class="form-text text-muted">{{ __('superadmin/dashboard.employee-limit-help') }}</small>
+          </div>
+
           {{-- Admin név --}}
           <div class="form-group">
             <label for="admin-name">{{ __('global.admin-name') }}</label>
@@ -103,6 +110,27 @@ $(document).on('click', '.trigger-new', function() {
   updateCreateTaxVisibility();
   $('#country-code').off('change._country').on('change._country', updateCreateTaxVisibility);
 
+  // Reset employee limit field
+  $('#employee-limit').val(50);
+  $('#employee-limit-group').hide();
+
   $('#modal-org-create').modal('show');
+});
+
+// Show/hide employee limit based on subscription type
+$(document).on('change', '#subscription-type', function() {
+  const subscriptionType = $(this).val();
+  
+  if (subscriptionType === 'pro') {
+    $('#employee-limit-group').show();
+    $('#employee-limit').prop('required', true);
+  } else if (subscriptionType === 'free') {
+    $('#employee-limit-group').hide();
+    $('#employee-limit').prop('required', false);
+    $('#employee-limit').val(''); // Clear value for free plans
+  } else {
+    $('#employee-limit-group').hide();
+    $('#employee-limit').prop('required', false);
+  }
 });
 </script>
