@@ -17,7 +17,7 @@
     position: relative;
     width: 100%;
     height: 25px;
-    z-index: 2;
+    z-index: 1049;
     display: flex;
     align-items: center;
     justify-content: center;
