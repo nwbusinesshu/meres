@@ -146,9 +146,11 @@
           </div>
         </section>
 
-        {{-- STEP 3 – Alapbeállítások --}}
+        {{-- STEP 3 – Alapbeállítások + Consent --}}
         <section class="reg-step" data-step="2" hidden>
           <h3>{{ __('register.step3_title') }}</h3>
+          
+          {{-- Settings Tiles --}}
           <div class="tile tile-info inner">
             <div class="text">
               <div class="title"><h4>{{ __('register.settings.ai_telemetry_title') }}</h4></div>
@@ -182,11 +184,65 @@
             </label>
           </div>
 
+          {{-- FULL-WIDTH CONSENT SECTION --}}
+          <div class="consent-section">
+            <h4>{{ __('register.consent.section_title') }}</h4>
+            
+            {{-- Terms of Service Consent --}}
+            <div class="form-group">
+              <div class="custom-control custom-checkbox">
+                <input type="checkbox" class="custom-control-input" id="accept-terms" name="accept_terms" required>
+                <label class="custom-control-label" for="accept-terms">
+                  {!! __('register.consent.terms_label', [
+                    'terms_link' => '<a href="' . config('app.terms_url', '#') . '" target="_blank">' . __('register.consent.terms_link_text') . '</a>'
+                  ]) !!}
+                  <span class="text-danger">*</span>
+                </label>
+              </div>
+            </div>
+
+            {{-- Privacy Policy Consent --}}
+            <div class="form-group">
+              <div class="custom-control custom-checkbox">
+                <input type="checkbox" class="custom-control-input" id="accept-privacy" name="accept_privacy_policy" required>
+                <label class="custom-control-label" for="accept-privacy">
+                  {!! __('register.consent.privacy_label', [
+                    'privacy_link' => '<a href="' . config('app.privacy_policy_url', '#') . '" target="_blank">' . __('register.consent.privacy_link_text') . '</a>'
+                  ]) !!}
+                  <span class="text-danger">*</span>
+                </label>
+              </div>
+            </div>
+
+            {{-- GDPR Employee Data Processing Consent --}}
+            <div class="form-group">
+              <div class="custom-control custom-checkbox">
+                <input type="checkbox" class="custom-control-input" id="accept-gdpr" name="accept_gdpr_consent" required>
+                <label class="custom-control-label" for="accept-gdpr">
+                  {{ __('register.consent.gdpr_label') }}
+                  <span class="text-danger">*</span>
+                </label>
+              </div>
+              <small class="form-text text-muted consent-description">
+                {!! __('register.consent.gdpr_description') !!}
+              </small>
+            </div>
+
+            <p class="text-muted consent-notice">
+              <span class="text-danger">*</span> {{ __('register.consent.required_notice') }}
+            </p>
+          </div>
+
           <div class="step-actions">
             <button type="button" class="btn btn-secondary prev-step">{{ __('register.buttons.back') }}</button>
             <button type="button" class="btn btn-primary next-step">{{ __('register.buttons.next') }}</button>
           </div>
         </section>
+
+
+
+
+
 
         {{-- STEP 4 – Összegzés --}}
         <section class="reg-step" data-step="3" hidden>

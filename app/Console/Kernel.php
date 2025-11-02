@@ -41,6 +41,16 @@ class Kernel extends ConsoleKernel
                 \Log::error('webhook.cleanup.scheduled.failed');
             });
 
+        // Clean up old API request logs daily at 4 AM
+        $schedule->command('api-logs:cleanup --days=30')
+            ->dailyAt('04:00')
+            ->onSuccess(function () {
+                \Log::info('api_logs.cleanup.scheduled.success');
+            })
+            ->onFailure(function () {
+                \Log::error('api_logs.cleanup.scheduled.failed');
+            });
+
         // Clean up expired login attempts daily
         $schedule->command('login-attempts:cleanup')->daily();
 

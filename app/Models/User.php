@@ -36,6 +36,10 @@ class User extends Authenticatable
         'locale',
         'profile_pic',
         'oauth_profile_pic',
+        'terms_accepted_at',
+        'privacy_policy_accepted_at',
+        'privacy_policy_accepted_ip',
+        'gdpr_consent_at',
     ];
     
     protected $hidden = [
@@ -45,6 +49,9 @@ class User extends Authenticatable
     
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'terms_accepted_at' => 'datetime',
+        'privacy_policy_accepted_at' => 'datetime',
+        'gdpr_consent_at' => 'datetime',
     ];
     
     protected $appends = ['has_password', 'login_mode_text'];

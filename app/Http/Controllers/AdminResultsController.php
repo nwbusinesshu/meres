@@ -191,8 +191,9 @@ class AdminResultsController extends Controller
         
         if (strtolower((string)($assessment->threshold_method ?? '')) === 'suggested') {
             $decision = $assessment->suggested_decision;
-            if ($decision && isset($decision['summary_hu'])) {
-                $summaryHu = $decision['summary_hu'];
+            // Check if it's an array and has elements
+            if ($decision && is_array($decision) && count($decision) > 0 && isset($decision[0]['summary_hu'])) {
+                $summaryHu = $decision[0]['summary_hu'];
             } else {
                 $summaryDbg = 'AI summary not available';
             }

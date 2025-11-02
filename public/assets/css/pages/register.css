@@ -277,3 +277,113 @@
     font-size: 1.1rem;
   }
 }
+
+/* ============================================
+   CONSENT SECTION STYLING - ADD TO public/assets/css/pages/register.css
+   ============================================ */
+
+/* Full-width consent section with clear separation */
+.consent-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid var(--dim, #e0e0e0);
+  width: 100%;
+}
+
+.consent-section h4 {
+  margin-bottom: 1.25rem;
+  color: var(--outer_space, #333);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* Checkbox styling */
+.consent-section .custom-control-label {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  cursor: pointer;
+  user-select: none;
+}
+
+.consent-section .custom-control-label a {
+  color: var(--primary, #007bff);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.consent-section .custom-control-label a:hover {
+  color: var(--primary-dark, #0056b3);
+}
+
+/* Description text below GDPR checkbox */
+.consent-description {
+  font-size: 0.875rem;
+  margin-left: 1.75rem;
+  margin-top: 0.5rem;
+  line-height: 1.6;
+  color: var(--silver_chalice, #666);
+}
+
+/* Required notice at bottom */
+.consent-notice {
+  font-size: 0.875rem;
+  margin-top: 1rem;
+  margin-bottom: 0;
+  color: var(--silver_chalice, #666);
+}
+
+/* Spacing between checkboxes */
+.consent-section .form-group {
+  margin-bottom: 1rem;
+}
+
+.consent-section .form-group:last-of-type {
+  margin-bottom: 0.5rem;
+}
+
+/* Custom checkbox styling (Bootstrap-compatible) */
+.consent-section .custom-control-input:checked ~ .custom-control-label::before {
+  background-color: var(--success, #28a745);
+  border-color: var(--success, #28a745);
+}
+
+/* Red asterisk styling */
+.consent-section .text-danger {
+  color: #dc3545;
+  font-weight: bold;
+  margin-left: 0.25rem;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .consent-section {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+  }
+  
+  .consent-section h4 {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .consent-section .custom-control-label {
+    font-size: 0.9rem;
+  }
+  
+  .consent-description {
+    font-size: 0.825rem;
+    margin-left: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .consent-section {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+  }
+  
+  .consent-description {
+    margin-left: 0;
+    padding-left: 0;
+  }
+}

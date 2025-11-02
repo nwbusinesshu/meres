@@ -29,6 +29,8 @@ return [
     */
 
     'env' => env('APP_ENV', 'production'),
+    'terms_url' => env('TERMS_URL', '#'),
+    'privacy_policy_url' => env('PRIVACY_POLICY_URL', '#'),
 
     /*
     |--------------------------------------------------------------------------

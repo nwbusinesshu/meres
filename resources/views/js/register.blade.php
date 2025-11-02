@@ -42,7 +42,10 @@ document.addEventListener('DOMContentLoaded', function () {
     step3Title: '{{ __("register.steps.step3_title") }}',
     step3Subtitle: '{{ __("register.steps.step3_subtitle") }}',
     step4Title: '{{ __("register.steps.step4_title") }}',
-    step4Subtitle: '{{ __("register.steps.step4_subtitle") }}'
+    step4Subtitle: '{{ __("register.steps.step4_subtitle") }}',
+    acceptTermsRequired: '{{ __("register.validation.accept_terms_required") }}',
+  acceptPrivacyRequired: '{{ __("register.validation.accept_privacy_required") }}',
+  acceptGdprRequired: '{{ __("register.validation.accept_gdpr_required") }}',
   };
 
   // --- EU country list ---
@@ -273,9 +276,43 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // STEP 2: Settings
-    if (idx === 2) {
-      return true;
+if (idx === 2) {
+  // ✅ NEW: Validate consent checkboxes (all required)
+  const termsCheckbox = stepEl.querySelector('[name="accept_terms"]');
+  const privacyCheckbox = stepEl.querySelector('[name="accept_privacy_policy"]');
+  const gdprCheckbox = stepEl.querySelector('[name="accept_gdpr_consent"]');
+  
+  let consentValid = true;
+  
+  // Check Terms of Service
+  if (!termsCheckbox || !termsCheckbox.checked) {
+    if (termsCheckbox) {
+      markInvalid(termsCheckbox.parentElement, true);
+      addErrorBelow(termsCheckbox.parentElement, lang.acceptTermsRequired || 'You must accept the Terms of Service');
     }
+    consentValid = false;
+  }
+  
+  // Check Privacy Policy
+  if (!privacyCheckbox || !privacyCheckbox.checked) {
+    if (privacyCheckbox) {
+      markInvalid(privacyCheckbox.parentElement, true);
+      addErrorBelow(privacyCheckbox.parentElement, lang.acceptPrivacyRequired || 'You must accept the Privacy Policy');
+    }
+    consentValid = false;
+  }
+  
+  // Check GDPR Consent
+  if (!gdprCheckbox || !gdprCheckbox.checked) {
+    if (gdprCheckbox) {
+      markInvalid(gdprCheckbox.parentElement, true);
+      addErrorBelow(gdprCheckbox.parentElement, lang.acceptGdprRequired || 'You must consent to employee data processing');
+    }
+    consentValid = false;
+  }
+  
+  return consentValid;
+}
 
     // STEP 3: Summary
     if (idx === 3) return true;

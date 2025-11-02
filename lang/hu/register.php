@@ -100,6 +100,9 @@ return [
         'eu_vat_required' => 'Érvényes EU ÁFA szám szükséges (pl. DE123456789).',
         'network_error' => 'Hálózati hiba. Próbáld újra.',
         'server_error' => 'Szerverhiba történt.',
+        'accept_terms_required' => 'A Felhasználási Feltételek elfogadása kötelező a folytatáshoz',
+        'accept_privacy_required' => 'Az Adatvédelmi Tájékoztató elfogadása kötelező a folytatáshoz',
+        'accept_gdpr_required' => 'A munkavállalói adatkezeléshez való hozzájárulás kötelező a folytatáshoz',
     ],
 
     'summary' => [
@@ -140,10 +143,29 @@ return [
         'step1_subtitle' => 'Az admin hozzáfér mindenhez: munkavállalók, értékelések, beállítások. Adja meg az admin nevét és e-mail címét. Később Google vagy Microsoft fiókjával is be tudsz majd jelentkezni. Add meg, hány munkavállalót foglalkoztatsz!',
         'step2_title' => 'Most pedig add meg a céges és számlázási adatokat!',
         'step2_subtitle' => 'A számlázáshoz kérjük a címadatokat és adóazonosítót. EU-s ország esetén EU ÁFA-szám szükséges.',
-        'step3_title' => 'Alapbeállítások',
-        'step3_subtitle' => 'Ezek a beállítások határozzák meg a rendszer működését: pl. AI telemetria, multi-level értékelés, bónusz/málusz.',
+        'step3_title' => 'Már csak néhány alapbeállítás és feltétel van hátra...',
+        'step3_subtitle' => 'Ezek a beállítások határozzák meg a rendszer működését. A részlegkezelést akkor kapcsold be, ha minden részlegnek van saját kijelölt vezetője és a részlegben legalább 5-8 fő dolgozik. Ettől kisebb szervezeti egységek esetén nem lesz szükséged részlegkezelésre, a hierarchiát anélkül is be tudod állítani. Minden egyéb beállítás módosítható belépés után.',
         'step4_title' => 'Mindjárt kész: ellenőrizd a megadott adatokat',
         'step4_subtitle' => 'Véglegesítés előtt győződj meg arról, hogy minden adat helyes.',
+    ],
+
+    'consent' => [
+        'section_title' => 'Feltételek és Hozzájárulás',
+        
+        'terms_label' => 'Elolvastam és elfogadom a :terms_link',
+        'terms_link_text' => 'Felhasználási Feltételeket',
+        
+        'privacy_label' => 'Elolvastam és elfogadom az :privacy_link',
+        'privacy_link_text' => 'Adatvédelmi Tájékoztatót',
+        
+        'gdpr_label' => 'Hozzájárulok a munkavállalói személyes adatok GDPR szabályozás szerinti kezeléséhez',
+        'gdpr_description' => 'Ezzel a jelölőnégyzettel megerősíti, hogy:<br>
+            • Jogosult a munkavállalói adatok kezelésére a szervezete nevében<br>
+            • A munkavállalói adatokat kizárólag teljesítményértékelési célokra használja<br>
+            • Tájékoztatja a munkavállalókat az adatkezelési jogaikról<br>
+            • A munkavállalók hozzáférhetnek, exportálhatják és kérhetik személyes adataik törlését',
+        
+        'required_notice' => 'A csillaggal jelölt mezők kitöltése kötelező a regisztráció befejezéséhez',
     ],
     
 ];

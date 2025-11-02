@@ -13,6 +13,7 @@ use App\Models\Enums\UserType;
 use App\Services\OrgConfigService;
 use App\Services\PasswordSetupService;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Log;
 
 
 class RegistrationController extends Controller
@@ -63,6 +64,11 @@ class RegistrationController extends Controller
             'ai_telemetry_enabled' => 'nullable|in:on,1,true',
             'enable_multi_level'   => 'nullable|in:on,1,true',
             'show_bonus_malus'     => 'nullable|in:on,1,true',
+            
+            // ✅ NEW: CONSENT - REQUIRED checkboxes
+            'accept_terms'         => 'required|accepted',
+            'accept_privacy_policy'=> 'required|accepted',
+            'accept_gdpr_consent'  => 'required|accepted',
         ];
 
         // Conditional validation for tax fields
@@ -80,7 +86,17 @@ class RegistrationController extends Controller
             $rules['eu_vat_number'] = 'nullable|string|max:32';
         }
 
-        $this->validate($request, $rules);
+        // ✅ NEW: Custom error messages for consent
+        $messages = [
+            'accept_terms.required' => __('register.validation.accept_terms_required'),
+            'accept_terms.accepted' => __('register.validation.accept_terms_required'),
+            'accept_privacy_policy.required' => __('register.validation.accept_privacy_required'),
+            'accept_privacy_policy.accepted' => __('register.validation.accept_privacy_required'),
+            'accept_gdpr_consent.required' => __('register.validation.accept_gdpr_required'),
+            'accept_gdpr_consent.accepted' => __('register.validation.accept_gdpr_required'),
+        ];
+
+        $this->validate($request, $rules, $messages);
 
         // Additional uniqueness validations (cannot be done in rules array directly)
         $taxNum = trim((string) $request->input('tax_number', ''));
@@ -146,11 +162,20 @@ class RegistrationController extends Controller
                 return back()->withErrors(['admin_email' => __('register.errors.email_exists')])->withInput();
             }
 
-            // Új user rekord
+            // ✅ NEW: Get IP address for consent tracking
+            $ipAddress = $request->ip();
+            $now = now();
+
+            // Új user rekord - ✅ WITH CONSENT TIMESTAMPS
             $user = User::create([
                 'name'       => $request->input('admin_name'),
                 'email'      => $request->input('admin_email'),
-                'created_at' => now(),
+                'created_at' => $now,
+                // ✅ NEW: Save consent timestamps
+                'terms_accepted_at'             => $now,
+                'privacy_policy_accepted_at'    => $now,
+                'privacy_policy_accepted_ip'    => $ipAddress,
+                'gdpr_consent_at'               => $now,
             ]);
 
             $user->type = UserType::NORMAL;
@@ -365,6 +390,32 @@ class RegistrationController extends Controller
                 }
             }
 
+            return response()->json(['ok' => true], 200);
+        
+        } elseif ($step === 2) {
+            // ✅ NEW: Validate consent checkboxes in Step 3 (data-step="2")
+            $acceptTerms = $request->input('accept_terms');
+            $acceptPrivacy = $request->input('accept_privacy_policy');
+            $acceptGdpr = $request->input('accept_gdpr_consent');
+            
+            $errors = [];
+            
+            if (!$acceptTerms || $acceptTerms !== 'on') {
+                $errors['accept_terms'] = __('register.validation.accept_terms_required');
+            }
+            
+            if (!$acceptPrivacy || $acceptPrivacy !== 'on') {
+                $errors['accept_privacy_policy'] = __('register.validation.accept_privacy_required');
+            }
+            
+            if (!$acceptGdpr || $acceptGdpr !== 'on') {
+                $errors['accept_gdpr_consent'] = __('register.validation.accept_gdpr_required');
+            }
+            
+            if (!empty($errors)) {
+                return response()->json(['ok' => false, 'errors' => $errors], 200);
+            }
+            
             return response()->json(['ok' => true], 200);
         }
 
