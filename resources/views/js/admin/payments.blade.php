@@ -59,16 +59,17 @@ $(function(){
 
     $btn.prop('disabled', true);
 
-    // Show redirect notification
-    const redirectingSwal = swal.fire({
+    // Show persistent connecting overlay - NO TIMER, stays until we close it
+    const connectingSwal = swal.fire({
       icon: 'info',
-      title: '{{ __("payment.swal.redirecting_title") }}',
-      text: '{{ __("payment.swal.redirecting_text") }}',
+      title: '{{ __("payment.swal.connecting_barion_title") }}',
+      html: '{{ __("payment.swal.connecting_barion_text") }}<br><br><small>{{ __("payment.swal.connecting_barion_wait") }}</small>',
       showConfirmButton: false,
       allowOutsideClick: false,
       allowEscapeKey: false,
-      timer: 2000,
-      timerProgressBar: true,
+      allowEnterKey: false,
+      showCloseButton: false,
+      // NO TIMER - stays open until manually closed
       didOpen: () => {
         swal.showLoading();
       }
@@ -77,18 +78,25 @@ $(function(){
     $.post(START_URL, { _token: csrf, payment_id: id })
       .done(function(resp){
         if (resp && resp.success && resp.redirect_url) {
-          // Keep the notification visible and redirect
+          // Update message to show we're redirecting
+          swal.update({
+            icon: 'success',
+            title: '{{ __("payment.swal.redirecting_title") }}',
+            html: '{{ __("payment.swal.redirecting_text") }}'
+          });
+          
+          // Redirect after brief moment to show success message
           setTimeout(() => {
             window.location.href = resp.redirect_url;
-          }, 1500);
+          }, 1000);
         } else {
-          redirectingSwal.close();
+          connectingSwal.close();
           swal.fire('{{ __("payment.swal.start_unknown_title") }}', '{{ __("payment.swal.start_unknown_text") }}', 'warning');
           $btn.prop('disabled', false);
         }
       })
       .fail(function(xhr){
-        redirectingSwal.close();
+        connectingSwal.close();
         let msg = '{{ __("payment.swal.start_fail_text") }}';
         if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
           msg = xhr.responseJSON.message;

@@ -15,6 +15,13 @@ class BillingoService
     private int $productId;
     private array $headers;
 
+    // EU country codes for VAT handling
+    private const EU_COUNTRIES = [
+        'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 
+        'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 
+        'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'
+    ];
+
     public function __construct()
     {
         $this->base          = rtrim(env('BILLINGO_API_URL', 'https://api.billingo.hu/v3'), '/');
@@ -38,37 +45,14 @@ class BillingoService
     }
 
     /**
-     * Partner keresése név alapján
+     * Manage Billingo partner for organization - create or update
+     * Each organization has ONE Billingo partner that gets updated when billing data changes
+     * 
+     * @param int $organizationId Our organization ID
+     * @param array $partnerData Partner information
+     * @return int Billingo partner ID
      */
-    public function searchPartner(string $name): ?array
-    {
-        try {
-            $res = Http::withHeaders($this->headers())
-                ->get($this->base . '/partners', ['name' => $name]);
-
-            if (!$res->successful()) {
-                Log::warning('billingo.partner.search_failed', [
-                    'name'   => $name,
-                    'status' => $res->status(),
-                ]);
-                return null;
-            }
-
-            $data = $res->json('data', []);
-            return !empty($data) ? $data[0] : null;
-        } catch (\Throwable $e) {
-            Log::error('billingo.partner.search_error', [
-                'name' => $name,
-                'msg'  => $e->getMessage(),
-            ]);
-            return null;
-        }
-    }
-
-    /**
-     * Partner létrehozása vagy megkeresése
-     */
-    public function findOrCreatePartner(array $partnerData): int
+    public function syncPartner(int $organizationId, array $partnerData): int
     {
         // Normalize and validate data with defaults
         $payload = [
@@ -83,22 +67,71 @@ class BillingoService
             'taxcode' => $partnerData['tax_number'] ?? '',
         ];
 
-        Log::info('billingo.partner.payload', ['payload' => $payload]);
+        Log::info('billingo.partner.sync.start', [
+            'organization_id' => $organizationId,
+            'payload' => $payload
+        ]);
 
-        // Try to find existing partner
-        $existing = $this->searchPartner($payload['name']);
-        if ($existing && isset($existing['id'])) {
-            Log::info('billingo.partner.found', ['partner_id' => $existing['id'], 'name' => $payload['name']]);
-            return (int) $existing['id'];
+        // Check if organization already has a Billingo partner
+        $profile = DB::table('organization_profiles')
+            ->where('organization_id', $organizationId)
+            ->first();
+
+        if ($profile && $profile->billingo_partner_id) {
+            // UPDATE existing partner
+            Log::info('billingo.partner.updating', [
+                'organization_id' => $organizationId,
+                'partner_id' => $profile->billingo_partner_id,
+                'name' => $payload['name']
+            ]);
+
+            try {
+                $this->updatePartner($profile->billingo_partner_id, $payload);
+                
+                Log::info('billingo.partner.updated', [
+                    'organization_id' => $organizationId,
+                    'partner_id' => $profile->billingo_partner_id
+                ]);
+
+                return (int) $profile->billingo_partner_id;
+
+            } catch (\Throwable $e) {
+                // If update fails (partner deleted in Billingo), create new one
+                Log::warning('billingo.partner.update_failed', [
+                    'organization_id' => $organizationId,
+                    'old_partner_id' => $profile->billingo_partner_id,
+                    'error' => $e->getMessage()
+                ]);
+            }
         }
 
-        // Create new partner
-        Log::info('billingo.partner.creating', ['name' => $payload['name']]);
-        return $this->createPartner($payload);
+        // CREATE new partner
+        Log::info('billingo.partner.creating', [
+            'organization_id' => $organizationId,
+            'name' => $payload['name'],
+            'taxcode' => $payload['taxcode']
+        ]);
+
+        $partnerId = $this->createPartner($payload);
+
+        // Save partner ID to organization profile
+        DB::table('organization_profiles')
+            ->where('organization_id', $organizationId)
+            ->update([
+                'billingo_partner_id' => $partnerId,
+                'updated_at' => now()
+            ]);
+
+        Log::info('billingo.partner.created_and_saved', [
+            'organization_id' => $organizationId,
+            'partner_id' => $partnerId
+        ]);
+
+        return $partnerId;
     }
 
     /**
-     * Partner létrehozása
+     * Create new partner in Billingo
      */
     public function createPartner(array $partner): int
     {
@@ -107,164 +140,158 @@ class BillingoService
             ->throw();
 
         $partnerId = (int) $res->json('id');
-        Log::info('billingo.partner.created', ['partner_id' => $partnerId]);
+        Log::info('billingo.partner.api.created', ['partner_id' => $partnerId]);
         
         return $partnerId;
     }
 
     /**
-     * Számla létrehozása multi-currency és VAT támogatással
+     * Update existing partner in Billingo
+     */
+    public function updatePartner(int $partnerId, array $partner): void
+    {
+        Http::withHeaders($this->headers())
+            ->put($this->base . '/partners/' . $partnerId, $partner)
+            ->throw();
+
+        Log::info('billingo.partner.api.updated', ['partner_id' => $partnerId]);
+    }
+
+    /**
+     * Calculate VAT based on country
+     * 
+     * @param string $countryCode 2-letter country code
+     * @return array ['rate' => float, 'key' => string] - rate is 0-1 decimal, key is for Billingo API
+     */
+    public function calculateVat(string $countryCode): array
+    {
+        $countryCode = strtoupper($countryCode);
+
+        if ($countryCode === 'HU') {
+            // Hungary: 27% VAT
+            return [
+                'rate' => 0.27,
+                'key' => '27%'
+            ];
+        } elseif (in_array($countryCode, self::EU_COUNTRIES)) {
+            // EU (non-HU): 0% VAT (reverse charge)
+            return [
+                'rate' => 0.0,
+                'key' => 'EU'
+            ];
+        } else {
+            // Outside EU: 0% VAT (export)
+            return [
+                'rate' => 0.0,
+                'key' => 'TAM'  // Tax Amount (outside EU)
+            ];
+        }
+    }
+
+    /**
+     * Create invoice with automatic VAT calculation
      * 
      * @param int $partnerId Billingo partner ID
-     * @param int $organizationId Our organization ID (to get VAT info)
+     * @param int $organizationId Our organization ID (to get country)
      * @param string $currency 'HUF' or 'EUR'
-     * @param float $netAmount Net amount before VAT
-     * @param float $vatRate VAT rate (e.g., 0.27 for 27%)
-     * @param float $grossAmount Total amount including VAT
+     * @param float $netAmount Net amount (before VAT)
      * @param int $quantity Number of items
      * @param string $comment Invoice comment
      * @param bool $paid Whether invoice is already paid
      * @return int Document ID
      */
-    public function createInvoiceWithVat(
+    public function createInvoiceWithAutoVat(
         int $partnerId,
         int $organizationId,
         string $currency,
         float $netAmount,
-        float $vatRate,
-        float $grossAmount,
         int $quantity,
         string $comment = '',
         bool $paid = true
     ): int {
         $today = now()->format('Y-m-d');
         
-        // Get organization profile for VAT details
+        // Get organization profile for country code
         $profile = DB::table('organization_profiles')
             ->where('organization_id', $organizationId)
             ->first();
         
-        $isHungary = ($profile && strtoupper($profile->country_code) === 'HU');
+        $countryCode = $profile->country_code ?? 'HU';
         
-        // Calculate unit price (net)
+        // Calculate VAT automatically
+        $vat = $this->calculateVat($countryCode);
+        $vatRate = $vat['rate'];
+        $vatKey = $vat['key'];
+        
+        // Calculate amounts
+        $grossAmount = $netAmount * (1 + $vatRate);
         $unitPriceNet = $quantity > 0 ? round($netAmount / $quantity, 2) : 0;
         
-        // Build invoice body
-        $body = [
-            'partner_id'      => $partnerId,
-            'block_id'        => $this->blockId,
-            'bank_account_id' => $this->bankAccountId,
-            'type'            => 'invoice',
-            'fulfillment_date'=> $today,
-            'due_date'        => $today,
-            'payment_method'  => 'bankcard',
-            'language'        => $isHungary ? 'hu' : 'en',
-            'currency'        => $currency,
-            'electronic'      => true,
-            'paid'            => $paid,
-            'comment'         => $comment,
-        ];
-        
-        // Add conversion rate if not HUF
-        if ($currency !== 'HUF') {
-            // Billingo will fetch the daily rate automatically if not provided
-            // We can let Billingo handle this
-            $body['conversion_rate'] = 1; // Will be updated by Billingo
-        }
-        
-        // Build invoice items
-        if ($isHungary) {
-            // Hungarian organization - include VAT
-            $body['items'] = [[
-                'name'            => '360° értékelés',
-                'unit_price'      => $unitPriceNet,
-                'unit_price_type' => 'net',
-                'quantity'        => $quantity,
-                'unit'            => 'db',
-                'vat'             => ($vatRate * 100) . '%', // e.g., "27%"
-            ]];
+        // Format amounts based on currency
+        if ($currency === 'HUF') {
+            $unitPriceNet = (int) round($unitPriceNet);
+            $netAmount = (int) round($netAmount);
+            $grossAmount = (int) round($grossAmount);
         } else {
-            // Non-Hungarian EU organization - reverse charge (AAM)
-            $body['items'] = [[
-                'name'            => '360° assessment / értékelés',
-                'unit_price'      => $unitPriceNet,
-                'unit_price_type' => 'net',
-                'quantity'        => $quantity,
-                'unit'            => 'pcs',
-                'vat'             => '0%',
-                'entitlement'     => 'AAM', // Reverse charge
-                'comment'         => 'Reverse charge - ' . ($profile->eu_vat_number ?? 'EU VAT'),
-            ]];
+            $unitPriceNet = round($unitPriceNet, 2);
+            $netAmount = round($netAmount, 2);
+            $grossAmount = round($grossAmount, 2);
         }
-
-        Log::info('billingo.invoice.creating_with_vat', [
+        
+        Log::info('billingo.invoice.creating', [
             'partner_id' => $partnerId,
             'organization_id' => $organizationId,
             'currency' => $currency,
+            'country_code' => $countryCode,
             'net_amount' => $netAmount,
             'vat_rate' => $vatRate,
+            'vat_key' => $vatKey,
             'gross_amount' => $grossAmount,
             'quantity' => $quantity,
-            'is_hungary' => $isHungary,
             'unit_price_net' => $unitPriceNet,
         ]);
 
+        $payload = [
+            'partner_id' => $partnerId,
+            'block_id' => $this->blockId,
+            'bank_account_id' => $this->bankAccountId,
+            'type' => 'invoice',
+            'fulfillment_date' => $today,
+            'due_date' => $today,
+            'payment_method' => 'online_bankcard',
+            'language' => 'hu',
+            'currency' => $currency,
+            'paid' => $paid,
+            'items' => [[
+                'name' => $comment ?: '360° értékelés',
+                'unit_price' => $unitPriceNet,
+                'unit_price_type' => 'net',
+                'quantity' => $quantity,
+                'unit' => 'db',
+                'vat' => $vatKey,  // '27%', 'EU', or 'TAM'
+                'product_id' => $this->productId,
+            ]],
+        ];
+
         $res = Http::withHeaders($this->headers())
-            ->post($this->base . '/documents', $body)
+            ->post($this->base . '/documents', $payload)
             ->throw();
 
-        $documentId = (int) $res->json('id');
+        $docId = (int) $res->json('id');
         
         Log::info('billingo.invoice.created', [
-            'document_id' => $documentId,
+            'document_id' => $docId,
             'partner_id' => $partnerId,
             'currency' => $currency,
             'gross_amount' => $grossAmount,
+            'vat_applied' => $vatKey
         ]);
-
-        return $documentId;
+        
+        return $docId;
     }
 
     /**
-     * Számla PDF letöltése
-     * 
-     * @param int $documentId
-     * @return string PDF content as binary string
-     * @throws \RuntimeException
-     */
-    public function downloadInvoicePdf(int $documentId): string
-    {
-        $url = $this->base . "/documents/{$documentId}/download";
-
-        $res = Http::withHeaders($this->headers())
-            ->accept('application/pdf')
-            ->get($url);
-
-        if ($res->status() === 200) {
-            $ct = strtolower($res->header('Content-Type') ?? '');
-            if (str_contains($ct, 'application/pdf')) {
-                return $res->body();
-            }
-        }
-
-        if ($res->status() === 404) {
-            Log::warning('billingo.invoice.not_ready', [
-                'doc_id' => $documentId,
-                'msg'    => 'Billingo download failed: HTTP 404',
-            ]);
-            throw new \RuntimeException('not_ready');
-        }
-
-        Log::error('billingo.invoice.download_error', [
-            'doc_id' => $documentId,
-            'status' => $res->status(),
-            'body'   => $res->body(),
-        ]);
-        throw new \RuntimeException('download_failed');
-    }
-
-    /**
-     * Számla adatainak lekérése
+     * Get document details
      */
     public function getDocument(int $documentId): array
     {
@@ -276,7 +303,7 @@ class BillingoService
     }
 
     /**
-     * Számla publikus letöltési URL
+     * Get public download URL for invoice
      */
     public function getPublicUrl(int $documentId): ?string
     {
@@ -296,7 +323,7 @@ class BillingoService
     }
 
     /**
-     * Számla meta adatainak kinyerése
+     * Extract invoice metadata
      */
     private function extractInvoiceMeta(array $doc): array
     {
@@ -310,7 +337,7 @@ class BillingoService
     }
 
     /**
-     * Számla teljes adatainak lekérése
+     * Get invoice with full metadata
      */
     public function getInvoiceWithMetadata(int $documentId): array
     {

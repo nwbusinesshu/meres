@@ -432,7 +432,8 @@ class AdminPaymentController extends Controller
         throw new \Exception('Organization profile missing for org: ' . $org->id);
     }
 
-    $partnerId = $billingo->findOrCreatePartner([
+    // Sync partner (create or update) - this manages the Billingo partner
+    $partnerId = $billingo->syncPartner($org->id, [
         'name'         => $org->name,
         'country_code' => $profile->country_code ?? 'HU',
         'postal_code'  => $profile->postal_code,
@@ -447,11 +448,9 @@ class AdminPaymentController extends Controller
         'partner_id' => $partnerId,
     ]);
 
-    // Get payment amounts
+    // Get payment data
     $currency = $payment['currency'] ?? 'HUF';
     $netAmount = (float) ($payment['net_amount'] ?? 0);
-    $vatRate = (float) ($payment['vat_rate'] ?? 0);
-    $grossAmount = (float) ($payment['gross_amount'] ?? 0);
     
     // Calculate quantity
     $configName = ($currency === 'HUF') ? 'global_price_huf' : 'global_price_eur';
@@ -464,14 +463,12 @@ class AdminPaymentController extends Controller
     }
     $comment .= ' – ' . $org->name;
     
-    // Create invoice with VAT support
-    $docId = $billingo->createInvoiceWithVat(
+    // Create invoice with automatic VAT calculation
+    $docId = $billingo->createInvoiceWithAutoVat(
         partnerId: $partnerId,
-        organizationId: $orgId,
+        organizationId: $org->id,
         currency: $currency,
         netAmount: $netAmount,
-        vatRate: $vatRate,
-        grossAmount: $grossAmount,
         quantity: $quantity,
         comment: $comment,
         paid: true

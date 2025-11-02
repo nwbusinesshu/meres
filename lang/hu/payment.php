@@ -74,20 +74,26 @@ return [
         'start_fail_title'    => 'Nem sikerült indítani',
         'start_fail_text'     => 'A fizetés indítása sikertelen.',
 
-        // NEW: Blocked payment notification
+        // Blocked payment notification
         'payment_blocked_title' => 'Fizetés folyamatban vagy megszakítva',
         'payment_blocked_text' => 'A fizetés nem fejeződött be. Kérjük, várjon 10 percet, mielőtt újra próbálkozna.',
 
-        // NEW: Redirect notification
+        // NEW: Connecting to Barion overlay
+        'connecting_barion_title' => 'Kapcsolódás a fizetési rendszerhez...',
+        'connecting_barion_text' => 'Kérjük, várjon, amíg csatlakozunk a Barion fizetési rendszerhez.',
+        'connecting_barion_wait' => 'Ez eltarthat néhány másodpercig. Ne zárja be ezt az ablakot!',
+
+        // Redirect notification
         'redirecting_title' => 'Átirányítás...',
-        'redirecting_text' => 'Azonnal átirányítjuk a Barion fizetési oldalára.',
-        // NEW: Initial payment blocking modal
+        'redirecting_text' => 'Átirányítjuk a Barion fizetési oldalára.',
+        
+        // Initial payment blocking modal
         'initial_payment_required_title' => 'Belépési díj rendezése szükséges',
         'initial_payment_required_text' => 'A rendszer használatához először rendezze a belépési díjat. Kérjük, indítsa el a fizetést az alábbi gombbal.',
         'understand' => 'Értem',
-            ],
+    ],
 
-        'trial' => [
+    'trial' => [
         'active_title' => 'Próbaidőszak aktív',
         'active_message' => 'Jelenleg az :days napos próbaidőszakban vagy. A rendszer teljes funkcionalitása elérhető, kivéve az értékelési időszak indítását.',
         'days_remaining' => ':days nap van hátra',

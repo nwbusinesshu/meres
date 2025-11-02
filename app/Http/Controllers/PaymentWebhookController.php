@@ -450,7 +450,8 @@ class PaymentWebhookController extends Controller
         'admin_email' => $adminEmail ?? 'missing',
     ]);
 
-    $partnerId = $billingo->findOrCreatePartner([
+    // Sync partner (create or update)
+    $partnerId = $billingo->syncPartner($orgId, [
         'name'         => $org->name,
         'country_code' => $profile->country_code ?? 'HU',
         'postal_code'  => $profile->postal_code,
@@ -465,11 +466,9 @@ class PaymentWebhookController extends Controller
         'partner_id' => $partnerId,
     ]);
 
-    // Get payment amounts
+    // Get payment data
     $currency = $paymentArr['currency'] ?? 'HUF';
     $netAmount = (float) ($paymentArr['net_amount'] ?? 0);
-    $vatRate = (float) ($paymentArr['vat_rate'] ?? 0);
-    $grossAmount = (float) ($paymentArr['gross_amount'] ?? 0);
     
     // Calculate quantity
     $configName = ($currency === 'HUF') ? 'global_price_huf' : 'global_price_eur';
@@ -482,14 +481,12 @@ class PaymentWebhookController extends Controller
     }
     $comment .= ' – ' . $org->name;
 
-    // Create invoice with VAT support
-    $docId = $billingo->createInvoiceWithVat(
+    // Create invoice with automatic VAT calculation
+    $docId = $billingo->createInvoiceWithAutoVat(
         partnerId: $partnerId,
         organizationId: $orgId,
         currency: $currency,
         netAmount: $netAmount,
-        vatRate: $vatRate,
-        grossAmount: $grossAmount,
         quantity: $qty,
         comment: $comment,
         paid: true
