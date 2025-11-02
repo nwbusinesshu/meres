@@ -48,6 +48,8 @@
   @include('components.help-modal')
   @include('js.help-modal')
   @include('components.profile-settings-modal')
+  @include('components.privacy-acknowledgment-modal')
+
 @endif
     </body>
 </html>

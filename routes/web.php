@@ -81,6 +81,8 @@ Route::controller(ProfileSettingsController::class)
     ->group(function(){
         Route::get('/data', 'getProfileData')->name('settings.data');
         Route::post('/update-picture', 'updateProfilePic')->name('settings.update-picture');
+        Route::post('/acknowledge-privacy', 'acknowledgePrivacy')->name('settings.acknowledge-privacy'); // ✅ NEW
+
     });
 
 // login routes

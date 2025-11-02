@@ -107,4 +107,36 @@ class ProfileSettingsController extends Controller
             'message' => 'Profilkép sikeresen frissítve!'
         ]);
     }
+
+    /**
+     * Save employee's privacy policy acknowledgment
+     * POST /profile-settings/acknowledge-privacy
+     */
+    public function acknowledgePrivacy(Request $request)
+    {
+        $user = Auth::user();
+        
+        if (!$user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+        
+        // Check if already acknowledged
+        if ($user->privacy_policy_accepted_at) {
+            return response()->json([
+                'success' => true,
+                'already_acknowledged' => true,
+                'message' => 'Privacy policy already acknowledged'
+            ]);
+        }
+        
+        // Save acknowledgment with timestamp and IP
+        $user->privacy_policy_accepted_at = now();
+        $user->privacy_policy_accepted_ip = $request->ip();
+        $user->save();
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Privacy policy acknowledged successfully'
+        ]);
+    }
 }

@@ -9,6 +9,7 @@
 	<meta name="app-user-role" content="{{ session('org_role') ?? session('utype') ?? 'guest' }}">
 	<meta name="app-locale" content="{{ app()->getLocale() }}">
 	<meta name="app-first-login" content="{{ session('first_login', false) ? 'true' : 'false' }}">
+	<meta name="needs-privacy-acknowledgment" content="{{ MyAuth::isAuthorized(UserType::NORMAL) && Auth::user() && is_null(Auth::user()->privacy_policy_accepted_at) ? 'true' : 'false' }}">
  
   <!-- Favicon -->
 	<link rel="icon" type="image/png" href="{{ assets('favicon.png') }}">

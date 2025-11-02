@@ -239,11 +239,6 @@
           </div>
         </section>
 
-
-
-
-
-
         {{-- STEP 4 – Összegzés --}}
         <section class="reg-step" data-step="3" hidden>
           <h3>{{ __('register.step4_title') }}</h3>
