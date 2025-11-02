@@ -38,6 +38,7 @@
 	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/gh/tomik23/circular-progress-bar@1.1.9/dist/circularProgressBar.min.js"></script>
 	<script src="{{ asset('assets/js/navbar-scroll.js') }}"></script>
+	<script src="{{ asset('assets/js/modal-ios-scroll-fix.js') }}"></script>
 
 	<!-- Microsoft Clarity-->
 	<script type="text/javascript">
@@ -443,6 +444,7 @@ $.ajaxSetup({
 		
 
   </script>
+
 
 	@yield('head-extra')
 

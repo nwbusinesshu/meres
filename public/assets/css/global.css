@@ -65,40 +65,34 @@
 html,body{
   min-height:100%;
   font-family: 'Outfit', sans-serif;
-  scrollbar-gutter: stable
+  scrollbar-gutter: auto;
 }
 
-/* A teljes görgetősáv stílusa */
+/* Hide scrollbar completely but keep scrolling functionality */
 ::-webkit-scrollbar {
-  width: 12px; /* A görgetősáv szélessége */
-  background-color: transparent; /* A háttér legyen áttetsző */
+  display: none;
+  width: 0;
+  height: 0;
 }
 
-/* A görgető "hüvelykujj" (a mozgatható rész) stílusa */
-::-webkit-scrollbar-thumb {
-  background-color: rgba(128, 128, 128, 0.5); /* Világos, áttetsző szürke szín (50% átlátszóság) */
-  border-radius: 6px; /* Kapszula forma */
-  border: 3px solid transparent; /* Keret, hogy a háttér látszódjon */
+/* Firefox */
+* {
+  scrollbar-width: none;
 }
 
-/* A görgető "hüvelykujj" stílusa rámutatáskor */
-::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(128, 128, 128, 0.8); /* Sötétebb szürke rámutatáskor */
-}
-
-/* A görgetősáv alatti, nem mozgatható sáv stílusa (ha szükséges) */
-::-webkit-scrollbar-track {
-  background-color: transparent; /* Alapértelmezett háttér maradjon áttetsző */
-}
-
-.modal-open {
-  overflow-y: scroll!important;
-  overflow-x: hidden!important;
-  padding-right:0px!important;
+/* IE and Edge */
+* {
+  -ms-overflow-style: none;
 }
 
 .modal-footer {
   justify-content: flex-start;
+}
+
+/* Unified modal-open rule - prevents Bootstrap padding issues */
+body.modal-open {
+  padding-right: 0px !important;
+  touch-action: none;
 }
 
 
@@ -153,11 +147,6 @@ td{
   display: none;
 }
 
-.modal-open {
-  overflow-y: scroll!important;
-  overflow-x: hidden!important;
-  padding-right:0px!important;
-}
 .swal2-title{
   color: var(--mirage);
   font-size: 1.8em;
@@ -217,16 +206,11 @@ button.swal2-styled{
 }
 
 .page-container{
-  background: url('../logo/quarma_wm.svg'), var(--bg);
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  background-position-x: center;
-  background-position-y: bottom;
-  background-size: 18em, cover;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
-  min-height: 100dvh; /* Ez már helyesen van beállítva nálad! */
-  transition: background-color 0.3s ease; /* ADDED for dark mode */
+  min-height: 100dvh;
+  transition: background-color 0.3s ease;
 }
 
 .main-container{
@@ -301,6 +285,8 @@ button.swal2-styled{
     background: rgba(37, 47, 54, 0.85);
   }
 }
+
+
 
 /* Make config-dropdown sticky too (appears below navbar) */
 #config-dropdown {
@@ -798,11 +784,65 @@ button.swal2-styled{
   flex-direction: column;
 }
 
-/* Prevent background scrolling when modal is open (mobile fix) */
-body.modal-open {
-  overflow: hidden !important;
-  touch-action: none;
-  -webkit-overflow-scrolling: touch;
+/* iOS-specific modal fixes using feature detection */
+@supports (-webkit-touch-callout: none) {
+  /* This selector targets iOS Safari specifically */
+  
+  body.modal-open {
+    position: fixed !important;
+    overflow: hidden !important;
+  }
+  
+  /* Prevent elastic bounce on modal elements */
+  .modal,
+  .modal-backdrop {
+    overscroll-behavior: contain;
+  }
+  
+  /* Better modal body scrolling on iOS */
+  .modal-body {
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+  }
+  
+  /* Enhanced modal dialog for iOS */
+  .modal-dialog {
+    height: 100dvh !important; /* Use dynamic viewport height */
+    max-height: 100dvh !important;
+  }
+  
+  /* Ensure modal content fills properly on iOS */
+  .modal.modal-drawer .modal-content {
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* Safe area insets for all modal footers (iOS notch/home indicator) */
+.modal-footer {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* Additional padding for buttons in footer on iOS */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .modal-footer .btn {
+    margin-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* Fix for iOS viewport height issues */
+.modal.modal-drawer .modal-dialog {
+  height: 100vh;
+  height: 100dvh; /* Dynamic viewport for mobile browsers */
+  max-height: 100vh;
+  max-height: 100dvh;
+}
+
+/* Prevent zoom on iOS when focusing inputs in modals */
+.modal input,
+.modal select,
+.modal textarea {
+  font-size: 16px !important; /* iOS won't zoom if font-size >= 16px */
 }
 
 .modal.modal-drawer .modal-header {
@@ -836,6 +876,8 @@ body.modal-open {
     width: 100vw;
   }
 }
+
+
 
 /* ========================================
    THEME TOGGLE BUTTON - NEW

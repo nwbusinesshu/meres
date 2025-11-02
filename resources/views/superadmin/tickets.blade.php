@@ -76,7 +76,7 @@
 
 @section('modals')
 {{-- Ticket Detail Modal --}}
-<div class="modal fade" id="ticket-detail-modal" tabindex="-1" role="dialog">
+<div class="modal fade modal-drawer" id="ticket-detail-modal" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
