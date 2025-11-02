@@ -353,4 +353,42 @@ class BillingoService
             'document'       => $doc,
         ];
     }
+
+    /**
+     * Számla PDF letöltése
+     * 
+     * @param int $documentId
+     * @return string PDF content as binary string
+     * @throws \RuntimeException
+     */
+    public function downloadInvoicePdf(int $documentId): string
+    {
+        $url = $this->base . "/documents/{$documentId}/download";
+
+        $res = Http::withHeaders($this->headers())
+            ->accept('application/pdf')
+            ->get($url);
+
+        if ($res->status() === 200) {
+            $ct = strtolower($res->header('Content-Type') ?? '');
+            if (str_contains($ct, 'application/pdf')) {
+                return $res->body();
+            }
+        }
+
+        if ($res->status() === 404) {
+            Log::warning('billingo.invoice.not_ready', [
+                'doc_id' => $documentId,
+                'msg'    => 'Billingo download failed: HTTP 404',
+            ]);
+            throw new \RuntimeException('not_ready');
+        }
+
+        Log::error('billingo.invoice.download_error', [
+            'doc_id' => $documentId,
+            'status' => $res->status(),
+            'body'   => $res->body(),
+        ]);
+        throw new \RuntimeException('download_failed');
+    }
 }
