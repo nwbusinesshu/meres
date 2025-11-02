@@ -70,12 +70,12 @@
 
 .bar span{ 
   flex: 1;
-  font-family: 'Kanit', sans-serif;
   font-size: 1.5em;
   display: flex;
   align-items: center;
   gap: .5em;
   cursor: pointer;
+  flex-wrap: wrap;
 }
 
 .bar button{

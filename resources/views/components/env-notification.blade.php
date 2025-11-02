@@ -14,12 +14,10 @@
 
 /* Main Banner Container */
 .env-notification {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    position: relative;
+    width: 100%;
     height: 25px;
-    z-index: 1000;
+    z-index: 2;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -81,12 +79,6 @@
    Page Layout Adjustment
    ============================================ */
 
-/* Add padding to page content to prevent overlap with fixed banner */
-.env-notification ~ .page-container,
-body:has(.env-notification) .page-container {
-    padding-top: 25px;
-}
-
 /* ============================================
    Responsive Design
    ============================================ */
@@ -110,12 +102,6 @@ body:has(.env-notification) .page-container {
     .env-badge {
         padding: 3px 8px;
         font-size: 10px;
-    }
-    
-    /* Adjust page padding */
-    .env-notification ~ .page-container,
-    body:has(.env-notification) .page-container {
-        padding-top: 32px;
     }
 }
 
@@ -143,11 +129,6 @@ body:has(.env-notification) .page-container {
         display: none;
     }
     
-    /* Adjust page padding */
-    .env-notification ~ .page-container,
-    body:has(.env-notification) .page-container {
-        padding-top: 28px;
-    }
 }
 
 /* ============================================
@@ -174,12 +155,6 @@ body:has(.env-notification) .page-container {
 @media print {
     .env-notification {
         display: none;
-    }
-    
-    /* Remove padding when printing */
-    .env-notification ~ .page-container,
-    body:has(.env-notification) .page-container {
-        padding-top: 0 !important;
     }
 }
 
@@ -237,28 +212,6 @@ body:has(.env-notification) .page-container {
 }
 */
 
-/* ============================================
-   Browser Compatibility Fallbacks
-   ============================================ */
-
-/* Fallback for browsers that don't support :has() */
-@supports not (selector(:has(*))) {
-    body {
-        padding-top: 36px;
-    }
-    
-    @media (max-width: 768px) {
-        body {
-            padding-top: 32px;
-        }
-    }
-    
-    @media (max-width: 480px) {
-        body {
-            padding-top: 28px;
-        }
-    }
-}
 </style>
 @endonce
 {{-- Push CSS to head section only when banner is shown --}}

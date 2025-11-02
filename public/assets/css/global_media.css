@@ -47,7 +47,7 @@
     bottom: 150px!important;
   }
   
-  /* Top bar: Only logo and user icon */
+  /* Top bar: Only logo and user icon - WITH FROSTED EFFECT WHEN SCROLLED */
   .navbar {
     position: sticky;
     top: 0;
@@ -56,6 +56,19 @@
     height: 50px;
     justify-content: space-between;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Top bar frosted effect when scrolled - FULL WIDTH */
+  body.navbar-scrolled .navbar {
+    background: rgba(250, 250, 250, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  body.dark-mode.navbar-scrolled .navbar {
+    background: rgba(37, 47, 54, 0.85);
   }
 
   /* Hide menu items from top bar */
@@ -110,9 +123,11 @@
   /* Config dropdown becomes horizontal scrollable bar above bottom nav */
   #config-dropdown {
     position: fixed;
-    bottom: 60px; /* Sits above bottom nav */
-    left: 0;
-    right: 0;
+    bottom: 80px;
+    left: 10px;
+    right: 10px!important;
+    width: auto !important;
+    margin: 0 !important;
     top: auto;
     height: 55px;
     display: flex;
@@ -122,9 +137,12 @@
     gap: 10px;
     overflow-x: auto;
     overflow-y: hidden;
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
-    border-top: none;
-    border-bottom: none;
+    background: rgba(240, 240, 240, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
     z-index: 999;
     /* Hide scrollbar but keep functionality */
     -webkit-overflow-scrolling: touch;
@@ -134,6 +152,11 @@
     -webkit-transform: translate3d(0, 0, 0);
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
+  }
+
+  body.dark-mode #config-dropdown {
+    background: rgba(37, 47, 54, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   #config-dropdown::-webkit-scrollbar {
@@ -184,19 +207,22 @@
   /* Create bottom navigation container */
   .mobile-bottom-nav {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
     height: 60px;
-    background-color: var(--alabaster);
+    background: rgba(240, 240, 240, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     display: flex;
     justify-content: space-around;
     align-items: center;
-    padding: 0 5px;
-    padding-bottom: env(safe-area-inset-bottom, 0); /* iOS safe area */
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+    padding: 5px 5px;
+    padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
     z-index: 1000;
-    border-top: 1px solid var(--silver_chalice);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
     overflow-x: auto;
     overflow-y: hidden;
     /* Hide scrollbar but keep functionality */
@@ -213,6 +239,11 @@
     position: fixed;
   }
 
+  body.dark-mode .mobile-bottom-nav {
+    background: rgba(37, 47, 54, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
   .mobile-bottom-nav::-webkit-scrollbar {
     display: none; /* Chrome, Safari */
   }
@@ -225,7 +256,7 @@
     align-items: center;
     justify-content: center;
     gap: 4px;
-    padding: 8px 10px;
+    padding: 4px 10px;
     text-decoration: none;
     color: var(--silver_chalice);
     border: none;

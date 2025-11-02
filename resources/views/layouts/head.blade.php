@@ -37,6 +37,7 @@
 	<script src="https://cdn.jsdelivr.net/npm/jquery.scrollto@2.1.3/jquery.scrollTo.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/gh/tomik23/circular-progress-bar@1.1.9/dist/circularProgressBar.min.js"></script>
+	<script src="{{ asset('assets/js/navbar-scroll.js') }}"></script>
 
 	<!-- Microsoft Clarity-->
 	<script type="text/javascript">

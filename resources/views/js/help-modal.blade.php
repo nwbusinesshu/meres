@@ -1479,6 +1479,16 @@ $(document).on('click', '.help-conversation-delete', function(e) {
     });
   });
 
+// Close conversation list with X button
+$(document).on('click', '.help-conversations-close', function() {
+  closeConversationList();
+});
+
+// Close conversation list when clicking outside
+$(document).on('click', '.help-conversations-sidebar-overlay', function() {
+  closeConversationList();
+});
+
   // Close conversation list when clicking outside
   $(document).on('click', '.help-conversations-sidebar-overlay', function() {
     closeConversationList();

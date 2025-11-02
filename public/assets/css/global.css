@@ -252,6 +252,7 @@ button.swal2-styled{
    ======================================== */
 
 /* Make navbar sticky on desktop/tablet */
+/* Make navbar sticky on desktop/tablet */
 .navbar {
   position: sticky;
   top: 0;
@@ -263,14 +264,48 @@ button.swal2-styled{
   margin: 0;
   width: 100%;
   background-color: var(--alabaster);
-  transition: background-color 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Floating navbar when scrolled (DESKTOP ONLY - min-width: 769px) */
+@media (min-width: 769px) {
+  body.navbar-scrolled .navbar {
+    top: 10px;
+    margin: 0 15px;
+    width: calc(100% - 30px);
+    border-radius: 4px;
+    background: rgba(250, 250, 250, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  }
+  
+  body.dark-mode.navbar-scrolled .navbar {
+    background: rgba(37, 47, 54, 0.85);
+  }
+  
+  body.navbar-scrolled #config-dropdown {
+    top: 70px;
+    margin: 0 15px;
+    width: calc(100% - 30px);
+    border-radius: 4px;
+    background: rgba(250, 250, 250, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    border: none;
+  }
+  
+  body.dark-mode.navbar-scrolled #config-dropdown {
+    background: rgba(37, 47, 54, 0.85);
+  }
 }
 
 /* Make config-dropdown sticky too (appears below navbar) */
 #config-dropdown {
   position: sticky;
-  top: 50px; /* Height of navbar */
+  top: 50px;
   z-index: 999;
   background-color: var(--alabaster);
   display: flex;
@@ -279,8 +314,8 @@ button.swal2-styled{
   height: 50px;
   gap: 1em;
   border-top: 1px solid var(--silver_chalice);
-  transition: background-color 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); /* Subtle shadow */
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .config-bar {
@@ -754,12 +789,34 @@ button.swal2-styled{
   transition: transform .2s ease-out;   /* sima becsúszás */
 }
 
-/* A tartalom görgethető, éleknél ne legyen lekerekítés (edge-to-edge) */
 .modal.modal-drawer .modal-content {
   height: 100%;
   border-radius: 0;
-  overflow: auto;
+  overflow: hidden;
   box-shadow: -6px 0 16px rgba(0,0,0,.08);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Prevent background scrolling when modal is open (mobile fix) */
+body.modal-open {
+  overflow: hidden !important;
+  touch-action: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.modal.modal-drawer .modal-header {
+  flex-shrink: 0;
+}
+
+.modal.modal-drawer .modal-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.modal.modal-drawer .modal-footer {
+  flex-shrink: 0;
 }
 
 /* Felülírjuk a Bootstrap saját "fade felülről" animját erre a variánsra */
