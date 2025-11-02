@@ -43,7 +43,7 @@ class RetryFailedTelemetryAI extends Command
         // Find open assessments (not closed)
         $query = DB::table('assessment')
             ->select('id', 'organization_id')
-            /*->whereNull('closed_at')*/;
+            ->whereNull('closed_at');
 
         if ($assessmentId) {
             $query->where('id', $assessmentId);
