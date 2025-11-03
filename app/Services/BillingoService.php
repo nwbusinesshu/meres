@@ -375,8 +375,8 @@ class BillingoService
     try {
         $response = Http::withHeaders($this->headers())
             ->get($this->base . '/currencies', [
-                'from_currency' => strtoupper($fromCurrency),
-                'to_currency' => strtoupper($toCurrency),
+                'from' => strtoupper($fromCurrency),
+                'to' => strtoupper($toCurrency),
                 'date' => $date,
             ]);
         
