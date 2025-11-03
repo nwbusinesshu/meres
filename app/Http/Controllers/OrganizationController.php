@@ -56,7 +56,7 @@ public function switch(Request $request)
     if ($user->type === UserType::SUPERADMIN) {
         session()->put('org_id', $orgId);
         session()->put('org_role', OrgRole::ADMIN); // 🆕 NEW
-        return to_route('home-redirect')->with('info', 'Szervezet kiválasztva.');
+        return to_route('home-redirect')->with('info', __('auth.organization_selected'));
     }
 
     // Tag-e a felhasználó?
@@ -66,7 +66,7 @@ public function switch(Request $request)
 
     if (! $hasAccess) {
         return to_route('org.select')
-            ->with('error', 'Nincs jogosultságod ehhez a szervezethez.');
+            ->with('error', __('auth.no_access_to_organization'));
     }
 
     session()->put('org_id', $orgId);
@@ -79,7 +79,7 @@ public function switch(Request $request)
     
     session()->put('org_role', $orgRole ?? OrgRole::EMPLOYEE);
 
-    return to_route('home-redirect')->with('info', 'Szervezet kiválasztva.');
+    return to_route('home-redirect')->with('info', __('auth.organization_selected'));
 }
 
 

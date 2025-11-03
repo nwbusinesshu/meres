@@ -80,4 +80,20 @@ return [
     'organization' => 'Szervezet',
     'ticket-details' => 'Jegy részletei',
     'closed-by' => 'Lezárta',
+
+    // Authentication
+    'user_not_authenticated' => 'A felhasználó nincs hitelesítve.',
+    
+    // Tickets list
+    'failed_to_load_tickets' => 'A jegyek betöltése sikertelen.',
+    
+    // Single ticket
+    'failed_to_load_ticket' => 'A jegy betöltése sikertelen.',
+    
+    // Create ticket
+    'failed_to_create_ticket' => 'A jegy létrehozása sikertelen.',
+    
+    // Reply to ticket
+    'cannot_reply_to_closed' => 'Nem lehet válaszolni lezárt jegyre.',
+    'failed_to_add_reply' => 'A válasz hozzáadása sikertelen.',
 ];

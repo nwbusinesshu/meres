@@ -42,7 +42,7 @@ class HelpChatController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => 'not_found',
-                'message' => 'Help content not available for this page.'
+                'message' => __('help.content_not_available')
             ], 404);
         }
 
@@ -80,7 +80,7 @@ class HelpChatController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => 'processing_error',
-                'message' => 'Failed to load help content.'
+                'message' => __('help.content_load_failed')
             ], 500);
         }
     }
@@ -146,7 +146,7 @@ class HelpChatController extends Controller
         if (!$userId) {
             return response()->json([
                 'success' => false,
-                'error' => 'User not authenticated'
+                'error' => __('help.user_not_authenticated')
             ], 401);
         }
 
@@ -197,7 +197,7 @@ class HelpChatController extends Controller
             if (!$response) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Failed to get AI response. Please try again.'
+                    'error' => __('help.ai_response_failed')
                 ], 500);
             }
 
@@ -228,7 +228,7 @@ class HelpChatController extends Controller
 
             return response()->json([
                 'success' => false,
-                'error' => 'An error occurred. Please try again later.'
+                'error' => __('help.error_occurred')
             ], 500);
         }
     }
@@ -251,7 +251,7 @@ class HelpChatController extends Controller
         if (!$userId) {
             return response()->json([
                 'success' => false,
-                'error' => 'User not authenticated'
+                'error' => __('help.user_not_authenticated')
             ], 401);
         }
 
@@ -287,7 +287,7 @@ class HelpChatController extends Controller
             if (!$response) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Failed to get AI response after loading documents.'
+                    'error' => __('help.ai_response_failed_after_docs')
                 ], 500);
             }
 
@@ -308,7 +308,7 @@ class HelpChatController extends Controller
 
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to load additional documents.'
+                'error' => __('help.additional_docs_load_failed')
             ], 500);
         }
     }
@@ -323,7 +323,7 @@ class HelpChatController extends Controller
         if (!$userId) {
             return response()->json([
                 'success' => false,
-                'error' => 'User not authenticated'
+                'error' => __('help.user_not_authenticated')
             ], 401);
         }
 
@@ -357,7 +357,7 @@ class HelpChatController extends Controller
 
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to load conversations'
+                'error' => __('help.conversations_load_failed')
             ], 500);
         }
     }
@@ -372,7 +372,7 @@ class HelpChatController extends Controller
         if (!$userId) {
             return response()->json([
                 'success' => false,
-                'error' => 'User not authenticated'
+                'error' => __('help.user_not_authenticated')
             ], 401);
         }
 
@@ -411,7 +411,7 @@ class HelpChatController extends Controller
 
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to load session'
+                'error' => __('help.session_load_failed')
             ], 500);
         }
     }
@@ -431,7 +431,7 @@ class HelpChatController extends Controller
         if (!$userId) {
             return response()->json([
                 'success' => false,
-                'error' => 'User not authenticated'
+                'error' => __('help.user_not_authenticated')
             ], 401);
         }
 
@@ -461,7 +461,7 @@ class HelpChatController extends Controller
 
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to create session'
+                'error' => __('help.session_create_failed')
             ], 500);
         }
     }
@@ -476,7 +476,7 @@ class HelpChatController extends Controller
         if (!$userId) {
             return response()->json([
                 'success' => false,
-                'error' => 'User not authenticated'
+                'error' => __('help.user_not_authenticated')
             ], 401);
         }
 
@@ -489,7 +489,7 @@ class HelpChatController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Session deleted successfully'
+                'message' => __('help.session_deleted')
             ]);
 
         } catch (\Exception $e) {
@@ -500,7 +500,7 @@ class HelpChatController extends Controller
 
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to delete session'
+                'error' => __('help.session_delete_failed')
             ], 500);
         }
     }

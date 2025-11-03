@@ -52,7 +52,7 @@ class CookieConsentController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Cookie preferences saved successfully',
+            'message' => __('global.cookie_preferences_saved'),
             'consent' => $consent->getConsentedTypes(),
         ]);
     }

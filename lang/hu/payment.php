@@ -133,5 +133,33 @@ return [
 
     // Update the initial payment blocking modal text
     'initial_payment_required_text' => 'A rendszer használatához először rendezze a belépési díjat. 5 napos próbaidőszak alatt hozzáadhat alkalmazottakat és beállíthatja a rendszert, de értékelést nem indíthat.',
+    'trial-expired' => 'A próbaidőszak lejárt. Kérjük, rendezze az első fizetést a rendszer használatához.',
 
+    // BillingoService - Invoice Items
+    'invoice-default-name' => 'QUARMA360 online teljesítményértékelés (munkavállalónként)',
+    
+    // BillingoService - Error Messages (if these bubble up to users)
+    'eur-conversion-failed' => 'Az EUR számla létrehozása sikertelen, nincs elérhető árfolyam.',
+    'conversion-rate-fetch-failed' => 'Az árfolyam lekérése sikertelen.',
+
+    // Payment operations
+    'payment_not_found' => 'Fizetési tétel nem található.',
+    'already_settled' => 'Ez a tétel már rendezett.',
+    'already_paid_reload' => 'Ez a fizetés már sikeresen teljesítve lett. Az oldal frissül...',
+    'payment_in_progress' => 'Ehhez a tételhez már folyamatban van egy fizetés a Barion rendszerében. Kérlek, használd a visszatérési oldalt vagy várj néhány percet.',
+    'status_check_failed' => 'Nem sikerült ellenőrizni a fizetés státuszát. Kérlek, próbáld újra vagy használd a frissítés gombot.',
+    'invalid_amount' => 'Érvénytelen összeg.',
+    'barion_failed_missing_id' => 'Barion fizetés sikertelen (hiányzó PaymentId).',
+    'barion_connection_error' => 'Barion kapcsolati hiba.',
+    'unknown_error' => 'Ismeretlen hiba történt.',
+    'missing_barion_id' => 'Hiányzó barion_payment_id',
+    'payment_not_found_short' => 'Fizetés nem található',
+    'status_query_failed' => 'Nem sikerült lekérdezni a fizetés állapotát.',
+    
+    // Invoice
+    'invoice_not_found' => 'Számla nem található.',
+    'invoice_not_issued' => 'Számla még nem lett kiállítva.',
+    'too_many_requests' => 'Túl sok kérés. Kérjük, próbálja újra pár perc múlva.',
+    'invoice_download_error' => 'Hiba történt a számla letöltése közben. Kérjük, próbálja újra később.',
+    'invoice_download_error_short' => 'Hiba történt a számla letöltése közben.',    
 ];

@@ -109,7 +109,7 @@ class LoginController extends Controller
             Log::warning('Microsoft login: nincs ilyen user az adatbázisban', [
                 'email' => $u->getEmail(),
             ]);
-            abort(403, 'Nincs ilyen felhasználó az adatbázisban.');
+            abort(403, __('login.user_not_in_database'));
         }
 
         Log::info('Microsoft login sikeres', ['user_id' => $user->id]);
@@ -220,14 +220,14 @@ class LoginController extends Controller
                     'user_id' => $user->id,
                     'error' => $e->getMessage(),
                 ]);
-                return redirect('login')->with('error', 'Hiba történt az ellenőrző kód küldése közben. Kérjük, próbáld újra.');
+                return redirect('login')->with('error', __('login.verification_code_send_error'));
             }
 
             // Redirect back to login page with verification step
             return redirect('login')->with([
                 'show_verification' => true,
                 'verification_email' => $user->email,
-                'success' => 'Ellenőrző kódot küldtünk a ' . $user->email . ' címre. A kód 10 percig érvényes.'
+                'success' => __('login.verification_code_sent', ['email' => $user->email])
             ]);
         }
 
@@ -311,7 +311,7 @@ class LoginController extends Controller
                     'minutes' => $attemptResult['minutes_remaining']
                 ]);
             } else {
-                $errorMessage = 'Hibás email/jelszó, vagy ehhez a fiókhoz még nincs jelszó beállítva.';
+                $errorMessage = __('login.invalid_credentials');
             }
             
             return back()
@@ -378,9 +378,9 @@ class LoginController extends Controller
                 $remainingAttempts = $maxAttempts - $attemptResult['attempts'];
                 
                 if ($remainingAttempts <= 2 && $remainingAttempts > 0) {
-                    $errorMessage = 'Hibás email/jelszó. ' . $remainingAttempts . ' próbálkozás maradt.';
+                    $errorMessage = __('login.invalid_credentials_attempts_remaining', ['remaining' => $remainingAttempts]);
                 } else {
-                    $errorMessage = 'Hibás email/jelszó, vagy ehhez a fiókhoz még nincs jelszó beállítva.';
+                    $errorMessage = __('login.invalid_credentials');
                 }
             }
             
@@ -447,14 +447,14 @@ class LoginController extends Controller
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
-            return back()->with('error', 'Hiba történt az ellenőrző kód küldése közben. Kérjük, próbáld újra.');
+            return back()->with('error', __('login.verification_code_send_error'));
         }
 
         // Redirect back to login page with verification step
         return redirect('login')->with([
             'show_verification' => true,
             'verification_email' => $user->email,
-            'success' => 'Ellenőrző kódot küldtünk a ' . $user->email . ' címre. A kód 10 percig érvényes.'
+            'success' => __('login.verification_code_sent', ['email' => $user->email])
         ]);
     }
 
@@ -471,7 +471,7 @@ class LoginController extends Controller
         // Check if we have pending 2FA in session
         if (!session()->has('pending_2fa_user_id')) {
             return redirect()->route('login')
-                ->withErrors(['verification_code' => 'Nincs folyamatban lévő belépés. Kérjük, próbáld újra.']);
+                ->withErrors(['verification_code' => __('login.no_pending_login')]);
         }
 
         $userId = session('pending_2fa_user_id');
@@ -482,7 +482,7 @@ class LoginController extends Controller
         // Verify the code
         if (!EmailVerificationCode::verifyCode($email, $data['verification_code'], session()->getId())) {
             return back()
-                ->withErrors(['verification_code' => 'Hibás vagy lejárt ellenőrző kód.'])
+                ->withErrors(['verification_code' => __('login.invalid_or_expired_code')])
                 ->with([
                     'show_verification' => true,
                     'verification_email' => $email
@@ -494,7 +494,7 @@ class LoginController extends Controller
         if (!$user || !is_null($user->removed_at)) {
             session()->forget(['pending_2fa_user_id', 'pending_2fa_remember', 'pending_2fa_email', 'pending_2fa_avatar']);
             return redirect()->route('login')
-                ->withErrors(['verification_code' => 'A felhasználói fiók nem aktív.']);
+                ->withErrors(['verification_code' => __('login.user_account_not_active')]);
         }
 
         // Clear 2FA session data
@@ -523,7 +523,7 @@ class LoginController extends Controller
         if (!$user || !is_null($user->removed_at)) {
             session()->forget(['pending_2fa_user_id', 'pending_2fa_remember', 'pending_2fa_email', 'pending_2fa_avatar']);
             return redirect()->route('login')
-                ->withErrors(['verification_code' => 'A felhasználói fiók nem aktív.']);
+                ->withErrors(['verification_code' => __('login.user_account_not_active')]);
         }
 
         // Generate and send new code
@@ -542,7 +542,7 @@ class LoginController extends Controller
                 'error' => $e->getMessage(),
             ]);
             return back()
-                ->withErrors(['verification_code' => 'Hiba történt az ellenőrző kód küldése közben. Kérjük, próbáld újra.'])
+                ->withErrors(['verification_code' => __('login.verification_code_send_error')])
                 ->with([
                     'show_verification' => true,
                     'verification_email' => $email
@@ -552,7 +552,7 @@ class LoginController extends Controller
         return back()->with([
             'show_verification' => true,
             'verification_email' => $user->email,
-            'success' => 'Új ellenőrző kódot küldtünk a ' . $user->email . ' címre.'
+            'success' => __('login.verification_code_resent', ['email' => $user->email])
         ]);
     }
 

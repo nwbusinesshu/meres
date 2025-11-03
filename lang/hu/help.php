@@ -40,4 +40,24 @@ return [
     'ai-thinking' => 'Gondolkozom...',
 'ai-loading-docs' => 'További dokumentumok betöltése...',
 'ai-error-load-session' => 'Nem sikerült betölteni a további információkat. Kérlek, próbáld újra.',
+
+// Help content
+    'content_not_available' => 'A súgó tartalom nem érhető el ehhez az oldalhoz.',
+    'content_load_failed' => 'A súgó tartalom betöltése sikertelen.',
+    
+    // Authentication
+    'user_not_authenticated' => 'A felhasználó nincs hitelesítve.',
+    
+    // Chat responses
+    'ai_response_failed' => 'Az AI válasz lekérése sikertelen. Kérlek, próbáld újra.',
+    'ai_response_failed_after_docs' => 'Az AI válasz lekérése sikertelen a dokumentumok betöltése után.',
+    'error_occurred' => 'Hiba történt. Kérlek, próbáld újra később.',
+    'additional_docs_load_failed' => 'A további dokumentumok betöltése sikertelen.',
+    
+    // Sessions
+    'conversations_load_failed' => 'A beszélgetések betöltése sikertelen.',
+    'session_load_failed' => 'A munkamenet betöltése sikertelen.',
+    'session_create_failed' => 'A munkamenet létrehozása sikertelen.',
+    'session_deleted' => 'A munkamenet sikeresen törölve.',
+    'session_delete_failed' => 'A munkamenet törlése sikertelen.',
 ];

@@ -149,6 +149,7 @@ return [
   'cookie_banner_text' => 'Ez a weboldal sütiket használ a jobb felhasználói élmény biztosítása érdekében. Kérjük, válassza ki, hogy mely sütiket fogadja el.',
   'cookie-more-info' => 'További információ',
   'cookie-settings-saved' => 'Süti beállítások mentve!',
+'cookie_preferences_saved' => 'Cookie preferences saved successfully',
   'cookie-settings-error' => 'Hiba történt a mentés során!',
     // Cookie-related translations
     'cookie-settings-title' => 'Süti beállítások',
@@ -277,5 +278,13 @@ return [
     'NO' => 'Norvégia',
     'US' => 'USA',
   ],
+
+  // Profile settings
+'unauthorized' => 'Nincs jogosultság.',
+'color_required_for_monster' => 'A szín megadása kötelező a monster típushoz.',
+'profile_pic_update_failed' => 'A profilkép frissítése sikertelen.',
+'profile_pic_updated' => 'Profilkép sikeresen frissítve!',
+'privacy_already_acknowledged' => 'Az adatvédelmi szabályzat már elfogadásra került.',
+'privacy_acknowledged_success' => 'Az adatvédelmi szabályzat elfogadva.',
 
 ];

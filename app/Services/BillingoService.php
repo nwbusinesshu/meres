@@ -284,7 +284,7 @@ class BillingoService
             'currency' => $currency,
             'paid' => $paid,
             'items' => [[
-                'name' => $comment ?: '360° értékelés',
+                'name' => $comment ?: __('payment.invoice-default-name'),
                 'unit_price' => $unitPriceNet,
                 'unit_price_type' => 'net',
                 'quantity' => $quantity,
@@ -314,7 +314,7 @@ class BillingoService
                 ]);
                 
                 // Fail invoice creation if we can't get conversion rate
-                throw new \Exception('Cannot create EUR invoice without conversion rate: ' . $e->getMessage());
+                throw new \Exception(__('payment.eur-conversion-failed') . ': ' . $e->getMessage());
             }
         }
 
@@ -425,7 +425,8 @@ class BillingoService
             'error' => $e->getMessage(),
         ]);
         
-        throw new \Exception('Failed to fetch conversion rate: ' . $e->getMessage());
+        throw new \Exception(__('payment.conversion-rate-fetch-failed') . ': ' . $e->getMessage());
+
     }
 }
 

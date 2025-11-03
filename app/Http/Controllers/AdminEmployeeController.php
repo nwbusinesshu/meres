@@ -484,8 +484,8 @@ private function getRaterCounts($userIds, $orgId)
     $orgId = (int) session('org_id');
     if (!$orgId) {
         return response()->json([
-            'message' => 'Nincs kiválasztott szervezet.',
-            'errors'  => ['org' => ['Nincs kiválasztott szervezet.']],
+            'message' => __('admin/employees.no_organization_selected'),
+            'errors'  => ['org' => [__('admin/employees.no_organization_selected')]],
         ], 422);
     }
 
@@ -513,8 +513,8 @@ private function getRaterCounts($userIds, $orgId)
         
         if (!$user || !is_null($user->removed_at)) {
             return response()->json([
-                'message' => 'A felhasználó nem található.',
-                'errors'  => ['user' => ['A felhasználó nem található.']]
+                'message' => __('admin/employees.user_not_found'),
+                'errors'  => ['user' => [__('admin/employees.user_not_found')]]
             ], 404);
         }
     }
@@ -528,8 +528,8 @@ private function getRaterCounts($userIds, $orgId)
             if (!$alreadyInOrg) {
                 // Email exists in another organization
                 return response()->json([
-                    'message' => 'Ez az e-mail cím már egy másik szervezethez tartozik!',
-                    'errors'  => ['email' => ['Ez az e-mail cím már egy másik szervezethez tartozik!']]
+                    'message' => __('admin/employees.email_belongs_to_other_org'),
+                    'errors'  => ['email' => [__('admin/employees.email_belongs_to_other_org')]]
                 ], 422);
             }
         }
@@ -548,8 +548,8 @@ private function getRaterCounts($userIds, $orgId)
 
         if ($requestedRole === OrgRole::ADMIN) {
             return response()->json([
-        'message' => 'Can not make new admins. Contact us.',
-        'errors'  => ['type' => ['Can not make new admins. Contact us.']]
+        'message' => __('admin/employees.cannot_create_admins'),
+        'errors'  => ['type' => [__('admin/employees.cannot_create_admins')]]
     ], 422);
 }
 
@@ -569,15 +569,15 @@ private function getRaterCounts($userIds, $orgId)
 
         if ($currentRole === OrgRole::MANAGER && ($isDeptManager || $hasDept) && $requestedRole !== OrgRole::MANAGER) {
             return response()->json([
-                'message' => 'A felhasználó menedzser és részleghez van rendelve; a szerepkör nem módosítható.',
-                'errors'  => ['type' => ['A felhasználó menedzser és részleghez van rendelve; a szerepkör nem módosítható.']]
+                'message' => __('admin/employees.manager_role_cannot_change'),
+                'errors'  => ['type' => [__('admin/employees.manager_role_cannot_change')]]
             ], 422);
         }
 
         if ($hasDept && $currentRole === OrgRole::EMPLOYEE && $requestedRole !== OrgRole::EMPLOYEE) {
             return response()->json([
-                'message' => 'Ez a dolgozó már tagja egy részlegnek, ezért a szerepkör nem módosítható.',
-                'errors'  => ['type' => ['Ez a dolgozó már tagja egy részlegnek, ezért a szerepkör nem módosítható.']]
+                'message' => __('admin/employees.employee_role_cannot_change'),
+                'errors'  => ['type' => [__('admin/employees.employee_role_cannot_change')]]
             ], 422);
         }
     }
@@ -678,7 +678,7 @@ private function getRaterCounts($userIds, $orgId)
         ]);
 
         return response()->json([
-            'message' => 'Sikertelen művelet: szerverhiba!',
+            'message' => __('admin/employees.operation_failed_server_error'),
             'errors'  => ['exception' => [$e->getMessage()]],
         ], 422);
     }
@@ -697,7 +697,7 @@ private function getRaterCounts($userIds, $orgId)
             return response()->json([
                 'ok'      => true,
                 'user_id' => $user->id,
-                'info'    => 'A felhasználó létrejött, de a jelszó-beállító e-mail küldése nem sikerült. Ellenőrizd a mail beállításokat.',
+                'info' => __('admin/employees.user_created_but_email_failed'),
             ]);
         }
     }
@@ -724,7 +724,7 @@ public function PasswordReset(Request $request)
         if (!$inOrg) {
             return response()->json([
                 'ok' => false,
-                'message' => 'A felhasználó nem tagja az aktuális szervezetnek.',
+                'message' => __('admin/employees.user_not_org_member'),
             ], 403);
         }
 
@@ -746,7 +746,7 @@ public function PasswordReset(Request $request)
 
             return response()->json([
                 'ok' => true,
-                'message' => 'Jelszó-visszaállító link elküldve a felhasználónak.',
+                'message' => __('admin/employees.password_reset_link_sent'),
             ]);
         } catch (\Throwable $e) {
             Log::error('employee.password_reset.failed', [
@@ -757,7 +757,7 @@ public function PasswordReset(Request $request)
 
             return response()->json([
                 'ok' => false,
-                'message' => 'Sikertelen művelet: szerverhiba!',
+                'message' => __('admin/employees.operation_failed_server_error'),
             ], 500);
         }
     }
@@ -778,7 +778,7 @@ public function PasswordReset(Request $request)
         $belongsToOrg = $user->organizations()->where('organization_id', $orgId)->exists();
         
         if (!$belongsToOrg) {
-            abort(403, 'User does not belong to your organization');
+            abort(403, __('admin/employees.user_does_not_belong'));
         }
         
         AjaxService::DBTransaction(function() use (&$user, $orgId){
@@ -864,7 +864,7 @@ public function getEmployeeRelations(Request $request)
     $belongsToOrg = $user->organizations()->where('organization_id', $orgId)->exists();
     
     if (!$belongsToOrg) {
-        abort(403, 'User does not belong to your organization');
+        abort(403, __('admin/employees.user_does_not_belong'));
     }
 
     // Get relations in BOTH directions
@@ -923,7 +923,7 @@ public function getEmployeeRelations(Request $request)
     
     // Security: Verify user belongs to current org
     if (!$user->organizations()->where('organization_id', $organizationId)->exists()) {
-        return response()->json(['message' => 'User does not belong to organization'], 403);
+        return response()->json(['message' => __('admin/employees.user_does_not_belong')], 403);
     }
 
     // Get Easy Setup setting
@@ -944,7 +944,7 @@ public function getEmployeeRelations(Request $request)
                 'success' => false,
                 'has_conflicts' => true,
                 'conflicts' => $conflicts,
-                'message' => 'Cannot save relations due to conflicts.'
+                'message' => __('admin/employees.cannot_save_relations_conflicts')
             ], 422);
         }
 
@@ -1010,7 +1010,7 @@ AjaxService::DBTransaction(function () use ($relations, $user, $organizationId, 
 });
 
         Log::info('Relations saved successfully', ['user_id' => $user->id]);
-        return response()->json(['success' => true, 'message' => 'Relations saved successfully']);
+        return response()->json(['success' => true, 'message' => __('admin/employees.relations_saved_successfully')]);
 
     } catch (\Throwable $e) {
         Log::error('Error saving relations', [
@@ -1020,7 +1020,7 @@ AjaxService::DBTransaction(function () use ($relations, $user, $organizationId, 
 
         return response()->json([
             'success' => false,
-            'message' => 'Failed to save relations: ' . $e->getMessage(),
+            'message' => __('admin/employees.failed_to_save_relations', ['error' => $e->getMessage()]),
         ], 500);
     }
 }
@@ -1217,7 +1217,7 @@ private function applyBidirectionalRelations($userId, $rows, $organizationId)
     $belongsToOrg = $user->organizations()->where('organization_id', $orgId)->exists();
     
     if (!$belongsToOrg) {
-        abort(403, 'User does not belong to your organization');
+        abort(403, __('admin/employees.user_does_not_belong'));
     }
 
     // Get all competencies with their sources
@@ -1281,8 +1281,8 @@ private function applyBidirectionalRelations($userId, $rows, $organizationId)
     $invalid = $ids->diff($validIds);
     if ($invalid->isNotEmpty()) {
         return response()->json([
-            'message' => 'Érvénytelen kompetencia az aktuális szervezethez.',
-            'errors' => ['competencies' => ['Érvénytelen kompetencia.']]
+            'message' => __('admin/employees.invalid_competency'),
+            'errors' => ['competencies' => [__('admin/employees.invalid_competency')]]
         ], 422);
     }
 
@@ -1380,7 +1380,7 @@ private function applyBidirectionalRelations($userId, $rows, $organizationId)
         $belongsToOrg = $user->organizations()->where('organization_id', $orgId)->exists();
         
         if (!$belongsToOrg) {
-            abort(403, 'User does not belong to your organization');
+            abort(403, __('admin/employees.user_does_not_belong'));
         }
         
         return $user->bonusMalus()->take(4)->get();
@@ -1420,7 +1420,7 @@ private function applyBidirectionalRelations($userId, $rows, $organizationId)
     $orgId = (int) session('org_id');
 
     if (!\App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false)) {
-        return response()->json(['message' => 'A többszintű részlegkezelés nincs bekapcsolva.'], 422);
+        return response()->json(['message' => __('admin/employees.multi_level_disabled')], 422);
     }
 
     $data = $request->validate([
@@ -1441,7 +1441,7 @@ private function applyBidirectionalRelations($userId, $rows, $organizationId)
             ->first(['u.id']);
 
         if (!$manager) {
-            return response()->json(['message' => "Manager ID {$managerId} nem található vagy nem manager szerepkörű."], 422);
+            return response()->json(['message' => __('admin/employees.manager_not_found_or_invalid', ['id' => $managerId])], 422);
         }
 
         // Check if manager is already managing another department
@@ -1454,7 +1454,7 @@ private function applyBidirectionalRelations($userId, $rows, $organizationId)
 
         if ($alreadyManaging) {
             $managerName = \DB::table('user')->where('id', $managerId)->value('name');
-            return response()->json(['message' => "A vezető ({$managerName}) már egy másik részleget vezet."], 422);
+            return response()->json(['message' => __('admin/employees.manager_already_managing', ['name' => $managerName])], 422);
         }
     }
 
@@ -1479,13 +1479,13 @@ private function applyBidirectionalRelations($userId, $rows, $organizationId)
             }
         });
 
-        return response()->json(['ok' => true, 'message' => 'Részleg létrehozva.']);
+        return response()->json(['ok' => true, 'message' => __('admin/employees.department_created')]);
     } catch (\Exception $e) {
         \Log::error('Department creation failed', [
             'organization_id' => $orgId,
             'error' => $e->getMessage(),
         ]);
-        return response()->json(['message' => 'Hiba történt a részleg létrehozásakor.'], 500);
+        return response()->json(['message' => __('admin/employees.department_create_failed')], 500);
     }
 }
 
@@ -1514,7 +1514,7 @@ public function getDepartment(Request $request)
 
     if (!$dept) {
         return response()->json([
-            'message' => 'A részleg nem található (vagy már inaktiválva lett).'
+            'message' => __('admin/employees.department_not_found')
         ], 404);
     }
 
@@ -1560,7 +1560,7 @@ public function updateDepartment(Request $request)
     $orgId = (int) session('org_id');
 
     if (!\App\Services\OrgConfigService::getBool($orgId, 'enable_multi_level', false)) {
-        return response()->json(['message' => 'A többszintű részlegkezelés nincs bekapcsolva.'], 422);
+        return response()->json(['message' => __('admin/employees.multi_level_disabled')], 422);
     }
 
     $data = $request->validate([
@@ -1636,14 +1636,14 @@ public function updateDepartment(Request $request)
             }
         });
 
-        return response()->json(['ok' => true, 'message' => 'Részleg frissítve.']);
+        return response()->json(['ok' => true, 'message' => __('admin/employees.department_updated')]);
     } catch (\Exception $e) {
         \Log::error('Department update failed', [
             'department_id' => $data['id'],
             'organization_id' => $orgId,
             'error' => $e->getMessage(),
         ]);
-        return response()->json(['message' => 'Hiba történt a részleg frissítésekor.'], 500);
+        return response()->json(['message' => __('admin/employees.department_update_failed')], 500);
     }
 }
 
@@ -1666,7 +1666,7 @@ public function getDepartmentMembers(Request $request)
         ->whereNull('removed_at')
         ->first(['id']);
     if (!$dept) {
-        return response()->json(['message' => 'A részleg nem található az aktuális szervezetben.'], 404);
+        return response()->json(['message' => __('admin/employees.department_not_in_org')], 404);
     }
 
     // Tagok lekérése az org_user pivotból
@@ -1701,7 +1701,7 @@ public function getEligibleForDepartment(Request $request)
         ->whereNull('removed_at')
         ->first(['id']);
     if (!$dept) {
-        return response()->json(['message' => 'A részleg nem található az aktuális szervezetben.'], 404);
+        return response()->json(['message' => __('admin/employees.department_not_in_org')], 404);
     }
 
     // Választható dolgozók: az org tagjai, type != admin && != manager && != ceo? (kérésed szerint admin/manager kizárva; CEO-t hagyjuk ki logikusan)
@@ -1735,7 +1735,7 @@ public function saveDepartmentMembers(Request $request)
         ->whereNull('removed_at')
         ->first(['id']);
     if (!$dept) {
-        return response()->json(['message' => 'A részleg nem található az aktuális szervezetben.'], 404);
+        return response()->json(['message' => __('admin/employees.department_not_in_org')], 404);
     }
 
     $ids = collect($data['user_ids'])->unique()->values(); // Now handles empty arrays properly
@@ -1754,7 +1754,7 @@ public function saveDepartmentMembers(Request $request)
         $invalid = $ids->diff($validIds);
         if ($invalid->isNotEmpty()) {
             return response()->json([
-                'message' => 'Érvénytelen felhasználó az aktuális szervezethez.',
+                'message' => __('admin/employees.invalid_users'),
                 'invalid' => $invalid->values(),
             ], 422);
         }
@@ -1781,7 +1781,7 @@ public function saveDepartmentMembers(Request $request)
         }
     });
 
-    return response()->json(['ok' => true, 'message' => 'Részleg tagjai frissítve.']);
+    return response()->json(['ok' => true, 'message' => __('admin/employees.department_members_updated')]);
 }
 
 public function deleteDepartment(Request $request)
@@ -1796,8 +1796,8 @@ public function deleteDepartment(Request $request)
 
     if (!$orgId) {
         return response()->json([
-            'message' => 'Nincs kiválasztott szervezet.',
-            'errors' => ['org' => ['Nincs kiválasztott szervezet.']]
+            'message' => __('admin/employees.no_organization_selected'),
+            'errors' => ['org' => [__('admin/employees.no_organization_selected')]]
         ], 422);
     }
 
@@ -1816,8 +1816,8 @@ public function deleteDepartment(Request $request)
         ]);
 
         return response()->json([
-            'message' => 'A részleg nem található vagy nem a szervezetedhez tartozik.',
-            'errors' => ['department' => ['A részleg nem található.']]
+            'message' => __('admin/employees.department_not_found_or_wrong_org'),
+            'errors' => ['department' => [__('admin/employees.department_not_found')]]
         ], 404);
     }
 
@@ -1851,7 +1851,7 @@ public function deleteDepartment(Request $request)
         ]);
 
         return response()->json([
-            'message' => 'A részleg sikeresen törölve lett. Minden felhasználó eltávolításra került a részlegből.',
+            'message' => __('admin/employees.department_deleted_success'),
             'success' => true
         ]);
 
@@ -1864,8 +1864,8 @@ public function deleteDepartment(Request $request)
         ]);
 
         return response()->json([
-            'message' => 'Hiba történt a részleg törlésekor.',
-            'errors' => ['general' => ['A részleg törlése sikertelen volt.']]
+            'message' => __('admin/employees.department_delete_failed'),
+            'errors' => ['general' => [__('admin/employees.department_deletion_failed')]]
         ], 500);
     }
 }
@@ -2076,7 +2076,7 @@ public function unlockAccount(Request $request)
     if (!$inOrg) {
         return response()->json([
             'ok' => false,
-            'message' => 'A felhasználó nem tagja az aktuális szervezetnek.',
+            'message' => __('admin/employees.user_not_org_member'),
         ], 403);
     }
 
@@ -2094,7 +2094,7 @@ public function unlockAccount(Request $request)
 
         return response()->json([
             'ok' => true,
-            'message' => 'Fiók feloldva. A felhasználó most már be tud jelentkezni.',
+            'message' => __('admin/employees.account_unlocked'),
             'deleted_records' => $deletedRecords,
         ]);
 
@@ -2108,7 +2108,7 @@ public function unlockAccount(Request $request)
 
         return response()->json([
             'ok' => false,
-            'message' => 'Sikertelen művelet: szerverhiba!',
+            'message' => __('admin/employees.operation_failed_server_error'),
         ], 500);
     }
 }

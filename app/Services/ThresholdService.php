@@ -67,7 +67,7 @@ class ThresholdService
         foreach (['normal_level_up','normal_level_down','monthly_level_down'] as $k) {
             if (!isset($cfg[$k]) || $cfg[$k] === '') {
                 throw ValidationException::withMessages([
-                    'config' => "FIXED: hiányzik a(z) {$k} beállítás.",
+                    'config' => __('assessment.fixed-config-missing', ['key' => $k]),
                 ]);
             }
         }
@@ -77,7 +77,7 @@ class ThresholdService
 
         if (!($up > $down)) {
             throw ValidationException::withMessages([
-                'config' => 'FIXED: normal_level_up <= normal_level_down.',
+                'config' => __('assessment.fixed-up-lte-down'),
             ]);
         }
 
@@ -94,7 +94,7 @@ class ThresholdService
         foreach (['threshold_min_abs_up','threshold_top_pct','threshold_gap_min','monthly_level_down'] as $k) {
             if (!isset($cfg[$k]) || $cfg[$k] === '') {
                 throw ValidationException::withMessages([
-                    'config' => "HYBRID: hiányzik a(z) {$k} beállítás.",
+                    'config' => __('assessment.hybrid-config-missing', ['key' => $k]),
                 ]);
             }
         }
@@ -106,7 +106,7 @@ class ThresholdService
 
         if ($topPct <= 0.0 || $topPct >= 100.0) {
             throw ValidationException::withMessages([
-                'config' => 'HYBRID: threshold_top_pct érvénytelen.',
+                'config' => __('assessment.hybrid-top-pct-invalid'),
             ]);
         }
 
@@ -118,7 +118,7 @@ class ThresholdService
         if (!($up > $down)) {
             // elvileg gap miatt mindig > lesz; ha nem, hiba
             throw ValidationException::withMessages([
-                'thresholds' => 'HYBRID: upper <= lower küszöb ütközés.',
+                'thresholds' => __('assessment.hybrid-threshold-collision'),
             ]);
         }
 
@@ -137,7 +137,7 @@ class ThresholdService
         foreach (['threshold_top_pct','threshold_bottom_pct','monthly_level_down'] as $k) {
             if (!isset($cfg[$k]) || $cfg[$k] === '') {
                 throw ValidationException::withMessages([
-                    'config' => "DYNAMIC: hiányzik a(z) {$k} beállítás.",
+                    'config' => __('assessment.dynamic-config-missing', ['key' => $k]),
                 ]);
             }
         }
@@ -148,17 +148,17 @@ class ThresholdService
 
         if ($topPct <= 0.0 || $topPct >= 100.0) {
             throw ValidationException::withMessages([
-                'config' => 'DYNAMIC: threshold_top_pct érvénytelen.',
+                'config' => __('assessment.dynamic-top-pct-invalid'),
             ]);
         }
         if ($bottomPct <= 0.0 || $bottomPct >= 100.0) {
             throw ValidationException::withMessages([
-                'config' => 'DYNAMIC: threshold_bottom_pct érvénytelen.',
+                'config' => __('assessment.dynamic-bottom-pct-invalid'),
             ]);
         }
         if (($topPct + $bottomPct) >= 100.0) {
             throw ValidationException::withMessages([
-                'config' => 'DYNAMIC: top+bottom százalék >= 100%.',
+                'config' => __('assessment.dynamic-pct-sum-invalid'),
             ]);
         }
 
@@ -168,7 +168,7 @@ class ThresholdService
         if (!($up > $down)) {
             // a te pontosításod szerint ez nem fordulhat elő; ha mégis, ne zárjunk
             throw ValidationException::withMessages([
-                'thresholds' => 'DYNAMIC: upper <= lower (nem megengedett).',
+                'thresholds' => __('assessment.dynamic-threshold-collision'),
             ]);
         }
 
@@ -188,7 +188,7 @@ class ThresholdService
 
         if ($up < 0 || $down < 0) {
             throw ValidationException::withMessages([
-                'ai' => 'SUGGESTED: AI küszöb értéktelen.',
+                'ai' => __('assessment.suggested-invalid-threshold'),
             ]);
         }
 
@@ -199,14 +199,14 @@ class ThresholdService
             $absMinUp = (int)$absMinUp;
             if ($up < $absMinUp) {
                 throw ValidationException::withMessages([
-                    'ai' => "SUGGESTED: az AI up ({$up}) kisebb, mint a kötelező minimum ({$absMinUp}).",
+                    'ai' => __('assessment.suggested-below-minimum', ['up' => $up, 'min' => $absMinUp]),
                 ]);
             }
         }
 
         if (!($up > $down)) {
             throw ValidationException::withMessages([
-                'ai' => 'SUGGESTED: upper <= lower küszöb (érvénytelen AI javaslat).',
+                'ai' => __('assessment.suggested-threshold-collision'),
             ]);
         }
 

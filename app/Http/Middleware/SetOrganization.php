@@ -124,7 +124,7 @@ class SetOrganization
                     
                     return redirect()
                         ->route('org.select')
-                        ->with('error', 'Nincs jogosultságod ehhez a szervezethez. Kérjük, válassz egy másikat.');
+                        ->with('error', __('auth.unauthorized-org'));
                 }
                 
                 // User has valid access to this org

@@ -104,12 +104,12 @@ class AdminPaymentController extends Controller
             $payment = \DB::table('payments')->where('id', $request->payment_id)->lockForUpdate()->first();
             if (!$payment) {
                 \DB::rollBack();
-                return response()->json(['success' => false, 'message' => 'Fizetési tétel nem található.'], 404);
+                return response()->json(['success' => false, 'message' => __('payment.payment_not_found')], 404);
             }
 
             if ($payment->status === 'paid') {
                 \DB::rollBack();
-                return response()->json(['success' => false, 'message' => 'Ez a tétel már rendezett.'], 422);
+                return response()->json(['success' => false, 'message' => __('payment.already_settled')], 422);
             }
 
             // ✅ NEW: Check Barion API if there's an existing barion_payment_id
@@ -143,7 +143,7 @@ class AdminPaymentController extends Controller
                         return response()->json([
                             'success' => true,
                             'status' => 'already_paid',
-                            'message' => 'Ez a fizetés már sikeresen teljesítve lett. Az oldal frissül...',
+                            'message' => __('payment.already_paid_reload'),
                             'should_reload' => true,
                         ]);
                     }
@@ -153,7 +153,7 @@ class AdminPaymentController extends Controller
                         \DB::rollBack();
                         return response()->json([
                             'success' => false,
-                            'message' => 'Ehhez a tételhez már folyamatban van egy fizetés a Barion rendszerében. Kérlek, használd a visszatérési oldalt vagy várj néhány percet.'
+                            'message' => __('payment.payment_in_progress')
                         ], 409);
                     }
                     
@@ -189,7 +189,7 @@ class AdminPaymentController extends Controller
                     \DB::rollBack();
                     return response()->json([
                         'success' => false,
-                        'message' => 'Nem sikerült ellenőrizni a fizetés státuszát. Kérlek, próbáld újra vagy használd a frissítés gombot.'
+                        'message' => __('payment.status_check_failed')
                     ], 500);
                 }
             }
@@ -201,7 +201,7 @@ class AdminPaymentController extends Controller
             
             if ($grossAmount < 1) {
                 \DB::rollBack();
-                return response()->json(['success' => false, 'message' => 'Érvénytelen összeg.'], 422);
+                return response()->json(['success' => false, 'message' => __('payment.invalid_amount')], 422);
             }
 
             // Calculate quantity and unit price
@@ -249,7 +249,7 @@ class AdminPaymentController extends Controller
                     'payment_id' => $payment->id,
                     'response'   => $started,
                 ]);
-                return response()->json(['success' => false, 'message' => 'Barion fizetés sikertelen (hiányzó PaymentId).'], 500);
+                return response()->json(['success' => false, 'message' => __('payment.barion_failed_missing_id')], 500);
             }
 
             \DB::table('payments')->where('id', $payment->id)->update([
@@ -272,7 +272,7 @@ class AdminPaymentController extends Controller
                 'status'     => $e->response ? $e->response->status() : 'N/A',
                 'body'       => $body,
             ]);
-            return response()->json(['success' => false, 'message' => 'Barion kapcsolati hiba.'], 500);
+            return response()->json(['success' => false, 'message' => __('payment.barion_connection_error')], 500);
         } catch (\Throwable $e) {
             \DB::rollBack();
             \Log::error('barion.start.throwable', [
@@ -280,7 +280,7 @@ class AdminPaymentController extends Controller
                 'msg'        => $e->getMessage(),
                 'trace'      => $e->getTraceAsString(),
             ]);
-            return response()->json(['success' => false, 'message' => 'Ismeretlen hiba történt.'], 500);
+            return response()->json(['success' => false, 'message' => __('payment.unknown_error')], 500);
         }
     }
 
@@ -288,12 +288,12 @@ class AdminPaymentController extends Controller
     {
         $barionId = $request->input('barion_payment_id');
         if (!$barionId) {
-            return response()->json(['success' => false, 'message' => 'Hiányzó barion_payment_id'], 400);
+            return response()->json(['success' => false, 'message' => __('payment.missing_barion_id')], 400);
         }
 
         $payment = \DB::table('payments')->where('barion_payment_id', $barionId)->first();
         if (!$payment) {
-            return response()->json(['success' => false, 'message' => 'Fizetés nem található'], 404);
+            return response()->json(['success' => false, 'message' => __('payment.payment_not_found_short')], 404);
         }
 
         if ($payment->status === 'paid') {
@@ -354,11 +354,11 @@ class AdminPaymentController extends Controller
             ->first();
 
         if (!$p) {
-            abort(404, 'Számla nem található.');
+            abort(404, __('payment.invoice_not_found'));
         }
 
         if (empty($p->billingo_document_id)) {
-            abort(404, 'Számla még nem lett kiállítva.');
+            abort(404, __('payment.invoice_not_issued'));
         }
 
         try {
@@ -369,7 +369,7 @@ class AdminPaymentController extends Controller
                 ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
         } catch (\Illuminate\Http\Client\RequestException $e) {
             if ($e->response && $e->response->status() === 429) {
-                abort(429, 'Túl sok kérés. Kérjük, próbálja újra pár perc múlva.');
+                abort(429, __('payment.too_many_requests'));
             }
 
             \Log::error('invoice.download.error', [
@@ -377,7 +377,7 @@ class AdminPaymentController extends Controller
                 'document_id' => $p->billingo_document_id,
                 'error'       => $e->getMessage(),
             ]);
-            abort(500, 'Hiba történt a számla letöltése közben. Kérjük, próbálja újra később.');
+            abort(500, __('payment.invoice_download_error'));
         } catch (\Throwable $e) {
             \Log::error('invoice.download.exception', [
                 'payment_id'  => $id,
@@ -385,7 +385,7 @@ class AdminPaymentController extends Controller
                 'error'       => $e->getMessage(),
                 'trace'       => $e->getTraceAsString(),
             ]);
-            abort(500, 'Hiba történt a számla letöltése közben.');
+            abort(500, __('payment.invoice_download_error_short'));
         }
     }
 

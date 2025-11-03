@@ -387,4 +387,73 @@ return [
 'bidirectional-update-to' => 'új',
 'proceed-with-updates' => 'Folytatás a mentéssel',
 'cancel-updates' => 'Mégse',
+
+
+// UserImportService - Validation Errors
+    'import-name-required' => 'A név megadása kötelező.',
+    'import-email-required' => 'Az email cím megadása kötelező.',
+    'import-type-required' => 'A felhasználó típusának megadása kötelező.',
+    'import-email-invalid' => 'Érvénytelen email formátum.',
+    'import-email-exists' => 'Ez az email cím már létezik a rendszerben.',
+    'import-email-duplicate' => 'Ez az email cím többször szerepel a fájlban.',
+    'import-type-invalid' => 'A típus csak employee, manager vagy ceo lehet.',
+    'import-admin-blocked' => 'Admin vagy owner felhasználók nem importálhatók tömeges importtal.',
+    'import-wage-numeric' => 'A fizetés csak szám lehet.',
+    'import-wage-negative' => 'A fizetés nem lehet negatív.',
+    'import-currency-invalid' => 'A pénznem 3 betűs kód kell legyen (pl. HUF, EUR, USD).',
+    
+    // UserImportService - Warnings
+    'import-dept-will-create' => 'A(z) ":dept" részleg létrehozásra kerül.',
+    'import-manager-assigned' => 'Vezetőként lesz hozzárendelve a(z) ":dept" részleghez.',
+    'import-employee-assigned' => 'Hozzárendelésre kerül a(z) ":dept" részleghez.',
+    'import-manager-no-dept' => 'Vezető részleg nélkül (nem hozzárendelt).',
+    'import-ceo-dept-ignored' => 'A részleg figyelmen kívül hagyva CEO típusnál.',
+
+   // Organization
+    'no_organization_selected' => 'Nincs kiválasztott szervezet.',
+    
+    // User management
+    'user_not_found' => 'A felhasználó nem található.',
+    'email_belongs_to_other_org' => 'Ez az e-mail cím már egy másik szervezethez tartozik!',
+    'cannot_create_admins' => 'Can not make new admins. Contact us.',
+    'manager_role_cannot_change' => 'A felhasználó menedzser és részleghez van rendelve; a szerepkör nem módosítható.',
+    'employee_role_cannot_change' => 'Ez a dolgozó már tagja egy részlegnek, ezért a szerepkör nem módosítható.',
+    'operation_failed_server_error' => 'Sikertelen művelet: szerverhiba!',
+    'user_created_but_email_failed' => 'A felhasználó létrejött, de a jelszó-beállító e-mail küldése nem sikerült. Ellenőrizd a mail beállításokat.',
+    'user_not_org_member' => 'A felhasználó nem tagja az aktuális szervezetnek.',
+    'user_does_not_belong' => 'User does not belong to your organization',
+    
+    // Password reset
+    'password_reset_link_sent' => 'Jelszó-visszaállító link elküldve a felhasználónak.',
+    
+    // Relations
+    'cannot_save_relations_conflicts' => 'Cannot save relations due to conflicts.',
+    'relations_saved_successfully' => 'Relations saved successfully',
+    'failed_to_save_relations' => 'Failed to save relations: :error',
+    
+    // Competencies
+    'invalid_competency' => 'Érvénytelen kompetencia az aktuális szervezethez.',
+    'competencies_saved' => 'Sikeres mentés.',
+    'competencies_save_failed' => 'Sikertelen mentés: belső hiba!',
+    
+    // Departments
+    'multi_level_disabled' => 'A többszintű részlegkezelés nincs bekapcsolva.',
+    'manager_not_found_or_invalid' => 'Manager ID :id nem található vagy nem manager szerepkörű.',
+    'manager_type_invalid' => 'Manager ID :id nem található vagy nem manager típusú.',
+    'manager_already_managing' => 'A vezető (:name) már egy másik részleget vezet.',
+    'department_created' => 'Részleg létrehozva.',
+    'department_create_failed' => 'Hiba történt a részleg létrehozásakor.',
+    'department_not_found' => 'A részleg nem található (vagy már inaktiválva lett).',
+    'department_updated' => 'Részleg frissítve.',
+    'department_update_failed' => 'Hiba történt a részleg frissítésekor.',
+    'department_not_in_org' => 'A részleg nem található az aktuális szervezetben.',
+    'department_members_updated' => 'Részleg tagjai frissítve.',
+    'invalid_users' => 'Érvénytelen felhasználó az aktuális szervezethez.',
+    'department_not_found_or_wrong_org' => 'A részleg nem található vagy nem a szervezetedhez tartozik.',
+    'department_deleted_success' => 'A részleg sikeresen törölve lett. Minden felhasználó eltávolításra került a részlegből.',
+    'department_delete_failed' => 'Hiba történt a részleg törlésekor.',
+    'department_deletion_failed' => 'A részleg törlése sikertelen volt.',
+    
+    // Account unlock
+    'account_unlocked' => 'Fiók feloldva. A felhasználó most már be tud jelentkezni.',
 ];

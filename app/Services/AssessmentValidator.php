@@ -47,7 +47,7 @@ class AssessmentValidator
         
         if ($userCount < $minUsers) {
             throw ValidationException::withMessages([
-                'users' => "Legalább {$minUsers} aktív felhasználó szükséges az értékelés indításához. Jelenleg: {$userCount} fő."
+                'users' => __('assessment.min-users-required', ['min' => $minUsers, 'count' => $userCount])
             ]);
         }
     }
@@ -92,12 +92,12 @@ class AssessmentValidator
             $remaining = count($usersWithoutCompetencies) - 5;
             
             if ($remaining > 0) {
-                $userList .= " (és még {$remaining} fő)";
+                $userList .= ' ' . __('assessment.and-more', ['count' => $remaining]);
             }
+
             
             throw ValidationException::withMessages([
-                'competencies' => "A következő felhasználókhoz nincsenek kompetenciák rendelve: {$userList}. " .
-                                  "Minden felhasználónak legalább 1 kompetenciával kell rendelkeznie."
+                'competencies' => __('assessment.no-competencies', ['users' => $userList])
             ]);
         }
     }
@@ -143,12 +143,11 @@ class AssessmentValidator
             $remaining = count($usersWithoutRelations) - 5;
             
             if ($remaining > 0) {
-                $userList .= " (és még {$remaining} fő)";
+                $userList .= ' ' . __('assessment.and-more', ['count' => $remaining]);
             }
-            
+
             throw ValidationException::withMessages([
-                'relations' => "A következő felhasználóknak nincsenek kapcsolatok definiálva: {$userList}. " .
-                               "Minden felhasználónak legalább 1 kolléga vagy beosztott kapcsolattal kell rendelkeznie."
+                'relations' => __('assessment.no-relations', ['users' => $userList])
             ]);
         }
     }
@@ -194,14 +193,14 @@ class AssessmentValidator
         
         if (!$assessment) {
             throw ValidationException::withMessages([
-                'assessment' => 'Az értékelés nem található.'
+                'assessment' => __('assessment.not-found')
             ]);
         }
         
         $snapshot = json_decode($assessment->org_snapshot, true);
         if (!$snapshot) {
             throw ValidationException::withMessages([
-                'snapshot' => 'Nincs snapshot az értékeléshez.'
+                'snapshot' => __('assessment.no-snapshot')
             ]);
         }
         
@@ -246,12 +245,11 @@ class AssessmentValidator
             $remaining = count($usersWithoutSelf) - 10;
             
             if ($remaining > 0) {
-                $userList .= " (és még {$remaining} fő)";
+                $userList .= ' ' . __('assessment.and-more', ['count' => $remaining]);
             }
-            
+
             throw ValidationException::withMessages([
-                'self_evaluation' => "A következő felhasználók nem töltötték ki az önértékelést: {$userList}. " .
-                                    "Minden felhasználónak kötelező az önértékelés."
+                'self_evaluation' => __('assessment.no-self-evaluation', ['users' => $userList])
             ]);
         }
     }
@@ -269,7 +267,7 @@ class AssessmentValidator
         
         if (!$snapshot) {
             throw ValidationException::withMessages([
-                'snapshot' => 'Nincs snapshot az értékeléshez.'
+                'snapshot' => __('assessment.no-snapshot')
             ]);
         }
         
@@ -314,12 +312,11 @@ class AssessmentValidator
             $remaining = count($usersWithoutCeoRank) - 10;
             
             if ($remaining > 0) {
-                $userList .= " (és még {$remaining} fő)";
+                $userList .= ' ' . __('assessment.and-more', ['count' => $remaining]);
             }
-            
+
             throw ValidationException::withMessages([
-                'ceo_rank' => "A következő felhasználókat nem rangsorolta egyetlen CEO sem: {$userList}. " .
-                             "Minden nem-CEO felhasználót kötelező rangsorolni."
+                'ceo_rank' => __('assessment.no-ceo-rank', ['users' => $userList])
             ]);
         }
     }
@@ -337,7 +334,7 @@ class AssessmentValidator
         
         if (!$snapshot) {
             throw ValidationException::withMessages([
-                'snapshot' => 'Nincs snapshot az értékeléshez.'
+                'snapshot' => __('assessment.no-snapshot')
             ]);
         }
         
@@ -381,12 +378,11 @@ class AssessmentValidator
             $remaining = count($ceosWithoutFeedback) - 10;
             
             if ($remaining > 0) {
-                $userList .= " (és még {$remaining} fő)";
+                $userList .= ' ' . __('assessment.and-more', ['count' => $remaining]);
             }
-            
+
             throw ValidationException::withMessages([
-                'ceo_feedback' => "A következő CEO-k nem kaptak visszajelzést a beosztottaiktól: {$userList}. " .
-                                 "Minden CEO-t kötelező értékelni a beosztottjainak (felettesi viszony)."
+                'ceo_feedback' => __('assessment.ceo-no-feedback', ['users' => $userList])
             ]);
         }
     }
@@ -406,7 +402,7 @@ class AssessmentValidator
         
         if (!$snapshot) {
             throw ValidationException::withMessages([
-                'snapshot' => 'Nincs snapshot az értékeléshez.'
+                'snapshot' => __('assessment.no-snapshot')
             ]);
         }
         
@@ -450,12 +446,11 @@ class AssessmentValidator
             $remaining = count($usersWithoutExternal) - 10;
             
             if ($remaining > 0) {
-                $userList .= " (és még {$remaining} fő)";
+                $userList .= ' ' . __('assessment.and-more', ['count' => $remaining]);
             }
-            
+
             throw ValidationException::withMessages([
-                'external_feedback' => "A következő felhasználók nem kaptak külső értékelést: {$userList}. " .
-                                      "Minden felhasználót kötelező értékelni legalább egy másik felhasználónak."
+                'external_feedback' => __('assessment.no-external-feedback', ['users' => $userList])
             ]);
         }
     }

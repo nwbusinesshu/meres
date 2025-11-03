@@ -23,7 +23,7 @@ class SnapshotService
         ->first();
 
     if (!$org) {
-        throw new \RuntimeException("Organization not found: {$orgId}");
+        throw new \RuntimeException(__('assessment.org-not-found', ['org_id' => $orgId]));
     }
 
     // --- Config (kulcs -> érték) + típus-casting ---
@@ -249,11 +249,10 @@ foreach ($bonusMalusRows as $bm) {
     $locale = app()->getLocale() ?? config('app.locale') ?? 'hu';
 
     if (empty($usersPayload)) {
-            throw new \RuntimeException("Nincsenek aktív felhasználók a szervezetben (org_id: {$orgId})");
-    }
+            throw new \RuntimeException(__('assessment.no-active-users', ['org_id' => $orgId]));
         
         if (empty($relations)) {
-            throw new \RuntimeException("Nincsenek definiált kapcsolatok a szervezetben (org_id: {$orgId})");
+            throw new \RuntimeException(__('assessment.no-relations-defined', ['org_id' => $orgId]));
     }
 
     return [

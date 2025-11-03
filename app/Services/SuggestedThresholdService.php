@@ -99,7 +99,7 @@ class SuggestedThresholdService
         // ✅ NEW: Better validation
         if (!$apiKey) {
             \Log::error('AI call aborted: OPENAI_API_KEY not configured');
-            throw new \RuntimeException('OpenAI API kulcs nincs konfigurálva. Ellenőrizze a .env fájlt (OPENAI_API_KEY).');
+            throw new \RuntimeException(__('assessment.ai-key-missing'));
         }
 
         $client = new Client([
@@ -202,7 +202,8 @@ class SuggestedThresholdService
                 'error' => $e->getMessage(),
                 'url' => 'https://api.openai.com/v1/chat/completions',
             ]);
-            throw new \RuntimeException('OpenAI API kapcsolódási hiba: A szerver nem érhető el. Ellenőrizze az internet kapcsolatot.', 0, $e);
+            throw new \RuntimeException(__('assessment.ai-connection-failed'), 0, $e);
+
             
         } catch (\GuzzleHttp\Exception\RequestException $e) {
             $statusCode = $e->hasResponse() ? $e->getResponse()->getStatusCode() : 0;
@@ -215,13 +216,13 @@ class SuggestedThresholdService
             ]);
             
             if ($statusCode === 401) {
-                throw new \RuntimeException('OpenAI API hitelesítési hiba: Érvénytelen API kulcs (OPENAI_API_KEY).', 0, $e);
+                tthrow new \RuntimeException(__('assessment.ai-auth-failed'), 0, $e);
             } elseif ($statusCode === 429) {
-                throw new \RuntimeException('OpenAI API limit túllépés: Túl sok kérés. Próbálja meg 1-2 perc múlva.', 0, $e);
+                throw new \RuntimeException(__('assessment.ai-rate-limit'), 0, $e);
             } elseif ($statusCode >= 500) {
-                throw new \RuntimeException('OpenAI API szerver hiba: A szolgáltatás ideiglenesen nem elérhető.', 0, $e);
+                throw new \RuntimeException(__('assessment.ai-server-error'), 0, $e);
             } else {
-                throw new \RuntimeException('OpenAI API hiba (HTTP ' . $statusCode . '): ' . $e->getMessage(), 0, $e);
+                throw new \RuntimeException(__('assessment.ai-http-error', ['status' => $statusCode, 'message' => $e->getMessage()]), 0, $e);
             }
             
         } catch (GuzzleException $e) {
@@ -229,7 +230,7 @@ class SuggestedThresholdService
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            throw new \RuntimeException('OpenAI API hívás sikertelen: ' . $e->getMessage(), 0, $e);
+            throw new \RuntimeException(__('assessment.ai-call-failed', ['message' => $e->getMessage()]), 0, $e);
         }
     }
 

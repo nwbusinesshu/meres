@@ -36,4 +36,19 @@ return [
     // Help center
     'help_center' => 'Súgóközpont',
     'help' => 'Súgó',
+
+    // User not found
+'user_not_in_database' => 'Nincs ilyen felhasználó az adatbázisban.',
+
+// 2FA verification
+'verification_code_send_error' => 'Hiba történt az ellenőrző kód küldése közben. Kérjük, próbáld újra.',
+'verification_code_sent' => 'Ellenőrző kódot küldtünk a :email címre. A kód 10 percig érvényes.',
+'verification_code_resent' => 'Új ellenőrző kódot küldtünk a :email címre.',
+'no_pending_login' => 'Nincs folyamatban lévő belépés. Kérjük, próbáld újra.',
+'invalid_or_expired_code' => 'Hibás vagy lejárt ellenőrző kód.',
+'user_account_not_active' => 'A felhasználói fiók nem aktív.',
+
+// Login errors
+'invalid_credentials' => 'Hibás email/jelszó, vagy ehhez a fiókhoz még nincs jelszó beállítva.',
+'invalid_credentials_attempts_remaining' => 'Hibás email/jelszó. :remaining próbálkozás maradt.',
 ];

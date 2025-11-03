@@ -111,7 +111,7 @@ class AdminSettingsController extends Controller
             if (!$showBonusMalus) {
                 return response()->json([
                     'ok' => false,
-                    'error' => 'A Bonus/Malus megjelenítés ki van kapcsolva.'
+                    'error' => __('admin/settings.bonus_malus_disabled')
                 ], 422);
             }
             
@@ -134,7 +134,7 @@ class AdminSettingsController extends Controller
             if (!$showBonusMalus || !$enableBonusCalculation) {
                 return response()->json([
                     'ok' => false,
-                    'error' => 'A szülő beállítások (Bonus/Malus megjelenítés és Bónusz számítás) ki vannak kapcsolva.'
+                    'error' => __('admin/settings.parent_settings_disabled')
                 ], 422);
             }
             
@@ -171,7 +171,7 @@ class AdminSettingsController extends Controller
                 if ($strict) {
                     return response()->json([
                         'ok' => false,
-                        'error' => 'A Szigorú anonimizálás be van kapcsolva, így az AI telemetria nem engedélyezhető.'
+                        'error' => __('admin/settings.strict_anon_blocks_ai')
                     ], 422);
                 }
             }
@@ -190,7 +190,7 @@ class AdminSettingsController extends Controller
 
         return response()->json([
             'ok' => false,
-            'error' => 'Ismeretlen beállítás.'
+            'error' => __('admin/settings.unknown_setting')
         ], 400);
     }
 
@@ -258,7 +258,7 @@ class AdminSettingsController extends Controller
         $no_forced_demotion = $request->boolean('no_forced_demotion_if_high_cohesion');
             OrgConfigService::setBool($orgId, 'no_forced_demotion_if_high_cohesion', $no_forced_demotion);
 
-        return redirect()->route('admin.settings.index')->with('success', 'Beállítások elmentve!');
+        return redirect()->route('admin.settings.index')->with('success', __('admin/settings.settings_saved'));
     }
 
     /**
@@ -295,7 +295,7 @@ public function apiKeyGenerate(Request $request)
     if (!ApiKeyService::isValidKeyName($name)) {
         return response()->json([
             'success' => false,
-            'message' => 'Az API kulcs neve csak betűket, számokat, szóközöket, kötőjeleket és aláhúzásjeleket tartalmazhat.'
+            'message' => __('admin/settings.api_key_name_invalid')
         ], 400);
     }
     
@@ -312,7 +312,7 @@ public function apiKeyGenerate(Request $request)
     if ($existingKeys > 0) {
         return response()->json([
             'success' => false,
-            'message' => 'Már létezik aktív API kulcs. Először vissza kell vonni a meglévőt.'
+            'message' => __('admin/settings.api_key_already_exists')
         ], 400);
     }
     
@@ -322,13 +322,13 @@ public function apiKeyGenerate(Request $request)
         
         return response()->json([
             'success' => true,
-            'message' => 'API kulcs sikeresen létrehozva!',
+            'message' => __('admin/settings.api_key_created'),
             'key' => $keyData
         ]);
     } catch (\Exception $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Hiba történt az API kulcs létrehozása során: ' . $e->getMessage()
+            'message' => __('admin/settings.api_key_creation_failed', ['error' => $e->getMessage()])
         ], 500);
     }
 }
@@ -356,14 +356,14 @@ public function apiKeyRevoke(Request $request)
     if (!$key) {
         return response()->json([
             'success' => false,
-            'message' => 'Az API kulcs nem található.'
+            'message' => __('admin/settings.api_key_not_found')
         ], 404);
     }
     
     if ($key->revoked_at) {
         return response()->json([
             'success' => false,
-            'message' => 'Az API kulcs már vissza lett vonva.'
+            'message' => __('admin/settings.api_key_already_revoked')
         ], 400);
     }
     
@@ -373,18 +373,18 @@ public function apiKeyRevoke(Request $request)
         if ($result) {
             return response()->json([
                 'success' => true,
-                'message' => 'API kulcs sikeresen visszavonva!'
+                'message' => __('admin/settings.api_key_revoked')
             ]);
         } else {
             return response()->json([
                 'success' => false,
-                'message' => 'Nem sikerült visszavonni az API kulcsot.'
+                'message' => __('admin/settings.api_key_revoke_failed')
             ], 500);
         }
     } catch (\Exception $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Hiba történt az API kulcs visszavonása során: ' . $e->getMessage()
+            'message' => __('admin/settings.api_key_revoke_error', ['error' => $e->getMessage()])
         ], 500);
     }
 }

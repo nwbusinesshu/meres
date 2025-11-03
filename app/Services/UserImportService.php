@@ -82,31 +82,31 @@ class UserImportService
             
             // 1. Required fields
             if (empty($name)) {
-                $errors[] = 'Name is required';
+                $errors[] = __('admin/employees.import-name-required');
             }
             
             if (empty($email)) {
-                $errors[] = 'Email is required';
+                $errors[] = __('admin/employees.import-email-required');
             }
             
             if (empty($type)) {
-                $errors[] = 'Type is required';
+                $errors[] = __('admin/employees.import-type-required');
             }
             
             // 2. Email format
             if (!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $errors[] = 'Invalid email format';
+                $errors[] = __('admin/employees.import-email-invalid');
             }
             
             // 3. Email uniqueness (existing in DB)
             if (!empty($email) && in_array($email, $existingEmails)) {
-                $errors[] = 'Email already exists in system';
+                $errors[] = __('admin/employees.import-email-exists');
             }
             
             // 4. Email uniqueness (within file)
             if (!empty($email)) {
                 if (in_array($email, $emailsInFile)) {
-                    $errors[] = 'Duplicate email in file';
+                    $errors[] = __('admin/employees.import-email-duplicate');
                 } else {
                     $emailsInFile[] = $email;
                 }
@@ -116,27 +116,27 @@ class UserImportService
             // ✅ FIXED: Changed from 'normal' to 'employee'
             if (!empty($type)) {
                 if (!in_array($type, ['employee', 'manager', 'ceo'])) {
-                    $errors[] = 'Type must be: employee, manager, or ceo';
+                    $errors[] = __('admin/employees.import-type-invalid');
                 }
                 
                 // 🔒 SECURITY: Explicitly block admin/owner roles
                 if (in_array($type, ['admin', 'owner'])) {
-                    $errors[] = 'Cannot import admin or owner users via mass import';
+                    $errors[] = __('admin/employees.import-admin-blocked');
                 }
             }
             
             // 6. Wage validation
             if (!empty($row['wage'])) {
                 if (!is_numeric($row['wage'])) {
-                    $errors[] = 'Wage must be numeric';
+                    $errors[] = __('admin/employees.import-wage-numeric');
                 } elseif ((float)$row['wage'] < 0) {
-                    $errors[] = 'Wage cannot be negative';
+                    $errors[] = __('admin/employees.import-wage-negative');
                 }
             }
             
             // 7. Currency validation
             if (!empty($row['currency']) && strlen($row['currency']) !== 3) {
-                $errors[] = 'Currency must be 3 letters (e.g., HUF, EUR, USD)';
+                $errors[] = __('admin/employees.import-currency-invalid');
             }
             
             // 8. Department logic (multi-level only)
@@ -145,22 +145,22 @@ class UserImportService
                 
                 if (!in_array($deptLower, $existingDepartments) && !in_array($deptLower, $newDepartments)) {
                     $newDepartments[] = $deptLower;
-                    $warnings[] = "Department '{$deptName}' will be created";
+                    $warnings[] = __('admin/employees.import-dept-will-create', ['dept' => $deptName]);
                 }
                 
                 // Manager + Department = becomes dept manager
                 if ($type === 'manager') {
-                    $warnings[] = "Will be assigned as manager of '{$deptName}'";
+                    $warnings[] = __('admin/employees.import-manager-assigned', ['dept' => $deptName]);
                 } elseif ($type === 'employee') {  // ✅ FIXED: Changed from 'normal' to 'employee'
-                    $warnings[] = "Will be assigned to department '{$deptName}'";
+                    $warnings[] = __('admin/employees.import-employee-assigned', ['dept' => $deptName]);
                 }
             } elseif ($type === 'manager' && empty($deptName) && $enableMultiLevel) {
-                $warnings[] = "Manager without department (unassigned)";
+                $warnings[] = __('admin/employees.import-manager-no-dept');
             }
             
             // 9. CEO should not have department
             if ($type === 'ceo' && !empty($deptName)) {
-                $warnings[] = "Department ignored for CEO type";
+                $warnings[] = __('admin/employees.import-ceo-dept-ignored');
             }
             
             // Categorize row

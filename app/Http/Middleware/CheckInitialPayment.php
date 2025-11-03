@@ -84,6 +84,6 @@ class CheckInitialPayment
         // Redirect to payments page with a message
         return redirect()
             ->route('admin.payments.index')
-            ->with('warning', 'A próbaidőszak lejárt. Kérjük, rendezze az első fizetést a rendszer használatához.');
+            ->with('warning', __('payment.trial-expired'));
     }
 }

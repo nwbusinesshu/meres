@@ -1,6 +1,27 @@
 <?php
 
 return [
+
+    // Toggle settings errors
+    'bonus_malus_disabled' => 'A Bonus/Malus megjelenítés ki van kapcsolva.',
+    'parent_settings_disabled' => 'A szülő beállítások (Bonus/Malus megjelenítés és Bónusz számítás) ki vannak kapcsolva.',
+    'strict_anon_blocks_ai' => 'A Szigorú anonimizálás be van kapcsolva, így az AI telemetria nem engedélyezhető.',
+    'unknown_setting' => 'Ismeretlen beállítás.',
+    
+    // Save success
+    'settings_saved' => 'Beállítások elmentve!',
+    
+    // API Keys
+    'api_key_name_invalid' => 'Az API kulcs neve csak betűket, számokat, szóközöket, kötőjeleket és aláhúzásjeleket tartalmazhat.',
+    'api_key_already_exists' => 'Már létezik aktív API kulcs. Először vissza kell vonni a meglévőt.',
+    'api_key_created' => 'API kulcs sikeresen létrehozva!',
+    'api_key_creation_failed' => 'Hiba történt az API kulcs létrehozása során: :error',
+    'api_key_not_found' => 'Az API kulcs nem található.',
+    'api_key_already_revoked' => 'Az API kulcs már vissza lett vonva.',
+    'api_key_revoked' => 'API kulcs sikeresen visszavonva!',
+    'api_key_revoke_failed' => 'Nem sikerült visszavonni az API kulcsot.',
+    'api_key_revoke_error' => 'Hiba történt az API kulcs visszavonása során: :error',
+    
     'settings' => [
         // Menü és főcímek
         'menu' => 'Beállítások',

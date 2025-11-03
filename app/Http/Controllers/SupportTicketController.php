@@ -22,7 +22,7 @@ class SupportTicketController extends Controller
         if (!$userId || !$organizationId) {
             return response()->json([
                 'success' => false,
-                'error' => 'User not authenticated'
+                'error' => __('support.user_not_authenticated')
             ], 401);
         }
 
@@ -60,7 +60,7 @@ class SupportTicketController extends Controller
 
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to load tickets'
+                'error' => __('support.failed_to_load_tickets')
             ], 500);
         }
     }
@@ -76,7 +76,7 @@ class SupportTicketController extends Controller
         if (!$userId || !$organizationId) {
             return response()->json([
                 'success' => false,
-                'error' => 'User not authenticated'
+                'error' => __('support.user_not_authenticated')
             ], 401);
         }
 
@@ -118,7 +118,7 @@ class SupportTicketController extends Controller
 
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to load ticket'
+                'error' => __('support.failed_to_load_ticket')
             ], 500);
         }
     }
@@ -140,7 +140,7 @@ class SupportTicketController extends Controller
         if (!$userId || !$organizationId) {
             return response()->json([
                 'success' => false,
-                'error' => 'User not authenticated'
+                'error' => __('support.user_not_authenticated')
             ], 401);
         }
 
@@ -189,7 +189,7 @@ class SupportTicketController extends Controller
 
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to create ticket'
+                'error' => __('support.failed_to_create_ticket')
             ], 500);
         }
     }
@@ -209,7 +209,7 @@ class SupportTicketController extends Controller
         if (!$userId || !$organizationId) {
             return response()->json([
                 'success' => false,
-                'error' => 'User not authenticated'
+                'error' => __('support.user_not_authenticated')
             ], 401);
         }
 
@@ -223,7 +223,7 @@ class SupportTicketController extends Controller
             if ($ticket->isClosed()) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Cannot reply to closed ticket'
+                    'error' => __('support.cannot_reply_to_closed')
                 ], 403);
             }
 
@@ -263,7 +263,7 @@ class SupportTicketController extends Controller
 
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to add reply'
+                'error' => __('support.failed_to_add_reply')
             ], 500);
         }
     }

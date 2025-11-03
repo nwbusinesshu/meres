@@ -17,7 +17,7 @@ class ProfileSettingsController extends Controller
         $user = Auth::user();
         
         if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return response()->json(['error' => __('global.unauthorized')], 401);
         }
         
         // Get current profile pic
@@ -65,7 +65,7 @@ class ProfileSettingsController extends Controller
         $user = Auth::user();
         
         if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return response()->json(['error' => __('global.unauthorized')], 401);
         }
         
         $data = $request->validate([
@@ -80,7 +80,7 @@ class ProfileSettingsController extends Controller
         if ($type === 'monster' && empty($color)) {
             return response()->json([
                 'success' => false,
-                'error' => 'Color is required for monster type'
+                'error' => __('global.color_required_for_monster')
             ], 400);
         }
         
@@ -90,7 +90,7 @@ class ProfileSettingsController extends Controller
         if (!$success) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to update profile picture'
+                'error' => __('global.profile_pic_update_failed')
             ], 500);
         }
         
@@ -104,7 +104,7 @@ class ProfileSettingsController extends Controller
         return response()->json([
             'success' => true,
             'new_avatar_url' => $newAvatarUrl,
-            'message' => 'Profilkép sikeresen frissítve!'
+            'message' => __('global.profile_pic_updated')
         ]);
     }
 
@@ -117,7 +117,7 @@ class ProfileSettingsController extends Controller
         $user = Auth::user();
         
         if (!$user) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return response()->json(['error' => __('global.unauthorized')], 401);
         }
         
         // Check if already acknowledged
@@ -125,7 +125,7 @@ class ProfileSettingsController extends Controller
             return response()->json([
                 'success' => true,
                 'already_acknowledged' => true,
-                'message' => 'Privacy policy already acknowledged'
+                'message' => __('global.privacy_already_acknowledged')
             ]);
         }
         
@@ -136,7 +136,7 @@ class ProfileSettingsController extends Controller
         
         return response()->json([
             'success' => true,
-            'message' => 'Privacy policy acknowledged successfully'
+            'message' => __('global.privacy_acknowledged_success')
         ]);
     }
 }

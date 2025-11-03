@@ -31,7 +31,7 @@ class AdminBonusesController extends Controller
         
         if (!$showBonusMalus || !$enableBonusCalculation) {
             return redirect()->route('admin.home')
-                ->with('error', 'A bónusz funkció nincs engedélyezve. Kapcsold be a Beállításokban.');
+                ->with('error', __('assessment.bonus_feature_disabled'));
         }
 
         // Get selected assessment (from route param or default to latest)

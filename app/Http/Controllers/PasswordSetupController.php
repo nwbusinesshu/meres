@@ -27,14 +27,14 @@ class PasswordSetupController extends Controller
             ->first();
 
         if (!$row) {
-            return redirect()->route('login')->with('error', 'A link/token lejárt vagy nem létezik. Kérelem nem teljesíthető.');
+            return redirect()->route('login')->with('error', __('password-setup.token_expired_or_invalid'));
         }
 
         $user = User::findOrFail($row->user_id);
         $organization = Organization::findOrFail($row->organization_id);
 
         if (!$user || !is_null($user->removed_at)) {
-            return redirect()->route('login')->with('error', 'A felhasználói fiók nem aktív.');
+            return redirect()->route('login')->with('error', __('password-setup.user_account_not_active'));
         }
 
         return view('password-setup', [
@@ -55,7 +55,7 @@ class PasswordSetupController extends Controller
             ->first();
 
         if (!$ps || now()->greaterThan($ps->expires_at)) {
-            return redirect()->route('login')->with('error', 'A jelszó beállító link érvénytelen vagy lejárt.');
+            return redirect()->route('login')->with('error', __('password-setup.link_invalid_or_expired'));
         }
 
         
@@ -66,7 +66,7 @@ class PasswordSetupController extends Controller
         $isFirstLogin = $user->logins()->count() === 0;
 
         if (!$user || !is_null($user->removed_at)) {
-            return redirect()->route('login')->with('error', 'A felhasználói fiók nem aktív.');
+            return redirect()->route('login')->with('error', __('password-setup.user_account_not_active'));
         }
 
         // reCAPTCHA validation
@@ -140,6 +140,6 @@ class PasswordSetupController extends Controller
             // Silent fail - non-critical
         }
 
-        return redirect()->route('home-redirect')->with('success', 'Jelszó beállítva, beléptél a rendszerbe.');
+        return redirect()->route('home-redirect')->with('success', __('password-setup.password_set_success'));
     }
 }

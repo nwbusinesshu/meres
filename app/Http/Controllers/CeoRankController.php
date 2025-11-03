@@ -26,7 +26,7 @@ class CeoRankController extends Controller
     {
         $assessment = AssessmentService::getCurrentAssessment();
         if (!$assessment) {
-            return abort(403, 'Nincs futó mérés.');
+            return abort(403, __('ceorank.no_running_assessment'));
         }
 
         $orgId   = (int) $assessment->organization_id;
@@ -108,7 +108,7 @@ class CeoRankController extends Controller
 
         $payload = $request->input('ranks', []);
         if (!is_array($payload)) {
-            return AjaxService::error('Hibás kérés: ranks nem tömb.');
+            return AjaxService::error(__('ceorank.invalid_request_ranks_not_array'));
         }
 
         // Engedélyezett célfelhasználók meghatározása (biztonsági guard)
@@ -129,12 +129,12 @@ class CeoRankController extends Controller
             $rid = (int) ($row['rankId'] ?? 0);
             $ids = array_map('intval', (array) ($row['employees'] ?? []));
             if (!$rid || !isset($rankRows[$rid])) {
-                return AjaxService::error("Ismeretlen rang kategória: {$rid}");
+                return AjaxService::error(__('ceorank.unknown_rank_category', ['id' => $rid]));
             }
             // minden id-nek engedélyezettnek kell lennie
             foreach ($ids as $id) {
                 if (!in_array($id, $allowedIds, true)) {
-                    return AjaxService::error("Jogosulatlan felhasználó azonosító: {$id}");
+                    return AjaxService::error(__('ceorank.unauthorized_user_id', ['id' => $id]));
                 }
             }
             $rank = $rankRows[$rid];
@@ -142,10 +142,10 @@ class CeoRankController extends Controller
             $calcMax = is_null($rank->max) ? null : (int) ceil($employeesCount * ($rank->max / 100));
             $count   = count($ids);
             if (!is_null($calcMin) && $count < $calcMin) {
-                $violations[] = "A(z) {$rank->name} kategóriában legalább {$calcMin} fő szükséges.";
+                $violations[] = __('ceorank.rank_minimum_required', ['rank' => $rank->name, 'min' => $calcMin]);
             }
             if (!is_null($calcMax) && $count > $calcMax) {
-                $violations[] = "A(z) {$rank->name} kategóriában legfeljebb {$calcMax} fő engedélyezett.";
+                $violations[] = __('ceorank.rank_maximum_exceeded', ['rank' => $rank->name, 'max' => $calcMax]);
             }
         }
         if (!empty($violations)) {
@@ -192,7 +192,7 @@ class CeoRankController extends Controller
             return $err; // AjaxService::error formátum
         }
 
-        return response()->json(['message' => 'Mentve']);
+        return response()->json(['message' => __('ceorank.saved')]);
     }
 
     /**
@@ -206,7 +206,7 @@ class CeoRankController extends Controller
         // ✅ FIXED: Multi-level OFF - Exclude both CEO and ADMIN roles
         if (!$multiOn) {
             if ($orgRole !== OrgRole::CEO) {
-                abort(403, 'A rangsor oldalhoz nincs jogosultság.');
+                abort(403, __('ceorank.no_access_to_ranking'));
             }
             $userIds = DB::table('organization_user')
                 ->where('organization_id', $orgId)
@@ -265,7 +265,7 @@ class CeoRankController extends Controller
             ->all();
 
         if (empty($deptIds)) {
-            abort(403, 'Nincs hozzárendelt részleg.');
+            abort(403, __('ceorank.no_assigned_department'));
         }
 
         // ✅ FIXED: Exclude CEO, ADMIN, and MANAGER roles from subordinates
@@ -279,7 +279,7 @@ class CeoRankController extends Controller
             ->all();
 
         if (empty($subordinateIds)) {
-            abort(403, 'Nincs beosztott a részlegeidben.');
+            abort(403, __('ceorank.no_subordinates'));
         }
 
         $users = User::whereIn('id', $subordinateIds)

@@ -54,7 +54,7 @@ class AdminAssessmentController extends Controller
 
             if ($unpaidInitialPayment) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'assessment' => ['Értékelési időszak nem indítható a belépési díj rendezése előtt. Kérjük, rendezze a fizetést a Számlázás menüpontban.']
+                    'assessment' => [__('assessment.unpaid_initial_payment')]
                 ]);
             }
         }
@@ -70,8 +70,8 @@ class AdminAssessmentController extends Controller
 
         if (!$orgId) {
             return response()->json([
-                'message' => 'Nincs kiválasztott szervezet.',
-                'errors'  => ['org' => ['Nincs kiválasztott szervezet.']]
+                'message' => __('assessment.no_organization_selected'),
+                'errors'  => ['org' => [__('assessment.no_organization_selected')]]
             ], 422);
         }
 
@@ -101,7 +101,7 @@ class AdminAssessmentController extends Controller
             } catch (ValidationException $e) {
                 // Return validation errors to user
                 return response()->json([
-                    'message' => 'Az értékelés nem indítható el.',
+                    'message' => __('assessment.cannot_start'),
                     'errors'  => $e->errors()
                 ], 422);
             }
@@ -117,7 +117,7 @@ class AdminAssessmentController extends Controller
 
             if ($alreadyRunning && is_null($assessment)) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'assessment' => ['Már van folyamatban értékelési időszak.']
+                    'assessment' => [__('assessment.already_running')]
                 ]);
             }
 
@@ -139,7 +139,7 @@ class AdminAssessmentController extends Controller
                         'trace' => $e->getTraceAsString()
                     ]);
                     throw ValidationException::withMessages([
-                        'snapshot' => 'A snapshot létrehozása sikertelen: ' . $e->getMessage()
+                        'snapshot' => __('assessment.snapshot_creation_failed', ['error' => $e->getMessage()])
                     ]);
                 }
 
@@ -307,7 +307,7 @@ class AdminAssessmentController extends Controller
         
         if ($orgId !== (int) session('org_id')) {
             throw ValidationException::withMessages([
-                'assessment' => 'Nem jogosult szervezet.'
+                'assessment' => __('assessment.not_authorized_organization')
             ]);
         }
 
@@ -326,7 +326,7 @@ class AdminAssessmentController extends Controller
             
             return response()->json([
                 'ok' => false,
-                'message' => 'Az értékelés még nem zárható le.',
+                'message' => __('assessment.cannot_close_yet'),
                 'errors' => $e->errors()
             ], 422);
         }
@@ -338,7 +338,7 @@ class AdminAssessmentController extends Controller
         $method = strtolower((string)$assessment->threshold_method);
         if (!$method || !in_array($method, ['fixed', 'hybrid', 'dynamic', 'suggested'])) {
             throw ValidationException::withMessages([
-                'assessment' => 'Érvénytelen küszöbszámítási módszer: ' . $method
+                'assessment' => __('assessment.invalid_threshold_method', ['method' => $method])
             ]);
         }
 
@@ -347,7 +347,7 @@ class AdminAssessmentController extends Controller
         
         if ($participants->isEmpty()) {
             throw ValidationException::withMessages([
-                'participants' => 'Nincsenek résztvevők az értékelésben.'
+                'participants' => __('assessment.no_participants')
             ]);
         }
 
@@ -382,7 +382,7 @@ class AdminAssessmentController extends Controller
         // Validate we have scores
         if (empty($scores)) {
             throw ValidationException::withMessages([
-                'scores' => 'Nincsenek pontszámok az értékelésben. Nincs mit lezárni.'
+                'scores' => __('assessment.no_scores')
             ]);
         }
 
@@ -401,12 +401,12 @@ class AdminAssessmentController extends Controller
                 $suggestedResult = $ai->callAiForSuggested($payload);
 
                 if (!$suggestedResult) {
-                    throw new \RuntimeException('AI válasz üres.');
+                    throw new \RuntimeException(__('assessment.ai_response_empty'));
                 }
                 
                 if (!isset($suggestedResult['thresholds']['normal_level_up']) ||
                     !isset($suggestedResult['thresholds']['normal_level_down'])) {
-                    throw new \RuntimeException('AI válasz nem tartalmaz küszöbértékeket.');
+                    throw new \RuntimeException(__('assessment.ai_response_missing_thresholds'));
                 }
 
                 // ✅ Use thresholdsFromSuggested
@@ -426,7 +426,7 @@ class AdminAssessmentController extends Controller
                 ]);
                 
                 throw ValidationException::withMessages([
-                    'ai' => 'AI küszöbszámítás sikertelen: ' . $e->getMessage()
+                    'ai' => __('assessment.ai_calculation_failed', ['error' => $e->getMessage()])
                 ]);
             }
         } elseif ($method === 'fixed') {
@@ -587,7 +587,7 @@ class AdminAssessmentController extends Controller
                 Log::error('Failed to save user results to snapshot', [
                     'assessment_id' => $assessment->id,
                 ]);
-                throw new \RuntimeException('Az eredmények mentése a snapshot-ba sikertelen.');
+                throw new \RuntimeException(__('assessment.snapshot_save_failed'));
             }
 
             // 5. Calculate bonuses (if enabled)
@@ -604,7 +604,7 @@ class AdminAssessmentController extends Controller
             // 6. Return success
             return response()->json([
                 'ok' => true,
-                'message' => 'Az értékelés sikeresen lezárva.'
+                'message' => __('assessment.closed_successfully'),
             ]);
         });
     }
@@ -631,7 +631,7 @@ class AdminAssessmentController extends Controller
             ]);
             
             throw ValidationException::withMessages([
-                'json' => "JSON kódolás sikertelen ({$context}): {$errorMsg}"
+                'json' => __('assessment.json_encoding_failed', ['context' => $context, 'error' => $errorMsg])
             ]);
         }
         
@@ -640,14 +640,14 @@ class AdminAssessmentController extends Controller
         
         if ($size === 0) {
             throw ValidationException::withMessages([
-                'json' => "JSON kódolás eredménye üres ({$context})"
+                'json' => __('assessment.json_result_empty', ['context' => $context])
             ]);
         }
         
-        if ($size > 15000000) { // 15MB limit
+        if ($size > 95000000) { // 95MB limit
             $sizeMb = round($size / 1024 / 1024, 2);
             throw ValidationException::withMessages([
-                'json' => "JSON túl nagy ({$context}): {$sizeMb} MB. Maximum 15 MB."
+                'json' => __('assessment.json_too_large', ['context' => $context, 'size' => $sizeMb])
             ]);
         }
         

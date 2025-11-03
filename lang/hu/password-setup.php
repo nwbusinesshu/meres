@@ -45,4 +45,15 @@ return [
     'match_fail' => '✗ A jelszavak nem egyeznek',
     'validation_alert' => 'Kérjük, teljesítsd az összes jelszó követelményt!',
 
+    // Token validation
+    'token_expired_or_invalid' => 'A link/token lejárt vagy nem létezik. Kérelem nem teljesíthető.',
+    'link_invalid_or_expired' => 'A jelszó beállító link érvénytelen vagy lejárt.',
+    
+    // User validation
+    'user_account_not_active' => 'A felhasználói fiók nem aktív.',
+    
+    // Success
+    'password_set_success' => 'Jelszó beállítva, beléptél a rendszerbe.',
+    
+
 ];
