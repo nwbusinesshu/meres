@@ -171,31 +171,23 @@ class PaymentWebhookController extends Controller
 
             if ($status === 'SUCCEEDED') {
                 if ($payment->status !== 'paid') {
+                    // Mark payment as paid and set invoice_status to 'pending'
+                    // Background job (ProcessPendingInvoices) will handle invoice creation
                     DB::table('payments')->where('id', $payment->id)->update([
-                        'status'    => 'paid',
-                        'paid_at'   => now(),
-                        'updated_at'=> now(),
+                        'status'           => 'paid',
+                        'paid_at'          => now(),
+                        'invoice_status'   => 'pending',
+                        'updated_at'       => now(),
                     ]);
 
                     Log::info('webhook.barion.payment_marked_paid', [
                         'payment_id' => $payment->id,
                         'barion_id' => $barionId,
-                        'amount_huf' => $payment->amount_huf,
+                        'gross_amount' => $payment->gross_amount,
+                        'currency' => $payment->currency,
                         'organization_id' => $payment->organization_id,
+                        'invoice_status' => 'pending',
                     ]);
-
-                    $hasDoc = DB::table('payments')->where('id', $payment->id)->value('billingo_document_id');
-                    if (!$hasDoc) {
-                        try {
-                            $this->issueBillingoInvoiceWithRetry((array) $payment, $billingo);
-                        } catch (\Throwable $e) {
-                            Log::error('webhook.billingo.issue_error', [
-                                'payment_id' => $payment->id,
-                                'msg'        => $e->getMessage(),
-                                'trace'      => $e->getTraceAsString(),
-                            ]);
-                        }
-                    }
                 }
             }
             elseif (in_array($status, ['CANCELED', 'EXPIRED', 'FAILED'])) {
@@ -379,135 +371,5 @@ class PaymentWebhookController extends Controller
         // Create signature based on PaymentId and source IP
         // Same payment from same IP within 24h = duplicate
         return hash('sha256', $barionId . '|' . $sourceIp);
-    }
-
-    private function issueBillingoInvoiceWithRetry(array $payment, BillingoService $billingo, int $maxRetries = 3): void
-    {
-        $lastException = null;
-        
-        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
-            try {
-                Log::info('webhook.billingo.invoice.attempt', [
-                    'payment_id' => $payment['id'],
-                    'attempt'    => $attempt,
-                    'max'        => $maxRetries,
-                ]);
-                
-                $this->issueBillingoInvoice($payment, $billingo);
-                
-                Log::info('webhook.billingo.invoice.success', [
-                    'payment_id' => $payment['id'],
-                    'attempt'    => $attempt,
-                ]);
-                
-                return;
-                
-            } catch (\Throwable $e) {
-                $lastException = $e;
-                Log::warning('webhook.billingo.invoice.retry', [
-                    'payment_id' => $payment['id'],
-                    'attempt'    => $attempt,
-                    'error'      => $e->getMessage(),
-                ]);
-                
-                if ($attempt < $maxRetries) {
-                    sleep(pow(2, $attempt));
-                }
-            }
-        }
-        
-        Log::error('webhook.billingo.invoice.all_retries_failed', [
-            'payment_id' => $payment['id'],
-            'attempts'   => $maxRetries,
-            'last_error' => $lastException ? $lastException->getMessage() : 'Unknown',
-        ]);
-        
-        throw $lastException ?? new \Exception('Invoice creation failed after ' . $maxRetries . ' attempts');
-    }
-
-    private function issueBillingoInvoice(array $paymentArr, BillingoService $billingo): void
-    {
-        $orgId = (int) $paymentArr['organization_id'];
-        $payId = (int) $paymentArr['id'];
-
-        $org     = DB::table('organization')->where('id', $orgId)->first();
-        $profile = DB::table('organization_profiles')->where('organization_id', $orgId)->first();
-
-        if (!$org) {
-            throw new \Exception('Organization not found: ' . $orgId);
-        }
-
-        $adminEmail = DB::table('user as u')
-            ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
-            ->where('ou.organization_id', $orgId)
-            ->where('ou.role', 'admin')
-            ->value('u.email');
-
-        Log::info('webhook.billingo.invoice.data', [
-            'org_name'    => $org->name ?? 'N/A',
-            'postal_code' => $profile->postal_code ?? 'missing',
-            'city'        => $profile->city ?? 'missing',
-            'admin_email' => $adminEmail ?? 'missing',
-        ]);
-
-        // Sync partner (create or update)
-        $partnerId = $billingo->syncPartner($orgId, [
-            'name'         => $org->name,
-            'country_code' => $profile->country_code ?? 'HU',
-            'postal_code'  => $profile->postal_code,
-            'city'         => $profile->city,
-            'address'      => trim(($profile->street ?? '') . ' ' . ($profile->house_number ?? '')),
-            'tax_number'   => $profile->tax_number,
-            'emails'       => array_filter([$adminEmail]),
-        ]);
-
-        Log::info('webhook.billingo.partner.resolved', [
-            'payment_id' => $payId,
-            'partner_id' => $partnerId,
-        ]);
-
-        // Get payment data - use gross amount as source of truth
-        $currency = $paymentArr['currency'] ?? 'HUF';
-        $grossAmount = (float) ($paymentArr['gross_amount'] ?? 0);
-        
-        $comment = '360° értékelés';
-        if (!empty($paymentArr['assessment_id'])) {
-            $comment .= ' – mérés #' . $paymentArr['assessment_id'];
-        }
-        $comment .= ' – ' . $org->name;
-
-        // Create invoice with gross amount (BillingoService will back-calculate net)
-        $docId = $billingo->createInvoiceWithAutoVat(
-            partnerId: $partnerId,
-            organizationId: $orgId,
-            currency: $currency,
-            grossAmount: $grossAmount,
-            comment: $comment,
-            paid: true
-        );
-
-        Log::info('webhook.billingo.invoice.created', [
-            'payment_id'  => $payId,
-            'document_id' => $docId,
-        ]);
-
-        $invoiceData = $billingo->getInvoiceWithMetadata($docId);
-
-        Log::info('webhook.billingo.invoice.metadata_fetched', [
-            'payment_id'     => $payId,
-            'invoice_number' => $invoiceData['invoice_number'] ?? null,
-            'public_url'     => $invoiceData['public_url'] ?? null,
-        ]);
-
-        DB::table('payments')->where('id', $payId)->update([
-            'billingo_partner_id'    => $partnerId,
-            'billingo_document_id'   => $docId,
-            'billingo_invoice_number'=> $invoiceData['invoice_number'] ?? null,
-            'billingo_issue_date'    => $invoiceData['issue_date'] ?? $invoiceData['fulfillment_date'] ?? now()->toDateString(),
-            'invoice_pdf_url'        => $invoiceData['public_url'] ?? null,
-            'updated_at'             => now(),
-        ]);
-
-        Log::info('webhook.billingo.invoice.complete', ['payment_id' => $payId]);
     }
 }

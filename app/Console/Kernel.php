@@ -16,11 +16,7 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // Existing monthly user level handling
-        $schedule->call(function () {
-            UserService::handleNewMonthLevels();
-        })->monthly();
-        
+    
         // Clean up old user login records daily at 2 AM
         $schedule->command('user-logins:cleanup --days=30')
             ->dailyAt('02:00')
@@ -54,7 +50,7 @@ class Kernel extends ConsoleKernel
         // Clean up expired login attempts daily
         $schedule->command('login-attempts:cleanup')->daily();
 
-        // ✅ NEW: Retry failed AI telemetry processing every hour
+        //Retry failed AI telemetry processing every hour
         $schedule->command('telemetry:retry-failed --limit=100')
             ->hourly()
             ->withoutOverlapping(10) // Prevent overlapping runs, 10 min expiry
@@ -68,6 +64,17 @@ class Kernel extends ConsoleKernel
         //status check and cleanup schedules
             $schedule->command('status:check')->everyThirtyMinutes();
             $schedule->command('status:check --clean')->dailyAt('03:00');
+
+        // Process pending invoices every 5 minutes
+        $schedule->job(new \App\Jobs\ProcessPendingInvoices())
+            ->everyFiveMinutes()
+            ->withoutOverlapping(10) // Prevent overlapping runs, 10 min expiry
+            ->onSuccess(function () {
+                \Log::info('invoice.job.scheduled.success');
+            })
+            ->onFailure(function () {
+                \Log::error('invoice.job.scheduled.failed');
+            });
 
     }
 

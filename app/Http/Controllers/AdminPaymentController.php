@@ -255,24 +255,21 @@ class AdminPaymentController extends Controller
             \Log::info('barion.refresh.state', ['barion_id' => $barionId, 'status' => $status, 'raw' => $state]);
 
             if ($status === 'SUCCEEDED') {
+                // Mark payment as paid and set invoice_status to 'pending'
+                // Background job (ProcessPendingInvoices) will handle invoice creation
                 \DB::table('payments')->where('id', $payment->id)->update([
-                    'status'    => 'paid',
-                    'paid_at'   => now(),
-                    'updated_at'=> now(),
+                    'status'         => 'paid',
+                    'paid_at'        => now(),
+                    'invoice_status' => 'pending',
+                    'updated_at'     => now(),
                 ]);
-
-                $billId = \DB::table('payments')->where('id', $payment->id)->value('billingo_document_id');
-                if (!$billId) {
-                    try {
-                        $this->issueBillingoInvoiceWithRetry((array) $payment, $billingo);
-                    } catch (\Throwable $e) {
-                        \Log::error('billingo.refresh.error', [
-                            'payment_id' => $payment->id,
-                            'msg'        => $e->getMessage(),
-                            'trace'      => $e->getTraceAsString(),
-                        ]);
-                    }
-                }
+                
+                \Log::info('payment.refresh.marked_paid', [
+                    'payment_id' => $payment->id,
+                    'barion_id' => $barionId,
+                    'invoice_status' => 'pending',
+                ]);
+                
                 return response()->json(['success' => true, 'status' => 'paid']);
             }
 
@@ -364,144 +361,6 @@ class AdminPaymentController extends Controller
             ]);
             abort(500, 'Hiba történt a számla letöltése közben.');
         }
-    }
-
-    private function issueBillingoInvoiceWithRetry(array $payment, \App\Services\BillingoService $billingo)
-    {
-        $maxAttempts = 3;
-        $attempt = 0;
-        $lastException = null;
-
-        while ($attempt < $maxAttempts) {
-            $attempt++;
-            try {
-                \Log::info('billingo.invoice.attempt', [
-                    'payment_id' => $payment['id'],
-                    'attempt' => $attempt,
-                    'max' => $maxAttempts,
-                ]);
-
-                $this->issueBillingoInvoice($payment, $billingo);
-
-                \Log::info('billingo.invoice.success', [
-                    'payment_id' => $payment['id'],
-                    'attempt' => $attempt,
-                ]);
-
-                return;
-
-            } catch (\Throwable $e) {
-                $lastException = $e;
-                \Log::warning('billingo.invoice.retry', [
-                    'payment_id' => $payment['id'],
-                    'attempt' => $attempt,
-                    'error' => $e->getMessage(),
-                ]);
-
-                if ($attempt < $maxAttempts) {
-                    sleep(pow(2, $attempt));
-                }
-            }
-        }
-
-        \Log::error('billingo.invoice.all_retries_failed', [
-            'payment_id' => $payment['id'],
-            'attempts' => $maxAttempts,
-            'last_error' => $lastException ? $lastException->getMessage() : 'Unknown',
-        ]);
-
-        throw $lastException ?? new \Exception('Invoice creation failed after ' . $maxAttempts . ' attempts');
-    }
-
-    private function issueBillingoInvoice(array $payment, \App\Services\BillingoService $billingo)
-    {
-        \Log::info('billingo.invoice.starting', ['payment_id' => $payment['id']]);
-
-        $orgId = $payment['organization_id'] ?? null;
-        if (!$orgId) {
-            throw new \Exception('Hiányzó organization_id a payment táblában.');
-        }
-
-        $org = \DB::table('organization')->where('id', $orgId)->first();
-        if (!$org) {
-            throw new \Exception('Szervezet nem található: ' . $orgId);
-        }
-
-        $profile = \DB::table('organization_profiles')->where('organization_id', $org->id)->first();
-        if (!$profile) {
-            throw new \Exception('Organization profile missing for org: ' . $org->id);
-        }
-
-        // Sync partner (create or update) - this manages the Billingo partner
-        $partnerId = $billingo->syncPartner($org->id, [
-            'name'         => $org->name,
-            'country_code' => $profile->country_code ?? 'HU',
-            'postal_code'  => $profile->postal_code,
-            'city'         => $profile->city,
-            'address'      => trim(($profile->street ?? '') . ' ' . ($profile->house_number ?? '')),
-            'tax_number'   => $profile->tax_number,
-            'emails'       => [$this->getAdminEmail($org->id)],
-        ]);
-
-        \Log::info('billingo.partner.resolved', [
-            'payment_id' => $payment['id'],
-            'partner_id' => $partnerId,
-        ]);
-
-        // Get payment data - use gross amount as source of truth
-        $currency = $payment['currency'] ?? 'HUF';
-        $grossAmount = (float) ($payment['gross_amount'] ?? 0);
-        
-        $comment = '360° értékelés';
-        if (!empty($payment['assessment_id'])) {
-            $comment .= ' – mérés #' . $payment['assessment_id'];
-        }
-        $comment .= ' – ' . $org->name;
-        
-        // Create invoice with gross amount (BillingoService will back-calculate net)
-        $docId = $billingo->createInvoiceWithAutoVat(
-            partnerId: $partnerId,
-            organizationId: $org->id,
-            currency: $currency,
-            grossAmount: $grossAmount,
-            comment: $comment,
-            paid: true
-        );
-
-        \Log::info('billingo.invoice.created', [
-            'payment_id'  => $payment['id'],
-            'document_id' => $docId,
-        ]);
-
-        $invoiceData = $billingo->getInvoiceWithMetadata($docId);
-
-        \Log::info('billingo.invoice.metadata_fetched', [
-            'payment_id'     => $payment['id'],
-            'invoice_number' => $invoiceData['invoice_number'] ?? null,
-            'public_url'     => $invoiceData['public_url'] ?? null,
-        ]);
-
-        \DB::table('payments')->where('id', $payment['id'])->update([
-            'billingo_partner_id'    => $partnerId,
-            'billingo_document_id'   => $docId,
-            'billingo_invoice_number'=> $invoiceData['invoice_number'] ?? null,
-            'billingo_issue_date'    => $invoiceData['issue_date'] ?? $invoiceData['fulfillment_date'] ?? now()->toDateString(),
-            'invoice_pdf_url'        => $invoiceData['public_url'] ?? null,
-            'updated_at'             => now(),
-        ]);
-
-        \Log::info('billingo.invoice.complete', ['payment_id' => $payment['id']]);
-    }
-
-    private function getAdminEmail(int $orgId): string
-    {
-        $email = \DB::table('user as u')
-            ->join('organization_user as ou', 'ou.user_id', '=', 'u.id')
-            ->where('ou.organization_id', $orgId)
-            ->where('ou.role', 'admin')
-            ->value('u.email');
-
-        return $email ?: 'info@example.com';
     }
 
     public function getBillingData(Request $request)
