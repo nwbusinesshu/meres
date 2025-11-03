@@ -1349,7 +1349,7 @@ private function applyBidirectionalRelations($userId, $rows, $organizationId)
             }
         });
         
-        return response()->json(['message' => 'Sikeres mentés.']);
+        return response()->json(['message' => __('admin/employees.competencies_saved_successfully')]);
         
     } catch (\Throwable $e) {
         Log::error('Hiba a kompetencia mentés közben', [
@@ -1360,7 +1360,7 @@ private function applyBidirectionalRelations($userId, $rows, $organizationId)
         ]);
 
         return response()->json([
-            'message' => 'Sikertelen mentés: belső hiba!',
+            'message' => __('admin/employees.competencies_save_failed'),
             'error' => $e->getMessage(),
         ], 500);
     }
@@ -1577,7 +1577,7 @@ public function updateDepartment(Request $request)
         ->first(['id']);
 
     if (!$dept) {
-        return response()->json(['message' => 'A részleg nem található (vagy már inaktiválva lett).'], 404);
+        return response()->json(['message' => __('admin/employees.department_not_found_soft_deleted')], 404);
     }
 
     // Validate all managers
@@ -1592,7 +1592,7 @@ public function updateDepartment(Request $request)
             ->first(['u.id']);
 
         if (!$manager) {
-            return response()->json(['message' => "Manager ID {$managerId} nem található vagy nem manager típusú."], 422);
+            return response()->json(['message' => __('admin/employees.manager_not_found_or_wrong_type', ['id' => $managerId])], 422);
         }
 
         // Check if manager is managing another department (not this one)
@@ -1606,7 +1606,7 @@ public function updateDepartment(Request $request)
 
         if ($alreadyManaging) {
             $managerName = \DB::table('user')->where('id', $managerId)->value('name');
-            return response()->json(['message' => "A vezető ({$managerName}) már egy másik részleget vezet."], 422);
+            return response()->json(['message' => __('admin/employees.manager_already_manages_other_department', ['name' => $managerName])], 422);
         }
     }
 

@@ -60,4 +60,31 @@ return [
     'session_create_failed' => 'A munkamenet létrehozása sikertelen.',
     'session_deleted' => 'A munkamenet sikeresen törölve.',
     'session_delete_failed' => 'A munkamenet törlése sikertelen.',
+
+    // First login welcome messages
+'first-login-welcome' => 'Üdvözlünk a rendszerben, :name! 👋',
+'first-login-intro' => 'Én vagyok a QUARMA360 app fejlett AI súgója. Segíthetek navigálni az alkalmazásban és válaszolok minden kérdésedre. Pontosan ismerem a program használatát és azt is láthatom, amit éppen te. Engem itt, a képernyő bal oldalán a kék súgó gombra nyomva mindig megtalálsz, és a korábbi beszélgetéseinket is meg tudod nézni.',
+
+// Admin role
+'first-login-admin-title' => '📊 Admin funkcióid:',
+'first-login-admin-manage' => '• Munkatársak kezelése',
+'first-login-admin-assessments' => '• Értékelések indítása',
+'first-login-admin-settings' => '• Szervezeti beállítások',
+'first-login-ask-anything' => 'Kérdezz bármit a rendszer használatával kapcsolatban!',
+'first-login-payment-reminder' => 'Első lépésként a regisztrációkor megadott létszámadatok alapján fizetési kötelezettséged keletkezett. Kérlek ezt a fizetések oldalon rendezd, utána tudunk továbbhaladni.',
+
+// Manager role
+'first-login-manager-title' => '👥 Vezető funkcióid:',
+'first-login-manager-evaluate' => '• Csapattagjaid értékelése',
+'first-login-manager-results' => '• Értékelési eredmények megtekintése',
+
+// Employee role
+'first-login-employee-title' => '🎯 Gyakran kérdezett:',
+'first-login-employee-assessment' => '• Hogyan töltsek ki egy értékelést?',
+'first-login-employee-results' => '• Hol találom az eredményeimet?',
+'first-login-employee-settings' => '• Hogyan változtatom a beállításaimat?',
+'first-login-ask-freely' => 'Bátran kérdezz bármit!',
+
+// Implicit greeting
+'first-login-greeting' => 'Üdvözlet',
 ];

@@ -164,4 +164,9 @@ return [
   'users-already-assigned' => 'A következő felhasználók már más csoporthoz vannak rendelve: :users',
   'one-user-per-group-note' => 'Megjegyzés: Egy felhasználó csak egy kompetencia csoporthoz rendelhető hozzá.',
   "no-competencies-available" => "Nincs elérhető kompetencia",
+
+  'error-group-id-not-found' => 'Csoport azonosító nem található. Kérjük, frissítse az oldalt és próbálja újra.',
+'error-invalid-response' => 'Érvénytelen válasz a szervertől. Kérjük, próbálja újra.',
+'error-no-permission-edit-group' => 'Nincs jogosultsága ennek a csoportnak a szerkesztéséhez.',
+'error-invalid-group-id' => 'Érvénytelen csoport azonosító.',
 ];

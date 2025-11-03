@@ -456,4 +456,13 @@ return [
     
     // Account unlock
     'account_unlocked' => 'Fiók feloldva. A felhasználó most már be tud jelentkezni.',
+
+    // Competency management
+'competencies_saved_successfully' => 'Kompetenciák sikeresen elmentve.',
+'competencies_save_failed' => 'Sikertelen mentés: belső hiba!',
+
+// Department management  
+'department_not_found_soft_deleted' => 'A részleg nem található (vagy már inaktiválva lett).',
+'manager_not_found_or_wrong_type' => 'Manager ID :id nem található vagy nem manager típusú.',
+'manager_already_manages_other_department' => 'A vezető (:name) már egy másik részleget vezet.',
 ];

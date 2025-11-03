@@ -808,28 +808,28 @@ function showFirstLoginWelcome() {
   const userName = '{{ session("uname") ?? "User" }}';
   const orgRole = '{{ session("org_role") ?? "" }}';
   
-  let welcomeMessage = `Üdvözlünk a rendszerben, ${userName}! 👋\n\n`;
-  welcomeMessage += `Én vagyok a QUARMA360 app fejlett AI súgója. Segíthetek navigálni az alkalmazásban és válaszolok minden kérdésedre. Pontosan ismerem a program használatát és azt is láthatom, amit éppen te. Engem itt, a képernyő bal oldalán a kék súgó gombra nyomva mindig megtalálsz, és a korábbi beszélgetéseinket is meg tudod nézni.\n\n`;
+  let welcomeMessage = `{{ __('help.first-login-welcome', ['name' => '${userName}']) }}\n\n`;
+  welcomeMessage += `{{ __('help.first-login-intro') }}\n\n`;
   
   // Add role-specific tips
   if (orgRole === 'admin' || orgRole === 'ceo') {
-    welcomeMessage += `📊 Admin funkcióid:\n`;
-    welcomeMessage += `• Munkatársak kezelése\n`;
-    welcomeMessage += `• Értékelések indítása\n`;
-    welcomeMessage += `• Szervezeti beállítások\n\n`;
-    welcomeMessage += `Kérdezz bármit a rendszer használatával kapcsolatban!`;
-    welcomeMessage += `Első lépésként a regisztrációkor megadott létszámadatok alapján fizetési kötelezettséged keletkezett. Kérlek ezt a fizetések oldalon rendezd, utána tudunk továbbhaladni.`;
+    welcomeMessage += `{{ __('help.first-login-admin-title') }}\n`;
+    welcomeMessage += `{{ __('help.first-login-admin-manage') }}\n`;
+    welcomeMessage += `{{ __('help.first-login-admin-assessments') }}\n`;
+    welcomeMessage += `{{ __('help.first-login-admin-settings') }}\n\n`;
+    welcomeMessage += `{{ __('help.first-login-ask-anything') }}`;
+    welcomeMessage += `{{ __('help.first-login-payment-reminder') }}`;
   } else if (orgRole === 'manager') {
-    welcomeMessage += `👥 Vezető funkcióid:\n`;
-    welcomeMessage += `• Csapattagjaid értékelése\n`;
-    welcomeMessage += `• Értékelési eredmények megtekintése\n\n`;
-    welcomeMessage += `Kérdezz bármit a rendszer használatával kapcsolatban!`;
+    welcomeMessage += `{{ __('help.first-login-manager-title') }}\n`;
+    welcomeMessage += `{{ __('help.first-login-manager-evaluate') }}\n`;
+    welcomeMessage += `{{ __('help.first-login-manager-results') }}\n\n`;
+    welcomeMessage += `{{ __('help.first-login-ask-anything') }}`;
   } else {
-    welcomeMessage += `🎯 Gyakran kérdezett:\n`;
-    welcomeMessage += `• Hogyan töltsek ki egy értékelést?\n`;
-    welcomeMessage += `• Hol találom az eredményeimet?\n`;
-    welcomeMessage += `• Hogyan változtatom a beállításaimat?\n\n`;
-    welcomeMessage += `Bátran kérdezz bármit!`;
+    welcomeMessage += `{{ __('help.first-login-employee-title') }}\n`;
+    welcomeMessage += `{{ __('help.first-login-employee-assessment') }}\n`;
+    welcomeMessage += `{{ __('help.first-login-employee-results') }}\n`;
+    welcomeMessage += `{{ __('help.first-login-employee-settings') }}\n\n`;
+    welcomeMessage += `{{ __('help.first-login-ask-freely') }}`;
   }
   
   // UPDATED: Hide the default welcome message

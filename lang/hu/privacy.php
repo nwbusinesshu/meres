@@ -34,4 +34,25 @@ return [
     'js_error_title' => 'Hiba',
     'js_error_message' => 'Nem sikerült rögzíteni a tudomásulvételt. Kérjük, próbálja újra!',
     'js_error_fallback' => 'Hiba történt. Kérjük, próbálja újra!',
+
+    'profile' => [
+    // Modal header
+    'settings_title' => 'Profil Beállítások',
+    
+    // Profile picture section
+    'profile_picture' => 'Profilkép',
+    'swipe_instruction' => 'Húzd balra vagy jobbra',
+    
+    // Buttons
+    'cancel' => 'Mégse',
+    'save' => 'Mentés',
+    'saving' => 'Mentés...',
+    'ok' => 'Rendben',
+    
+    // Messages
+    'error_title' => 'Hiba',
+    'error_load_data' => 'Nem sikerült betölteni a profil adatokat',
+    'error_update_picture' => 'Nem sikerült frissíteni a profilképet',
+    'success_picture_updated' => 'Profilkép sikeresen frissítve!',
+],
 ];

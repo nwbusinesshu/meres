@@ -167,5 +167,7 @@ return [
         
         'required_notice' => 'A csillaggal jelölt mezők kitöltése kötelező a regisztráció befejezéséhez',
     ],
+
+    
     
 ];

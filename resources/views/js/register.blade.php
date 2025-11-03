@@ -284,33 +284,32 @@ if (idx === 2) {
   
   let consentValid = true;
   
-  // Check Terms of Service
-  if (!termsCheckbox || !termsCheckbox.checked) {
-    if (termsCheckbox) {
-      markInvalid(termsCheckbox.parentElement, true);
-      addErrorBelow(termsCheckbox.parentElement, lang.acceptTermsRequired || 'You must accept the Terms of Service');
+      // Check Terms of Service
+    if (!termsCheckbox || !termsCheckbox.checked) {
+      if (termsCheckbox) {
+        markInvalid(termsCheckbox.parentElement, true);
+        addErrorBelow(termsCheckbox.parentElement, lang.acceptTermsRequired);
+      }
+      consentValid = false;
     }
-    consentValid = false;
-  }
-  
-  // Check Privacy Policy
-  if (!privacyCheckbox || !privacyCheckbox.checked) {
-    if (privacyCheckbox) {
-      markInvalid(privacyCheckbox.parentElement, true);
-      addErrorBelow(privacyCheckbox.parentElement, lang.acceptPrivacyRequired || 'You must accept the Privacy Policy');
+
+    // Check Privacy Policy
+    if (!privacyCheckbox || !privacyCheckbox.checked) {
+      if (privacyCheckbox) {
+        markInvalid(privacyCheckbox.parentElement, true);
+        addErrorBelow(privacyCheckbox.parentElement, lang.acceptPrivacyRequired);
+      }
+      consentValid = false;
     }
-    consentValid = false;
-  }
-  
-  // Check GDPR Consent
-  if (!gdprCheckbox || !gdprCheckbox.checked) {
-    if (gdprCheckbox) {
-      markInvalid(gdprCheckbox.parentElement, true);
-      addErrorBelow(gdprCheckbox.parentElement, lang.acceptGdprRequired || 'You must consent to employee data processing');
-    }
-    consentValid = false;
-  }
-  
+
+    // Check GDPR Consent
+    if (!gdprCheckbox || !gdprCheckbox.checked) {
+      if (gdprCheckbox) {
+        markInvalid(gdprCheckbox.parentElement, true);
+        addErrorBelow(gdprCheckbox.parentElement, lang.acceptGdprRequired);
+      }
+      consentValid = false;
+    }  
   return consentValid;
 }
 

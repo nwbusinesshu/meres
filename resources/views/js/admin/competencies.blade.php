@@ -163,7 +163,7 @@ $(document).ready(function(){
       swal.fire({
         icon: 'error',
         title: '{{ __('global.error') }}',
-        text: 'Group ID not found. Please refresh the page and try again.'
+        text: '{{ __("admin/competencies.error-group-id-not-found") }}'
       });
       return;
     }
@@ -188,7 +188,7 @@ $(document).ready(function(){
           swal.fire({
             icon: 'error',
             title: '{{ __('global.error') }}',
-            text: 'Invalid response from server. Please try again.'
+            text: '{{ __("admin/competencies.error-invalid-response") }}'
           });
         }
       },
@@ -201,9 +201,9 @@ $(document).ready(function(){
         if (xhr.status === 404) {
           errorMessage = '{{ __('admin/competencies.group-not-found') }}';
         } else if (xhr.status === 403) {
-          errorMessage = 'You do not have permission to edit this group.';
+          errorMessage = '{{ __("admin/competencies.error-no-permission-edit-group") }}';
         } else if (xhr.status === 422) {
-          errorMessage = 'Invalid group ID provided.';
+          errorMessage = '{{ __("admin/competencies.error-invalid-group-id") }}';
         } else if (xhr.responseJSON && xhr.responseJSON.message) {
           errorMessage = xhr.responseJSON.message;
         }

@@ -12,15 +12,14 @@ document.addEventListener('DOMContentLoaded', function() {
     warn_easy_relation_on:    @json(__('admin/settings.settings.warn_easy_relation_on')),
     warn_force_oauth_2fa_on:  @json(__('admin/settings.settings.warn_force_oauth_2fa_on')),
     warn_force_oauth_2fa_off: @json(__('admin/settings.settings.warn_force_oauth_2fa_off')),
-    warn_employees_see_bonuses_on:  "Ha bekapcsolod, a dolgozók látni fogják saját bónusz/malus összegüket az eredmények oldalon.",
-    warn_employees_see_bonuses_off: "Ha kikapcsolod, a dolgozók NEM fogják látni a bónusz/malus összegeket.",
+    warn_employees_see_bonuses_on:  @json(__('admin/settings.settings.warn_employees_see_bonuses_on')),
+    warn_employees_see_bonuses_off: @json(__('admin/settings.settings.warn_employees_see_bonuses_off')),
     saved:                    @json(__('admin/settings.settings.saved')),
     error:                    @json(__('admin/settings.settings.error')),
     yes:                      @json(__('global.swal-confirm')),
     no:                       @json(__('global.swal-cancel')),
   };
 
-  // ✅ DECLARE ALL ELEMENTS ONCE AT THE TOP
   const strictEl = document.getElementById('toggle-strict');
   const aiEl     = document.getElementById('toggle-ai');
   const multiEl  = document.getElementById('toggle-multi');
@@ -388,8 +387,8 @@ document.addEventListener('DOMContentLoaded', function() {
       this.checked = !wasChecked;
 
       const confirmText = wasChecked 
-        ? "Ha bekapcsolod, a rendszer automatikusan számítja a bónuszokat az értékelés lezárásakor."
-        : "Ha kikapcsolod, a rendszer NEM fogja automatikusan számítani a bónuszokat.";
+        ? @json(__('admin/settings.settings.warn_enable_bonus_calc_on'))
+        : @json(__('admin/settings.settings.warn_enable_bonus_calc_off'));
 
       const res = await Swal.fire({
         title: T.confirm,
@@ -519,6 +518,7 @@ document.addEventListener('DOMContentLoaded', function() {
     revoking:                 @json(__('admin/settings.settings.api_revoking')),
     error:                    @json(__('global.error')),
     cancel:                   @json(__('global.cancel')),
+    unknownUser:              @json(__('admin/settings.settings.api_unknown_user')),
   };
 
   // Toast helper (already exists in settings page)
@@ -608,7 +608,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="api-key-meta-item">
               <strong>${T.metaCreatedBy}</strong>
-              <span>${activeKey.created_by_name || 'Ismeretlen'}</span>
+              <span>${activeKey.created_by_name || T.unknownUser}</span>
             </div>
             <div class="api-key-meta-item">
               <strong>${T.metaLastUsed}</strong>

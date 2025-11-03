@@ -3,7 +3,7 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content profile-settings-content">
       <div class="modal-header">
-        <h5 class="modal-title">Profil Beállítások</h5>
+        <h5 class="modal-title">{{ __('privacy.profile.settings_title') }}</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -18,7 +18,7 @@
 
         {{-- Profile Picture Modern Carousel --}}
         <div class="profile-pic-section">
-          <h6 class="section-title">Profilkép</h6>
+          <h6 class="section-title">{{ __('privacy.profile.profile_picture') }}</h6>
           
           {{-- Modern 3D Carousel Container --}}
           <div class="modern-carousel-container">
@@ -37,7 +37,7 @@
               {{-- Touch Indicator (mobile only) --}}
               <div class="swipe-indicator">
                 <i class="fa fa-hand-pointer"></i>
-                <span>Húzd balra vagy jobbra</span>
+                <span>{{ __('privacy.profile.swipe_instruction') }}</span>
               </div>
             </div>
             
@@ -55,9 +55,9 @@
 
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Mégse</button>
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">{{ __('privacy.profile.cancel') }}</button>
         <button type="button" class="btn btn-primary" id="save-profile-pic">
-          <i class="fa fa-save"></i> Mentés
+          <i class="fa fa-save"></i> {{ __('privacy.profile.save') }}
         </button>
       </div>
     </div>
@@ -215,9 +215,9 @@
                 swal_loader.close();
                 Swal.fire({
                     icon: 'error',
-                    title: 'Hiba',
-                    text: 'Nem sikerült betölteni a profil adatokat',
-                    confirmButtonText: 'Rendben'
+                    title: '{{ __("privacy.profile.error_title") }}',
+                    text: '{{ __("privacy.profile.error_load_data") }}',
+                    confirmButtonText: '{{ __("privacy.profile.ok") }}'
                 });
             }
         });
@@ -463,7 +463,7 @@
         // Show loading
         const $saveBtn = $('#save-profile-pic');
         const originalHtml = $saveBtn.html();
-        $saveBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Mentés...');
+        $saveBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> {{ __("privacy.profile.saving") }}');
         
         $.ajax({
             url: '/profile-settings/update-picture',
@@ -505,7 +505,7 @@
                         toast: true,
                         position: 'bottom',
                         icon: 'success',
-                        title: 'Profilkép sikeresen frissítve!',
+                        title: '{{ __("privacy.profile.success_picture_updated") }}',
                         showConfirmButton: false,
                         timer: 3000,
                         timerProgressBar: true
@@ -514,9 +514,9 @@
                 } else {
                     Swal.fire({
                         icon: 'error',
-                        title: 'Hiba',
-                        text: response.error || 'Nem sikerült frissíteni a profilképet',
-                        confirmButtonText: 'Rendben'
+                        title: '{{ __("privacy.profile.error_title") }}',
+                        text: response.error || '{{ __("privacy.profile.error_update_picture") }}',
+                        confirmButtonText: '{{ __("privacy.profile.ok") }}'
                     });
                 }
             },
@@ -525,9 +525,9 @@
                 
                 Swal.fire({
                     icon: 'error',
-                    title: 'Hiba',
-                    text: 'Nem sikerült frissíteni a profilképet',
-                    confirmButtonText: 'Rendben'
+                    title: '{{ __("privacy.profile.error_title") }}',
+                    text: '{{ __("privacy.profile.error_update_picture") }}',
+                    confirmButtonText: '{{ __("privacy.profile.ok") }}'
                 });
             }
         });

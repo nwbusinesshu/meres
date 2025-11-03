@@ -81,6 +81,17 @@ return [
             ],
         ],
 
+        // Employees see bonuses warnings
+    'warn_employees_see_bonuses_on' => 'Ha bekapcsolod, a dolgozók látni fogják saját bónusz/malus összegüket az eredmények oldalon.',
+    'warn_employees_see_bonuses_off' => 'Ha kikapcsolod, a dolgozók NEM fogják látni a bónusz/malus összegeket.',
+    
+    // Enable bonus calculation warnings
+    'warn_enable_bonus_calc_on' => 'Ha bekapcsolod, a rendszer automatikusan számítja a bónuszokat az értékelés lezárásakor.',
+    'warn_enable_bonus_calc_off' => 'Ha kikapcsolod, a rendszer NEM fogja automatikusan számítani a bónuszokat.',
+    
+    // Fallback text
+    'api_unknown_user' => 'Ismeretlen',
+
         // FIXED panel
         'fixed' => [
             'title' => 'Fixpontos (alsó és felső ponthatár)',
