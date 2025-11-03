@@ -71,7 +71,7 @@ return [
 'first-login-admin-assessments' => '• Értékelések indítása',
 'first-login-admin-settings' => '• Szervezeti beállítások',
 'first-login-ask-anything' => 'Kérdezz bármit a rendszer használatával kapcsolatban!',
-'first-login-payment-reminder' => 'Első lépésként a regisztrációkor megadott létszámadatok alapján fizetési kötelezettséged keletkezett. Kérlek ezt a fizetések oldalon rendezd, utána tudunk továbbhaladni.',
+'first-login-payment-reminder' => 'Első lépésként a regisztrációkor megadott létszámadatok alapján fizetési kötelezettséged keletkezett. Kérlek ezt a fizetések oldalon rendezd. Addig is egy kb. 5 napos próba időszakot adtunk ajándékba.',
 
 // Manager role
 'first-login-manager-title' => '👥 Vezető funkcióid:',
