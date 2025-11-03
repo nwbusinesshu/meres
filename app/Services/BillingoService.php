@@ -294,6 +294,31 @@ class BillingoService
             ]],
         ];
 
+        // EUR invoices need conversion_rate
+        if ($currency === 'EUR') {
+            try {
+                $conversionRate = $this->getConversionRate('EUR', 'HUF', $today);
+                $payload['conversion_rate'] = $conversionRate;
+                
+                Log::info('billingo.invoice.conversion_rate_added', [
+                    'currency' => 'EUR',
+                    'conversion_rate' => $conversionRate,
+                    'date' => $today,
+                ]);
+                
+            } catch (\Throwable $e) {
+                Log::error('billingo.invoice.conversion_rate_failed', [
+                    'currency' => 'EUR',
+                    'date' => $today,
+                    'error' => $e->getMessage(),
+                ]);
+                
+                // Fail invoice creation if we can't get conversion rate
+                throw new \Exception('Cannot create EUR invoice without conversion rate: ' . $e->getMessage());
+            }
+        }
+
+
         $res = Http::withHeaders($this->headers())
             ->post($this->base . '/documents', $payload)
             ->throw();
@@ -342,6 +367,67 @@ class BillingoService
             return null;
         }
     }
+
+    public function getConversionRate(string $fromCurrency, string $toCurrency, ?string $date = null): float
+{
+    $date = $date ?? now()->format('Y-m-d');
+    
+    try {
+        $response = Http::withHeaders($this->headers())
+            ->get($this->base . '/currencies', [
+                'from_currency' => strtoupper($fromCurrency),
+                'to_currency' => strtoupper($toCurrency),
+                'date' => $date,
+            ]);
+        
+        // Check if request was successful
+        if (!$response->successful()) {
+            Log::error('billingo.conversion_rate.http_error', [
+                'from' => $fromCurrency,
+                'to' => $toCurrency,
+                'date' => $date,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            throw new \Exception('Billingo currencies API returned status: ' . $response->status());
+        }
+        
+        $data = $response->json();
+        
+        // NOTE: Billingo API has typo - field is "conversation_rate" not "conversion_rate"
+        $rate = (float) ($data['conversation_rate'] ?? 0);
+        
+        if ($rate <= 0) {
+            Log::error('billingo.conversion_rate.invalid', [
+                'from' => $fromCurrency,
+                'to' => $toCurrency,
+                'date' => $date,
+                'rate' => $rate,
+                'response' => $data,
+            ]);
+            throw new \Exception('Invalid conversion rate returned: ' . $rate);
+        }
+        
+        Log::info('billingo.conversion_rate.success', [
+            'from' => $fromCurrency,
+            'to' => $toCurrency,
+            'date' => $date,
+            'rate' => $rate,
+        ]);
+        
+        return $rate;
+        
+    } catch (\Throwable $e) {
+        Log::error('billingo.conversion_rate.error', [
+            'from' => $fromCurrency,
+            'to' => $toCurrency,
+            'date' => $date,
+            'error' => $e->getMessage(),
+        ]);
+        
+        throw new \Exception('Failed to fetch conversion rate: ' . $e->getMessage());
+    }
+}
 
     /**
      * Extract invoice metadata

@@ -91,6 +91,33 @@ return [
         'initial_payment_required_title' => 'Belépési díj rendezése szükséges',
         'initial_payment_required_text' => 'A rendszer használatához először rendezze a belépési díjat. Kérjük, indítsa el a fizetést az alábbi gombbal.',
         'understand' => 'Értem',
+
+        // ✅ NEW translations for already paid detection
+        'already_paid_title' => 'Fizetés már teljesítve',
+        'already_paid_text' => 'Ez a fizetés már sikeresen teljesítve lett a Barion rendszerében.',
+        
+        // Make sure these exist:
+        'payment_blocked_title' => 'Fizetés folyamatban',
+        'payment_blocked_text' => 'Ehhez a tételhez már folyamatban van egy fizetés. Kérlek, várj néhány percet, vagy használd a frissítés gombot.',
+        
+        'connecting_barion_title' => 'Kapcsolódás a Barion-hoz...',
+        'connecting_barion_text' => 'Fizetési tranzakció indítása folyamatban',
+        'connecting_barion_wait' => 'Kérjük, ne zárja be az ablakot',
+        
+        'redirecting_title' => 'Átirányítás...',
+        'redirecting_text' => 'Átirányítás a Barion fizetési oldalra',
+        
+        'paid_title' => 'Sikeres fizetés',
+        'paid_text' => 'A fizetés sikeresen teljesült.',
+        
+        'failed_title' => 'Sikertelen fizetés',
+        'failed_text' => 'A fizetés nem sikerült vagy megszakadt.',
+        
+        'start_unknown_title' => 'Ismeretlen válasz',
+        'start_unknown_text' => 'Váratlan válasz érkezett. Kérjük, próbálja újra.',
+        
+        'start_fail_title' => 'Fizetés indítása sikertelen',
+        'start_fail_text' => 'Nem sikerült elindítani a fizetést. Kérjük, próbálja újra.',
     ],
 
     'trial' => [

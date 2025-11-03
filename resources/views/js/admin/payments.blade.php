@@ -45,7 +45,6 @@ $(function(){
 
     // Check if this payment is blocked (data attribute from blade)
     const isBlocked = $btn.data('blocked');
-    const remainingMinutes = $btn.data('remaining-minutes');
 
     if (isBlocked) {
       swal.fire({
@@ -77,7 +76,8 @@ $(function(){
 
     $.post(START_URL, { _token: csrf, payment_id: id })
       .done(function(resp){
-        if (resp && resp.success && resp.redirect_url) {
+        // Case 1: Normal new payment - redirect to Barion
+        if (resp && resp.success && resp.redirect_url && !resp.should_reload) {
           // Update message to show we're redirecting
           swal.update({
             icon: 'success',
@@ -89,7 +89,20 @@ $(function(){
           setTimeout(() => {
             window.location.href = resp.redirect_url;
           }, 1000);
-        } else {
+        } 
+        // Case 2: Payment already succeeded at Barion - reload page
+        else if (resp && resp.success && resp.status === 'already_paid' && resp.should_reload) {
+          connectingSwal.close();
+          swal.fire({
+            icon: 'success',
+            title: '{{ __("payment.swal.already_paid_title") }}',
+            text: resp.message || '{{ __("payment.swal.already_paid_text") }}',
+            confirmButtonText: 'OK'
+          }).then(() => {
+            window.location.reload();
+          });
+        }
+        else {
           connectingSwal.close();
           swal.fire('{{ __("payment.swal.start_unknown_title") }}', '{{ __("payment.swal.start_unknown_text") }}', 'warning');
           $btn.prop('disabled', false);

@@ -32,18 +32,11 @@ class AdminPaymentController extends Controller
             ->select('p.*', 'a.started_at', 'a.due_at', 'a.closed_at')
             ->get();
 
-        // Mark payments as blocked if they are in the 10-minute cooling period
+        // ✅ SIMPLE: Block button if barion_payment_id exists
+        // The start() method will check Barion API before allowing new payment
         $open = $open->map(function($payment) {
             if ($payment->status === 'pending' && !empty($payment->barion_payment_id)) {
-                $updatedAt = Carbon::parse($payment->updated_at);
-                $minutesSinceUpdate = $updatedAt->diffInMinutes(now());
-                
-                if ($minutesSinceUpdate < 10) {
-                    $payment->is_blocked = true;
-                    $payment->remaining_minutes = 10 - $minutesSinceUpdate;
-                } else {
-                    $payment->is_blocked = false;
-                }
+                $payment->is_blocked = true;
             } else {
                 $payment->is_blocked = false;
             }
@@ -62,7 +55,8 @@ class AdminPaymentController extends Controller
     }
 
     /**
-     * Handle abandoned payments: clear barion_payment_id if > 10 minutes old
+     * ✅ FIXED: Handle abandoned payments - clear barion_payment_id after 10 minutes
+     * Keep status as 'pending' to allow retry
      */
     private function handleAbandonedPayments($orgId)
     {
@@ -76,169 +70,230 @@ class AdminPaymentController extends Controller
             ->get();
 
         foreach ($abandonedPayments as $payment) {
+            // Clear barion_payment_id to allow new payment attempt
+            // Keep status as 'pending' - user can retry
             \DB::table('payments')
                 ->where('id', $payment->id)
                 ->update([
                     'barion_payment_id' => null,
-                    'status' => 'failed',
+                    'status' => 'pending',  // ✅ Keep as pending
                     'updated_at' => now(),
                 ]);
 
-            \Log::info('payment.abandoned.cleaned', [
+            \Log::info('payment.abandoned.cleared', [
                 'payment_id' => $payment->id,
-                'barion_payment_id' => $payment->barion_payment_id,
+                'old_barion_id' => $payment->barion_payment_id,
                 'minutes_since_update' => Carbon::parse($payment->updated_at)->diffInMinutes(now()),
+                'new_status' => 'pending',
             ]);
         }
     }
 
+    /**
+     * ✅ ENHANCED: Start payment with Barion API check first
+     */
     public function start(Request $request, \App\Services\BarionService $barion)
-{
-    $request->validate([
-        'payment_id' => 'required|integer|exists:payments,id',
-    ]);
-
-    try {
-        \DB::beginTransaction();
-
-        $payment = \DB::table('payments')->where('id', $request->payment_id)->lockForUpdate()->first();
-        if (!$payment) {
-            \DB::rollBack();
-            return response()->json(['success' => false, 'message' => 'Fizetési tétel nem található.'], 404);
-        }
-
-        if ($payment->status === 'paid') {
-            \DB::rollBack();
-            return response()->json(['success' => false, 'message' => 'Ez a tétel már rendezett.'], 422);
-        }
-
-        if (!empty($payment->barion_payment_id) && $payment->status === 'pending') {
-            \DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Ehhez a tételhez már folyamatban van egy fizetés. Kérlek, használd a visszatérési oldalt vagy frissítsd a státuszt.'
-            ], 409);
-        }
-
-        // Use new payment structure
-        $grossAmount = (float) ($payment->gross_amount ?? 0);
-        $netAmount = (float) ($payment->net_amount ?? 0);
-        $currency = $payment->currency ?? 'HUF';
-        
-        if ($grossAmount < 1) {
-            \DB::rollBack();
-            return response()->json(['success' => false, 'message' => 'Érvénytelen összeg.'], 422);
-        }
-
-        // Calculate quantity and unit price
-        $configName = ($currency === 'HUF') ? 'global_price_huf' : 'global_price_eur';
-        $unitPrice = (float) (\DB::table('config')->where('name', $configName)->value('value') ?? ($currency === 'HUF' ? 950 : 2.5));
-        $quantity = max(1, (int) ceil($netAmount / $unitPrice));
-        
-        $paymentRequestId = 'pay_' . $payment->id . '_' . time();
-        
-        $comment = '360° értékelés';
-        if (!empty($payment->assessment_id)) {
-            $comment .= ' – mérés #' . $payment->assessment_id;
-        }
-
-        $payerEmail = $request->session()->get('email', null);
-
-        \Log::info('barion.start.calling', [
-            'payment_id'         => $payment->id,
-            'payment_request_id' => $paymentRequestId,
-            'currency'           => $currency,
-            'gross_amount'       => $grossAmount,
-            'unit_price'         => $unitPrice,
-            'quantity'           => $quantity,
+    {
+        $request->validate([
+            'payment_id' => 'required|integer|exists:payments,id',
         ]);
 
-        // Call updated Barion service
-        $started = $barion->startPayment(
-            $paymentRequestId,
-            $currency,
-            $grossAmount,
-            $unitPrice,
-            $quantity,
-            $comment,
-            $payerEmail
-        );
+        try {
+            \DB::beginTransaction();
 
-        \Log::info('barion.start.response', [
-            'payment_id' => $payment->id,
-            'response'   => $started,
-        ]);
+            $payment = \DB::table('payments')->where('id', $request->payment_id)->lockForUpdate()->first();
+            if (!$payment) {
+                \DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'Fizetési tétel nem található.'], 404);
+            }
 
-        if (empty($started['paymentId'])) {
-            \DB::rollBack();
-            \Log::error('barion.start.missing_payment_id', [
+            if ($payment->status === 'paid') {
+                \DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'Ez a tétel már rendezett.'], 422);
+            }
+
+            // ✅ NEW: Check Barion API if there's an existing barion_payment_id
+            if (!empty($payment->barion_payment_id) && $payment->status === 'pending') {
+                try {
+                    $state = $barion->getPaymentState($payment->barion_payment_id);
+                    $status = strtoupper((string) ($state['Status'] ?? ''));
+                    
+                    \Log::info('payment.start.barion_check', [
+                        'payment_id' => $payment->id,
+                        'barion_id' => $payment->barion_payment_id,
+                        'barion_status' => $status,
+                    ]);
+                    
+                    // Case 1: Payment SUCCEEDED at Barion
+                    if ($status === 'SUCCEEDED') {
+                        \DB::table('payments')->where('id', $payment->id)->update([
+                            'status' => 'paid',
+                            'paid_at' => now(),
+                            'invoice_status' => 'pending',
+                            'updated_at' => now(),
+                        ]);
+                        
+                        \DB::commit();
+                        
+                        \Log::info('payment.start.already_succeeded', [
+                            'payment_id' => $payment->id,
+                            'barion_id' => $payment->barion_payment_id,
+                        ]);
+                        
+                        return response()->json([
+                            'success' => true,
+                            'status' => 'already_paid',
+                            'message' => 'Ez a fizetés már sikeresen teljesítve lett. Az oldal frissül...',
+                            'should_reload' => true,
+                        ]);
+                    }
+                    
+                    // If still PREPARED or STARTED, block double payment
+                    if (in_array($status, ['PREPARED', 'STARTED', 'IN_PROGRESS'])) {
+                        \DB::rollBack();
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Ehhez a tételhez már folyamatban van egy fizetés a Barion rendszerében. Kérlek, használd a visszatérési oldalt vagy várj néhány percet.'
+                        ], 409);
+                    }
+                    
+                    // If CANCELED/EXPIRED/FAILED, clear and automatically continue with new payment
+                    if (in_array($status, ['CANCELED', 'EXPIRED', 'FAILED'])) {
+                        \Log::info('payment.start.previous_failed', [
+                            'payment_id' => $payment->id,
+                            'barion_id' => $payment->barion_payment_id,
+                            'barion_status' => $status,
+                            'action' => 'clearing_and_continuing',
+                        ]);
+                        
+                        \DB::table('payments')->where('id', $payment->id)->update([
+                            'barion_payment_id' => null,
+                            'status' => 'pending',  // ✅ Keep as pending to allow retry
+                            'updated_at' => now(),
+                        ]);
+                        
+                        // Re-fetch payment to continue with clean state
+                        $payment = \DB::table('payments')->where('id', $request->payment_id)->lockForUpdate()->first();
+                        
+                        // ✅ Continue to create new payment automatically (don't rollback)
+                    }
+                    
+                } catch (\Throwable $e) {
+                    \Log::warning('payment.start.barion_check_failed', [
+                        'payment_id' => $payment->id,
+                        'barion_id' => $payment->barion_payment_id,
+                        'error' => $e->getMessage(),
+                    ]);
+                    
+                    // If Barion API check fails, still block to be safe
+                    \DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Nem sikerült ellenőrizni a fizetés státuszát. Kérlek, próbáld újra vagy használd a frissítés gombot.'
+                    ], 500);
+                }
+            }
+
+            // Use new payment structure
+            $grossAmount = (float) ($payment->gross_amount ?? 0);
+            $netAmount = (float) ($payment->net_amount ?? 0);
+            $currency = $payment->currency ?? 'HUF';
+            
+            if ($grossAmount < 1) {
+                \DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'Érvénytelen összeg.'], 422);
+            }
+
+            // Calculate quantity and unit price
+            $configName = ($currency === 'HUF') ? 'global_price_huf' : 'global_price_eur';
+            $unitPrice = (float) (\DB::table('config')->where('name', $configName)->value('value') ?? ($currency === 'HUF' ? 950 : 2.5));
+            $quantity = max(1, (int) ceil($netAmount / $unitPrice));
+            
+            $paymentRequestId = 'pay_' . $payment->id . '_' . time();
+            
+            $comment = '360° értékelés';
+            if (!empty($payment->assessment_id)) {
+                $comment .= ' – mérés #' . $payment->assessment_id;
+            }
+
+            $payerEmail = $request->session()->get('email', null);
+
+            \Log::info('barion.start.calling', [
+                'payment_id'         => $payment->id,
+                'payment_request_id' => $paymentRequestId,
+                'currency'           => $currency,
+                'gross_amount'       => $grossAmount,
+                'unit_price'         => $unitPrice,
+                'quantity'           => $quantity,
+            ]);
+
+            // Call updated Barion service
+            $started = $barion->startPayment(
+                $paymentRequestId,
+                $currency,
+                $grossAmount,
+                $unitPrice,
+                $quantity,
+                $comment,
+                $payerEmail
+            );
+
+            \Log::info('barion.start.response', [
                 'payment_id' => $payment->id,
                 'response'   => $started,
             ]);
-            return response()->json(['success' => false, 'message' => 'Barion fizetés sikertelen (hiányzó PaymentId).'], 500);
+
+            if (empty($started['paymentId'])) {
+                \DB::rollBack();
+                \Log::error('barion.start.missing_payment_id', [
+                    'payment_id' => $payment->id,
+                    'response'   => $started,
+                ]);
+                return response()->json(['success' => false, 'message' => 'Barion fizetés sikertelen (hiányzó PaymentId).'], 500);
+            }
+
+            \DB::table('payments')->where('id', $payment->id)->update([
+                'barion_payment_id' => $started['paymentId'],
+                'status'            => 'pending',
+                'updated_at'        => now(),
+            ]);
+
+            \DB::commit();
+
+            return response()->json([
+                'success'      => true,
+                'redirect_url' => $started['gatewayUrl'] ?? url('/admin/payments/index'),
+            ]);
+        } catch (\Illuminate\Http\Client\RequestException $e) {
+            \DB::rollBack();
+            $body = $e->response ? ($e->response->json() ?? $e->response->body()) : 'N/A';
+            \Log::error('barion.start.request_exception', [
+                'payment_id' => $request->payment_id,
+                'status'     => $e->response ? $e->response->status() : 'N/A',
+                'body'       => $body,
+            ]);
+            return response()->json(['success' => false, 'message' => 'Barion kapcsolati hiba.'], 500);
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+            \Log::error('barion.start.throwable', [
+                'payment_id' => $request->payment_id,
+                'msg'        => $e->getMessage(),
+                'trace'      => $e->getTraceAsString(),
+            ]);
+            return response()->json(['success' => false, 'message' => 'Ismeretlen hiba történt.'], 500);
         }
-
-        \DB::table('payments')->where('id', $payment->id)->update([
-            'barion_payment_id' => $started['paymentId'],
-            'status'            => 'pending',
-            'updated_at'        => now(),
-        ]);
-
-        \DB::commit();
-
-        return response()->json([
-            'success'      => true,
-            'redirect_url' => $started['gatewayUrl'] ?? url('/admin/payments/index'),
-        ]);
-    } catch (\Illuminate\Http\Client\RequestException $e) {
-        \DB::rollBack();
-        $body = $e->response ? ($e->response->json() ?? $e->response->body()) : 'N/A';
-        \Log::error('barion.start.request_exception', [
-            'payment_id' => $request->payment_id,
-            'status'     => $e->response ? $e->response->status() : null,
-            'body'       => $body,
-        ]);
-        return response()->json(['success' => false, 'message' => 'Hiba a Barion fizetés indításakor.'], 500);
-    } catch (\Throwable $e) {
-        \DB::rollBack();
-        \Log::error('barion.start.throwable', [
-            'payment_id' => $request->payment_id,
-            'msg'        => $e->getMessage(),
-            'trace'      => $e->getTraceAsString(),
-        ]);
-        return response()->json(['success' => false, 'message' => 'Váratlan hiba történt.'], 500);
     }
-}
 
-    public function refresh(Request $request, \App\Services\BarionService $barion, \App\Services\BillingoService $billingo)
+    public function refresh(Request $request, \App\Services\BarionService $barion)
     {
-        \Log::info('payments.refresh.in', [
-            'body'  => $request->all(),
-            'query' => $request->query(),
-            'url'   => $request->fullUrl(),
-        ]);
-
-        $barionId = $request->input('barion_payment_id')
-                 ?: $request->input('paymentId')
-                 ?: $request->input('PaymentId')
-                 ?: $request->query('paymentId')
-                 ?: $request->query('PaymentId')
-                 ?: $request->query('Id');
-
-        if (!$barionId && $request->filled('payment_id')) {
-            $barionId = \DB::table('payments')->where('id', $request->payment_id)->value('barion_payment_id');
-        }
+        $barionId = $request->input('barion_payment_id');
         if (!$barionId) {
-            return response()->json(['success' => false, 'message' => 'Hiányzó Barion azonosító.'], 422);
+            return response()->json(['success' => false, 'message' => 'Hiányzó barion_payment_id'], 400);
         }
 
         $payment = \DB::table('payments')->where('barion_payment_id', $barionId)->first();
-        if (!$payment && $request->filled('payment_id')) {
-            $payment = \DB::table('payments')->where('id', $request->payment_id)->first();
-        }
         if (!$payment) {
-            \Log::warning('payments.refresh.unknown_barion_id', ['barion_id' => $barionId]);
-            return response()->json(['success' => false, 'message' => 'Ismeretlen Barion azonosító.'], 404);
+            return response()->json(['success' => false, 'message' => 'Fizetés nem található'], 404);
         }
 
         if ($payment->status === 'paid') {
@@ -281,6 +336,7 @@ class AdminPaymentController extends Controller
                 return response()->json(['success' => true, 'status' => 'failed']);
             }
 
+            // ✅ Still pending - just return status without changing anything
             return response()->json(['success' => true, 'status' => 'pending']);
         } catch (\Throwable $e) {
             \Log::error('barion.refresh.throwable', ['barion_id' => $barionId, 'msg' => $e->getMessage()]);
@@ -306,44 +362,14 @@ class AdminPaymentController extends Controller
         }
 
         try {
-            \Log::info('invoice.download.start', [
-                'payment_id'  => $id,
-                'document_id' => $p->billingo_document_id,
-            ]);
-
-            // Download PDF from Billingo
-            $pdfContent = $billingo->downloadInvoicePdf((int) $p->billingo_document_id);
-
-            \Log::info('invoice.download.success', [
-                'payment_id'  => $id,
-                'document_id' => $p->billingo_document_id,
-                'size'        => strlen($pdfContent),
-            ]);
-
-            // Generate filename: invoice_number or payment_id
-            $filename = 'szamla_';
-            if (!empty($p->billingo_invoice_number)) {
-                $filename .= preg_replace('/[^a-zA-Z0-9_-]/', '_', $p->billingo_invoice_number);
-            } else {
-                $filename .= $id;
-            }
-            $filename .= '.pdf';
-
-            // Return PDF for download
-            return response($pdfContent, 200)
+            $pdf = $billingo->downloadInvoicePdf($p->billingo_document_id);
+            $filename = $p->billingo_invoice_number ? ($p->billingo_invoice_number . '.pdf') : 'invoice.pdf';
+            return response($pdf, 200)
                 ->header('Content-Type', 'application/pdf')
-                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
-                ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
-                ->header('Pragma', 'no-cache')
-                ->header('Expires', '0');
-
-        } catch (\RuntimeException $e) {
-            if ($e->getMessage() === 'not_ready') {
-                \Log::warning('invoice.download.not_ready', [
-                    'payment_id'  => $id,
-                    'document_id' => $p->billingo_document_id,
-                ]);
-                abort(503, 'A számla PDF még nem áll készen. Kérjük, próbálja újra pár perc múlva.');
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        } catch (\Illuminate\Http\Client\RequestException $e) {
+            if ($e->response && $e->response->status() === 429) {
+                abort(429, 'Túl sok kérés. Kérjük, próbálja újra pár perc múlva.');
             }
 
             \Log::error('invoice.download.error', [
