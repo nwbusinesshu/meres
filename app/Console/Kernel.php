@@ -64,6 +64,11 @@ class Kernel extends ConsoleKernel
             ->onFailure(function () {
                 \Log::error('telemetry.retry.scheduled.failed');
             });
+
+        //status check and cleanup schedules
+            $schedule->command('status:check')->everyThirtyMinutes();
+            $schedule->command('status:check --clean')->dailyAt('03:00');
+
     }
 
     /**

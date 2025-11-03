@@ -218,6 +218,7 @@ return [
     'footer-data-handling' => 'Adatkezelés', 
     'footer-contact' => 'Kapcsolat',
     'footer-cookie-settings' => 'Süti beállítások',
+    "footer-system-status" => "Rendszer státusz",
 
     'select-all' => 'Összes kiválasztása',
   

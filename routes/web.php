@@ -38,6 +38,11 @@ use App\Http\Controllers\ProfileSettingsController;
 //locale
 Route::post('/locale', [LocaleController::class, 'set'])->name('locale.set');
 
+// System Status Page (public, no auth required)
+Route::get('/status', [App\Http\Controllers\StatusController::class, 'index'])->name('status.index');
+Route::get('/status/data', [App\Http\Controllers\StatusController::class, 'data'])->name('status.data');
+Route::get('/status/history', [App\Http\Controllers\StatusController::class, 'history'])->name('status.history');
+
 //cookie-banner
 Route::prefix('cookie-consent')->name('cookie-consent.')->group(function () {
     Route::post('/store', [CookieConsentController::class, 'store'])->name('store');

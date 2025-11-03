@@ -11,7 +11,7 @@ return [
   "ceorank" => "Vezetői rangsor",
   "results" => "Eredmények",
   "register" => "Regisztráció",
-  "" => "",
+  "status" => "System Status",
   "" => "",
   "admin" => [
     "home" => "Főoldal",

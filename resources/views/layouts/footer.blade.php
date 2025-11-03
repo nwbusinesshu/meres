@@ -5,6 +5,7 @@
       <a href="#">{{ __('global.footer-imprint') }}</a>
       <a href="#">{{ __('global.footer-data-handling') }}</a>
       <a href="#">{{ __('global.footer-contact') }}</a>
+      <a href="{{ route('status.index') }}" title="System Status"><i class="bi bi-activity"></i>{{ __('global.footer-system-status') }}</a>
       <a href="#" id="footer-cookie-settings" title="{{ __('global.footer-cookie-settings') }}">
         <i class="fa fa-cookie-bite"></i> {{ __('global.footer-cookie-settings') }}
       </a>
