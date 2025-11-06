@@ -27,7 +27,7 @@ jobs:
           php artisan config:clear || true
 
       - name: 📦 Create deployment package
-        run: tar -czf release.tgz --exclude=.git --exclude=node_modules --exclude=storage/logs --exclude=vendor/laravel --exclude=.github .
+        run: tar -czf release.tgz --exclude=.git --exclude=node_modules --exclude=storage/logs --exclude=vendor/laravel --exclude=.github>
 
       - name: 📤 Upload to production server
         uses: appleboy/scp-action@v0.1.7
