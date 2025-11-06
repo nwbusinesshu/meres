@@ -1,0 +1,64 @@
+name: 🚀 Deploy to Production (app.quarma360.com)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy Laravel App to Production Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧩 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, mysql, bcmath, gd, curl, xml, zip
+          tools: composer
+
+      - name: 🧱 Install dependencies
+        run: |
+          composer install --no-dev --optimize-autoloader
+          php artisan config:clear || true
+
+      - name: 📦 Create deployment package
+        run: tar -czf release.tgz --exclude=.git --exclude=node_modules --exclude=storage/logs --exclude=vendor/laravel --exclude=.github .
+
+      - name: 📤 Upload to production server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: deployer
+          key: ${{ secrets.PROD_SSH_KEY }}
+          source: "release.tgz"
+          target: "/var/www/quarma360-production/"
+
+      - name: 🚀 Run deploy commands on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: deployer
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            set -e
+            cd /var/www/quarma360-production
+            REL=$(date +%Y%m%d%H%M%S)
+            mkdir -p releases/$REL
+            tar -xzf release.tgz -C releases/$REL
+            rm release.tgz
+            ln -sfn /var/www/quarma360-production/shared/.env releases/$REL/.env
+            ln -sfn /var/www/quarma360-production/shared/storage releases/$REL/storage
+            cd releases/$REL
+            composer install --no-dev --optimize-autoloader
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan storage:link || true
+            ln -sfn /var/www/quarma360-production/releases/$REL /var/www/quarma360-production/current
+            sudo systemctl reload php8.3-fpm
