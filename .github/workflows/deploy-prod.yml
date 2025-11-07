@@ -62,13 +62,18 @@ jobs:
             tar -xzf release.tgz -C releases/$REL
             rm release.tgz
             ln -sfn /var/www/quarma360-production/shared/.env releases/$REL/.env
-            ln -sfn /var/www/quarma360-production/shared/storage releases/$REL/storage
             cd releases/$REL
             composer install --no-dev --optimize-autoloader
-            # php artisan migrate --force
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache || true
             php artisan storage:link || true
-            ln -sfn /var/www/quarma360-production/releases/$REL /var/www/quarma360-production/current
+            rm -rf storage
+            ln -sfn /var/www/quarma360-production/shared/storage storage
+            rm -rf public/uploads
+            ln -sfn /var/www/quarma360-production/shared/uploads public/uploads
+            cd /var/www/quarma360-production
+            ln -sfn /var/www/quarma360-production/releases/$REL current
+            sudo chown -R quarmaapp:www-data releases/$REL
             sudo systemctl reload php8.3-fpm
+            ls -t releases/ | tail -n +6 | xargs -I {} rm -rf releases/{}
