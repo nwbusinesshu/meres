@@ -1,0 +1,34 @@
+<?php
+return [
+  "login" => "Login",
+  "logout" => "Logout",
+  "403" => "403",
+  "404" => "404",
+  "419" => "419",
+  "500" => "500",
+  "home" => "Home",
+  "assessment" => "Assessment",
+  "ceorank" => "Leadership Ranking",
+  "results" => "Results",
+  "register" => "Registration",
+  "status" => "System Status",
+  "" => "",
+  "admin" => [
+    "home" => "Home",
+    "employees" => "Employees",
+    "competencies" => "Competencies",
+    "ceoranks" => "Leadership Ranking",
+    "results" => "Results",
+    "settings" => "Settings",
+    "payments" => "Billing",
+    "bonuses" => "Bonuses",
+  ],
+  'superadmin' => [
+        'dashboard' => 'Superadmin Dashboard',
+        'new-org' => 'Add New Company',
+        'edit-org' => 'Edit Company',
+        "global-competencies" => "Global Competencies",
+    ],
+  'org' => [
+        'select' => 'Company Selector',],
+];

@@ -1,0 +1,41 @@
+<?php
+return [
+  "add-rank" => "Add New Level",
+  "rank-settings" => "Level Settings",
+  "ranking-infos" => "The system has 5 ranking categories configured with appropriate minimum and maximum requirements. Every CEO or department head manager must classify their subordinates into these categories. When calculating the assessment score, the evaluated person receives the value of their assigned category, or the average of multiple manager ranking values projected to 100 points. Levels can be customized and new ones can be added or deleted.",
+  "save-rank" => "Save Level",
+  "save-confirm" => "Are you sure you want to save the level?",
+  "save-success" => "Level successfully saved!",
+  "ranks" => "Levels",
+  "modify-rank" => "Modify Level",
+  "remove-rank" => "Remove Level",
+  "remove-rank-confirm" => "Are you sure you want to remove the level?",
+  "remove-rank-success" => "Level successfully removed!",
+  "employee-number" => "Number of Employees",
+  "min" => "Minimum",
+  "max" => "Maximum",
+  "name" => "Name",
+  "value" => "Value",
+  
+  // Translation-related strings
+  "select-translation-languages" => "Select Translation Languages",
+  "translations" => "Translations",
+  "original" => "Original",
+  "translation-saved" => "Translation saved",
+  "translation-error" => "Error saving translation",
+  "missing-translations-warning" => "This level is missing translations",
+  "no-additional-languages" => "No additional languages selected for translation.",
+  "original-language-info" => "Original Language",
+  "original-language-explanation" => "The main \"Name\" field contains this language. Only enter translations for additional languages here.",
+  
+  // AI Translation strings
+  "ai-translate" => "AI Translation",
+  "translating" => "Translation in progress",
+  "translation-success" => "Translation successful",
+  "translation-failed" => "Translation failed",
+  "ai-translations-generated" => "AI translations have been generated. You can edit them before saving.",
+  "fill-rank-name-first" => "Please fill in the level name first.",
+  "enter-name-first" => "Enter the level name first.",
+  "no-target-languages" => "No target languages available for translation.",
+  "name-required" => "Name is required.",
+];

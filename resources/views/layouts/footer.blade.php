@@ -18,7 +18,7 @@
     </button> --}}
 
     {{-- NYELVVÁLASZTÓ - REMOVED FOR TEST RUN --}}
-    {{--<form method="POST" action="{{ route('locale.set') }}" id="footer-locale-form" class="footer-lang">
+    <form method="POST" action="{{ route('locale.set') }}" id="footer-locale-form" class="footer-lang">
         @csrf
         <input type="hidden" name="redirect" value="{{ url()->current() }}">
         <select name="locale" id="footer-locale" class="footer-lang__select">
@@ -28,7 +28,7 @@
                 </option>
             @endforeach
         </select>
-    </form> --}}
+    </form>
   </div>
 
   {{-- LANGUAGE SELECTOR JS --}}
