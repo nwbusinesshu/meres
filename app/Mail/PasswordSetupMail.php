@@ -2,12 +2,12 @@
 
 namespace App\Mail;
 
-use App\Models\PasswordSetup;
+use App\Models\Organization;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
-use App\Models\Organization;
-use App\Models\User;
+use Carbon\CarbonInterface;
 
 class PasswordSetupMail extends Mailable
 {
@@ -16,25 +16,29 @@ class PasswordSetupMail extends Mailable
     public Organization $org;
     public User $user;
     public string $url;
-    public \Carbon\CarbonInterface $expiresAt;
+    public CarbonInterface $expiresAt;
+    public $locale; // NO type hint - parent Mailable doesn't have typed properties
 
-    public function __construct(Organization $org, User $user, string $url, \Carbon\CarbonInterface $expiresAt)
+    public function __construct(Organization $org, User $user, string $url, CarbonInterface $expiresAt, string $locale = 'hu')
     {
         $this->org = $org;
         $this->user = $user;
         $this->url = $url;
         $this->expiresAt = $expiresAt;
+        $this->locale = $locale;
     }
 
     public function build()
     {
-        return $this->subject('Jelszó beállítása – 360 értékelés')
-            ->view('emails.password.setup', [
-                'url'        => $this->url,
-                'email'      => $this->user->email,
-                'org'        => $this->org->name,
-                'expires_at' => $this->expiresAt,
+        // Set locale for this email
+        app()->setLocale($this->locale);
+
+        return $this->subject(__('emails.password_setup.subject', ['org_name' => $this->org->name]))
+            ->markdown('emails.password.setup', [
+                'org'       => $this->org,
+                'user'      => $this->user,
+                'url'       => $this->url,
+                'expiresAt' => $this->expiresAt,
             ]);
     }
 }
-

@@ -38,6 +38,8 @@ use App\Http\Controllers\ProfileSettingsController;
 //locale
 Route::post('/locale', [LocaleController::class, 'set'])->name('locale.set');
 
+Route::get('/preview-email', [App\Http\Controllers\EmailPreviewController::class, 'preview'])->name('email.preview');
+
 // System Status Page (public, no auth required)
 Route::get('/status', [App\Http\Controllers\StatusController::class, 'index'])->name('status.index');
 Route::get('/status/data', [App\Http\Controllers\StatusController::class, 'data'])->name('status.data');
@@ -92,9 +94,17 @@ Route::controller(ProfileSettingsController::class)
 
 // login routes
 Route::controller(LoginController::class)->middleware('auth:'.UserType::GUEST)->group(function () {
+    // Locale-aware login route (from WordPress)
+    Route::get('/login/{locale}', 'index')
+        ->whereIn('locale', array_keys(config('app.available_locales', ['hu' => 'Magyar', 'en' => 'English'])))
+        ->name('login.locale');
+    
+    // Default login routes (backward compatibility)
     Route::get('/{login?}', 'index')->where('login','|login')->name('login');
+    
     Route::get('/trigger-login', 'triggerLogin')->name('trigger-login');
     Route::any('/attempt-login', 'attemptLogin')->name('attempt-login');
+    
     // Microsoft login
     Route::get('/trigger-microsoft-login', [LoginController::class, 'triggerMicrosoftLogin'])->name('trigger-microsoft-login');
     Route::get('/auth/microsoft/callback', [LoginController::class, 'attemptMicrosoftLogin'])->name('microsoft.callback');

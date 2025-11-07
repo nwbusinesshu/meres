@@ -23,8 +23,10 @@ class LoginController extends Controller
     /**
      * GET /login
      */
-    public function index(Request $request)
+    public function index(Request $request, $locale = null)
     {
+        // Locale is already set by SetLocale middleware
+        // Just return the login view
         return view('login');
     }
 
@@ -207,13 +209,10 @@ class LoginController extends Controller
             );
             
             try {
-                $user->notify(new EmailVerificationCodeNotif($verification->code, $user->name));
+                $locale = app()->getLocale() ?? config('app.fallback_locale', 'en');
+                $user->notify(new EmailVerificationCodeNotif($verification->code, $user->name, $locale));
                 
-                Log::info('2FA code sent (OAuth)', [
-                    'provider' => $provider,
-                    'user_id' => $user->id,
-                    'email' => $user->email,
-                ]);
+                
             } catch (\Throwable $e) {
                 Log::error('Failed to send 2FA code (OAuth)', [
                     'provider' => $provider,
@@ -398,28 +397,6 @@ class LoginController extends Controller
         // Get all organizations this user belongs to
         $orgIds = $user->organizations()->pluck('organization.id')->toArray();
 
-        // ✅ EXCEPTION 1: Users without organizations - skip 2FA (they can't access anything anyway)
-        if (count($orgIds) === 0) {
-            Log::info('Password login: no organizations, 2FA skipped', [
-                'user_id' => $user->id,
-            ]);
-            return $this->finishLogin($request, $user, null, $remember);
-        }
-
-        // ✅ EXCEPTION 2: Superadmins - skip 2FA (trusted system administrators)
-        if ($user->type === UserType::SUPERADMIN) {
-            Log::info('Password login: superadmin bypassing 2FA', [
-                'user_id' => $user->id,
-            ]);
-            return $this->finishLogin($request, $user, null, $remember);
-        }
-
-        // ✅ DEFAULT BEHAVIOR: Password login ALWAYS requires 2FA for regular users
-        Log::info('Password login: 2FA enforced (security policy)', [
-            'user_id' => $user->id,
-            'email' => $user->email,
-        ]);
-
         // Store pending login in session
         session([
             'pending_2fa_user_id' => $user->id,
@@ -436,7 +413,8 @@ class LoginController extends Controller
         );
         
         try {
-            $user->notify(new EmailVerificationCodeNotif($verification->code, $user->name));
+            $locale = app()->getLocale() ?? config('app.fallback_locale', 'en');
+            $user->notify(new EmailVerificationCodeNotif($verification->code, $user->name, $locale));
             
             Log::info('2FA code sent (password login)', [
                 'user_id' => $user->id,
@@ -535,7 +513,8 @@ class LoginController extends Controller
         );
         
         try {
-            $user->notify(new EmailVerificationCodeNotif($verification->code, $user->name));
+            $locale = app()->getLocale() ?? config('app.fallback_locale', 'en');
+            $user->notify(new EmailVerificationCodeNotif($verification->code, $user->name, $locale));
         } catch (\Throwable $e) {
             Log::error('Failed to resend 2FA code', [
                 'user_id' => $user->id,
@@ -570,16 +549,20 @@ class LoginController extends Controller
         Auth::login($user, $remember);
 
         $isFirstLogin = $user->logins()->count() === 0;
-        $avatarUrl = $user->profile_pic_url;  // Uses accessor
+        $avatarUrl = $user->profile_pic_url;
 
         // Basic session data
         session([
-           'uid'     => $user->id,
-           'uname'   => $user->name,
-           'utype'   => $user->type,
-           'uavatar' => $avatarUrl,  // ✅ CHANGED: Use profile pic from database
-           'first_login' => $isFirstLogin,
-       ]);
+            'uid'     => $user->id,
+            'uname'   => $user->name,
+            'utype'   => $user->type,
+            'uavatar' => $avatarUrl,
+            'first_login' => $isFirstLogin,
+        ]);
+
+        // ✅ NOTE: Locale handling moved to SetLocale middleware
+        // User's DB locale will automatically take priority after login
+        // Guest URL/cookie locale is already set before login
 
         // Log the login
         $user->logins()->create([

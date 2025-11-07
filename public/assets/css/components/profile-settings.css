@@ -160,8 +160,8 @@
   transform: scale(1.08);
 }
 
-/* Navigation Buttons */
-.carousel-nav {
+/* Profile Carousel Navigation Buttons - RENAMED TO AVOID CONFLICTS */
+.profile-carousel-btn {
   background: linear-gradient(135deg, var(--alabaster) 0%, rgba(255, 255, 255, 0.9) 100%);
   border: 2px solid var(--light_border);
   color: var(--outer_space);
@@ -177,24 +177,24 @@
   z-index: 20;
 }
 
-.carousel-nav:hover:not(:disabled) {
+.profile-carousel-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--pelorous) 0%, rgba(94, 158, 197, 0.9) 100%);
   border-color: var(--pelorous);
   color: white;
   transform: scale(1.1) translateY(-2px);
 }
 
-.carousel-nav:active:not(:disabled) {
+.profile-carousel-btn:active:not(:disabled) {
   transform: scale(1.05) translateY(0);
 }
 
-.carousel-nav:disabled {
+.profile-carousel-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
   background: var(--light_border);
 }
 
-.carousel-nav i {
+.profile-carousel-btn i {
   font-size: 1rem;
 }
 
@@ -319,18 +319,18 @@ body.dark-mode .carousel-3d-item.active .carousel-item-content {
   border-color: var(--pelorous);
 }
 
-body.dark-mode .carousel-nav {
+body.dark-mode .profile-carousel-btn {
   background: linear-gradient(135deg, var(--outer_space) 0%, rgba(51, 51, 51, 0.9) 100%);
   border-color: var(--silver_chalice);
   color: var(--alabaster);
 }
 
-body.dark-mode .carousel-nav:hover:not(:disabled) {
+body.dark-mode .profile-carousel-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--pelorous) 0%, rgba(94, 158, 197, 0.9) 100%);
   border-color: var(--pelorous);
 }
 
-body.dark-mode .carousel-nav:disabled {
+body.dark-mode .profile-carousel-btn:disabled {
   background: var(--outer_space);
   opacity: 0.3;
 }
@@ -367,12 +367,12 @@ body.dark-mode .profile-settings-content .modal-footer {
     margin-top: -40px;
   }
   
-  .carousel-nav {
+  .profile-carousel-btn {
     width: 35px;
     height: 35px;
   }
   
-  .carousel-nav i {
+  .profile-carousel-btn i {
     font-size: 0.9rem;
   }
 }
@@ -420,12 +420,12 @@ body.dark-mode .profile-settings-content .modal-footer {
     border-width: 3px;
   }
   
-  .carousel-nav {
+  .profile-carousel-btn {
     width: 32px;
     height: 32px;
   }
   
-  .carousel-nav i {
+  .profile-carousel-btn i {
     font-size: 0.85rem;
   }
   
@@ -448,7 +448,7 @@ body.dark-mode .profile-settings-content .modal-footer {
 @media (prefers-reduced-motion: reduce) {
   .carousel-3d-item,
   .carousel-item-content,
-  .carousel-nav,
+  .profile-carousel-btn,
   .indicator-dot,
   .carousel-3d-track {
     transition-duration: 0.01ms !important;

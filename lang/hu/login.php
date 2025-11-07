@@ -21,7 +21,7 @@ return [
     'verification_code_sent' => 'Ellenőrző kódot küldtünk a következő címre:',
     'verification_code' => 'Ellenőrző kód',
     'enter_6_digit_code' => 'Add meg a 6 jegyű kódot',
-    'verify_and_login' => 'Ellenőrzés és belépés',
+    'verify_and_login' => 'Belépés',
     'resend_code' => 'Kód újraküldése',
     'back_to_login' => 'Vissza a bejelentkezéshez',
     'code_expired_or_invalid' => 'Hibás vagy lejárt ellenőrző kód.',

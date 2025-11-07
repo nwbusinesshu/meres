@@ -65,7 +65,7 @@ class AiTranslationService
                 'response_format' => [
                     'type' => 'json_object'
                 ],
-                'temperature' => 0.3,
+                'temperature' => 1,
             ]);
 
             if (!$response->ok()) {
@@ -157,7 +157,7 @@ class AiTranslationService
                 'response_format' => [
                     'type' => 'json_object'
                 ],
-                'temperature' => 0.3,
+                'temperature' => 1,
             ]);
 
             if (!$response->ok()) {
@@ -388,7 +388,7 @@ Provide the translations in the exact JSON format above.";
                 'response_format' => [
                     'type' => 'json_object'
                 ],
-                'temperature' => 0.3,
+                'temperature' => 1,
             ]);
 
             if (!$response->ok()) {

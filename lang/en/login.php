@@ -21,7 +21,7 @@ return [
     'verification_code_sent' => 'We have sent a verification code to:',
     'verification_code' => 'Verification Code',
     'enter_6_digit_code' => 'Enter the 6-digit code',
-    'verify_and_login' => 'Verify and Sign In',
+    'verify_and_login' => 'Sign In',
     'resend_code' => 'Resend Code',
     'back_to_login' => 'Back to Login',
     'code_expired_or_invalid' => 'Invalid or expired verification code.',

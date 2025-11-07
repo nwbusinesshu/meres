@@ -63,6 +63,8 @@ jobs:
             rm release.tgz
             ln -sfn /var/www/quarma360-production/shared/.env releases/$REL/.env
             cd releases/$REL
+            mkdir -p /var/www/quarma360-production/shared/storage/framework/{cache,sessions,views}
+            mkdir -p /var/www/quarma360-production/shared/storage/{app/public,logs}
             composer install --no-dev --optimize-autoloader
             php artisan config:cache
             php artisan route:cache

@@ -11,16 +11,18 @@ class EmailVerificationCode extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    private string $verificationCode;
-    private string $userName;
+    public $verificationCode;
+    public $userName;
+    public $locale;
 
     /**
      * Create a new notification instance.
      */
-    public function __construct(string $verificationCode, string $userName)
+    public function __construct(string $verificationCode, string $userName, string $locale = 'hu')
     {
         $this->verificationCode = $verificationCode;
         $this->userName = $userName;
+        $this->locale = $locale;
     }
 
     /**
@@ -36,15 +38,18 @@ class EmailVerificationCode extends Notification implements ShouldQueue
      */
     public function toMail($notifiable): MailMessage
     {
+        // Set locale for this email
+        app()->setLocale($this->locale);
+
         return (new MailMessage)
-            ->subject('Bejelentkezési ellenőrző kód')
-            ->greeting('Kedves ' . $this->userName . '!')
-            ->line('A bejelentkezéshez szükséges ellenőrző kódod:')
+            ->subject(__('emails.verification_code.subject'))
+            ->greeting(__('emails.verification_code.greeting', ['user_name' => $this->userName]))
+            ->line(__('emails.verification_code.intro'))
             ->line('**' . $this->verificationCode . '**')
-            ->line('Ez a kód 10 percig érvényes.')
-            ->line('Ha nem te próbáltál meg bejelentkezni, kérjük, hagyd figyelmen kívül ezt az emailt.')
-            ->salutation('Üdvözlettel,')
-            ->salutation('A Quarma360 csapata');
+            ->line(__('emails.verification_code.expires'))
+            ->line(__('emails.verification_code.warning'))
+            ->salutation(__('emails.verification_code.salutation'))
+            ->salutation(__('emails.verification_code.team'));
     }
 
     /**

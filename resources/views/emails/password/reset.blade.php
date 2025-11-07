@@ -1,18 +1,18 @@
 @component('mail::message')
-# Jelszó visszaállítás
+# {{ __('emails.password_reset.title') }}
 
-A(z) **{{ $org->name }}** rendszerében jelszó visszaállítást kértünk a **{{ $user->email }}** fiókhoz.
+{{ __('emails.password_reset.intro', ['org_name' => $org->name, 'email' => $user->email]) }}
 
-Kattints az alábbi gombra az új jelszó beállításához:
+{{ __('emails.password_reset.action_text') }}
 
 @component('mail::button', ['url' => $url])
-Jelszó visszaállítása
+{{ __('emails.password_reset.button') }}
 @endcomponent
 
-Ez a link **{{ $expiresAt->format('Y-m-d H:i') }}** időpontig érvényes.
+{{ __('emails.password_reset.expires', ['expires_at' => $expiresAt->format('Y-m-d H:i')]) }}
 
-Ha nem te kérted, azonnal értesítsd a céges admin kapcsolattartód.
+{{ __('emails.password_reset.warning') }}
 
-Üdv,  
+{{ __('emails.password_reset.salutation') }}  
 **{{ $org->name }}**
 @endcomponent

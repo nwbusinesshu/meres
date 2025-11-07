@@ -51,11 +51,22 @@ class PasswordSetupService
         // FIXED: URL generation without org slug - matches the GET route
         $url = route('password-setup.show', ['token' => $plainToken]);
 
-        // A megfelelőt küldjük
+        // Determine locale based on purpose
         if ($purpose === 'reset') {
-            Mail::to($user->email)->send(new PasswordResetMail($org, $user, $url, $expiresAt));
+            // Password reset: Use target user's locale (or fallback to English)
+            $locale = $user->locale ?? config('app.fallback_locale', 'en');
+            Mail::to($user->email)->send(new PasswordResetMail($org, $user, $url, $expiresAt, $locale));
         } else {
-            Mail::to($user->email)->send(new PasswordSetupMail($org, $user, $url, $expiresAt));
+            // Password setup: Use admin's locale (who created the user)
+            // If no admin logged in (e.g., registration), use current session locale
+            $adminLocale = null;
+            if ($createdBy) {
+                $admin = User::find($createdBy);
+                $adminLocale = $admin?->locale;
+            }
+            $locale = $adminLocale ?? app()->getLocale() ?? config('app.fallback_locale', 'en');
+            
+            Mail::to($user->email)->send(new PasswordSetupMail($org, $user, $url, $expiresAt, $locale));
         }
 
         \Log::info('password-setup.mail.sent', [
@@ -63,7 +74,8 @@ class PasswordSetupService
             'org_id'  => $org->id,
             'user_id' => $user->id,
             'to'      => $user->email,
-            'url'     => $url, // Log the generated URL for debugging
+            'url'     => $url,
+            'locale'  => $locale ?? 'unknown',
         ]);
 
         return $plainToken;

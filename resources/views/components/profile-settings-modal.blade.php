@@ -23,8 +23,8 @@
           {{-- Modern 3D Carousel Container --}}
           <div class="modern-carousel-container">
             
-            {{-- Navigation Buttons --}}
-            <button class="carousel-nav carousel-nav-left" id="carousel-prev" aria-label="Previous">
+            {{-- Navigation Buttons - RENAMED CLASSES TO AVOID CONFLICTS --}}
+            <button class="profile-carousel-btn profile-carousel-btn-left" id="carousel-prev" aria-label="Previous">
               <i class="fa fa-chevron-left"></i>
             </button>
             
@@ -41,7 +41,7 @@
               </div>
             </div>
             
-            <button class="carousel-nav carousel-nav-right" id="carousel-next" aria-label="Next">
+            <button class="profile-carousel-btn profile-carousel-btn-right" id="carousel-next" aria-label="Next">
               <i class="fa fa-chevron-right"></i>
             </button>
             
@@ -542,7 +542,3 @@
 
 })();
 </script>
-
-
-
-
