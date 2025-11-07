@@ -74,6 +74,5 @@ jobs:
             ln -sfn /var/www/quarma360-production/shared/uploads public/uploads
             cd /var/www/quarma360-production
             ln -sfn /var/www/quarma360-production/releases/$REL current
-            sudo chown -R quarmaapp:www-data releases/$REL
             sudo systemctl reload php8.3-fpm
             ls -t releases/ | tail -n +6 | xargs -I {} rm -rf releases/{}
