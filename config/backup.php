@@ -7,7 +7,7 @@ return [
          * The name of this application. You can use this name to monitor
          * the backups.
          */
-        'name' => 'quarma360-staging', // CHANGE to 'quarma360-production' for production
+        'name' => 'quarma360-' . env('APP_ENV', 'production'),
 
         'source' => [
             'files' => [
