@@ -68,7 +68,7 @@ jobs:
             # php artisan migrate --force
             php artisan config:cache
             php artisan route:cache
-            php artisan view:cache
+            php artisan view:cache || true
             php artisan storage:link || true
             ln -sfn /var/www/quarma360-production/releases/$REL /var/www/quarma360-production/current
             sudo systemctl reload php8.3-fpm
