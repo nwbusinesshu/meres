@@ -1,4 +1,5 @@
 /vendor/
+!/resources/views/vendor/
 /storage/*
 !/storage/app/
 /storage/app/public/
