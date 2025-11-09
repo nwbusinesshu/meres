@@ -102,4 +102,4 @@ jobs:
             # Clean old releases (keep last 5)
             ls -t releases/ | tail -n +6 | xargs -I {} rm -rf releases/{}
             
-            echo "✅ Deployment completed successfully!"
+            echo "✅ Hurray!Deployment completed successfully!"
