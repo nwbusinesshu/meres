@@ -52,6 +52,10 @@
 "scope-departments-desc" => "Csak meghatározott részlegekben",
 "scope-soon-badge" => "SOON",
 "scope-coming-soon" => "Hamarosan elérhető",
+"scope-pilot-title" => "Futtatás pilotként",
+"scope-pilot-desc" => "Első értékelés futtatása következmények nélkül",
+"scope-pilot-info" => "Küszöbszámítás megtörténik, de nem történik szintlépés",
+"scope-pilot-unavailable" => "Csak az első értékeléshez elérhető",
 
 // Error messages
 "assessment-load-error-title" => "Hiba",

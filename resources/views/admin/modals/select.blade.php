@@ -161,15 +161,20 @@ $(document).ready(function(){
       } else {
         response.forEach((item) => {
           var data = itemData(item);
+          
+          // Check if name or description are fallbacks
+          var nameFallbackClass = (item.name_is_fallback || data.name_is_fallback) ? 'fallback-text' : '';
+          var descriptionFallbackClass = (item.description_is_fallback || data.description_is_fallback) ? 'fallback-text' : '';
+          
           var html = '<div class="select-modal-item" data-id="'+data.id+'" data-name="'+data.name+'">';
           
           html += '<div class="item-content">';
           if(typeof data.top != 'undefined' && data.top !== null){
             html+='<span>'+data.top+'</span>';
           }
-          html+='<p>'+data.name+'</p>';
+          html+='<p class="'+nameFallbackClass+'">'+data.name+'</p>';
           if(typeof data.bottom != 'undefined' && data.bottom !== null){
-            html+='<span>'+data.bottom+'</span>';
+            html+='<span class="'+descriptionFallbackClass+'">'+data.bottom+'</span>';
           }
           html += '</div>';
           html+='</div>';
@@ -393,5 +398,17 @@ $(document).ready(function(){
   #select-modal .select-actions .btn {
     width: 100%;
   }
+}
+
+/* Translation fallback styling - matches competencies page */
+#select-modal .fallback-text {
+  color: #dc3545 !important;
+  font-style: italic;
+}
+
+#select-modal .fallback-text::after {
+  content: ' (!)';
+  font-size: 0.8em;
+  opacity: 0.7;
 }
 </style>

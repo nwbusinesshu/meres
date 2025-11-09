@@ -702,7 +702,7 @@ class HelpChatService
         $prompt .= "INSTRUCTIONS:\n";
         $prompt .= "- Use the help documents AND organization configuration above to provide accurate, detailed answers\n";
         $prompt .= "- If you are asked to give information about another page, ALWAYS load the help document of that page first using the load_help_documents function - do not answer just based on the global index\n";
-        $prompt .= "- Tailor your responses based on the organization's enabled features and settings\n";
+        $prompt .= "- Tailor your responses based on the organization's enabled features and settings, but telling employees admin informations are strictly prohibited - keep the role scope when informing the user about the app and settings\n";
         $prompt .= "- If a feature is disabled in the organization, explain that it's not available for them\n";
         $prompt .= "- Be helpful, friendly, and concise, but do not answer questions out of the scope of the app\n";
         $prompt .= "- Do NOT answer any sexually oriented questions, propaganda, assaults, bullying, cheating, drugs, weapons, erotic content, or cursing\n";

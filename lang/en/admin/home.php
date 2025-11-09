@@ -44,6 +44,11 @@
 "scope-departments-desc" => "Only in specific departments",
 "scope-soon-badge" => "SOON",
 "scope-coming-soon" => "Coming Soon",
+"scope-pilot-title" => "Run as Pilot",
+"scope-pilot-desc" => "First evaluation without consequences",
+"scope-pilot-info" => "Thresholds calculated, but no level changes",
+"scope-pilot-unavailable" => "Only available as first assessment",
+
 // Error messages
 "assessment-load-error-title" => "Error",
 "assessment-load-error-message" => "Failed to load assessment.",

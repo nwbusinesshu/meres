@@ -33,15 +33,25 @@
                 </div>
               </label>
 
+              {{-- ✅ NEW: Pilot értékelés (csak ha nincs még assessment) --}}
+              <input type="radio" id="scope-pilot" name="assessment-scope" class="assessment-scope__radio">
+              <label for="scope-pilot" class="assessment-scope__option" id="scope-pilot-label">
+                <div class="assessment-scope__text">
+                  <span class="assessment-scope__title">{{ __('admin/home.scope-pilot-title') }}</span>
+                  <span class="assessment-scope__desc">{{ __('admin/home.scope-pilot-desc') }}</span>
+                </div>
+                <span class="badge badge-info">{{ __('admin/home.scope-pilot-info') }}</span>
+              </label>
+
               {{-- Kiválasztott részlegekben (tiltott, SOON) --}}
               <input type="radio" id="scope-depts" name="assessment-scope" class="assessment-scope__radio" disabled>
-                <label for="scope-depts" class="assessment-scope__option assessment-scope__option--disabled" title="{{ __('admin/home.scope-coming-soon') }}">
-                  <div class="assessment-scope__text">
-                    <span class="assessment-scope__title">{{ __('admin/home.scope-departments-title') }}</span>
-                    <span class="assessment-scope__desc">{{ __('admin/home.scope-departments-desc') }}</span>
-                  </div>
-                  <span class="badge badge-warning">{{ __('admin/home.scope-soon-badge') }}</span>
-                </label>
+              <label for="scope-depts" class="assessment-scope__option assessment-scope__option--disabled" title="{{ __('admin/home.scope-coming-soon') }}">
+                <div class="assessment-scope__text">
+                  <span class="assessment-scope__title">{{ __('admin/home.scope-departments-title') }}</span>
+                  <span class="assessment-scope__desc">{{ __('admin/home.scope-departments-desc') }}</span>
+                </div>
+                <span class="badge badge-warning">{{ __('admin/home.scope-soon-badge') }}</span>
+              </label>
             </div>
           </div>
         </div>
@@ -88,7 +98,6 @@
 
   /* Gomb-szerű opciók */
    .assessment-scope__option {
-    display: flex;
     align-items: center;
     justify-content: space-between;
     gap: .75rem;
@@ -121,6 +130,7 @@
 
   /* Kiválasztott állapot – szépen beszínezve (info kékhez igazítva) */
    #scope-org:checked + .assessment-scope__option,
+   #scope-pilot:checked + .assessment-scope__option,
    #scope-depts:checked + .assessment-scope__option {
     border-color: #17a2b8;
     box-shadow: 0 0 0 .2rem rgba(23,162,184,.15);
@@ -188,8 +198,10 @@ function openAssessmentModal(id = 0){
 
   // Radio-k alaphelyzetbe (enable for creating new assessment)
   $('#scope-org').prop('checked', true).prop('disabled', false);
+  $('#scope-pilot').prop('checked', false).prop('disabled', false);
   $('#scope-depts').prop('checked', false);
   $('label[for="scope-org"]').removeClass('assessment-scope__option--disabled');
+  $('#scope-pilot-label').removeClass('assessment-scope__option--disabled');
 
   // Hide assessment info block by default
   $('.assessment-info-block').hide();
@@ -197,14 +209,39 @@ function openAssessmentModal(id = 0){
   $('#assessment-modal .tile-warning').addClass("hidden");
   
   if(id == 0){
-    // Creating new assessment
-    swal_loader.close();
-    $('#assessment-modal .tile-warning').removeClass("hidden");
-    $('#assessment-modal').modal();
+    // ✅ NEW: Check if pilot option should be available (only for first assessment)
+    $.ajax({
+      url: "{{ route('admin.assessment.check-pilot-available') }}",
+      method: 'GET',
+      success: function(response) {
+        if (!response.pilot_available) {
+          // Disable pilot option if org has previous assessments
+          $('#scope-pilot').prop('disabled', true);
+          $('#scope-pilot-label')
+            .addClass('assessment-scope__option--disabled')
+            .attr('title', '{{ __("admin/home.scope-pilot-unavailable") }}');
+        }
+        
+        swal_loader.close();
+        $('#assessment-modal .tile-warning').removeClass("hidden");
+        $('#assessment-modal').modal();
+      },
+      error: function() {
+        // On error, disable pilot to be safe
+        $('#scope-pilot').prop('disabled', true);
+        $('#scope-pilot-label').addClass('assessment-scope__option--disabled');
+        
+        swal_loader.close();
+        $('#assessment-modal .tile-warning').removeClass("hidden");
+        $('#assessment-modal').modal();
+      }
+    });
   } else {
     // Modifying existing assessment - disable mode switcher and show info
     $('#scope-org').prop('disabled', true);
+    $('#scope-pilot').prop('disabled', true);
     $('label[for="scope-org"]').addClass('assessment-scope__option--disabled');
+    $('#scope-pilot-label').addClass('assessment-scope__option--disabled');
     
     swal_loader.fire();
     $.ajax({
@@ -240,7 +277,7 @@ function openAssessmentModal(id = 0){
         } else {
           $('#assessment-upper').text('{{ __("admin/home.assessment-info-will-be-calculated") }}');
         }
-        
+       
         // Lower threshold
         if (response.normal_level_down !== null && response.normal_level_down !== undefined) {
           $('#assessment-lower').text(response.normal_level_down + ' {{ __("admin/home.assessment-info-points") }}');
@@ -266,12 +303,19 @@ $(document).ready(function(){
     }).then((result) => {
       if (result.isConfirmed) {
         swal_loader.fire();
+        
+        // ✅ NEW: Determine scope from selected radio
+        let scope = 'org'; // default
+        if ($('#scope-pilot').is(':checked')) {
+          scope = 'pilot';
+        }
+        
         $.ajax({
           url: "{{ route('admin.assessment.save') }}",
           data: {
             id: $('#assessment-modal').attr('data-id'),
-            due: $('#assessment-modal .assessment-due').val()
-            // A scope most még csak UI – nem küldjük a szervernek.
+            due: $('#assessment-modal .assessment-due').val(),
+            scope: scope // ✅ NEW: Send scope to backend
           },
           successMessage: "{{ __('admin/home.save-assessment-success') }}",
         });

@@ -169,6 +169,8 @@ Route::prefix('/admin')->name('admin.')->middleware(['auth:'.OrgRole::ADMIN, 'or
         Route::post('/get', 'getAssessment')->name('get');
         Route::post('/save', 'saveAssessment')->name('save');
         Route::post('/close', 'closeAssessment')->name('close');
+        Route::get('/check-pilot-available', 'checkPilotAvailable')->name('check-pilot-available');
+
     });
 
     // ✅ CONFIG ROUTES - BLOCKED DURING ASSESSMENT

@@ -9,7 +9,7 @@ actions:
   - { label: "Határidő módosítása", trigger: "modify-assessment", permission: "admin" }
   - { label: "Értékelési időszak lezárása", trigger: "close-assessment", permission: "admin" }
   - { label: "Lezárás előtt fizetés", trigger: "payment-link", permission: "admin" }
-keywords: [admin főoldal, értékelési időszak, értékelés indítása, értékelés lezárása, statisztikák, alkalmazottak nyomonkövetése, határidő módosítása, értékelési állapot, önértékelés, vezetői rangsor]
+keywords: [admin főoldal, értékelési időszak, értékelés indítása, értékelés lezárása, statisztikák, alkalmazottak nyomonkövetése, határidő módosítása, értékelési állapot, önértékelés, vezetői rangsor, pilot értékelés, tesztelés]
 
 
 <!-- TECHNICAL_DETAILS_START - This section is for AI use only, not visible to end users -->
@@ -28,6 +28,7 @@ keywords: [admin főoldal, értékelési időszak, értékelés indítása, ért
 - `admin.assessment.get` - POST (load assessment modal data)
 - `admin.assessment.save` - POST (save/create assessment)
 - `admin.assessment.close` - POST (close assessment period)
+- `admin.assessment.check-pilot-available` - GET (check if pilot assessment is available)
 
 **Permissions:** 
 - Middleware: `auth:OrgRole::ADMIN`, `org`, `check.initial.payment`
@@ -35,7 +36,7 @@ keywords: [admin főoldal, értékelési időszak, értékelés indítása, ért
 - Redirects to payment page if initial payment not completed
 
 **Key Database Tables:**
-- `assessments` - Current and historical assessment periods
+- `assessments` - Current and historical assessment periods (includes is_pilot column)
 - `users` - Employee data and relations
 - `user_competency_submits` - Track competency assessment submissions
 - `user_ceo_ranks` - CEO/Manager ranking submissions
@@ -49,19 +50,21 @@ keywords: [admin főoldal, értékelési időszak, értékelés indítása, ért
 **Translation Keys:**
 - `lang/hu/admin/home.php` - Hungarian translations for admin home
 - `lang/en/admin/home.php` - English translations (if available)
-- Key translations: assessment labels, button texts, status messages
+- Key translations: assessment labels, button texts, status messages, pilot assessment labels
 
 **Key Features:**
 - Real-time assessment period status display
 - Employee progress tracking with color-coded tiles
 - Assessment and CEO rank completion statistics
 - Modal-based assessment creation and modification
+- Pilot assessment option (only for first assessment)
 - Payment gateway integration check before closing assessments
 
 **Validations (backend):**
 - Assessment due date must be at least 1 day in the future
 - Cannot close assessment if open payments exist
-- Assessment closure calculates bonus/malus levels automatically
+- Pilot assessment only available if organization has no previous assessments
+- Assessment closure calculates bonus/malus levels automatically (skipped for pilot assessments)
 
 **Business Logic:**
 - Counts employees excluding admins for statistics
@@ -69,6 +72,7 @@ keywords: [admin főoldal, értékelési időszak, értékelés indítása, ért
 - CEO rank requirements = CEO count + Manager count (with subordinates)
 - Color-coded tiles show completion status (green = complete, red = incomplete)
 - Payment check prevents premature assessment closure
+- Pilot assessments skip bonus/malus level changes and bonus calculations
 
 <!-- TECHNICAL_DETAILS_END -->
 ---
@@ -97,6 +101,20 @@ Az adminisztrátor főoldal a Quarma360 irányítópultja, ahol az értékelési
 **Mit csinál:** Új értékelési időszakot indíthatsz, amelyben a dolgozók értékelik egymást és magukat. Megadhatod a határidőt, ameddig az értékeléseket be kell nyújtani.  
 **Korlátozások:** Egyszerre csak egy aktív értékelési időszak futhat. Nem indíthatsz újat, amíg a jelenlegi nem zárul le.
 
+### ✨ Pilot értékelés indítása (CSAK első alkalommal)
+**Választási lehetőség:** "Futtatás pilotként"  
+**Helye:** Az értékelési időszak indítása ablakban  
+**Mit csinál:** Az első értékelési időszakot elindíthatod "pilot módban", amely lehetővé teszi a rendszer kipróbálását anélkül, hogy bónusz-málusz szinteket vagy bónuszokat számolna. Tökéletes a rendszer tesztelésére.  
+**Korlátozások:** 
+- Csak akkor elérhető, ha még nem volt értékelési időszak a szervezetben
+- Minden adatot rögzít és küszöbértékeket számol, de nem változtatja a bónusz-málusz szinteket
+- A második értékelési időszaktól kezdve már nem választható
+
+**Mikor használd:**
+- Ha először használod a rendszert és szeretnéd kipróbálni
+- Ha látni akarod, hogy milyen küszöbértékek jönnének ki éles adatokkal
+- Ha gyakorolni szeretnél az értékelési folyamattal hibák kockázata nélkül
+
 ### Határidő módosítása
 **Gomb:** "Határidő módosítása"  
 **Helye:** Az oldal tetején, ha fut aktív értékelés  
@@ -106,7 +124,7 @@ Az adminisztrátor főoldal a Quarma360 irányítópultja, ahol az értékelési
 ### Értékelési időszak lezárása
 **Gomb:** "Értékelési időszak lezárása"  
 **Helye:** Az oldal tetején, ha fut aktív értékelés  
-**Mit csinál:** Lezárja az aktív értékelési időszakot. Ezután a rendszer kiszámítja a bónusz-málusz szinteket, és az eredmények elérhetővé válnak.  
+**Mit csinál:** Lezárja az aktív értékelési időszakot. Ezután a rendszer kiszámítja a bónusz-málusz szinteket (kivéve pilot értékelésnél), és az eredmények elérhetővé válnak.  
 **Korlátozások:** Nem zárhatsz le értékelést, ha van rendezetlen számla. Először a számlát kell kiegyenlíteni.
 
 ### Fizetési oldal megnyitása
@@ -125,15 +143,39 @@ Ha nincs aktív értékelés, az oldalon megjelenik egy kártyán az "Értékel�
 **Gomb:** "Értékelési időszak indítása"  
 **Helye:** Az oldal tetején, az értékelési állapot területen
 
-### 2. Állítsd be a határidőt
-A megnyíló ablakban válaszd ki, hogy meddig tartsanak az értékelések.
+### 2. Válaszd ki az értékelés típusát
+
+A megnyíló ablakban három lehetőség közül választhatsz:
+
+**A) Futtatás teljes cégben** (alapértelmezett)
+- Normál értékelési időszak
+- Minden adatot rögzít
+- Küszöbértékeket számol
+- Bónusz-málusz szinteket módosít
+- Bónuszokat számol
+
+**B) Futtatás pilotként** (csak első alkalommal!)
+- Teljes értékelési folyamat
+- Küszöbértékek kiszámítása
+- ❌ NINCS bónusz-málusz szintváltozás
+- ❌ NINCS bónusz számítás
+- Tökéletes tesztelésre!
+
+**Fontos:** A pilot opció csak akkor jelenik meg, ha ez lenne az első értékelési időszak a szervezetben. Ha már volt korábbi értékelés, ez a választási lehetőség nem elérhető.
+
+**C) Futtatás kiválasztott részlegekben** (hamarosan)
+- Jelenleg nem elérhető
+- Később lesz implementálva
+
+### 3. Állítsd be a határidőt
+Válaszd ki, hogy meddig tartsanak az értékelések.
 
 **Mezők:**
 - **Határidő** - Válaszd ki a dátumot, ameddig az értékeléseket be kell nyújtani. Minimum 1 nappal a mai naptól kell lennie.
 
 **Fontos:** Az értékelési időszak alatt nem módosíthatod a rendszer más beállításait (például küszöbértékeket vagy kompetenciákat).
 
-### 3. Mentsd el az értékelési időszakot
+### 4. Mentsd el az értékelési időszakot
 Kattints a "Mentés" gombra, és erősítsd meg a műveletet.
 
 ---
@@ -156,7 +198,9 @@ Ha minden rendben van (vagy elfogadod, hogy nem minden értékelés készült el
 ### 3. Erősítsd meg a lezárást
 A rendszer megerősítést kér. Ha biztos vagy benne, kattints az "Igen" gombra.
 
-**Figyelem:** A lezárás után a rendszer automatikusan kiszámítja a bónusz-málusz szinteket és a negyedéves bónuszokat.
+**Figyelem:** 
+- **Normál értékelésnél:** A lezárás után a rendszer automatikusan kiszámítja a bónusz-málusz szinteket és a negyedéves bónuszokat.
+- **Pilot értékelésnél:** A rendszer kiszámítja és megjeleníti a küszöbértékeket, de NEM módosítja a bónusz-málusz szinteket és NEM számol bónuszokat.
 
 ---
 
@@ -206,10 +250,16 @@ Minden alkalmazotthoz külön kártya mutatja a részletes előrehaladást:
 - Van rendezetlen (fizetetlen) számla a rendszerben
 - Először a "Lezárás előtt fizetés" gombbal menj a számlázási oldalra
 
+### ⚠️ Pilot értékelés korlátozások:
+- Csak akkor választható, ha még nem volt értékelési időszak a szervezetben
+- Ha már volt korábbi értékelés, a pilot opció nem jelenik meg
+- Egy szervezet csak egyszer futtathat pilot értékelést
+
 ### ⚠️ Figyelem:
 - Az értékelési időszak alatt nem módosíthatod a kompetenciákat, beállításokat vagy küszöbértékeket
 - A lezárás után az eredmények véglegesek, nem módosíthatók
-- A lezáráskori számítások alapján a bónuszok automatikusan kiszámításra kerülnek
+- Normál értékelésnél a lezáráskori számítások alapján a bónuszok automatikusan kiszámításra kerülnek
+- Pilot értékelésnél a küszöbértékek láthatók, de a bónusz-málusz változások nem történnek meg
 
 ---
 
@@ -229,12 +279,40 @@ Minden alkalmazotthoz külön kártya mutatja a részletes előrehaladást:
 2. Egyenlítsd ki a nyitott számlákat
 3. Térj vissza a főoldalra és zárd le az értékelést
 
+### "Csak az első értékeléshez elérhető"
+**Mikor jelenik meg:** Amikor a pilot értékelés opciót választanád, de már volt korábbi értékelés.  
+**Megoldás:** A pilot mód csak az első értékeléshez használható. Válaszd a "Futtatás teljes cégben" opciót normál értékeléshez.
+
 ---
 
 ## GYIK (Gyakran Ismételt Kérdések)
 
 **Mikor érdemes indítani egy új értékelési időszakot?**
 Általában negyedévenként vagy félévente szokás értékelést indítani, hogy rendszeres visszajelzést kapj a csapatról. A határidőt úgy állítsd be, hogy legalább 2 hét álljon rendelkezésre a kitöltésre.
+
+**Mi az a pilot értékelés és mikor használjam?**
+A pilot értékelés egy speciális mód, amely lehetővé teszi a rendszer kipróbálását "éles" körülmények között, de bónusz-málusz következmények nélkül. Ideális akkor, ha:
+- Először használod a Quarma360-at és szeretnéd látni, hogyan működik
+- Látni akarod, hogy milyen küszöbértékek jönnének ki a valós adatokkal
+- Gyakorolni szeretnél az értékelési folyamattal, mielőtt "élesben" indítanál
+
+**Fontos:** A pilot értékelés csak egyszer, az első értékelési időszaknál választható!
+
+**Mi a különbség a pilot és a normál értékelés között?**
+
+**Pilot értékelés:**
+- ✅ Teljes értékelési folyamat (értékelések, önértékelés, rangsorolások)
+- ✅ Küszöbértékek kiszámítása
+- ✅ Eredmények megtekinthetők
+- ❌ NINCS bónusz-málusz szintváltozás
+- ❌ NINCS bónusz számítás
+
+**Normál értékelés:**
+- ✅ Teljes értékelési folyamat
+- ✅ Küszöbértékek kiszámítása
+- ✅ Eredmények megtekinthetők
+- ✅ Bónusz-málusz szintek módosulnak
+- ✅ Bónuszok kiszámításra kerülnek
 
 **Mi történik, ha valaki nem fejezi be az értékelést határidőre?**
 Lezárhatod az értékelést hiányos állapotban is, de azok az alkalmazottak, akiknek hiányos az értékelésük, nem kapnak teljes képet az eredményeikről. Hiányzó komponensek esetén a bónusz-málusz számítás is pontatlanabb lesz.
@@ -255,13 +333,20 @@ A zöld kártya azt jelenti, hogy az alkalmazott befejezte az összes értékel�
 Nem, egy elindított értékelési időszakot nem törölhetsz, csak lezárhatod. Ha mégis meg akarod szakítani, lépj kapcsolatba a Quarma360 ügyfélszolgálatával.
 
 **Mi történik a lezárás után?**
-A lezárás után a rendszer automatikusan kiszámítja minden alkalmazott bónusz-málusz szintjét a beállított küszöbértékek alapján, majd ezek alapján kiszámítja a negyedéves bónuszokat. Az eredmények ezután megtekinthetők az Eredmények oldalon.
+- **Normál értékelésnél:** A rendszer automatikusan kiszámítja minden alkalmazott bónusz-málusz szintjét a beállított küszöbértékek alapján, majd ezek alapján kiszámítja a negyedéves bónuszokat. Az eredmények ezután megtekinthetők az Eredmények oldalon.
+- **Pilot értékelésnél:** A rendszer kiszámítja és megjeleníti a küszöbértékeket, az eredmények megtekinthetők, de a bónusz-málusz szintek nem változnak és bónuszok sem kerülnek kiszámításra.
 
 **Hogyan tudom ellenőrizni, ki nem töltötte ki még az értékelést?**
 Az oldal alján az "Alkalmazottak részletesen" részben minden dolgozóhoz látsz egy kártyát. A piros kártyák jelzik, hogy kinek vannak még hiányzó értékelései. A kártyán látod pontosan, hogy hány értékelést kell még kitöltenie.
 
 **Lehet egyszerre több aktív értékelési időszakom?**
 Nem, a rendszer egyszerre csak egy aktív értékelési időszakot engedélyez. Zárd le az aktuális időszakot, mielőtt újat indítanál.
+
+**Miért nem látom a pilot értékelés opciót?**
+A pilot értékelés opció csak akkor jelenik meg, ha még nem volt egyetlen lezárt értékelési időszak sem a szervezetben. Ha már futtattál korábban értékelést (akár pilotként, akár normál módban), ez az opció többé nem lesz elérhető. Ez így van szándékosan, hogy a pilot mód ne legyen visszaélésszerűen használható.
+
+**Ha pilot értékelést futtatunk, utána is látszanak az eredmények?**
+Igen! A pilot értékelés minden eredményt rögzít és megjeleníti, beleértve a küszöbértékeket is. Az egyetlen különbség, hogy nem változtatja meg a bónusz-málusz szinteket és nem számol bónuszokat. Így tökéletesen kipróbálhatod a rendszert és láthatod az eredményeket anélkül, hogy "éles" következményei lennének.
 
 ---
 

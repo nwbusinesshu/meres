@@ -63,15 +63,80 @@ class AdminCompetencyController extends Controller
     }
 
     public function getAllCompetency(Request $request){
-        $orgId = session('org_id');
+    $orgId = session('org_id');
+    $currentLocale = app()->getLocale();
 
-        return Competency::whereNull('removed_at')
-            ->where(function($q) use ($orgId){
-                $q->whereNull('organization_id')
-                  ->orWhere('organization_id', $orgId);
-            })
-            ->orderBy('name')
-            ->get();
+    $competencies = Competency::whereNull('removed_at')
+        ->where(function($q) use ($orgId){
+            $q->whereNull('organization_id')
+              ->orWhere('organization_id', $orgId);
+        })
+        ->orderBy('name')
+        ->get();
+
+    // Apply translations to each competency
+    return $competencies->map(function($comp) use ($currentLocale) {
+        // Get translated name
+        $translatedName = $this->getTranslatedText(
+            $comp->name,
+            $comp->name_json,
+            $comp->original_language ?? 'hu',
+            $currentLocale
+        );
+
+        // Get translated description
+        $translatedDescription = null;
+        if (!empty($comp->description)) {
+            $translatedDescription = $this->getTranslatedText(
+                $comp->description,
+                $comp->description_json,
+                $comp->original_language ?? 'hu',
+                $currentLocale
+            );
+        }
+
+        // Return competency with translated fields
+        return [
+            'id' => $comp->id,
+            'name' => $translatedName['text'],
+            'name_is_fallback' => $translatedName['is_fallback'],
+            'description' => $translatedDescription ? $translatedDescription['text'] : null,
+            'description_is_fallback' => $translatedDescription ? $translatedDescription['is_fallback'] : false,
+            'organization_id' => $comp->organization_id,
+            'original_name' => $comp->name, // Keep original for reference
+            'original_description' => $comp->description, // Keep original for reference
+        ];
+    });
+}
+
+        /**
+     * Helper method to get translated text with fallback indicator
+     * 
+     * @param string $originalText
+     * @param string|null $translationsJson
+     * @param string $originalLanguage
+     * @param string $currentLocale
+     * @return array ['text' => string, 'is_fallback' => bool]
+     */
+    private function getTranslatedText($originalText, $translationsJson, $originalLanguage, $currentLocale)
+    {
+        // If no translations or we're in the original language, return original text
+        if (empty($translationsJson) || $currentLocale === $originalLanguage) {
+            return ['text' => $originalText, 'is_fallback' => false];
+        }
+        
+        $translations = json_decode($translationsJson, true);
+        if (!$translations || !is_array($translations)) {
+            return ['text' => $originalText, 'is_fallback' => true];
+        }
+        
+        // Check if translation exists for current locale
+        if (isset($translations[$currentLocale]) && !empty(trim($translations[$currentLocale]))) {
+            return ['text' => $translations[$currentLocale], 'is_fallback' => false];
+        }
+        
+        // Fallback to original text
+        return ['text' => $originalText, 'is_fallback' => true];
     }
 
     public function saveCompetency(Request $request){

@@ -107,6 +107,19 @@ class AdminAssessmentController extends Controller
             }
         }
 
+                if (is_null($assessment)) {
+            // ✅ Validate pilot scope
+            if ($request->scope === 'pilot') {
+                $hasAssessments = Assessment::where('organization_id', $orgId)->exists();
+                
+                if ($hasAssessments) {
+                    throw ValidationException::withMessages([
+                        'scope' => [__('admin/home.scope-pilot-unavailable')]
+                    ]);
+                }
+            }
+        }
+
         // Tranzakció
         return AjaxService::DBTransaction(function () use ($request, &$assessment, $orgId) {
 
@@ -151,6 +164,7 @@ class AdminAssessmentController extends Controller
                 $assessment->started_at = now();
                 $assessment->due_at = $request->due;
                 $assessment->closed_at = null;
+                $assessment->is_pilot = ($request->scope === 'pilot');
                 $assessment->threshold_method = $init['threshold_method'] ?? null;
                 $assessment->normal_level_up = $init['normal_level_up'] ?? null;
                 $assessment->normal_level_down = $init['normal_level_down'] ?? null;
@@ -297,180 +311,197 @@ class AdminAssessmentController extends Controller
         });
     }
 
-    public function closeAssessment(Request $request)
+    public function checkPilotAvailable(Request $request)
     {
-        // ========================================
-        // SECTION 1: LOAD & VALIDATE ACCESS
-        // ========================================
-        $assessment = Assessment::findOrFail($request->id);
-        $orgId = (int) $assessment->organization_id;
+        $orgId = (int) session('org_id');
         
-        if ($orgId !== (int) session('org_id')) {
-            throw ValidationException::withMessages([
-                'assessment' => __('assessment.not_authorized_organization')
-            ]);
+        if (!$orgId) {
+            return response()->json(['pilot_available' => false]);
         }
-
-        // ========================================
-        // SECTION 2: PRE-CLOSE VALIDATION
-        // ========================================
-        $validator = app(\App\Services\AssessmentValidator::class);
         
+        $hasAssessments = Assessment::where('organization_id', $orgId)->exists();
+        
+        return response()->json([
+            'pilot_available' => !$hasAssessments
+        ]);
+    }
+
+   public function closeAssessment(Request $request)
+{
+    // ========================================
+    // SECTION 1: LOAD & VALIDATE ACCESS
+    // ========================================
+    $assessment = Assessment::findOrFail($request->id);
+    $orgId = (int) $assessment->organization_id;
+    
+    if ($orgId !== (int) session('org_id')) {
+        throw ValidationException::withMessages([
+            'assessment' => __('assessment.not_authorized_organization')
+        ]);
+    }
+
+    // ========================================
+    // SECTION 2: PRE-CLOSE VALIDATION
+    // ========================================
+    $validator = app(\App\Services\AssessmentValidator::class);
+    
+    try {
+        $validator->validateAssessmentReadyToClose($assessment->id);
+    } catch (ValidationException $e) {
+        Log::warning('Assessment close validation failed', [
+            'assessment_id' => $assessment->id,
+            'errors' => $e->errors()
+        ]);
+        
+        return response()->json([
+            'ok' => false,
+            'message' => __('assessment.cannot_close_yet'),
+            'errors' => $e->errors()
+        ], 422);
+    }
+
+    // ========================================
+    // SECTION 3: PREPARE DATA & CALCULATE THRESHOLDS
+    // ========================================
+    $cfg = $this->thresholds->getOrgConfigMap($orgId);
+    $method = strtolower((string)$assessment->threshold_method);
+    if (!$method || !in_array($method, ['fixed', 'hybrid', 'dynamic', 'suggested'])) {
+        throw ValidationException::withMessages([
+            'assessment' => __('assessment.invalid_threshold_method', ['method' => $method])
+        ]);
+    }
+
+    // Get participants
+    $participants = UserService::getAssessmentParticipants($assessment->id);
+    
+    if ($participants->isEmpty()) {
+        throw ValidationException::withMessages([
+            'participants' => __('assessment.no_participants')
+        ]);
+    }
+
+    // ✅ FIX: Calculate user stats using ID-based method
+    $scores = [];
+    $userStats = [];
+    $detailedResults = [];
+    
+    foreach ($participants as $participant) {
+        $detailedResult = UserService::calculateUserPointsDetailedByIds($assessment->id, $participant->id);
+        
+        if ($detailedResult && $detailedResult['final_0_100'] > 0) {
+            $stat = (object) [
+                'total'              => $detailedResult['final_0_100'],
+                'selfTotal'          => $detailedResult['self_points'] ?? 0,
+                'colleagueTotal'     => $detailedResult['colleague_points'] ?? 0,
+                'colleaguesTotal'    => $detailedResult['colleague_points'] ?? 0,
+                'directReportsTotal' => $detailedResult['direct_reports_points'] ?? 0,
+                'managersTotal'      => $detailedResult['boss_points'] ?? 0,
+                'bossTotal'          => $detailedResult['boss_points'] ?? 0,
+                'ceoTotal'           => $detailedResult['ceo_points'] ?? 0,
+                'sum'                => $detailedResult['weighted_sum'] ?? 0,
+                'complete'           => $detailedResult['complete'] ?? false,
+            ];
+            
+            $userStats[$participant->id] = $stat;
+            $detailedResults[$participant->id] = $detailedResult;
+            $scores[] = (float)$stat->total;
+        }
+    }
+
+    // Validate we have scores
+    if (empty($scores)) {
+        throw ValidationException::withMessages([
+            'scores' => __('assessment.no_scores')
+        ]);
+    }
+
+    // ========================================
+    // SECTION 4: THRESHOLD CALCULATION
+    // ========================================
+    $T = $this->thresholds;
+    $suggestedResult = null;
+    $hybridUpRaw = null;
+
+    // Calculate thresholds based on method
+    if ($method === 'suggested') {
         try {
-            $validator->validateAssessmentReadyToClose($assessment->id);
-        } catch (ValidationException $e) {
-            Log::warning('Assessment close validation failed', [
+            $ai = app(SuggestedThresholdService::class);
+            $payload = $ai->buildAiPayload($assessment, $scores, $userStats);
+            $suggestedResult = $ai->callAiForSuggested($payload);
+
+            if (!$suggestedResult) {
+                throw new \RuntimeException(__('assessment.ai_response_empty'));
+            }
+            
+            if (!isset($suggestedResult['thresholds']['normal_level_up']) ||
+                !isset($suggestedResult['thresholds']['normal_level_down'])) {
+                throw new \RuntimeException(__('assessment.ai_response_missing_thresholds'));
+            }
+
+            // ✅ Use thresholdsFromSuggested
+            $result = $T->thresholdsFromSuggested($cfg, $suggestedResult);
+            $up = $result['normal_level_up'];
+            $down = $result['normal_level_down'];
+            $mon = $result['monthly_level_down'];
+            
+            $assessment->suggested_decision = $assessment->suggested_decision 
+                ? array_merge((array)$assessment->suggested_decision, [$suggestedResult])
+                : [$suggestedResult];
+
+        } catch (\Throwable $e) {
+            Log::error('AI call failed during assessment close', [
                 'assessment_id' => $assessment->id,
-                'errors' => $e->errors()
+                'error' => $e->getMessage()
             ]);
             
-            return response()->json([
-                'ok' => false,
-                'message' => __('assessment.cannot_close_yet'),
-                'errors' => $e->errors()
-            ], 422);
-        }
-
-        // ========================================
-        // SECTION 3: PREPARE DATA & CALCULATE THRESHOLDS
-        // ========================================
-        $cfg = $this->thresholds->getOrgConfigMap($orgId);
-        $method = strtolower((string)$assessment->threshold_method);
-        if (!$method || !in_array($method, ['fixed', 'hybrid', 'dynamic', 'suggested'])) {
             throw ValidationException::withMessages([
-                'assessment' => __('assessment.invalid_threshold_method', ['method' => $method])
+                'ai' => __('assessment.ai_calculation_failed', ['error' => $e->getMessage()])
             ]);
         }
+    } elseif ($method === 'fixed') {
+        // ✅ Use thresholdsForFixed
+        $result = $T->thresholdsForFixed($cfg);
+        $up = $result['normal_level_up'];
+        $down = $result['normal_level_down'];
+        $mon = $result['monthly_level_down'];
+    } elseif ($method === 'hybrid') {
+        // ✅ Use thresholdsForHybrid
+        $result = $T->thresholdsForHybrid($cfg, $scores);
+        $up = $result['normal_level_up'];
+        $down = $result['normal_level_down'];
+        $mon = $result['monthly_level_down'];
+        $hybridUpRaw = $result['_hybrid_up_raw'] ?? null;
+    } elseif ($method === 'dynamic') {
+        // ✅ Use thresholdsForDynamic
+        $result = $T->thresholdsForDynamic($cfg, $scores);
+        $up = $result['normal_level_up'];
+        $down = $result['normal_level_down'];
+        $mon = $result['monthly_level_down'];
+    } else {
+        // Fallback to fixed
+        $result = $T->thresholdsForFixed($cfg);
+        $up = $result['normal_level_up'];
+        $down = $result['normal_level_down'];
+        $mon = $result['monthly_level_down'];
+    }
 
-        // Get participants
-        $participants = UserService::getAssessmentParticipants($assessment->id);
+    // ========================================
+    // SECTION 5: TRANSACTION - UPDATE ASSESSMENT & BONUS/MALUS
+    // ========================================
+    return DB::transaction(function () use ($assessment, $participants, $userStats, $detailedResults, $scores, $up, $down, $mon, $method, $cfg, $orgId, $hybridUpRaw) {
+
+        // 1. Update assessment
+        $assessment->normal_level_up = $up;
+        $assessment->normal_level_down = $down;
+        $assessment->monthly_level_down = $mon;
+        $assessment->threshold_method = $method;
+        $assessment->closed_at = now();
+        $assessment->save();
+
+        // 2. Update Bonus/Malus levels (SKIP if pilot assessment)
+        $month = now()->format('Y-m-01');
         
-        if ($participants->isEmpty()) {
-            throw ValidationException::withMessages([
-                'participants' => __('assessment.no_participants')
-            ]);
-        }
-
-        // ✅ FIX: Calculate user stats using ID-based method
-        $scores = [];
-        $userStats = [];
-        $detailedResults = [];
-        
-        foreach ($participants as $participant) {
-            $detailedResult = UserService::calculateUserPointsDetailedByIds($assessment->id, $participant->id);
-            
-            if ($detailedResult && $detailedResult['final_0_100'] > 0) {
-                $stat = (object) [
-                    'total'              => $detailedResult['final_0_100'],
-                    'selfTotal'          => $detailedResult['self_points'] ?? 0,
-                    'colleagueTotal'     => $detailedResult['colleague_points'] ?? 0,
-                    'colleaguesTotal'    => $detailedResult['colleague_points'] ?? 0,
-                    'directReportsTotal' => $detailedResult['direct_reports_points'] ?? 0,
-                    'managersTotal'      => $detailedResult['boss_points'] ?? 0,
-                    'bossTotal'          => $detailedResult['boss_points'] ?? 0,
-                    'ceoTotal'           => $detailedResult['ceo_points'] ?? 0,
-                    'sum'                => $detailedResult['weighted_sum'] ?? 0,
-                    'complete'           => $detailedResult['complete'] ?? false,
-                ];
-                
-                $userStats[$participant->id] = $stat;
-                $detailedResults[$participant->id] = $detailedResult;
-                $scores[] = (float)$stat->total;
-            }
-        }
-
-        // Validate we have scores
-        if (empty($scores)) {
-            throw ValidationException::withMessages([
-                'scores' => __('assessment.no_scores')
-            ]);
-        }
-
-        // ========================================
-        // SECTION 4: THRESHOLD CALCULATION
-        // ========================================
-        $T = $this->thresholds;
-        $suggestedResult = null;
-        $hybridUpRaw = null;
-
-        // Calculate thresholds based on method
-        if ($method === 'suggested') {
-            try {
-                $ai = app(SuggestedThresholdService::class);
-                $payload = $ai->buildAiPayload($assessment, $scores, $userStats);
-                $suggestedResult = $ai->callAiForSuggested($payload);
-
-                if (!$suggestedResult) {
-                    throw new \RuntimeException(__('assessment.ai_response_empty'));
-                }
-                
-                if (!isset($suggestedResult['thresholds']['normal_level_up']) ||
-                    !isset($suggestedResult['thresholds']['normal_level_down'])) {
-                    throw new \RuntimeException(__('assessment.ai_response_missing_thresholds'));
-                }
-
-                // ✅ Use thresholdsFromSuggested
-                $result = $T->thresholdsFromSuggested($cfg, $suggestedResult);
-                $up = $result['normal_level_up'];
-                $down = $result['normal_level_down'];
-                $mon = $result['monthly_level_down'];
-                
-                $assessment->suggested_decision = $assessment->suggested_decision 
-                    ? array_merge((array)$assessment->suggested_decision, [$suggestedResult])
-                    : [$suggestedResult];
-
-            } catch (\Throwable $e) {
-                Log::error('AI call failed during assessment close', [
-                    'assessment_id' => $assessment->id,
-                    'error' => $e->getMessage()
-                ]);
-                
-                throw ValidationException::withMessages([
-                    'ai' => __('assessment.ai_calculation_failed', ['error' => $e->getMessage()])
-                ]);
-            }
-        } elseif ($method === 'fixed') {
-            // ✅ Use thresholdsForFixed
-            $result = $T->thresholdsForFixed($cfg);
-            $up = $result['normal_level_up'];
-            $down = $result['normal_level_down'];
-            $mon = $result['monthly_level_down'];
-        } elseif ($method === 'hybrid') {
-            // ✅ Use thresholdsForHybrid
-            $result = $T->thresholdsForHybrid($cfg, $scores);
-            $up = $result['normal_level_up'];
-            $down = $result['normal_level_down'];
-            $mon = $result['monthly_level_down'];
-            $hybridUpRaw = $result['_hybrid_up_raw'] ?? null;
-        } elseif ($method === 'dynamic') {
-            // ✅ Use thresholdsForDynamic
-            $result = $T->thresholdsForDynamic($cfg, $scores);
-            $up = $result['normal_level_up'];
-            $down = $result['normal_level_down'];
-            $mon = $result['monthly_level_down'];
-        } else {
-            // Fallback to fixed
-            $result = $T->thresholdsForFixed($cfg);
-            $up = $result['normal_level_up'];
-            $down = $result['normal_level_down'];
-            $mon = $result['monthly_level_down'];
-        }
-
-        // ========================================
-        // SECTION 5: TRANSACTION - UPDATE ASSESSMENT & BONUS/MALUS
-        // ========================================
-        return DB::transaction(function () use ($assessment, $participants, $userStats, $detailedResults, $scores, $up, $down, $mon, $method, $cfg, $orgId, $hybridUpRaw) {
-
-            // 1. Update assessment
-            $assessment->normal_level_up = $up;
-            $assessment->normal_level_down = $down;
-            $assessment->monthly_level_down = $mon;
-            $assessment->threshold_method = $method;
-            $assessment->closed_at = now();
-            $assessment->save();
-
-            // 2. Update Bonus/Malus levels
-            $month = now()->format('Y-m-01');
+        if (!$assessment->is_pilot) {
             $useGrace = ($method === 'hybrid');
             $gracePts = $useGrace ? (int)($cfg['threshold_grace_points'] ?? 0) : 0;
 
@@ -513,101 +544,113 @@ class AdminAssessmentController extends Controller
 
                 $bm->save();
             }
+            
+            Log::info("Bonus/malus levels updated for assessment {$assessment->id}");
+        } else {
+            Log::info("Skipping bonus/malus level changes - pilot assessment {$assessment->id}");
+        }
 
-            // 3. Build user results for snapshot
-            $previousAssessment = Assessment::where('organization_id', $orgId)
-                ->whereNotNull('closed_at')
-                ->where('closed_at', '<', $assessment->closed_at)
-                ->orderByDesc('closed_at')
+        // 3. Build user results for snapshot
+        $previousAssessment = Assessment::where('organization_id', $orgId)
+            ->whereNotNull('closed_at')
+            ->where('closed_at', '<', $assessment->closed_at)
+            ->orderByDesc('closed_at')
+            ->first();
+
+        $previousStats = [];
+        if ($previousAssessment) {
+            foreach ($participants as $participant) {
+                $cached = UserService::getUserResultsFromSnapshot($previousAssessment->id, $participant->id);
+                if ($cached) {
+                    $previousStats[$participant->id] = $cached['total'];
+                }
+            }
+        }
+
+        // ✅ Load User models OUTSIDE the pilot check so they're available for snapshot
+        $userModels = User::whereIn('id', array_keys($userStats))->get()->keyBy('id');
+
+        $userResults = [];
+        foreach ($participants as $participant) {
+            $stat = $userStats[$participant->id] ?? null;
+            if ($stat === null) continue;
+
+            $bm = UserBonusMalus::where('user_id', $participant->id)
+                ->where('organization_id', $orgId)
+                ->where('month', $month)
                 ->first();
 
-            $previousStats = [];
-            if ($previousAssessment) {
-                foreach ($participants as $participant) {
-                    $cached = UserService::getUserResultsFromSnapshot($previousAssessment->id, $participant->id);
-                    if ($cached) {
-                        $previousStats[$participant->id] = $cached['total'];
-                    }
-                }
+            $change = 'none';
+            if (isset($previousStats[$participant->id])) {
+                $prevTotal = (int)$previousStats[$participant->id];
+                $currTotal = (int)$stat->total;
+                if ($currTotal > $prevTotal) $change = 'up';
+                elseif ($currTotal < $prevTotal) $change = 'down';
             }
 
-            $userResults = [];
-            foreach ($participants as $participant) {
-                $stat = $userStats[$participant->id] ?? null;
-                if ($stat === null) continue;
+            $userModel = $userModels->get($participant->id);
+            $hasAutoLevelUp = $userModel ? (int)$userModel->has_auto_level_up : 0;
+            $detailed = $detailedResults[$participant->id] ?? null;
 
-                $bm = UserBonusMalus::where('user_id', $participant->id)
-                    ->where('organization_id', $orgId)
-                    ->where('month', $month)
-                    ->first();
+            // ✅ Build user result with NEW 5-component structure
+            $userResults[(string)$participant->id] = [
+                'total' => (int)$stat->total,
+                'sum' => (int)$stat->sum,
+                'self' => (int)$stat->selfTotal,
+                'colleague' => (int)round($stat->colleagueTotal),
+                'colleagues_raw' => (int)$stat->colleaguesTotal,
+                'direct_reports' => (int)($stat->directReportsTotal ?? 0),
+                'manager' => (int)round($stat->managersTotal),
+                'managers_raw' => (int)$stat->bossTotal,
+                'boss_raw' => (int)$stat->bossTotal,
+                'ceo' => (int)$stat->ceoTotal,
+                'complete' => (bool)($stat->complete ?? true),
+                'bonus_malus_level' => $bm?->level,
+                'bonus_malus_month' => $month,
+                'change' => $change,
+                'has_auto_level_up' => $hasAutoLevelUp,
+                'components_available' => $detailed ? (int)$detailed['components_available'] : 0,
+                'missing_components' => $detailed ? array_values((array)$detailed['missing_components']) : [],
+                'is_ceo' => $detailed ? (bool)$detailed['is_ceo'] : false,
+                'weighted_sum' => $detailed ? (float)$detailed['weighted_sum'] : 0.0,
+                'total_weight' => $detailed ? (float)$detailed['total_weight'] : 0.0,
+            ];
+        }
 
-                $change = 'none';
-                if (isset($previousStats[$participant->id])) {
-                    $prevTotal = (int)$previousStats[$participant->id];
-                    $currTotal = (int)$stat->total;
-                    if ($currTotal > $prevTotal) $change = 'up';
-                    elseif ($currTotal < $prevTotal) $change = 'down';
-                }
+        // 4. Save user results to snapshot
+        $snapService = app(\App\Services\SnapshotService::class);
+        $saved = $snapService->saveUserResultsToSnapshot($assessment->id, $userResults);
 
-                $userModel = $userModels->get($participant->id);
-                $hasAutoLevelUp = $userModel ? (int)$userModel->has_auto_level_up : 0;
-                $detailed = $detailedResults[$participant->id] ?? null;
+        if (!$saved) {
+            Log::error('Failed to save user results to snapshot', [
+                'assessment_id' => $assessment->id,
+            ]);
+            throw new \RuntimeException(__('assessment.snapshot_save_failed'));
+        }
 
-
-                // ✅ Build user result with NEW 5-component structure
-                $userResults[(string)$participant->id] = [
-                    'total' => (int)$stat->total,
-                    'sum' => (int)$stat->sum,
-                    'self' => (int)$stat->selfTotal,
-                    'colleague' => (int)round($stat->colleagueTotal),
-                    'colleagues_raw' => (int)$stat->colleaguesTotal,
-                    'direct_reports' => (int)($stat->directReportsTotal ?? 0),
-                    'manager' => (int)round($stat->managersTotal),
-                    'managers_raw' => (int)$stat->bossTotal,
-                    'boss_raw' => (int)$stat->bossTotal,
-                    'ceo' => (int)$stat->ceoTotal,
-                    'complete' => (bool)($stat->complete ?? true),
-                    'bonus_malus_level' => $bm?->level,
-                    'bonus_malus_month' => $month,
-                    'change' => $change,
-                    'has_auto_level_up' => $hasAutoLevelUp,
-                    'components_available' => $detailed ? (int)$detailed['components_available'] : 0,
-                    'missing_components' => $detailed ? array_values((array)$detailed['missing_components']) : [],
-                    'is_ceo' => $detailed ? (bool)$detailed['is_ceo'] : false,
-                    'weighted_sum' => $detailed ? (float)$detailed['weighted_sum'] : 0.0,
-                    'total_weight' => $detailed ? (float)$detailed['total_weight'] : 0.0,
-                ];
-            }
-
-            // 4. Save user results to snapshot
-            $snapService = app(\App\Services\SnapshotService::class);
-            $saved = $snapService->saveUserResultsToSnapshot($assessment->id, $userResults);
-
-            if (!$saved) {
-                Log::error('Failed to save user results to snapshot', [
-                    'assessment_id' => $assessment->id,
-                ]);
-                throw new \RuntimeException(__('assessment.snapshot_save_failed'));
-            }
-
-            // 5. Calculate bonuses (if enabled)
+        // 5. Calculate bonuses (if enabled and NOT pilot assessment)
+        if (!$assessment->is_pilot) {
             try {
                 app(\App\Services\BonusCalculationService::class)
                     ->processAssessmentBonuses($assessment->id);
+                Log::info("Bonuses calculated for assessment {$assessment->id}");
             } catch (\Exception $e) {
                 Log::error('Bonus calculation failed', [
                     'assessment_id' => $assessment->id,
                     'error' => $e->getMessage()
                 ]);
             }
+        } else {
+            Log::info("Skipping bonus calculation - pilot assessment {$assessment->id}");
+        }
 
-            // 6. Return success
-            return response()->json([
-                'ok' => true,
-                'message' => __('assessment.closed_successfully'),
-            ]);
-        });
-    }
+        // 6. Return success
+        return response()->json([
+            'ok' => true,
+            'message' => __('assessment.closed_successfully'),
+        ]);
+    });
+}
 
     /**
      * Safely encode data to JSON with validation
