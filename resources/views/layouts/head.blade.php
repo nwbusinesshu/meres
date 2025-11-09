@@ -39,14 +39,86 @@
 	<script src="https://cdn.jsdelivr.net/gh/tomik23/circular-progress-bar@1.1.9/dist/circularProgressBar.min.js"></script>
 	<script src="{{ asset('assets/js/navbar-scroll.js') }}"></script>
 
-	<!-- Microsoft Clarity-->
+	@if(!config('app.debug'))
+(function() {
+  // Disable console methods on production
+  const noop = function() {};
+  console.log = noop;
+  console.info = noop;
+  console.warn = noop;
+  console.debug = noop;
+  console.trace = noop;
+  // Keep console.error for critical issues
+})();
+@endif
+
+		<!-- Microsoft Clarity - Conditional Loading Based on Analytics Consent -->
 	<script type="text/javascript">
-    (function(c,l,a,r,i,t,y){
-        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window, document, "clarity", "script", "tucyg99bee");
-</script>
+    (function() {
+        'use strict';
+        
+        let clarityLoaded = false;
+        
+        /**
+         * Load Microsoft Clarity script
+         */
+        function loadClarity() {
+            // Prevent multiple loads
+            if (clarityLoaded) {
+                return;
+            }
+            
+            clarityLoaded = true;
+            
+            (function(c,l,a,r,i,t,y){
+                c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+                t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+                y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+            })(window, document, "clarity", "script", "tucyg99bee");
+            
+            console.log('Microsoft Clarity loaded based on analytics consent');
+        }
+        
+        /**
+         * Check cookie consent and load Clarity if analytics is enabled
+         */
+        function checkConsentAndLoadClarity() {
+            // Try to get consent from cookie
+            const consentCookie = document.cookie
+                .split('; ')
+                .find(row => row.startsWith('cookie_consent='));
+            
+            if (consentCookie) {
+                try {
+                    const consentValue = consentCookie.split('=')[1];
+                    const consent = JSON.parse(decodeURIComponent(consentValue));
+                    
+                    // Load Clarity only if analytics consent is true
+                    if (consent.analytics === true) {
+                        loadClarity();
+                    }
+                } catch (e) {
+                    console.error('Error parsing cookie consent:', e);
+                }
+            }
+        }
+        
+        // Check consent on page load
+        checkConsentAndLoadClarity();
+        
+        // Listen for cookie consent changes
+        window.addEventListener('cookieConsentGiven', function(event) {
+            if (event.detail && event.detail.consent) {
+                const consent = event.detail.consent;
+                
+                // Load Clarity if analytics consent is given
+                if (consent.analytics === true || consent.includes('analytics')) {
+                    loadClarity();
+                }
+            }
+        });
+    })();
+    </script>
 
 	
 	<!-- SweetAlert-->

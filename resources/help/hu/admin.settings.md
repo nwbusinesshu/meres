@@ -7,7 +7,8 @@ related: [/admin/home, /admin/employee/index, /admin/bonuses, /admin/assessment/
 actions:
   - { label: "Beállítások mentése", trigger: "form-submit", permission: "admin" }
   - { label: "Bónusz szorzók beállítása", trigger: "modal-open", permission: "admin" }
-keywords: [beállítások, settings, AI, telemetria, szigorú anonim, strict anonymous, bónusz, bonus, malus, pontozási módszer, threshold, küszöbérték, fixpontos, hybrid, dynamic, suggested, fejlett intelligencia, részlegkezelés, department, kapcsolatok, relations, 2FA, OAuth, biztonsági, security, szorzók, multipliers, jutalmazás, értékelés, assessment]
+  - { label: "API kulcs létrehozása", trigger: "modal-open", permission: "admin" }
+keywords: [beállítások, settings, AI, telemetria, szigorú anonim, strict anonymous, bónusz, bonus, malus, pontozási módszer, threshold, küszöbérték, fixpontos, hybrid, dynamic, suggested, fejlett intelligencia, részlegkezelés, department, kapcsolatok, relations, 2FA, OAuth, biztonsági, security, szorzók, multipliers, jutalmazás, értékelés, assessment, API, integráció, kulcs, key, külső rendszer]
 
 
 <!-- TECHNICAL_DETAILS_START - This section is for AI use only, not visible to end users -->
@@ -20,6 +21,9 @@ keywords: [beállítások, settings, AI, telemetria, szigorú anonim, strict ano
 - `index()` - Beállítások oldal megjelenítése, összes konfiguráció betöltése
 - `toggle(Request $request)` - AJAX endpoint toggle kapcsolók kezelésére (strict_anonymous_mode, ai_telemetry_enabled, show_bonus_malus, enable_bonus_calculation, employees_see_bonuses, easy_relation_setup, force_oauth_2fa, enable_multi_level)
 - `save(Request $request)` - Pontozási módszer és küszöbértékek mentése (threshold_mode, normal_level_up, normal_level_down, threshold_min_abs_up, threshold_top_pct, threshold_bottom_pct, threshold_grace_points, threshold_gap_min, target_promo_rate_max_pct, target_demotion_rate_max_pct, never_below_abs_min_for_promo, use_telemetry_trust, no_forced_demotion_if_high_cohesion)
+- `apiKeyIndex()` - API kulcsok lekérdezése szervezethez
+- `apiKeyGenerate(Request $request)` - Új API kulcs generálása
+- `apiKeyRevoke(Request $request)` - API kulcs visszavonása
 
 **Routes:**
 - `admin.settings.index` - GET /admin/settings/index (beállítások oldal)
@@ -27,6 +31,9 @@ keywords: [beállítások, settings, AI, telemetria, szigorú anonim, strict ano
 - `admin.settings.save` - POST /admin/settings/thresholds (küszöbértékek mentése)
 - `admin.bonuses.config.get` - POST /admin/bonuses/config/get (bónusz szorzók lekérdezése)
 - `admin.bonuses.config.save` - POST /admin/bonuses/config/save (bónusz szorzók mentése)
+- `admin.settings.api-keys.index` - GET /admin/settings/api-keys (API kulcsok lekérdezése)
+- `admin.settings.api-keys.generate` - POST /admin/settings/api-keys/generate (új API kulcs létrehozása)
+- `admin.settings.api-keys.revoke` - POST /admin/settings/api-keys/revoke (API kulcs visszavonása)
 
 **Permissions:** Admin role required (middleware: 'auth:admin', 'org')
 
@@ -36,14 +43,19 @@ keywords: [beállítások, settings, AI, telemetria, szigorú anonim, strict ano
 - `assessment` - Értékelések táblája (threshold_method, normal_level_up, normal_level_down mentése)
 - `organization_user` - Felhasználók szervezeti kapcsolatai (department_id, role)
 - `organization_department_managers` - Részlegvezetők (multi-level esetén)
+- `api_keys` - API kulcsok tárolása (organization_id, name, key_hash, key_prefix, last_chars, permissions, created_by, last_used_at, expires_at, revoked_at)
+- `api_request_logs` - API hívások naplózása (api_key_id, organization_id, method, endpoint, ip_address, response_code, response_time_ms)
+
+**Services:**
+- `ApiKeyService` - API kulcs generálás, visszavonás, validálás, statisztikák
 
 **JavaScript Files:**
-- `resources/views/js/admin/settings.blade.php` - Toggle kapcsolók kezelése, SweetAlert megerősítések, AJAX hívások
+- `resources/views/js/admin/settings.blade.php` - Toggle kapcsolók kezelése, SweetAlert megerősítések, AJAX hívások, API kulcs kezelés UI logika
 - `resources/views/admin/modals/bonus-config.blade.php` - Bónusz szorzók modal és JavaScript logika
 
 **Translation Keys:**
-- `lang/hu/admin/settings.php` - Magyar fordítások
-- `lang/en/admin/settings.php` - Angol fordítások
+- `lang/hu/admin/settings.php` - Magyar fordítások (API szekció hozzáadva)
+- `lang/en/admin/settings.php` - Angol fordítások (API szekció hozzáadva)
 - `lang/hu/admin/bonuses.php` - Bónusz rendszer fordítások
 - `lang/hu/global.php` - Globális fordítások (bonus-malus szintek)
 
@@ -54,6 +66,15 @@ keywords: [beállítások, settings, AI, telemetria, szigorú anonim, strict ano
 - **Bónusz rendszer:** Hierarchikus beállítások (show_bonus_malus → enable_bonus_calculation → employees_see_bonuses)
 - **Pontozási módszerek:** fixed (fix pontok), hybrid (fix alsó + dinamikus felső), dynamic (teljes percentilis alapú), suggested (AI-vezérelt)
 - **15-szintű bónusz/malus rendszer:** M04-M03-M02-M01-A00-B01...B10, szorzók 0.00-10.00 tartományban
+- **API integráció:** Külső rendszerek (ERP, HR szoftverek) csatlakoztatása SHA-256 hash alapú API kulcsokkal, részletes request logging, rate limiting védelem
+
+**API Key Structure:**
+- **Format:** `qa360_live_` prefix + 32 karakter véletlen string
+- **Storage:** Csak SHA-256 hash tárolása adatbázisban, eredeti kulcs csak generáláskor látható egyszer
+- **Expiry:** Alapértelmezett érvényesség 1 év (expires_at)
+- **Permissions:** JSON formátumban tárolt jogosultságok (read:organization, read:users, read:assessments, read:results, read:bonus, read:competencies)
+- **Tracking:** last_used_at, last_used_ip, request count statisztikák
+- **Security:** Csak 1 aktív kulcs engedélyezett szervezetenként, visszavonható bármikor
 
 **Validations (backend):**
 - `threshold_mode` validáció: csak 'fixed', 'hybrid', 'dynamic', 'suggested' értékek
@@ -61,6 +82,8 @@ keywords: [beállítások, settings, AI, telemetria, szigorú anonim, strict ano
 - Toggle kapcsolók validációja: boolean típus
 - Kölcsönös függőségek ellenőrzése (pl. strict_anon és ai_telemetry nem lehet egyszerre aktív)
 - Hierarchikus kapcsolók ellenőrzése (pl. employees_see_bonuses csak akkor engedélyezett, ha show_bonus_malus és enable_bonus_calculation is aktív)
+- API kulcs név validáció: 3-50 karakter, csak alfanumerikus, szóköz, kötőjel, aláhúzás
+- Egy szervezetnek maximum 1 aktív API kulcsa lehet
 
 **Business Logic:**
 - **Cascading toggles:** show_bonus_malus kikapcsolása automatikusan kikapcsolja az enable_bonus_calculation és employees_see_bonuses kapcsolókat is
@@ -68,6 +91,8 @@ keywords: [beállítások, settings, AI, telemetria, szigorú anonim, strict ano
 - **Irreversible actions:** enable_multi_level bekapcsolása visszavonhatatlan
 - **Suggested mode requirements:** csak akkor elérhető, ha van legalább egy lezárt értékelés ÉS az AI telemetria be van kapcsolva
 - **Threshold storage:** assessment táblában az assessment lezáráskor kerülnek mentésre a használt küszöbértékek (org_snapshot JSON-ben)
+- **API key uniqueness:** Szervezetenként egyszerre csak egy aktív API kulcs engedélyezett
+- **API key revocation:** Visszavont kulcsok nem törölhetők, csak revoked_at timestamp kerül beállításra
 
 <!-- TECHNICAL_DETAILS_END -->
 
@@ -75,7 +100,7 @@ keywords: [beállítások, settings, AI, telemetria, szigorú anonim, strict ano
 
 # Mi ez az oldal?
 
-A Beállítások oldal a Quarma360 rendszer központi irányítópultja, ahol az adminisztrátorok minden fontos szervezeti paramétert kezelhetnek. Innen vezérelheted az adatvédelmi beállításokat, a mesterséges intelligencia funkciókat, a jutalmazási rendszert és a teljesítményértékelés pontozási módszereit. A beállítások azonnal életbe lépnek és hatással vannak a jövőbeli értékelésekre - a már lezárt értékelések adatai nem változnak meg.
+A Beállítások oldal a Quarma360 rendszer központi irányítópultja, ahol az adminisztrátorok minden fontos szervezeti paramétert kezelhetnek. Innen vezérelheted az adatvédelmi beállításokat, a mesterséges intelligencia funkciókat, a jutalmazási rendszert, a teljesítményértékelés pontozási módszereit és az API integrációkat. A beállítások azonnal életbe lépnek és hatással vannak a jövőbeli értékelésekre - a már lezárt értékelések adatai nem változnak meg.
 
 ## Kiknek látható ez az oldal?
 
@@ -348,6 +373,239 @@ Ha egyszer bekapcsolod, **nem kapcsolható vissza**. Mielőtt bekapcsolod:
 - Ha a dolgozók panaszkodnak a túl sok biztonsági lépésre
 
 **Ajánlott:** Csak nagyon bizalmas adatokat kezelő szervezeteknek kapcsold be.
+
+---
+
+### API Kapcsolat
+
+#### API Kulcs Kezelése
+
+**Csempe:** Teljes széles csempe  
+**Helye:** "API Kapcsolat" szekció
+
+**Mi ez az API integráció?**
+
+Az API (Application Programming Interface) kapcsolat lehetővé teszi külső rendszerek (pl. ERP, HR szoftverek, bérszámfejtő rendszerek) számára, hogy automatikusan hozzáférjenek a Quarma360 rendszer adataihoz. Ezáltal a szervezeti adatok, értékelések eredményei és bónusz információk könnyen integrálhatók más üzleti alkalmazásokba.
+
+**Mit csinál:**
+- Biztonságos API kulcsot generál külső rendszerek számára
+- Lehetővé teszi szervezeti adatok exportálását automatikusan
+- Követi és naplózza az összes API hívást
+- Megjeleníti az API használati statisztikákat (utolsó használat, 24 órás kérések száma)
+- Visszavonható bármikor, ha már nincs rá szükség
+
+**Mit NEM csinál:**
+- Nem ad írási jogot (csak olvasási jogosultságokat biztosít)
+- Nem módosítja az értékeléseket vagy dolgozói adatokat
+- Nem helyettesíti a bejelentkezést (csak gépi hozzáférésre használható)
+- Nem teszi láthatóvá a jelszavakat vagy bejelentkezési adatokat
+
+**Elérhető API végpontok:**
+- `read:organization` - Szervezeti adatok lekérdezése
+- `read:users` - Felhasználók és dolgozók listája
+- `read:assessments` - Értékelések állapota és részletei
+- `read:results` - Értékelési eredmények
+- `read:bonus` - Bónusz/malus kategóriák és számítások
+- `read:competencies` - Kompetenciák és rangsorolások
+
+**Biztonsági jellemzők:**
+- SHA-256 hash alapú kulcstárolás (eredeti kulcs csak egyszer látható)
+- `qa360_live_` prefix minden kulcshoz
+- 32 karakter hosszú véletlenszerű kulcs
+- Alapértelmezett érvényesség: 1 év
+- Szervezetenként maximum 1 aktív kulcs engedélyezett
+- Részletes request logging (IP cím, időbélyeg, válaszidő)
+
+---
+
+**API kulcs státuszok:**
+
+1. **Nincs még API kulcs létrehozva**
+
+Ha még nem generáltál API kulcsot, a következőket látod:
+- 🔑 ikon
+- "Még nincs létrehozott API kulcs" szöveg
+- **"Új API kulcs létrehozása"** gomb
+
+**Lépések új kulcs létrehozásához:**
+
+1. Kattints az **"Új API kulcs létrehozása"** gombra
+2. Add meg a kulcs nevét (pl. "ERP integráció", "HR rendszer", "Bérszámfejtő")
+   - Minimum 3 karakter
+   - Maximum 50 karakter
+   - Csak betűk, számok, szóközök, kötőjelek és aláhúzásjelek
+3. Kattints a **"Létrehozás"** gombra
+4. **KRITIKUS FIGYELMEZTETÉS:** Az API kulcs CSAK EGYSZER jelenik meg!
+5. Másold ki és tárold biztonságos helyen (pl. jelszókezelőben)
+6. A későbbiekben csak az utolsó 8 karakter látható
+
+**Példa API kulcs formátum:**
+```
+qa360_live_Xk3pQm9vR2sT8uY5wN1zA4bC6dE7fG8h
+```
+
+**Használat HTTP headerben:**
+```
+X-API-Key: qa360_live_Xk3pQm9vR2sT8uY5wN1zA4bC6dE7fG8h
+```
+
+---
+
+2. **Aktív API kulcs létezik**
+
+Ha már van aktív API kulcsod, a következő információkat látod:
+
+- **🟢 Aktív** badge (zöld jelvény)
+- **API kulcs (utolsó 8 karakter):** `••••••••••••••••••••••••••••••••Xk3pQm9v`
+- **Név:** pl. "ERP integráció"
+- **Létrehozva:** Dátum (pl. 2025.11.01.)
+- **Létrehozta:** Felhasználó neve
+- **Utolsó használat:** Dátum és időpont VAGY "Még nem használták"
+- **Kérések (24h):** API hívások száma az elmúlt 24 órában
+- **"Kulcs visszavonása"** gomb (piros)
+
+**Mikor érdemes új API kulcsot generálni:**
+- Először integráljuk a külső rendszert
+- Migrálunk új ERP vagy HR szoftverre
+- Új automatizációs folyamatot építünk
+- Szükség van gépi hozzáférésre az adatokhoz
+
+**Mikor NE generálj API kulcsot:**
+- Ha nincs külső integrációd
+- Ha manuálisan kezelted az adatexportot
+- Ha nem vagy biztos, hogy mire kell
+- Ha még tesztelési fázisban vagy
+
+---
+
+**API kulcs visszavonása:**
+
+Ha már nincs szükség az API kulcsra, vagy biztonsági okokból le kell tiltani:
+
+1. Kattints a **"Kulcs visszavonása"** gombra
+2. Erősítsd meg a műveletet a felugró ablakban
+3. A kulcs azonnal érvénytelenné válik
+4. Minden ezzel a kulccsal érkező API kérés megtagadásra kerül
+5. A kulcs státusza: **🔴 Visszavonva** lesz
+6. Új kulcs generálható ezután
+
+**Figyelem:** A visszavonás **VISSZAVONHATATLAN**! Új kulcsot kell generálnod, ha újra API hozzáférésre van szükség.
+
+**Mikor érdemes visszavonni:**
+- Az integráció már nem használt
+- Biztonsági kockázat merült fel (pl. kulcs szivárgott ki)
+- Másik rendszerre váltunk
+- Tesztelés véget ért
+
+---
+
+**API használati statisztikák értelmezése:**
+
+**Utolsó használat:**
+- Ha "Még nem használták" → A kulcs generálva van, de még nem történt vele API hívás
+- Ha dátum látható → Ekkor történt az utolsó sikeres API kérés
+
+**Kérések (24h):**
+- Megmutatja, hány API hívás érkezett az elmúlt 24 órában ezzel a kulccsal
+- Hasznos a monitoring és hibakeresés során
+- 0 érték → Nincs aktív használat
+- Magas érték → Intenzív integráció fut
+
+**Érvényesség:**
+- Alapértelmezett: 1 év a létrehozástól számítva
+- A lejárati idő automatikusan frissíthető (később)
+- Lejárt kulcs nem használható, új generálás szükséges
+
+---
+
+**Gyakori API használati esetek:**
+
+1. **ERP Integráció**
+   - Szervezeti adatok exportálása a vállalatirányítási rendszerbe
+   - Dolgozói listák és státuszok szinkronizálása
+   - Negyedéves bónusz számítások továbbítása
+
+2. **HR Szoftver Kapcsolat**
+   - Teljesítményértékelések automatikus importálása
+   - Dolgozói kompetenciák frissítése
+   - Előléptetési javaslatok exportálása
+
+3. **Bérszámfejtő Rendszer**
+   - Bónusz/malus adatok automatikus továbbítása
+   - Havi bérszámításhoz szükséges kategóriák exportálása
+   - Nettó bér alapú számítások szinkronizálása
+
+4. **Riportolás és Analitika**
+   - Power BI, Tableau, vagy Excel automatikus adatfrissítés
+   - Teljesítménymutatók exportálása dashboardokhoz
+   - Trendek és statisztikák gépi elemzése
+
+5. **Automatizált Workflow-k**
+   - Értékelés lezárás után automatikus email kiküldés
+   - Előléptetések automatikus jóváhagyási folyamat indítása
+   - Slack/Teams értesítések teljesítmény alapján
+
+---
+
+**Biztonsági ajánlások:**
+
+✅ **TEDD:**
+- Tárold az API kulcsot biztonságos jelszókezelőben (pl. 1Password, LastPass, Bitwarden)
+- Csak megbízható rendszerekhez add ki
+- Ellenőrizd rendszeresen a használati statisztikákat
+- Vondd vissza, ha már nem használod
+- Használj HTTPS kapcsolatot minden API hívásnál
+- Korlátozd az IP címeket, ahonnan a kulcs használható (később elérhető funkció)
+
+❌ **NE TEDD:**
+- Ne oszd meg nyilvános fórumokon, GitHub repository-ban
+- Ne emailben küldd el (csak biztonságos csatornán)
+- Ne használd teszteléshez az éles kulcsot
+- Ne hagyd aktívként, ha már nem kell
+- Ne tárold plain text fájlokban a szervereden
+
+---
+
+**Hibaelhárítás:**
+
+**"API kulcs nem található" hiba:**
+- Ellenőrizd, hogy helyesen másoltad-e ki a kulcsot
+- Győződj meg róla, hogy nincs szóköz vagy enterkarakter a kulcs elején/végén
+- A kulcsot teljes egészében kell használni, beleértve a `qa360_live_` prefixet
+
+**"API kulcs lejárt" hiba:**
+- Az 1 éves érvényesség letelt
+- Generálj új API kulcsot
+- Frissítsd a kulcsot a külső rendszerben
+
+**"API kulcs visszavonva" hiba:**
+- A kulcsot visszavontad
+- Új kulcs generálása szükséges
+
+**"Túl sok kérés" hiba:**
+- Rate limiting védelem aktiválódott
+- Csökkentsd az API hívások gyakoriságát
+- Kérj engedélyt magasabb limithez (support)
+
+**"Nincs jogosultság" hiba:**
+- Az API kulcs nem rendelkezik a szükséges `read:*` jogosultsággal
+- Ellenőrizd a kulcs permission beállításait
+
+---
+
+**API Dokumentáció elérése:**
+
+A teljes API dokumentáció (endpoint-ok, paraméterek, példakódok) elérhető a fejlesztői portálon:
+```
+https://docs.quarma360.com/api
+```
+
+**Támogatott programozási nyelvek példakódokkal:**
+- PHP (cURL, Guzzle)
+- Python (requests library)
+- JavaScript/Node.js (axios, fetch)
+- C# (.NET HttpClient)
+- Java (OkHttp)
 
 ---
 
@@ -665,6 +923,9 @@ A "Mentés" gombra kattintva a szorzók azonnal életbe lépnek, és az összes 
 **Többszintű részlegkezelés kikapcsolása:**
 - Egyszer bekapcsolva VISSZAVONHATATLAN → Nem kapcsolható ki soha
 
+**Új API kulcs generálása:**
+- Már létezik egy aktív API kulcs → "Már létezik aktív API kulcs. Először vissza kell vonni a meglévőt."
+
 ### ⚠️ Figyelem:
 
 - **Szigorú anonim mód bekapcsolása:** Automatikusan kikapcsolja az AI telemetriát. Az oldal újratöltődik.
@@ -672,6 +933,8 @@ A "Mentés" gombra kattintva a szorzók azonnal életbe lépnek, és az összes 
 - **Bónusz/malus megjelenítés kikapcsolása:** Automatikusan kikapcsolja a bónusz számítást és az alkalmazottak bónusz láthatóságát is.
 - **Bónusz számítás kikapcsolása:** Automatikusan kikapcsolja az alkalmazottak bónusz láthatóságát.
 - **Pontozási módszer változtatása:** A korábbi, lezárt értékeléseket nem befolyásolja, csak az újakat.
+- **API kulcs visszavonása:** VISSZAVONHATATLAN művelet. Új kulcs generálása szükséges, ha újra API hozzáférés kell.
+- **API kulcs megjelenítése:** Az API kulcs teljes formátuma CSAK EGYSZER látható generáláskor. Később csak az utolsó 8 karakter érhető el.
 
 ---
 
@@ -735,6 +998,39 @@ A "Bónusz szorzók beállítása" panelen van egy "Alapértelmezések visszaál
 ### Milyen gyakran frissülnek a beállítások az új értékelésekben?
 
 A beállítások azonnal életbe lépnek mentés után. Az új értékelések létrehozásakor az aktuális beállításokat használja a rendszer, és az értékelés lezárásakor rögzíti a használt küszöbértékeket és módszert az értékelés adatai közé.
+
+### Miért kell API kulcsot használnom külső integrációhoz?
+
+Az API kulcs biztonságos hitelesítési módszer, amely lehetővé teszi külső rendszerek számára az adatok lekérdezését anélkül, hogy felhasználói jelszavakat kellene megosztani. Minden API hívás naplózásra kerül, és a kulcs bármikor visszavonható.
+
+### Hány API kulcsom lehet egyszerre?
+
+Szervezetenként egyszerre **csak 1 aktív API kulcs** engedélyezett. Ha új kulcsra van szükség, először vissza kell vonni a meglévőt, majd generálhatsz újat.
+
+### Mi történik, ha elfelejtem vagy elvesztem az API kulcsomat?
+
+Az API kulcs teljes formája csak a generáláskor jelenik meg egyszer. Ha elveszted:
+1. Vondd vissza a régi kulcsot
+2. Generálj új API kulcsot
+3. Frissítsd az új kulcsot a külső rendszerekben
+
+Biztonsági okokból a teljes kulcs NEM visszakereshető az adatbázisból (csak hash tárolódik).
+
+### Meddig érvényes egy API kulcs?
+
+Alapértelmezetten 1 évig érvényes a generálástól számítva. A lejárati időt később manuálisan is lehet hosszabbítani vagy rövidíteni (ez a funkció később lesz elérhető).
+
+### Láthatják más adminok az API kulcsomat?
+
+Az adminok látják az API kulcs utolsó 8 karakterét, a nevét, a használati statisztikákat és a létrehozó személyt. A teljes kulcsot senki nem láthatja a generálás után (még superadmin sem).
+
+### Milyen gyakran használhatom az API-t?
+
+Rate limiting védelem van beépítve. Normál használat esetén ez nem okoz problémát. Ha nagyon intenzív integrációt tervezel (percenként több tucat kérés), vedd fel a kapcsolatot a support csapattal magasabb limit engedélyezéséhez.
+
+### Visszaállíthatom a visszavont API kulcsot?
+
+**NEM.** A visszavonás végleges és visszavonhatatlan. Új kulcsot kell generálnod, ha újra API hozzáférésre van szükség.
 
 ---
 
