@@ -137,50 +137,38 @@ class SuperAdminCeoRanksController extends Controller
     /**
      * AI translate CEO rank name
      */
-    public function translateCeoRankName(Request $request)
-    {
-        $request->validate([
-            'id' => 'required|integer',
-            'target_language' => 'required|string|size:2',
-        ]);
+    /**
+ * AI translate CEO rank name using AI service
+ * This method translates to multiple target languages at once
+ */
+public function translateCeoRankName(Request $request)
+{
+    $request->validate([
+        'rank_name' => 'required|string',
+        'source_language' => 'required|string',
+        'target_languages' => 'required|array',
+    ]);
 
-        $rank = CeoRank::where('id', $request->id)
-                      ->whereNull('organization_id')
-                      ->firstOrFail();
+    $aiTranslationService = new AiTranslationService();
+    
+    $translations = $aiTranslationService->translateCeoRankName(
+        $request->rank_name,
+        $request->source_language,
+        $request->target_languages
+    );
 
-        $sourceLang = $rank->original_language ?? 'hu';
-        $targetLang = $request->target_language;
-        $sourceText = $rank->name;
-
-        // Don't translate if source and target are the same
-        if ($sourceLang === $targetLang) {
-            return response()->json([
-                'translation' => $sourceText,
-                'source_language' => $sourceLang,
-                'target_language' => $targetLang,
-            ]);
-        }
-
-        try {
-            $translation = AiTranslationService::translate(
-                $sourceText,
-                $sourceLang,
-                $targetLang,
-                'ceo_rank_name'
-            );
-
-            return response()->json([
-                'translation' => $translation,
-                'source_language' => $sourceLang,
-                'target_language' => $targetLang,
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => __('admin/competencies.translation-failed'),
-                'message' => $e->getMessage(),
-            ], 500);
-        }
+    if ($translations === null) {
+        return response()->json([
+            'success' => false,
+            'message' => __('admin/ceoranks.translation-failed')
+        ], 500);
     }
+
+    return response()->json([
+        'success' => true,
+        'translations' => $translations
+    ]);
+}
 
     /**
      * Get available languages - for global content, return ALL available languages

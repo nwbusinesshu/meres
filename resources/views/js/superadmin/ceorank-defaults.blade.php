@@ -2,6 +2,9 @@
 <link rel="stylesheet" href="{{ asset('assets/css/pages/admin.ceoranks.css') }}">
 
 <script>
+// 🔥 CRITICAL: Enable global rank mode for superadmin
+window.globalRankMode = true;
+
 // Route mapping: admin routes → superadmin routes
 // The admin modal JavaScript uses these admin routes, we intercept and redirect them
 const ROUTE_MAP = {
@@ -48,7 +51,8 @@ $(document).ready(function() {
         arrow: true,
     });
     
-    console.log('Superadmin CEO Rank Defaults: AJAX interceptor active');
+    console.log('🔥 Superadmin CEO Rank Defaults: Global mode enabled');
+    console.log('🔥 AJAX interceptor active');
     console.log('Route mappings:', ROUTE_MAP);
 });
 

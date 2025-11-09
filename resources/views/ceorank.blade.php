@@ -28,7 +28,9 @@
     </div>
     <div>
       <span>{{ $_('name') }}</span>
-      <span>{{ $rank->name }}</span>
+      <span class="{{ $rank->name_is_fallback ?? false ? 'fallback-text' : '' }}">
+      {{ $rank->translated_name ?? $rank->name }}
+    </span>
     </div>
     <div>
     @if (!is_null($rank->calcMin))

@@ -79,6 +79,11 @@
         <i class="fa fa-ticket"></i>
         <span>{{ __('support.all-tickets') }}</span>
       </a>
+      <a class="menuitem {{ request()->routeIs('superadmin.ceorank-defaults.index') ? 'active' : '' }}" 
+     href="{{ route('superadmin.ceorank-defaults.index') }}" data-route="superadmin.ceorank-defaults.index">
+    <i class="fa fa-ranking-star"></i>
+    <span>{{ __('titles.superadmin.ceorank-defaults') }}</span>
+  </a>
       <a class="menuitem" href="{{ route('org.select') }}" data-route="org.select">
         <i class="fa-solid fa-right-to-bracket"></i>
         <span>{{ __('global.login-to-org') }}</span>
@@ -233,6 +238,11 @@
        href="{{ route('superadmin.competency.index') }}">
       <i class="fa fa-medal"></i>
       <span>{{ __('titles.superadmin.global-competencies') }}</span>
+    </a>
+    <a class="menuitem {{ request()->routeIs('superadmin.ceorank-defaults.index') ? 'active' : '' }}" 
+       href="{{ route('superadmin.ceorank-defaults.index') }}">
+      <i class="fa fa-ranking-star"></i>
+      <span>{{ __('titles.superadmin.ceorank-defaults') }}</span>
     </a>
     <a class="menuitem {{ request()->routeIs('org.select') ? 'active' : '' }}" 
        href="{{ route('org.select') }}">

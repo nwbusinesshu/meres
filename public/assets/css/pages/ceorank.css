@@ -279,3 +279,14 @@ h2{
     display: none;
   }
 }
+
+.fallback-text {
+  color: #dc3545 !important;
+  font-style: italic;
+}
+
+.fallback-text::after {
+  content: ' (!)';
+  font-size: 0.8em;
+  opacity: 0.7;
+}

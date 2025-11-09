@@ -299,24 +299,56 @@ function clearRankForm() {
 }
 
 function loadRankSelectedLanguages() {
-    return new Promise((resolve) => {
-        $.ajax({
-            url: "{{ route('admin.ceoranks.languages.selected') }}",
-            method: 'GET',
-            success: function(response) {
-                rankSelectedLanguages = response.selected_languages || [rankOriginalLanguage];
-                isTranslationMode = rankSelectedLanguages.length > 1;
-                console.log('Loaded languages:', rankSelectedLanguages, 'Translation mode:', isTranslationMode);
-                resolve();
-            },
-            error: function() {
-                rankSelectedLanguages = [rankOriginalLanguage];
-                isTranslationMode = false;
-                console.log('Failed to load languages, using default');
-                resolve();
-            }
+    const isGlobalMode = window.globalRankMode || false;
+    
+    if (isGlobalMode) {
+        // GLOBAL MODE: Load all available languages automatically (superadmin)
+        return new Promise((resolve) => {
+            $.ajax({
+                url: "{{ route('admin.languages.available') }}",  // Will be redirected to superadmin route by AJAX interceptor
+                method: 'GET',
+                success: function(response) {
+                    // Get available locales from response or config
+                    const availableLocales = response.available || @json(config('app.available_locales'));
+                    rankSelectedLanguages = Object.keys(availableLocales);
+                    rankOriginalLanguage = '{{ auth()->user()->locale ?? config('app.locale', 'hu') }}';
+                    rankCurrentLanguage = rankOriginalLanguage;
+                    isTranslationMode = rankSelectedLanguages.length > 1;
+                    console.log('🔥 Global Rank Mode - Loaded all languages:', rankSelectedLanguages);
+                    resolve();
+                },
+                error: function() {
+                    // Fallback for global mode - all available languages
+                    rankSelectedLanguages = ['hu', 'en', 'de', 'ro'];
+                    rankOriginalLanguage = '{{ auth()->user()->locale ?? config('app.locale', 'hu') }}';
+                    rankCurrentLanguage = rankOriginalLanguage;
+                    isTranslationMode = true;
+                    console.log('🔥 Global mode fallback - using all languages:', rankSelectedLanguages);
+                    resolve();
+                }
+            });
         });
-    });
+    } else {
+        // ADMIN MODE: Use organization's selected languages
+        return new Promise((resolve) => {
+            $.ajax({
+                url: "{{ route('admin.ceoranks.languages.selected') }}",
+                method: 'GET',
+                success: function(response) {
+                    rankSelectedLanguages = response.selected_languages || [rankOriginalLanguage];
+                    isTranslationMode = rankSelectedLanguages.length > 1;
+                    console.log('Admin Mode - Loaded languages:', rankSelectedLanguages, 'Translation mode:', isTranslationMode);
+                    resolve();
+                },
+                error: function() {
+                    rankSelectedLanguages = [rankOriginalLanguage];
+                    isTranslationMode = false;
+                    console.log('Admin mode - Failed to load languages, using default');
+                    resolve();
+                }
+            });
+        });
+    }
 }
 
 function loadRankTranslationData(rankId, basicResponse) {

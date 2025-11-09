@@ -28,7 +28,7 @@ return [
         'new-org' => 'Add New Company',
         'edit-org' => 'Edit Company',
         "global-competencies" => "Global Competencies",
-        'ceorank-defaults' => 'Default Rankings',
+        'ceorank-defaults' => 'Rankings',
     ],
   'org' => [
         'select' => 'Company Selector',],
