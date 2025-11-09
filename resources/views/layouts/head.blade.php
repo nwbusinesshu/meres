@@ -40,6 +40,7 @@
 	<script src="{{ asset('assets/js/navbar-scroll.js') }}"></script>
 
 	@if(!config('app.debug'))
+	<script>
 (function() {
   // Disable console methods on production
   const noop = function() {};
@@ -49,7 +50,7 @@
   console.debug = noop;
   console.trace = noop;
   // Keep console.error for critical issues
-})();
+})(); </script>
 @endif
 
 		<!-- Microsoft Clarity - Conditional Loading Based on Analytics Consent -->
