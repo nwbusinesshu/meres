@@ -61,8 +61,24 @@ jobs:
             mkdir -p releases/$REL
             tar -xzf release.tgz -C releases/$REL
             rm release.tgz
+            
+            # ✅ FIX PERMISSIONS IMMEDIATELY after extraction
+            echo "Setting correct permissions..."
+            sudo chown -R deployer:www-data releases/$REL
+            sudo find releases/$REL -type d -exec chmod 775 {} \;
+            sudo find releases/$REL -type f -exec chmod 664 {} \;
+            
+            # Link .env
             ln -sfn /var/www/quarma360-production/shared/.env releases/$REL/.env
+            
             cd releases/$REL
+            
+            # Make executables
+            chmod +x artisan
+            chmod +x composer
+            find . -type f -name "*.sh" -exec chmod +x {} \;
+            
+            # Install dependencies
             composer install --no-dev --optimize-autoloader
             
             # Create symlinks FIRST before caching
@@ -75,7 +91,15 @@ jobs:
             # NOW cache config (with correct symlinked paths)
             php artisan config:cache
             php artisan route:cache
+            
+            # Switch to new release
             cd /var/www/quarma360-production
             ln -sfn /var/www/quarma360-production/releases/$REL current
+            
+            # Reload PHP-FPM
             sudo systemctl reload php8.3-fpm
+            
+            # Clean old releases (keep last 5)
             ls -t releases/ | tail -n +6 | xargs -I {} rm -rf releases/{}
+            
+            echo "✅ Deployment completed successfully!"
