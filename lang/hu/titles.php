@@ -28,6 +28,7 @@ return [
         'new-org' => 'Új cég hozzáadása',
         'edit-org' => 'Cég szerkesztése',
         "global-competencies" => "Globális kompetenciák",
+        'ceorank-defaults' => 'Alapértelmezett rangsorok',
     ],
   'org' => [
         'select' => 'Cégválasztó',],

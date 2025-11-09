@@ -13,11 +13,12 @@ use App\Http\Controllers\LoginController;
 use App\Http\Controllers\ResultsController;
 use App\Http\Middleware\Auth;
 use App\Models\Enums\UserType;
-use App\Models\Enums\OrgRole; // ✅ ADDED: Import for organization roles
+use App\Models\Enums\OrgRole;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\SuperadminOrganizationController;
+use App\Http\Controllers\SuperAdminCeoRanksController;
 use App\Http\Controllers\GlobalCompetencyController;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use App\Http\Controllers\PasswordSetupController;
@@ -384,8 +385,24 @@ Route::prefix('superadmin/competency')
         Route::post('/question/save', 'saveCompetencyQuestion')->name('q.save');      // Alias for JS  
         Route::get('/question/get', 'getCompetencyQuestion')->name('q.get');          // Alias for JS
     });
-    
+
 Route::get('/superadmin/global-competencies', [GlobalCompetencyController::class, 'index'])->name('superadmin.global-competencies');
+
+// SUPERADMIN CEO RANK DEFAULTS ROUTES
+Route::prefix('superadmin/ceorank-defaults')
+    ->name('superadmin.ceorank-defaults.')
+    ->middleware(['auth:' . UserType::SUPERADMIN])
+    ->controller(\App\Http\Controllers\SuperAdminCeoRanksController::class)
+    ->group(function () {
+        Route::get('/index', 'index')->name('index');
+        Route::post('/get', 'getCeoRank')->name('get');
+        Route::post('/save', 'saveCeoRank')->name('save');
+        Route::post('/remove', 'removeCeoRank')->name('remove');
+        Route::post('/translations/get', 'getCeoRankTranslations')->name('translations.get');
+        Route::post('/translate-name', 'translateCeoRankName')->name('translate-name');
+        Route::get('/languages/get', 'getTranslationLanguages')->name('languages.get');
+        Route::post('/languages/save', 'saveTranslationLanguages')->name('languages.save');
+    });
 
 // SUPPORT TICKET ROUTES - SUPERADMIN SIDE
 Route::controller(SuperadminTicketController::class)

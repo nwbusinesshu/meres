@@ -64,13 +64,17 @@ jobs:
             ln -sfn /var/www/quarma360-production/shared/.env releases/$REL/.env
             cd releases/$REL
             composer install --no-dev --optimize-autoloader
-            php artisan config:cache
-            php artisan route:cache
-            php artisan storage:link || true
+            
+            # Create symlinks FIRST before caching
             rm -rf storage
             ln -sfn /var/www/quarma360-production/shared/storage storage
             rm -rf public/uploads
             ln -sfn /var/www/quarma360-production/shared/uploads public/uploads
+            php artisan storage:link || true
+            
+            # NOW cache config (with correct symlinked paths)
+            php artisan config:cache
+            php artisan route:cache
             cd /var/www/quarma360-production
             ln -sfn /var/www/quarma360-production/releases/$REL current
             sudo systemctl reload php8.3-fpm

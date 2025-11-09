@@ -1,0 +1,103 @@
+#ceorank-modal .modal-body{
+  display: flex;
+  flex-direction: column;
+}
+#ceorank-modal .form-row{
+  flex-wrap: wrap;
+}
+#ceorank-modal .form-group{
+  flex: 1 200px;
+}
+#ceorank-modal label{
+  width: 100%;
+}
+#ceorank-modal .form-check{
+  margin-bottom: .5em;
+}
+#ceorank-modal p{
+  text-align: center;
+  font-size: 1.2em;
+}
+.rank{
+  display: flex;
+  flex-direction: row;
+  gap: 1em;
+  flex-wrap: wrap;
+}
+.rank > div{
+  display: flex;
+  flex-direction: column;
+  gap: 0em;
+}
+.rank div > span:nth-child(1),
+.rank div > p{
+  font-style: italic;
+}
+.rank div > span:nth-child(2){
+  font-family: 'Kanit', sans-serif;
+}
+.rank > div:nth-child(1){
+  justify-content: center;
+  align-items: center;
+}
+.rank > div:nth-child(1) > span:nth-child(2){
+  font-size: 2em;
+}
+.rank > div:nth-child(2){
+  flex: 1;
+}
+.rank > div:nth-last-child(1){
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: .5em;
+}
+.rank > div:nth-last-child(1) button{
+  width: 2em;
+  height: 2em;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.rank > div:nth-child(3){
+  flex: 1;
+  text-align: center;
+}
+.rank > div:nth-child(3) > div{
+  display: flex;
+  flex-direction: row;
+  gap: 1em;
+  justify-content: center;
+}
+.rank > div:nth-child(3) > div > div{
+ display: flex;
+ flex-direction: column;
+ justify-content: center;
+ align-items: center;
+}
+.rank > div:nth-child(3) > div > div > span:nth-child(1){
+  font-size: 0.9em;
+}
+@media all and (max-width: 670px) {
+  .rank{
+    flex-direction: column;
+    gap: .25em;
+  }
+  .rank > div{
+    justify-content: center;
+    align-items: center;
+  }
+  .rank > div:nth-child(1) > span:nth-child(2){
+    line-height: 0.8;
+  }
+}
+
+.main-content > .double-tiles{
+  display: flex;
+  justify-content: center;
+  gap: 1em;
+  flex-wrap: wrap;
+}
+
+.main-content > .double-tiles > .tile {
+    flex: 1 400px;
+  }
