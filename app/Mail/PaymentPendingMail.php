@@ -17,7 +17,7 @@ class PaymentPendingMail extends Mailable implements ShouldQueue
 
     public Organization $org;
     public User $admin;
-    public Payment $payment;
+    public object $payment;
     public ?Assessment $assessment;
     public string $loginUrl;
     public $locale;
@@ -28,7 +28,7 @@ class PaymentPendingMail extends Mailable implements ShouldQueue
     public function __construct(
         Organization $org,
         User $admin,
-        Payment $payment,
+        object $payment,  // ✅ Accept any object
         ?Assessment $assessment,
         string $loginUrl,
         string $locale = 'hu'

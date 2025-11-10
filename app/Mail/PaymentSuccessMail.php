@@ -16,7 +16,7 @@ class PaymentSuccessMail extends Mailable implements ShouldQueue
 
     public Organization $org;
     public User $admin;
-    public Payment $payment;
+    public object $payment;  // ✅ Change from Payment to object
     public string $invoiceDownloadUrl;
     public $locale;
 
@@ -26,7 +26,7 @@ class PaymentSuccessMail extends Mailable implements ShouldQueue
     public function __construct(
         Organization $org,
         User $admin,
-        Payment $payment,
+        object $payment,  // ✅ Change from Payment to object
         string $invoiceDownloadUrl,
         string $locale = 'hu'
     ) {

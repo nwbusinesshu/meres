@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\BarionService;
 use App\Services\BillingoService;
+use App\Models\User;
 
 class PaymentWebhookController extends Controller
 {
@@ -179,6 +180,24 @@ class PaymentWebhookController extends Controller
                         'invoice_status'   => 'pending',
                         'updated_at'       => now(),
                     ]);
+
+                    try {
+                        $org = \App\Models\Organization::find($payment->organization_id);
+                        $admins = User::whereNull('removed_at')
+                            ->whereHas('organizations', function ($q) use ($payment) {
+                                $q->where('organization_id', $payment->organization_id)->where('organization_user.role', \App\Models\Enums\OrgRole::ADMIN);
+                            })->get();
+                        
+                        $payment = DB::table('payments')->find($payment->id); // Refresh
+                        foreach ($admins as $admin) {
+                            \Mail::to($admin->email)->send(new \App\Mail\PaymentSuccessMail(
+                                $org, $admin, (object)$payment, config('app.url') . '/admin/payment/' . $payment->id . '/invoice', $admin->locale ?? 'hu'
+                            ));
+                        }
+                        \Log::info('payment.emails.success', ['payment_id' => $payment->id, 'count' => $admins->count()]);
+                    } catch (\Throwable $e) {
+                        \Log::error('payment.emails.success.failed', ['error' => $e->getMessage()]);
+                    }
 
                     Log::info('webhook.barion.payment_marked_paid', [
                         'payment_id' => $payment->id,

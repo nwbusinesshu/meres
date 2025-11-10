@@ -7,7 +7,7 @@ use App\Models\SupportTicket;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 

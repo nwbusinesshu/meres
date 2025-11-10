@@ -76,6 +76,12 @@ class Kernel extends ConsoleKernel
                 \Log::error('invoice.job.scheduled.failed');
             });
 
+            // Daily assessment progress emails at 9:00 AM
+    $schedule->command('assessment:daily-progress')
+             ->dailyAt('09:00')
+             ->withoutOverlapping()
+             ->onOneServer();
+
     }
 
     /**

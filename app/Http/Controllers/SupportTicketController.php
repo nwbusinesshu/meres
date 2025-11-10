@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use App\Models\Enums\UserType; 
 
 class SupportTicketController extends Controller
 {
@@ -164,6 +165,21 @@ class SupportTicketController extends Controller
 
             DB::commit();
 
+            try {
+                $org = \App\Models\Organization::find($organizationId);
+                $superadmins = User::where('type', UserType::SUPERADMIN)->whereNull('removed_at')->get();
+                $messages = \App\Models\SupportTicketMessage::where('ticket_id', $ticket->id)->with('user')->orderBy('created_at')->get();
+                
+                foreach ($superadmins as $admin) {
+                    \Mail::to($admin->email)->send(new \App\Mail\TicketNotificationMail(
+                        $org, $admin, $ticket, $messages, config('app.url') . '/login', $admin->locale ?? 'hu', true
+                    ));
+                }
+                \Log::info('ticket.emails.created', ['ticket_id' => $ticket->id, 'count' => $superadmins->count()]);
+            } catch (\Throwable $e) {
+                \Log::error('ticket.emails.created.failed', ['error' => $e->getMessage()]);
+            }
+
             Log::info('Support ticket created', [
                 'ticket_id' => $ticket->id,
                 'user_id' => $userId,
@@ -233,6 +249,21 @@ class SupportTicketController extends Controller
                 'message' => $validated['message'],
                 'is_staff_reply' => false,
             ]);
+
+            try {
+                $org = \App\Models\Organization::find($organizationId);
+                $superadmins = User::where('type', UserType::SUPERADMIN)->whereNull('removed_at')->get();
+                $messages = \App\Models\SupportTicketMessage::where('ticket_id', $ticket->id)->with('user')->orderBy('created_at')->get();
+                
+                foreach ($superadmins as $admin) {
+                    \Mail::to($admin->email)->send(new \App\Mail\TicketNotificationMail(
+                        $org, $admin, $ticket, $messages, config('app.url') . '/login', $admin->locale ?? 'hu', false
+                    ));
+                }
+                \Log::info('ticket.emails.updated', ['ticket_id' => $ticket->id, 'message_id' => $message->id]);
+            } catch (\Throwable $e) {
+                \Log::error('ticket.emails.updated.failed', ['error' => $e->getMessage()]);
+            }
 
             // Update ticket status if needed
             if ($ticket->status === 'closed') {

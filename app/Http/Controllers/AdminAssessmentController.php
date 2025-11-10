@@ -173,6 +173,25 @@ class AdminAssessmentController extends Controller
                 $assessment->org_snapshot_version = 'v1';
                 $assessment->save();
 
+                try {
+                    $org = \App\Models\Organization::find($orgId);
+                    $loginUrl = config('app.url') . '/login';
+                    $employees = User::whereNull('removed_at')
+                        ->where('type', '!=', UserType::SUPERADMIN)
+                        ->whereHas('organizations', function ($q) use ($orgId) {
+                            $q->where('organization_id', $orgId)->where('organization_user.role', '!=', OrgRole::ADMIN);
+                        })->get();
+                    
+                    foreach ($employees as $employee) {
+                        \Mail::to($employee->email)->send(new \App\Mail\AssessmentStartedMail(
+                            $org, $employee, $assessment, $loginUrl, $employee->locale ?? 'hu'
+                        ));
+                    }
+                    \Log::info('assessment.emails.started', ['assessment_id' => $assessment->id, 'count' => $employees->count()]);
+                } catch (\Throwable $e) {
+                    \Log::error('assessment.emails.started.failed', ['error' => $e->getMessage()]);
+                }
+
                 // ========== BILLING LOGIC (unchanged) ==========
                 // Count employees (excluding admins)
                 // Count employees (EXCLUDING admins)
@@ -244,7 +263,7 @@ class AdminAssessmentController extends Controller
                             // Calculate payment amounts using PaymentHelper
                             $paymentAmounts = \App\Services\PaymentHelper::calculatePaymentAmounts($orgId, $excessEmployees);
                             
-                            DB::table('payments')->insert([
+                            $paymentId = DB::table('payments')->insertGetId([
                                 'organization_id' => $orgId,
                                 'assessment_id'   => $assessment->id,
                                 'currency'        => $paymentAmounts['currency'],
@@ -279,7 +298,7 @@ class AdminAssessmentController extends Controller
                         // Calculate payment amounts using PaymentHelper
                         $paymentAmounts = \App\Services\PaymentHelper::calculatePaymentAmounts($orgId, $employeeCount);
                         
-                        DB::table('payments')->insert([
+                        $paymentId = DB::table('payments')->insertGetId([
                             'organization_id' => $orgId,
                             'assessment_id'   => $assessment->id,
                             'currency'        => $paymentAmounts['currency'],
@@ -291,6 +310,24 @@ class AdminAssessmentController extends Controller
                             'created_at'      => now(),
                             'updated_at'      => now(),
                         ]);
+
+                        try {
+                            $org = \App\Models\Organization::find($orgId);
+                            $admins = User::whereNull('removed_at')
+                                ->whereHas('organizations', function ($q) use ($orgId) {
+                                    $q->where('organization_id', $orgId)->where('organization_user.role', OrgRole::ADMIN);
+                                })->get();
+                            
+                            $payment = DB::table('payments')->find($paymentId);
+                            foreach ($admins as $admin) {
+                                \Mail::to($admin->email)->send(new \App\Mail\PaymentPendingMail(
+                                    $org, $admin, (object)$payment, $assessment, config('app.url') . '/login', $admin->locale ?? 'hu'
+                                ));
+                            }
+                            \Log::info('payment.emails.pending', ['payment_id' => $paymentId, 'count' => $admins->count()]);
+                        } catch (\Throwable $e) {
+                            \Log::error('payment.emails.pending.failed', ['error' => $e->getMessage()]);
+                        }
                         
                         \Log::info('assessment.payment.created.normal', [
                             'org_id' => $orgId,
@@ -642,6 +679,24 @@ class AdminAssessmentController extends Controller
             }
         } else {
             Log::info("Skipping bonus calculation - pilot assessment {$assessment->id}");
+        }
+
+        try {
+            $org = \App\Models\Organization::find($orgId);
+            $participants = User::whereNull('removed_at')
+                ->where('type', '!=', UserType::SUPERADMIN)
+                ->whereHas('organizations', function ($q) use ($orgId) {
+                    $q->where('organization_id', $orgId)->where('organization_user.role', '!=', OrgRole::ADMIN);
+                })->get();
+            
+            foreach ($participants as $participant) {
+                \Mail::to($participant->email)->send(new \App\Mail\AssessmentClosedMail(
+                    $org, $participant, $assessment, config('app.url') . '/login', $participant->locale ?? 'hu'
+                ));
+            }
+            \Log::info('assessment.emails.closed', ['assessment_id' => $assessment->id, 'count' => $participants->count()]);
+        } catch (\Throwable $e) {
+            \Log::error('assessment.emails.closed.failed', ['error' => $e->getMessage()]);
         }
 
         // 6. Return success
