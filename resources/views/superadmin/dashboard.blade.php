@@ -7,7 +7,7 @@
 @section('content')
 <h1>{{ __('titles.superadmin.dashboard') }}</h1>
 
-{{-- Maintenance Mode Toggle - Compact Version --}}
+{{-- Maintenance Mode Toggle --}}
 <div class="tile maintenance-toggle-tile">
     <div class="maintenance-content">
         <div class="maintenance-info">
@@ -34,173 +34,23 @@
     </div>
 </div>
 
-<style>
-.maintenance-toggle-tile {
-    margin-bottom: 1.5rem;
-    background: var(--white);
-    border-radius: 8px;
-    padding: 1rem 1.5rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.maintenance-content {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 2rem;
-}
-
-.maintenance-info {
-    flex: 1;
-}
-
-.maintenance-info h4 {
-    margin: 0 0 0.25rem 0;
-    font-size: 1.1rem;
-    color: var(--mine_shaft);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.maintenance-info p {
-    margin: 0;
-    color: var(--silver_chalice);
-    font-size: 0.875rem;
-}
-
-.maintenance-controls {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.status-indicator {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.status-label {
-    font-weight: 600;
-    color: var(--mine_shaft);
-    font-size: 0.9rem;
-}
-
-.status-badge {
-    padding: 0.4rem 0.9rem;
-    border-radius: 20px;
-    font-weight: 600;
-    font-size: 0.85rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    white-space: nowrap;
-}
-
-.status-badge.status-enabled {
-    background: #fef3c7;
-    color: #92400e;
-}
-
-.status-badge.status-disabled {
-    background: #d1fae5;
-    color: #065f46;
-}
-
-.maintenance-toggle-btn {
-    min-width: 140px;
-    font-weight: 600;
-    transition: all 0.2s ease;
-    font-size: 0.9rem;
-    padding: 0.5rem 1rem;
-}
-
-.maintenance-toggle-btn:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-}
-
-.maintenance-toggle-btn.btn-enable {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    color: white;
-    border: none;
-}
-
-.maintenance-toggle-btn.btn-enable:hover:not(:disabled) {
-    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 3px 6px rgba(245, 158, 11, 0.3);
-}
-
-.maintenance-toggle-btn.btn-disable {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    color: white;
-    border: none;
-}
-
-.maintenance-toggle-btn.btn-disable:hover:not(:disabled) {
-    background: linear-gradient(135deg, #059669 0%, #047857 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 3px 6px rgba(16, 185, 129, 0.3);
-}
-
-@media (max-width: 992px) {
-    .maintenance-content {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 1rem;
-    }
-    
-    .maintenance-controls {
-        justify-content: space-between;
-    }
-}
-
-@media (max-width: 576px) {
-    .maintenance-controls {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.75rem;
-    }
-    
-    .maintenance-toggle-btn {
-        width: 100%;
-    }
-}
-</style>
-
-{{-- Global Pricing Settings --}}
-<div class="mb-4">
-  <div class="tile tile-info pricing-tile">
-    <div class="pricing-header">
-      <h5><i class="fa fa-coins"></i> Globális Ár Beállítások</h5>
-    </div>
-    <form id="pricing-form" class="pricing-form">
+{{-- Global Pricing Section --}}
+<div class="tile tile-info">
+  <div style="width: 100%;">
+    <h4 style="margin-bottom: 1rem;"><i class="fa fa-tag"></i> {{ __('superadmin/dashboard.global-pricing') }}</h4>
+    <form id="pricing-form">
       @csrf
       <div class="row">
         <div class="col-md-5">
           <div class="form-group">
-            <label for="global_price_huf">Alap Ár (HUF)</label>
-            <div class="input-group">
-              <input type="number" step="0.01" class="form-control" id="global_price_huf" name="global_price_huf" required>
-              <div class="input-group-append">
-                <span class="input-group-text">HUF</span>
-              </div>
-            </div>
-            <small class="form-text text-muted">Magyarországi szervezetek számára</small>
+            <label for="global_price_huf">{{ __('superadmin/dashboard.price-per-assessment-huf') }}</label>
+            <input type="number" class="form-control" id="global_price_huf" name="global_price_huf" required>
           </div>
         </div>
         <div class="col-md-5">
           <div class="form-group">
-            <label for="global_price_eur">Alap Ár (EUR)</label>
-            <div class="input-group">
-              <input type="number" step="0.01" class="form-control" id="global_price_eur" name="global_price_eur" required>
-              <div class="input-group-append">
-                <span class="input-group-text">EUR</span>
-              </div>
-            </div>
-            <small class="form-text text-muted">Magyarországon kívüli szervezetek számára</small>
+            <label for="global_price_eur">{{ __('superadmin/dashboard.price-per-assessment-eur') }}</label>
+            <input type="number" class="form-control" id="global_price_eur" name="global_price_eur" required>
           </div>
         </div>
         <div class="col-md-2 d-flex align-items-center">
@@ -213,7 +63,7 @@
   </div>
 </div>
 
-
+{{-- Organization Search and Actions --}}
 <div>
   <div class="tile tile-info search-tile org-search">
     <p>{{ __('global.search') }}</p>
@@ -227,6 +77,7 @@
   </div>
 </div>
 
+{{-- Organizations Table --}}
 <div class="tile orglist">
   <table class="table table-hover org-info-table">
     <thead>
@@ -383,13 +234,16 @@ $('#pricing-form').on('submit', function(e) {
     });
 });
 </script>
+
+{{-- Maintenance Mode Toggle Script --}}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const statusText = document.getElementById('maintenance-status-text');
     const toggleBtn = document.getElementById('btn-toggle-maintenance');
     
     if (!statusText || !toggleBtn) {
-        return; // Elements not found
+        console.warn('Maintenance mode elements not found');
+        return;
     }
 
     const T = {
@@ -411,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let currentStatus = null;
 
-    // Fetch current status
+    // Fetch current maintenance status
     function fetchStatus() {
         toggleBtn.disabled = true;
         statusText.innerHTML = '<i class="fa fa-spinner fa-spin"></i> <span>' + T.loading + '...</span>';
@@ -437,7 +291,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Update UI based on status
+    // Update UI based on maintenance status
     function updateUI(isDown) {
         // Update status badge
         statusText.className = 'status-badge ' + (isDown ? 'status-enabled' : 'status-disabled');
@@ -452,11 +306,10 @@ document.addEventListener('DOMContentLoaded', function() {
             (isDown ? T.disable_button : T.enable_button) + '</span>';
     }
 
-    // Toggle maintenance mode
+    // Toggle maintenance mode with confirmation
     function toggleMaintenance() {
         const isDown = currentStatus;
         
-        // Use Swal (capital S) - SweetAlert2
         Swal.fire({
             title: isDown ? T.confirm_disable_title : T.confirm_enable_title,
             text: isDown ? T.confirm_disable_text : T.confirm_enable_text,
@@ -474,7 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Perform the actual toggle
+    // Perform the actual toggle operation
     function performToggle() {
         toggleBtn.disabled = true;
         toggleBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> <span class="btn-text">' + T.loading + '...</span>';
@@ -496,7 +349,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 toast('success', data.message);
                 
-                // Refresh page after a short delay to show updated banner
+                // Refresh page after a short delay to show updated banner if needed
                 setTimeout(() => {
                     window.location.reload();
                 }, 1500);

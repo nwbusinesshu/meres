@@ -63,6 +63,9 @@ return [
 
   "error-back-to" => "Back to Home",
 
+  "error-reload" => "Reload page",
+
+
   "no-employee" => "No employees to display!",
 
   "name" => "Name",

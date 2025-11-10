@@ -8,7 +8,7 @@
     <div class="error-content">
         <div class="error-text">
             <h1>{{ __('global.503') }}</h1>
-            <a href="{{ route('login') }}" role="button" class="btn btn-outline-secondary">{{ __('global.error-back-to') }}</a>
+            <a href="{{ route('login') }}" role="button" class="btn btn-outline-secondary">{{ __('global.error-reload') }}</a>
         </div>
         <div class="error-visual">
             <div class="error-number">503</div>

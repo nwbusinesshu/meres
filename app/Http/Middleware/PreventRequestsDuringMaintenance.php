@@ -2,10 +2,9 @@
 
 namespace App\Http\Middleware;
 
-use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance as Middleware;
-use App\Models\Enums\UserType;
 use Closure;
-use Illuminate\Http\Request;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance as Middleware;
 
 class PreventRequestsDuringMaintenance extends Middleware
 {
@@ -15,27 +14,8 @@ class PreventRequestsDuringMaintenance extends Middleware
      * @var array<int, string>
      */
     protected $except = [
-        //
+        'superadmin',
+        'superadmin/*',
+        'org/*',
     ];
-
-    /**
-     * Handle an incoming request.
-     * 
-     * Allow superadmins to bypass maintenance mode.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure  $next
-     * @return mixed
-     */
-    public function handle($request, Closure $next)
-    {
-        // Check if user is logged in as superadmin
-        if (session('utype') === UserType::SUPERADMIN) {
-            // Superadmins can bypass maintenance mode
-            return $next($request);
-        }
-
-        // For all other users, use default maintenance mode behavior
-        return parent::handle($request, $next);
-    }
 }

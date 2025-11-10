@@ -60,6 +60,8 @@ return [
 
   "error-back-to" => "Vissza a főoldalra",
 
+  "error-reload" => "Újratöltés",
+
   "no-employee" => "Nincsenek megjeleníthető alkalmazottak!",
 
   "name" => "Név",

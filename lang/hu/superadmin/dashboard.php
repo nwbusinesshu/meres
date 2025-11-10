@@ -24,4 +24,7 @@ return [
     'billing-address-label' => 'Számlázási cím:',
     'subscription-label' => 'Előfizetés:',
     'not-provided' => 'Nincs megadva',
+    'global-pricing' => 'Globális alapárak',
+    'price-per-assessment-huf' => "Ft/fő/mérés",
+    'price-per-assessment-eur' => "EUR/fő/mérés",
 ];

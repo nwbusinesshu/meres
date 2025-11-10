@@ -9,68 +9,97 @@ use Illuminate\Support\Facades\Log;
 
 class MaintenanceController extends Controller
 {
-    /**
-     * Toggle maintenance mode on/off
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function toggle(Request $request)
     {
+        Log::info('=== MAINTENANCE TOGGLE START ===');
+        
         try {
             $maintenanceFile = storage_path('framework/maintenance.php');
+            Log::info('Maintenance file path: ' . $maintenanceFile);
+            
             $isCurrentlyDown = File::exists($maintenanceFile);
+            Log::info('Is currently down: ' . ($isCurrentlyDown ? 'YES' : 'NO'));
 
             if ($isCurrentlyDown) {
                 // Disable maintenance mode
-                Artisan::call('up');
+                Log::info('Attempting to disable maintenance mode...');
                 
-                Log::info('Maintenance mode disabled', [
-                    'user_id' => session('uid'),
-                    'user_email' => auth()->user()?->email
-                ]);
-
+                $exitCode = Artisan::call('up');
+                Log::info('Artisan up exit code: ' . $exitCode);
+                
+                $stillExists = File::exists($maintenanceFile);
+                Log::info('File still exists after up: ' . ($stillExists ? 'YES' : 'NO'));
+                
                 return response()->json([
                     'ok' => true,
                     'status' => 'disabled',
-                    'message' => __('maintenance.disabled-success')
+                    'message' => 'Maintenance mode disabled',
+                    'debug' => [
+                        'exit_code' => $exitCode,
+                        'file_existed' => $isCurrentlyDown,
+                        'file_exists_now' => $stillExists
+                    ]
                 ]);
             } else {
                 // Enable maintenance mode
-                Artisan::call('down', [
-                    '--render' => 'errors::503',
-                    '--retry' => 60
+                Log::info('Attempting to enable maintenance mode...');
+                
+                // Check if directory is writable
+                $frameworkDir = storage_path('framework');
+                $isWritable = is_writable($frameworkDir);
+                Log::info('Framework directory writable: ' . ($isWritable ? 'YES' : 'NO'));
+                Log::info('Framework directory permissions: ' . substr(sprintf('%o', fileperms($frameworkDir)), -4));
+                
+                $exitCode = Artisan::call('down', [
+                    '--refresh' => 15,
+                    '--retry' => 60,
                 ]);
                 
-                Log::info('Maintenance mode enabled', [
-                    'user_id' => session('uid'),
-                    'user_email' => auth()->user()?->email
-                ]);
-
+                Log::info('Artisan down exit code: ' . $exitCode);
+                Log::info('Artisan output: ' . Artisan::output());
+                
+                // Check if file was created
+                clearstatcache();
+                $fileExists = File::exists($maintenanceFile);
+                Log::info('File exists after down: ' . ($fileExists ? 'YES' : 'NO'));
+                
+                if ($fileExists) {
+                    Log::info('File size: ' . filesize($maintenanceFile) . ' bytes');
+                }
+                
                 return response()->json([
                     'ok' => true,
                     'status' => 'enabled',
-                    'message' => __('maintenance.enabled-success')
+                    'message' => 'Maintenance mode enabled',
+                    'debug' => [
+                        'exit_code' => $exitCode,
+                        'directory_writable' => $isWritable,
+                        'file_created' => $fileExists,
+                        'artisan_output' => Artisan::output()
+                    ]
                 ]);
             }
         } catch (\Exception $e) {
-            Log::error('Maintenance mode toggle failed', [
-                'error' => $e->getMessage(),
-                'user_id' => session('uid')
-            ]);
+            Log::error('=== MAINTENANCE TOGGLE FAILED ===');
+            Log::error('Error: ' . $e->getMessage());
+            Log::error('File: ' . $e->getFile());
+            Log::error('Line: ' . $e->getLine());
+            Log::error('Trace: ' . $e->getTraceAsString());
 
             return response()->json([
                 'ok' => false,
-                'message' => __('maintenance.toggle-error')
+                'message' => 'Error: ' . $e->getMessage(),
+                'debug' => [
+                    'error' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine()
+                ]
             ], 500);
+        } finally {
+            Log::info('=== MAINTENANCE TOGGLE END ===');
         }
     }
 
-    /**
-     * Get current maintenance mode status
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function status()
     {
         $maintenanceFile = storage_path('framework/maintenance.php');
@@ -79,7 +108,11 @@ class MaintenanceController extends Controller
         return response()->json([
             'ok' => true,
             'is_down' => $isDown,
-            'status' => $isDown ? 'enabled' : 'disabled'
+            'status' => $isDown ? 'enabled' : 'disabled',
+            'debug' => [
+                'file_path' => $maintenanceFile,
+                'file_exists' => $isDown
+            ]
         ]);
     }
 }
