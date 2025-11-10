@@ -47,6 +47,99 @@ return [
         'team' => 'The Quarma360 Team',
     ],
 
+    // Assessment Started Email
+    'assessment_started' => [
+        'subject' => 'Assessment Period Started – :org_name',
+        'title' => 'Assessment Period Has Begun',
+        'greeting' => 'Dear :name!',
+        'intro' => 'A new assessment period has started in the **:org_name** organization.',
+        'deadline_info' => 'Completion deadline: **:deadline**',
+        'action_text' => 'Log in to complete your assessments:',
+        'button' => 'Login',
+        'reminder' => 'Please complete the assessments before the deadline.',
+        'salutation' => 'Best regards,',
+    ],
+
+    // Assessment Closed Email
+    'assessment_closed' => [
+        'subject' => 'Assessment Period Closed – :org_name',
+        'title' => 'Assessment Period Completed',
+        'greeting' => 'Dear :name!',
+        'intro' => 'The assessment period has been closed in the **:org_name** organization.',
+        'results_ready' => 'Your results are now available in the system.',
+        'action_text' => 'Log in to view your results:',
+        'button' => 'View Results',
+        'reminder' => 'You can find detailed breakdowns of your results in the system.',
+        'salutation' => 'Best regards,',
+    ],
+
+    // Ticket Notification Email
+    'ticket_notification' => [
+        'subject_new' => 'New Support Ticket Created – #:ticket_id',
+        'subject_update' => 'Support Ticket Updated – #:ticket_id',
+        'title_new' => 'New Support Ticket',
+        'title_update' => 'Support Ticket Updated',
+        'greeting' => 'Dear :name!',
+        'new_ticket_intro' => 'A new support ticket has been created. Ticket ID: **#:ticket_id**',
+        'update_intro' => 'Your support ticket has been updated. Ticket ID: **#:ticket_id**',
+        'ticket_title' => 'Subject',
+        'status' => 'Status',
+        'priority' => 'Priority',
+        'conversation' => 'Conversation History',
+        'action_text' => 'Log in to view the full conversation:',
+        'button' => 'View Ticket',
+        'salutation' => 'Best regards,',
+    ],
+
+    // Payment Pending Email
+    'payment_pending' => [
+        'subject' => 'Payment Pending – :org_name',
+        'title' => 'Payment Required',
+        'greeting' => 'Dear :name!',
+        'intro' => 'There is an outstanding payment for the **:org_name** organization account.',
+        'assessment_info' => 'Assessment period ID: **#:assessment_id**',
+        'amount' => 'Amount Due',
+        'created' => 'Created',
+        'action_text' => 'Log in to process the payment:',
+        'button' => 'Pay Now',
+        'note' => 'Payment is required to close the assessment period.',
+        'salutation' => 'Best regards,',
+    ],
+
+    // Payment Success Email
+    'payment_success' => [
+        'subject' => 'Payment Successful – :org_name',
+        'title' => 'Payment Successfully Completed',
+        'greeting' => 'Dear :name!',
+        'intro' => 'Payment has been successfully completed for the **:org_name** organization.',
+        'amount' => 'Amount Paid',
+        'invoice_number' => 'Invoice Number',
+        'paid_at' => 'Payment Date',
+        'processing' => 'Processing',
+        'invoice_ready' => 'You can download your invoice by clicking the button below:',
+        'download_button' => 'Download Invoice',
+        'thank_you' => 'Thank you for your payment!',
+        'salutation' => 'Best regards,',
+    ],
+
+    // Assessment Progress Email (Daily Reminder)
+    'assessment_progress' => [
+        'subject' => 'Assessment Status – :org_name',
+        'title' => 'Assessment Period Status',
+        'greeting' => 'Dear :name!',
+        'intro' => 'Daily reminder about the current assessment period in the **:org_name** organization.',
+        'completion_status' => 'Completion Status',
+        'assessments_completed' => 'Assessments Completed',
+        'rankings_completed' => 'Rankings Completed',
+        'deadline' => 'Deadline',
+        'payment_warning' => 'Payment Warning',
+        'payment_blocked' => 'An outstanding payment (:amount) is blocking the assessment period closure. Please process the payment.',
+        'action_text' => 'Log in to view details:',
+        'button' => 'Login',
+        'salutation' => 'Best regards,',
+    ],
+
+
     // Common elements
     'footer' => [
         'copyright' => '© :year :app_name. All rights reserved.',
