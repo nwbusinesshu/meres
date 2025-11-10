@@ -34,6 +34,7 @@ use App\Http\Controllers\AdminEmployeeImportController;
 use App\Http\Controllers\SupportTicketController;
 use App\Http\Controllers\SuperadminTicketController;
 use App\Http\Controllers\ProfileSettingsController;
+use App\Http\Controllers\MaintenanceController;
 
 
 //locale
@@ -362,6 +363,16 @@ Route::prefix('/superadmin')->name('superadmin.')->middleware(['auth:' . UserTyp
 
 Route::get('/superadmin/exit-company', [SuperAdminController::class, 'exitCompany'])->name('superadmin.exit-company');
 Route::get('/superadmin/org/{id}/data', [SuperAdminController::class, 'getOrgData'])->name('superadmin.org.data');
+
+// MAINTENANCE MODE ROUTES (Superadmin only)
+Route::prefix('/superadmin/maintenance')
+    ->name('superadmin.maintenance.')
+    ->middleware(['auth:' . UserType::SUPERADMIN])
+    ->controller(\App\Http\Controllers\MaintenanceController::class)
+    ->group(function () {
+        Route::post('/toggle', 'toggle')->name('toggle');
+        Route::get('/status', 'status')->name('status');
+    });
 
 // SUPERADMIN COMPETENCY ROUTES - FIXED: Added proper route aliases for JavaScript compatibility
 Route::prefix('superadmin/competency')

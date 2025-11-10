@@ -454,4 +454,64 @@ public function updatePricing(Request $request)
         'message' => 'Árak sikeresen frissítve!'
     ]);
 }
+
+/**
+ * Toggle maintenance mode on/off
+ */
+public function toggleMaintenance(Request $request)
+{
+    try {
+        $enable = $request->input('enable', false);
+        
+        if ($enable) {
+            // Enable maintenance mode
+            Artisan::call('down', [
+                '--retry' => 60,
+                '--refresh' => 15,
+                '--secret' => config('app.key'),
+            ]);
+            
+            return response()->json([
+                'ok' => true,
+                'message' => __('superadmin/dashboard.maintenance-enabled'),
+                'enabled' => true
+            ]);
+        } else {
+            // Disable maintenance mode
+            Artisan::call('up');
+            
+            return response()->json([
+                'ok' => true,
+                'message' => __('superadmin/dashboard.maintenance-disabled'),
+                'enabled' => false
+            ]);
+        }
+    } catch (\Exception $e) {
+        \Log::error('Maintenance mode toggle failed', [
+            'error' => $e->getMessage(),
+            'user_id' => session('uid')
+        ]);
+        
+        return response()->json([
+            'ok' => false,
+            'message' => __('global.error-occurred')
+        ], 500);
+    }
+}
+
+/**
+ * Get current maintenance mode status
+ */
+public function getMaintenanceStatus()
+{
+    return response()->json([
+        'ok' => true,
+        'enabled' => app()->isDownForMaintenance()
+    ]);
+}
+
+
+
+
+
 }

@@ -6,6 +6,8 @@ return [
   "404" => "404",
   "419" => "419",
   "500" => "500",
+    "503" => "503",
+
   "home" => "Főoldal",
   "assessment" => "Értékelés",
   "ceorank" => "Vezetői rangsor",

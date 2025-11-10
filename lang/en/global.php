@@ -10,6 +10,8 @@ return [
 
   "500" => "The error is not on your device.",
 
+  "503" => "The system is currently under maintenance. Please try again later.",
+
   "swal-next" => "Next",
 
   "swal-previous" => "Previous",
@@ -40,6 +42,9 @@ return [
   "swal-database-error" => "Database Error!",
 
   "swal-info" => "Information",
+
+  "loading" => "Loading",
+  "status" => "Status",
 
   "connection-fail" => "Connection / Server Error!",
   "bad-request" => "Bad request. Please check your data!",

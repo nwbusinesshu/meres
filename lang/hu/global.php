@@ -10,6 +10,8 @@ return [
 
   "500" => "Nem az Ön készülékében van a hiba.",
 
+  "503" => "A rendszer jelenleg karbantartás alatt áll. Kérjük, próbálja újra később.",
+
   "swal-next" => "Tovább",
 
   "swal-previous" => "Vissza",
@@ -86,6 +88,9 @@ return [
 
   "tax-number" => "Adószám",
 
+  "loading" => "Betöltés",
+  "status" => "Állapot",
+  
   "billing-address" => "Számlázási cím",
 
   "subscription-type" => "Előfizetés típusa",

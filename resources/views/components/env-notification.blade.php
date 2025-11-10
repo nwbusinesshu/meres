@@ -1,7 +1,16 @@
 {{-- resources/views/components/env-notification.blade.php --}}
 @php
     $saasEnv = config('saas.env');
-    $shouldShow = in_array($saasEnv, ['test', 'staging']);
+    $shouldShowEnv = in_array($saasEnv, ['test', 'staging']);
+    
+    // Check if maintenance mode is active
+    $maintenanceActive = app()->isDownForMaintenance();
+    
+    // Superadmins see maintenance notification
+    $isSuperadmin = session('utype') === \App\Models\Enums\UserType::SUPERADMIN;
+    $shouldShowMaintenance = $maintenanceActive && $isSuperadmin;
+    
+    $shouldShow = $shouldShowEnv || $shouldShowMaintenance;
 @endphp
 
 @if($shouldShow)
@@ -34,6 +43,12 @@
 /* Staging Environment Styling - Orange */
 .env-notification.env-staging {
     background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+    color: #fff;
+}
+
+/* Maintenance Mode Styling - Purple */
+.env-notification.env-maintenance {
+    background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);
     color: #fff;
 }
 
@@ -70,14 +85,6 @@
     letter-spacing: 0.5px;
     border: 1px solid rgba(255, 255, 255, 0.3);
 }
-
-/* ============================================
-   Animations
-   ============================================ */
-
-/* ============================================
-   Page Layout Adjustment
-   ============================================ */
 
 /* ============================================
    Responsive Design
@@ -128,7 +135,6 @@
     .env-badge {
         display: none;
     }
-    
 }
 
 /* ============================================
@@ -145,16 +151,10 @@
     .env-notification.env-staging {
         background: linear-gradient(135deg, #c2410c 0%, #9a3412 100%);
     }
-}
-
-/* ============================================
-   Print Styles
-   ============================================ */
-
-/* Hide banner when printing */
-@media print {
-    .env-notification {
-        display: none;
+    
+    /* Darker gradient for maintenance mode in dark mode */
+    .env-notification.env-maintenance {
+        background: linear-gradient(135deg, #7e22ce 0%, #6b21a8 100%);
     }
 }
 
@@ -174,43 +174,15 @@
 }
 
 /* ============================================
-   Optional: Hover Effects (Uncomment to use)
+   Print Styles
    ============================================ */
 
-/*
-.env-notification:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+/* Hide banner when printing */
+@media print {
+    .env-notification {
+        display: none;
+    }
 }
-
-.env-notification:hover .env-badge {
-    background: rgba(255, 255, 255, 0.35);
-}
-*/
-
-/* ============================================
-   Optional: Close Button (Uncomment to use)
-   ============================================ */
-
-/*
-.env-close {
-    background: rgba(255, 255, 255, 0.2);
-    border: none;
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-left: 10px;
-    transition: background 0.2s;
-}
-
-.env-close:hover {
-    background: rgba(255, 255, 255, 0.3);
-}
-
-.env-close i {
-    font-size: 12px;
-}
-*/
 
 </style>
 @endonce
@@ -218,17 +190,30 @@
 @push('head-styles')
     <link rel="stylesheet" href="{{ asset('assets/css/components/env-notification.css') }}">
 @endpush
-<div class="env-notification env-{{ $saasEnv }}">
-    <div class="env-notification-content">
-        <i class="fa fa-triangle-exclamation env-icon"></i>
-        <span class="env-text">
-            @if($saasEnv === 'test')
-                <strong>TEST ENVIRONMENT</strong>
-            @elseif($saasEnv === 'staging')
-                <strong>STAGING ENVIRONMENT</strong> 
-            @endif
-        </span>
-        
+
+@if($shouldShowMaintenance)
+    {{-- Maintenance Mode Banner (Priority) --}}
+    <div class="env-notification env-maintenance">
+        <div class="env-notification-content">
+            <i class="fa fa-wrench env-icon"></i>
+            <span class="env-text">
+                <strong>{{ __('maintenance.banner-title') }}</strong> {{ __('maintenance.banner-message') }}
+            </span>
+        </div>
     </div>
-</div>
+@elseif($shouldShowEnv)
+    {{-- Environment Banner (Test/Staging) --}}
+    <div class="env-notification env-{{ $saasEnv }}">
+        <div class="env-notification-content">
+            <i class="fa fa-triangle-exclamation env-icon"></i>
+            <span class="env-text">
+                @if($saasEnv === 'test')
+                    <strong>TEST ENVIRONMENT</strong>
+                @elseif($saasEnv === 'staging')
+                    <strong>STAGING ENVIRONMENT</strong> 
+                @endif
+            </span>
+        </div>
+    </div>
+@endif
 @endif
