@@ -9,9 +9,14 @@
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 1050;
+  z-index: 1060;
   pointer-events: none;
   display: none;
+}
+
+/* ✅ FIX: Disable modal-backdrop pointer events when help drawer is open */
+body.help-modal-open .modal-backdrop {
+  pointer-events: none !important;
 }
 
 body.help-modal-open .floating-help-btn {
@@ -43,7 +48,7 @@ body.help-no-transition .page-container,
   transform: translateX(-100%);
   transition: transform 0.3s ease-out;
   pointer-events: auto;
-  z-index: 1051;
+  z-index: 1061;
 }
 
 .help-drawer.show .help-drawer-dialog {

@@ -322,7 +322,7 @@ $(document).ready(function(){
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': '{{ csrf_token() }}'
                 },
-                body: JSON.stringify({ id: userId })
+                body: JSON.stringify({ user_id: userId })
             });
 
             if (hasSwal) swal_loader.close();

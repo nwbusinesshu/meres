@@ -17,6 +17,10 @@
       <i class="fa fa-moon theme-icon-dark"></i>
     </button> --}}
 
+          <div class="footer-barion">
+        <img src="{{ asset('assets/img/barion-smart-banner-dark.svg') }}" alt="Barion Payment" class="barion-logo" width="400px">
+      </div>
+
     {{-- NYELVVÁLASZTÓ - REMOVED FOR TEST RUN --}}
     <form method="POST" action="{{ route('locale.set') }}" id="footer-locale-form" class="footer-lang">
         @csrf

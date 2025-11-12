@@ -123,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!res.isConfirmed) return;
 
       this.checked = wasChecked;
-      const response = await postToggle('strict_anon', wasChecked);
+      const response = await postToggle('strict_anonymous_mode', wasChecked);
 
       if (response.ok) {
         sessionStorage.setItem('settings_saved_toast', T.saved);

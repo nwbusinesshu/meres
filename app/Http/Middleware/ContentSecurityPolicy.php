@@ -90,6 +90,7 @@ class ContentSecurityPolicy
                 "https://www.recaptcha.net",           // reCAPTCHA alternative domain
                 "https://www.clarity.ms",               //Clarity
                 "https://scripts.clarity.ms",
+                "https://pixel.barion.com/",
             ]),
             
             // Styles: self + inline styles (needed for Blade and CSS-in-JS)
@@ -135,6 +136,7 @@ class ContentSecurityPolicy
                 "https://ka-f.fontawesome.com",        // Font Awesome analytics
                 "https://c.clarity.ms",                // MS Clarity
                 "https://l.clarity.ms/collect",
+                "https://pixel.barion.com/",
             ]),
             
             // Frames: self only + reCAPTCHA
@@ -142,6 +144,7 @@ class ContentSecurityPolicy
                 "'self'",
                 "https://www.google.com",              // reCAPTCHA
                 "https://www.recaptcha.net",           // reCAPTCHA alternative
+                "https://pixel.barion.com/",
             ]),
             
             // Objects: none (blocks Flash, Java, etc.)

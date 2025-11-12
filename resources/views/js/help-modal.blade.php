@@ -158,6 +158,7 @@ function markFirstLoginShown() {
      ======================================================================= */
   
   function openHelpModal(skipAnimation = false) {
+
     if (skipAnimation) {
       // Instant open (no animation)
       $('#help-modal').css('display', 'block').addClass('show');
@@ -169,7 +170,7 @@ function markFirstLoginShown() {
       // Trigger both animations simultaneously after a tiny delay
       setTimeout(function() {
         $('body').addClass('help-modal-open');  // Push page
-        $('#help-modal').addClass('show');       // Slide drawer
+        $('#help-modal').addClass('show').attr('aria-hidden', 'false');       // Slide drawer
       }, 10);
     }
     
@@ -194,7 +195,7 @@ function markFirstLoginShown() {
   function closeHelpModal() {
     // Remove both classes simultaneously for synced animations
     $('body').removeClass('help-modal-open');
-    $('#help-modal').removeClass('show');
+    $('#help-modal').removeClass('show').attr('aria-hidden', 'true');
     
     // Hide after animation completes (300ms transition)
     setTimeout(function() {

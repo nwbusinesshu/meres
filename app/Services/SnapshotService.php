@@ -249,10 +249,11 @@ foreach ($bonusMalusRows as $bm) {
     $locale = app()->getLocale() ?? config('app.locale') ?? 'hu';
 
     if (empty($usersPayload)) {
-            throw new \RuntimeException(__('assessment.no-active-users', ['org_id' => $orgId]));
-        
-        if (empty($relations)) {
-            throw new \RuntimeException(__('assessment.no-relations-defined', ['org_id' => $orgId]));
+    throw new \RuntimeException(__('assessment.no-active-users', ['org_id' => $orgId]));
+    }
+
+    if (empty($relations)) {
+        throw new \RuntimeException(__('assessment.no-relations-defined', ['org_id' => $orgId]));
     }
 
     return [

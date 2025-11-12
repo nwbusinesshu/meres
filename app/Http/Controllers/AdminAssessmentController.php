@@ -38,213 +38,211 @@ class AdminAssessmentController extends Controller
     }
 
     public function saveAssessment(Request $request)
-    {
-        $orgId = (int) session('org_id');
+{
+    $orgId = (int) session('org_id');
 
-        // ========================================
-        // CHECK FOR UNPAID INITIAL PAYMENT (TRIAL BLOCKING)
-        // ========================================
-        if (is_null($assessment)) {
-            // Only check when creating NEW assessment (not editing existing)
-            $unpaidInitialPayment = DB::table('payments')
-                ->where('organization_id', $orgId)
-                ->whereNull('assessment_id')
-                ->where('status', '!=', 'paid')
-                ->first();
+    \Log::info('saveAssessment', [
+        'orgId'   => $orgId,
+        'request' => $request->all()
+    ]);
 
-            if ($unpaidInitialPayment) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'assessment' => [__('assessment.unpaid_initial_payment')]
-                ]);
-            }
+    if (!$orgId) {
+        return response()->json([
+            'message' => __('assessment.no_organization_selected'),
+            'errors'  => ['org' => [__('assessment.no_organization_selected')]]
+        ], 422);
+    }
+
+    // ✅ FIX: Load assessment FIRST before using it
+    $assessment = Assessment::where('organization_id', $orgId)
+        ->find($request->id);
+
+    // ========================================
+    // CHECK FOR UNPAID INITIAL PAYMENT (TRIAL BLOCKING)
+    // ========================================
+    if (is_null($assessment)) {
+        // Only check when creating NEW assessment (not editing existing)
+        $unpaidInitialPayment = DB::table('payments')
+            ->where('organization_id', $orgId)
+            ->whereNull('assessment_id')
+            ->where('status', '!=', 'paid')
+            ->first();
+
+        if ($unpaidInitialPayment) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'assessment' => [__('assessment.unpaid_initial_payment')]
+            ]);
         }
-        // ========================================
-        // END TRIAL BLOCKING CHECK
-        // ========================================
+    }
+    // ========================================
+    // END TRIAL BLOCKING CHECK
+    // ========================================
 
+    // Validáció
+    $rules = [
+        'due' => ['required', 'date'],
+    ];
+    $attributes = [
+        'due' => __('admin/home.due'),
+    ];
+    $this->validate(
+        request: $request,
+        rules: $rules,
+        attributes: $attributes,
+    );
 
-        \Log::info('saveAssessment', [
-            'orgId'   => $orgId,
-            'request' => $request->all()
-        ]);
-
-        if (!$orgId) {
+    // ✅ NEW: Pre-creation validation (only for NEW assessments)
+    if (is_null($assessment)) {
+        $validator = app(\App\Services\AssessmentValidator::class);
+        
+        try {
+            $validator->validateAssessmentCreation($orgId);
+        } catch (ValidationException $e) {
+            // Return validation errors to user
             return response()->json([
-                'message' => __('assessment.no_organization_selected'),
-                'errors'  => ['org' => [__('assessment.no_organization_selected')]]
+                'message' => __('assessment.cannot_start'),
+                'errors'  => $e->errors()
             ], 422);
         }
+    }
 
-        // Meglévő assessment (határidő módosítás esetén)
-        $assessment = Assessment::where('organization_id', $orgId)
-            ->find($request->id);
-
-        // Validáció
-        $rules = [
-            'due' => ['required', 'date'],
-        ];
-        $attributes = [
-            'due' => __('admin/home.due'),
-        ];
-        $this->validate(
-            request: $request,
-            rules: $rules,
-            attributes: $attributes,
-        );
-
-        // ✅ NEW: Pre-creation validation (only for NEW assessments)
-        if (is_null($assessment)) {
-            $validator = app(\App\Services\AssessmentValidator::class);
+    if (is_null($assessment)) {
+        // ✅ Validate pilot scope
+        if ($request->scope === 'pilot') {
+            $hasAssessments = Assessment::where('organization_id', $orgId)->exists();
             
+            if ($hasAssessments) {
+                throw ValidationException::withMessages([
+                    'scope' => [__('admin/home.scope-pilot-unavailable')]
+                ]);
+            }
+        }
+    }
+
+    // Tranzakció
+    return AjaxService::DBTransaction(function () use ($request, &$assessment, $orgId) {
+
+        // egyszerre csak egy futó assessment (új indításnál tiltjuk)
+        $alreadyRunning = Assessment::where('organization_id', $orgId)
+            ->whereNull('closed_at')
+            ->exists();
+
+        if ($alreadyRunning && is_null($assessment)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'assessment' => [__('assessment.already_running')]
+            ]);
+        }
+
+        if (is_null($assessment)) {
+            // ÚJ assessment indítása → org-config alapú thresholdok
+            /** @var \App\Services\ThresholdService $thresholds */
+            $thresholds = app(\App\Services\ThresholdService::class);
+            $init = $thresholds->buildInitialThresholdsForStart($orgId);
+
+            // ✅ NEW: Wrap snapshot creation in try-catch
             try {
-                $validator->validateAssessmentCreation($orgId);
-            } catch (ValidationException $e) {
-                // Return validation errors to user
-                return response()->json([
-                    'message' => __('assessment.cannot_start'),
-                    'errors'  => $e->errors()
-                ], 422);
+                /** @var \App\Services\SnapshotService $snap */
+                $snap = app(\App\Services\SnapshotService::class);
+                $snapshotArr  = $snap->buildOrgSnapshot($orgId);
+            } catch (\Throwable $e) {
+                \Log::error('Snapshot creation failed', [
+                    'org_id' => $orgId,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+                throw ValidationException::withMessages([
+                    'snapshot' => __('assessment.snapshot_creation_failed', ['error' => $e->getMessage()])
+                ]);
             }
-        }
 
-                if (is_null($assessment)) {
-            // ✅ Validate pilot scope
-            if ($request->scope === 'pilot') {
-                $hasAssessments = Assessment::where('organization_id', $orgId)->exists();
+            $snapshotJson = $this->safeJsonEncode($snapshotArr, 'organization snapshot');
+
+            // Assessment létrehozása
+            $assessment = new Assessment();
+            $assessment->organization_id = $orgId;
+            $assessment->started_at = now();
+            $assessment->due_at = $request->due;
+            $assessment->closed_at = null;
+            $assessment->is_pilot = ($request->scope === 'pilot');
+            $assessment->threshold_method = $init['threshold_method'] ?? null;
+            $assessment->normal_level_up = $init['normal_level_up'] ?? null;
+            $assessment->normal_level_down = $init['normal_level_down'] ?? null;
+            $assessment->monthly_level_down = $init['monthly_level_down'] ?? null;
+            $assessment->org_snapshot = $snapshotJson;
+            $assessment->org_snapshot_version = 'v1';
+            $assessment->save();
+
+            try {
+                $org = \App\Models\Organization::find($orgId);
+                $loginUrl = config('app.url') . '/login';
+                $employees = User::whereNull('removed_at')
+                    ->where('type', '!=', UserType::SUPERADMIN)
+                    ->whereHas('organizations', function ($q) use ($orgId) {
+                        $q->where('organization_id', $orgId)->where('organization_user.role', '!=', OrgRole::ADMIN);
+                    })->get();
                 
-                if ($hasAssessments) {
-                    throw ValidationException::withMessages([
-                        'scope' => [__('admin/home.scope-pilot-unavailable')]
-                    ]);
+                foreach ($employees as $employee) {
+                    \Mail::to($employee->email)->send(new \App\Mail\AssessmentStartedMail(
+                        $org, $employee, $assessment, $loginUrl, $employee->locale ?? 'hu'
+                    ));
                 }
+                \Log::info('assessment.emails.started', ['assessment_id' => $assessment->id, 'count' => $employees->count()]);
+            } catch (\Throwable $e) {
+                \Log::error('assessment.emails.started.failed', ['error' => $e->getMessage()]);
             }
-        }
 
-        // Tranzakció
-        return AjaxService::DBTransaction(function () use ($request, &$assessment, $orgId) {
+            // ========== BILLING LOGIC (unchanged) ==========
+            // Count employees (excluding admins)
+            $userIds = DB::table('organization_user')
+                ->where('organization_id', $orgId)
+                ->where('role', '!=', OrgRole::ADMIN)
+                ->pluck('user_id')
+                ->unique()
+                ->toArray();
 
-            // egyszerre csak egy futó assessment (új indításnál tiltjuk)
-            $alreadyRunning = Assessment::where('organization_id', $orgId)
-                ->whereNull('closed_at')
+            $employeeCount = User::query()
+                ->whereIn('id', $userIds)
+                ->whereNull('removed_at')
+                ->where('type', '!=', UserType::SUPERADMIN)
+                ->count();
+
+            // Check if there are any closed assessments for this organization
+            $hasClosedAssessment = Assessment::where('organization_id', $orgId)
+                ->whereNotNull('closed_at')
                 ->exists();
 
-            if ($alreadyRunning && is_null($assessment)) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'assessment' => [__('assessment.already_running')]
-                ]);
-            }
+            \Log::info('assessment.billing.check', [
+                'org_id'                => $orgId,
+                'employee_count'        => $employeeCount,
+                'has_closed_assessment' => $hasClosedAssessment,
+            ]);
 
-            if (is_null($assessment)) {
-                // ÚJ assessment indítása → org-config alapú thresholdok
-                /** @var \App\Services\ThresholdService $thresholds */
-                $thresholds = app(\App\Services\ThresholdService::class);
-                $init = $thresholds->buildInitialThresholdsForStart($orgId);
-
-                // ✅ NEW: Wrap snapshot creation in try-catch
-                try {
-                    /** @var \App\Services\SnapshotService $snap */
-                    $snap = app(\App\Services\SnapshotService::class);
-                    $snapshotArr  = $snap->buildOrgSnapshot($orgId);
-                } catch (\Throwable $e) {
-                    \Log::error('Snapshot creation failed', [
-                        'org_id' => $orgId,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
-                    ]);
-                    throw ValidationException::withMessages([
-                        'snapshot' => __('assessment.snapshot_creation_failed', ['error' => $e->getMessage()])
-                    ]);
-                }
-
-                $snapshotJson = $this->safeJsonEncode($snapshotArr, 'organization snapshot');
-
-                // Assessment létrehozása
-                $assessment = new Assessment();
-                $assessment->organization_id = $orgId;
-                $assessment->started_at = now();
-                $assessment->due_at = $request->due;
-                $assessment->closed_at = null;
-                $assessment->is_pilot = ($request->scope === 'pilot');
-                $assessment->threshold_method = $init['threshold_method'] ?? null;
-                $assessment->normal_level_up = $init['normal_level_up'] ?? null;
-                $assessment->normal_level_down = $init['normal_level_down'] ?? null;
-                $assessment->monthly_level_down = $init['monthly_level_down'] ?? null;
-                $assessment->org_snapshot = $snapshotJson;
-                $assessment->org_snapshot_version = 'v1';
-                $assessment->save();
-
-                try {
-                    $org = \App\Models\Organization::find($orgId);
-                    $loginUrl = config('app.url') . '/login';
-                    $employees = User::whereNull('removed_at')
-                        ->where('type', '!=', UserType::SUPERADMIN)
-                        ->whereHas('organizations', function ($q) use ($orgId) {
-                            $q->where('organization_id', $orgId)->where('organization_user.role', '!=', OrgRole::ADMIN);
-                        })->get();
-                    
-                    foreach ($employees as $employee) {
-                        \Mail::to($employee->email)->send(new \App\Mail\AssessmentStartedMail(
-                            $org, $employee, $assessment, $loginUrl, $employee->locale ?? 'hu'
-                        ));
-                    }
-                    \Log::info('assessment.emails.started', ['assessment_id' => $assessment->id, 'count' => $employees->count()]);
-                } catch (\Throwable $e) {
-                    \Log::error('assessment.emails.started.failed', ['error' => $e->getMessage()]);
-                }
-
-                // ========== BILLING LOGIC (unchanged) ==========
-                // Count employees (excluding admins)
-                // Count employees (EXCLUDING admins)
-                $userIds = DB::table('organization_user')
+            if (!$hasClosedAssessment) {
+                // FIRST ASSESSMENT - Special logic
+                $hasUnpaidPayment = DB::table('payments')
                     ->where('organization_id', $orgId)
-                    ->where('role', '!=', OrgRole::ADMIN)  // ✅ ADD THIS LINE
-                    ->pluck('user_id')
-                    ->unique()
-                    ->toArray();
-
-                $employeeCount = User::query()
-                    ->whereIn('id', $userIds)
-                    ->whereNull('removed_at')
-                    ->where('type', '!=', UserType::SUPERADMIN)  // ✅ ADD THIS LINE TOO
-                    ->count();
-
-                // Check if there are any closed assessments for this organization
-                $hasClosedAssessment = Assessment::where('organization_id', $orgId)
-                    ->whereNotNull('closed_at')
+                    ->where('status', '!=', 'paid')
                     ->exists();
-
-                \Log::info('assessment.billing.check', [
-                    'org_id'                => $orgId,
-                    'employee_count'        => $employeeCount,
-                    'has_closed_assessment' => $hasClosedAssessment,
-                ]);
-
-                if (!$hasClosedAssessment) {
-                    // FIRST ASSESSMENT - Special logic
-                    $hasUnpaidPayment = DB::table('payments')
+                
+                if ($hasUnpaidPayment) {
+                    \Log::info('assessment.billing.skip', [
+                        'reason' => 'Already has unpaid payment',
+                        'org_id' => $orgId,
+                    ]);
+                } else {
+                    $profile = DB::table('organization_profiles')
                         ->where('organization_id', $orgId)
-                        ->where('status', '!=', 'paid')
-                        ->exists();
+                        ->first();
                     
-                    if ($hasUnpaidPayment) {
-                        \Log::info('assessment.billing.skip', [
-                            'reason' => 'Already has unpaid payment',
-                            'org_id' => $orgId,
-                        ]);
-                    } else {
-                        $profile = DB::table('organization_profiles')
-                            ->where('organization_id', $orgId)
-                            ->first();
-                        
-                        $employeeLimit = $profile ? (int)($profile->employee_limit ?? 0) : 0;
-                        
-                        \Log::info('assessment.billing.first_assessment', [
-                            'org_id'         => $orgId,
-                            'employee_count' => $employeeCount,
-                            'employee_limit' => $employeeLimit,
-                        ]);
+                    $employeeLimit = $profile ? (int)($profile->employee_limit ?? 0) : 0;
+                    
+                    \Log::info('assessment.billing.first_assessment', [
+                        'org_id'         => $orgId,
+                        'employee_count' => $employeeCount,
+                        'employee_limit' => $employeeLimit,
+                    ]);
 
-                        if ($employeeCount <= $employeeLimit) {
+                    if ($employeeCount <= $employeeLimit) {
                         \Log::info('assessment.billing.skip', [
                             'reason' => 'Within employee limit',
                             'org_id' => $orgId,
@@ -286,67 +284,67 @@ class AdminAssessmentController extends Controller
                         }
                     }
                 }
-                } else {
-                    // HAS CLOSED ASSESSMENTS - Use current logic (all employees)
-                    \Log::info('assessment.billing.normal', [
-                        'org_id'           => $orgId,
-                        'employee_count'   => $employeeCount,
-                        'reason'           => 'Has closed assessments',
+            } else {
+                // HAS CLOSED ASSESSMENTS - Use current logic (all employees)
+                \Log::info('assessment.billing.normal', [
+                    'org_id'           => $orgId,
+                    'employee_count'   => $employeeCount,
+                    'reason'           => 'Has closed assessments',
+                ]);
+
+                if ($assessment && $employeeCount > 0) {
+                    // Calculate payment amounts using PaymentHelper
+                    $paymentAmounts = \App\Services\PaymentHelper::calculatePaymentAmounts($orgId, $employeeCount);
+                    
+                    $paymentId = DB::table('payments')->insertGetId([
+                        'organization_id' => $orgId,
+                        'assessment_id'   => $assessment->id,
+                        'currency'        => $paymentAmounts['currency'],
+                        'net_amount'      => $paymentAmounts['net_amount'],
+                        'vat_rate'        => $paymentAmounts['vat_rate'],
+                        'vat_amount'      => $paymentAmounts['vat_amount'],
+                        'gross_amount'    => $paymentAmounts['gross_amount'],
+                        'status'          => 'pending',
+                        'created_at'      => now(),
+                        'updated_at'      => now(),
                     ]);
 
-                    if ($assessment && $employeeCount > 0) {
-                        // Calculate payment amounts using PaymentHelper
-                        $paymentAmounts = \App\Services\PaymentHelper::calculatePaymentAmounts($orgId, $employeeCount);
+                    try {
+                        $org = \App\Models\Organization::find($orgId);
+                        $admins = User::whereNull('removed_at')
+                            ->whereHas('organizations', function ($q) use ($orgId) {
+                                $q->where('organization_id', $orgId)->where('organization_user.role', OrgRole::ADMIN);
+                            })->get();
                         
-                        $paymentId = DB::table('payments')->insertGetId([
-                            'organization_id' => $orgId,
-                            'assessment_id'   => $assessment->id,
-                            'currency'        => $paymentAmounts['currency'],
-                            'net_amount'      => $paymentAmounts['net_amount'],
-                            'vat_rate'        => $paymentAmounts['vat_rate'],
-                            'vat_amount'      => $paymentAmounts['vat_amount'],
-                            'gross_amount'    => $paymentAmounts['gross_amount'],
-                            'status'          => 'pending',
-                            'created_at'      => now(),
-                            'updated_at'      => now(),
-                        ]);
-
-                        try {
-                            $org = \App\Models\Organization::find($orgId);
-                            $admins = User::whereNull('removed_at')
-                                ->whereHas('organizations', function ($q) use ($orgId) {
-                                    $q->where('organization_id', $orgId)->where('organization_user.role', OrgRole::ADMIN);
-                                })->get();
-                            
-                            $payment = DB::table('payments')->find($paymentId);
-                            foreach ($admins as $admin) {
-                                \Mail::to($admin->email)->send(new \App\Mail\PaymentPendingMail(
-                                    $org, $admin, (object)$payment, $assessment, config('app.url') . '/login', $admin->locale ?? 'hu'
-                                ));
-                            }
-                            \Log::info('payment.emails.pending', ['payment_id' => $paymentId, 'count' => $admins->count()]);
-                        } catch (\Throwable $e) {
-                            \Log::error('payment.emails.pending.failed', ['error' => $e->getMessage()]);
+                        $payment = DB::table('payments')->find($paymentId);
+                        foreach ($admins as $admin) {
+                            \Mail::to($admin->email)->send(new \App\Mail\PaymentPendingMail(
+                                $org, $admin, (object)$payment, $assessment, config('app.url') . '/login', $admin->locale ?? 'hu'
+                            ));
                         }
-                        
-                        \Log::info('assessment.payment.created.normal', [
-                            'org_id' => $orgId,
-                            'assessment_id' => $assessment->id,
-                            'employee_count' => $employeeCount,
-                            'currency' => $paymentAmounts['currency'],
-                            'gross_amount' => $paymentAmounts['gross_amount'],
-                        ]);
+                        \Log::info('payment.emails.pending', ['payment_id' => $paymentId, 'count' => $admins->count()]);
+                    } catch (\Throwable $e) {
+                        \Log::error('payment.emails.pending.failed', ['error' => $e->getMessage()]);
                     }
+                    
+                    \Log::info('assessment.payment.created.normal', [
+                        'org_id' => $orgId,
+                        'assessment_id' => $assessment->id,
+                        'employee_count' => $employeeCount,
+                        'currency' => $paymentAmounts['currency'],
+                        'gross_amount' => $paymentAmounts['gross_amount'],
+                    ]);
                 }
-                // ========== END BILLING LOGIC ==========
-
-            } else {
-                // Meglévő assessment → csak due_at frissítés
-                $assessment->due_at = $request->due;
-                $assessment->save();
             }
-        });
-    }
+            // ========== END BILLING LOGIC ==========
+
+        } else {
+            // Meglévő assessment → csak due_at frissítés
+            $assessment->due_at = $request->due;
+            $assessment->save();
+        }
+    });
+}
 
     public function checkPilotAvailable(Request $request)
     {
