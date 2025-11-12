@@ -222,7 +222,7 @@ return [
     'saving' => 'Mentés',
 
     // Footer translations
-    'footer-imprint' => 'Impresszum',
+    'footer-imprint' => 'ÁSZF',
     'footer-data-handling' => 'Adatkezelés', 
     'footer-contact' => 'Kapcsolat',
     'footer-cookie-settings' => 'Süti beállítások',

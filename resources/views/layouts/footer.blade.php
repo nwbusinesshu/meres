@@ -2,9 +2,9 @@
   <div class="footer-inner">
     <span class="footer-text">© {{ date('Y') }} NW Business</span>
     <div class="footer-links">
-      <a href="#">{{ __('global.footer-imprint') }}</a>
-      <a href="#">{{ __('global.footer-data-handling') }}</a>
-      <a href="#">{{ __('global.footer-contact') }}</a>
+      <a href="https://quarma360.com/terms-and-conditions" target="_blank">{{ __('global.footer-imprint') }}</a>
+      <a href="https://quarma360.com/privacy-policy-en" target="_blank">{{ __('global.footer-data-handling') }}</a>
+      <a href="https://quarma360.com" target="_blank">{{ __('global.footer-contact') }}</a>
       <a href="{{ route('status.index') }}" title="System Status"><i class="bi bi-activity"></i>{{ __('global.footer-system-status') }}</a>
       <a href="#" id="footer-cookie-settings" title="{{ __('global.footer-cookie-settings') }}">
         <i class="fa fa-cookie-bite"></i> {{ __('global.footer-cookie-settings') }}

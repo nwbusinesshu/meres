@@ -223,7 +223,7 @@ return [
     'saving' => 'Saving',
 
     // Footer translations
-    'footer-imprint' => 'Imprint',
+    'footer-imprint' => 'Terms&Conditions',
     'footer-data-handling' => 'Data Management', 
     'footer-contact' => 'Contact',
     'footer-cookie-settings' => 'Cookie Settings',
